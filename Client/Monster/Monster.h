@@ -21,10 +21,13 @@ public:
 private:
 	std::weak_ptr<class CMeshComponent>	mMeshComponent;
 	std::weak_ptr<class CStateComponent>	mStateComponent;
+	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent;
 	float	mFireTime = 0.f;
 	std::weak_ptr<CGameObject>	mTargetObject;
 	float	mDetectRange = 400.f;
 	int		mHP = 10;
+
+	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent_;
 
 public:
 	void Damage(int Dmg)
@@ -42,5 +45,9 @@ public:
 
 protected:
 	virtual CMonster* Clone();
+
+private:
+	void AttackNotify();
+	void AttackFinish();
 };
 

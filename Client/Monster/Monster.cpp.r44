@@ -1,0 +1,125 @@
+#include "Monster.h"
+#include "Component/MeshComponent.h"
+#include "../Player/Bullet.h"
+#include "World/World.h"
+#include "../Component/StateComponent.h"
+
+CMonster::CMonster()
+{
+	SetClassType<CMonster>();
+}
+
+CMonster::CMonster(const CMonster& ref) :
+	CGameObject(ref)
+{
+}
+
+CMonster::CMonster(CMonster&& ref) noexcept :
+	CGameObject(std::move(ref))
+{
+}
+
+CMonster::~CMonster()
+{
+}
+
+bool CMonster::Init()
+{
+	CGameObject::Init();
+
+	mMeshComponent = CreateComponent<CMeshComponent>("Mesh");
+
+	mStateComponent = CreateComponent<CStateComponent>("State");
+
+	auto	Mesh = mMeshComponent.lock();
+
+	if (Mesh)
+	{
+		Mesh->SetShader("MaterialColor2D");
+		Mesh->SetMesh("CenterRectColor");
+		Mesh->SetRelativeScale(100.f, 100.f);
+	}
+
+	// Target을 구한다.
+	std::shared_ptr<CWorld>	World = mWorld.lock();
+
+	if (World)
+	{
+		mTargetObject = World->FindObject<CGameObject>("Player");
+	}
+
+	return true;
+}
+
+void CMonster::Update(float DeltaTime)
+{
+	CGameObject::Update(DeltaTime);
+
+	auto Target = mTargetObject.lock();
+
+	// 감지 반경 안에 들어오는지 계산한다.
+	FVector3	TargetPos = Target->GetWorldPos();
+	FVector3	TargetDir = TargetPos - GetWorldPos();
+
+	// 타겟과의 거리를 구해준다.
+	float TargetDistance = TargetDir.Length();
+
+	// 탐지반경 안에 들어왔을 경우
+	if (TargetDistance <= mDetectRange)
+	{
+		// 플레이어 방향을 바라보게 회전시킨다.
+		float Angle = GetWorldPos().GetViewTargetAngle2D(Target->GetWorldPos(), EAxis::Y);
+
+		SetWorldRotationZ(Angle);
+
+		/*char	Test[256] = {};
+		sprintf_s(Test, "Target Angle : %.4f\n", Angle);
+		OutputDebugStringA(Test);*/
+
+		mFireTime -= DeltaTime;
+
+		if (mFireTime <= 0.f)
+		{
+			mFireTime += 1.f;
+
+			std::shared_ptr<CWorld>	World = mWorld.lock();
+
+			if (World)
+			{
+				std::weak_ptr<CBullet>	Bullet = World->CreateGameObject<CBullet>("Bullet");
+
+				std::shared_ptr<CBullet>	BulletObj = Bullet.lock();
+
+				if (BulletObj)
+				{
+					FVector3	BulletPos = GetWorldPos() + GetAxis(EAxis::Y) * 75.f;
+
+					BulletObj->SetWorldPos(BulletPos);
+					BulletObj->SetWorldRotation(GetWorldRot());
+					BulletObj->SetCollisionTargetName("Player");
+					BulletObj->ComputeCollisionRange();
+
+					// 플레이어를 향하는 방향을 구해준다.
+					if (Target)
+					{
+						// Bullet -> TargetPos 방향 구하기
+						FVector3	Dir = TargetPos - BulletPos;
+						Dir.Normalize();
+
+						BulletObj->SetMoveDir(Dir);
+					}
+				}
+			}
+		}
+	}
+
+	else
+	{
+		mFireTime = 0.f;
+	}
+}
+
+CMonster* CMonster::Clone()
+{
+	return new CMonster(*this);
+}

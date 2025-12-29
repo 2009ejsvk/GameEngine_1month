@@ -60,6 +60,9 @@
     <ClCompile Include="Monster\MonsterSpawnPoint.cpp">
       <Filter>03. Monster</Filter>
     </ClCompile>
+    <ClCompile Include="Player\BulletEffect.cpp">
+      <Filter>01. Player</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -88,6 +91,9 @@
     </ClInclude>
     <ClInclude Include="Monster\MonsterSpawnPoint.h">
       <Filter>03. Monster</Filter>
+    </ClInclude>
+    <ClInclude Include="Player\BulletEffect.h">
+      <Filter>01. Player</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

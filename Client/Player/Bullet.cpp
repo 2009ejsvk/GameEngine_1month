@@ -5,6 +5,7 @@
 #include "Player.h"
 #include "../Monster/Monster.h"
 #include "../Interface/StateInterface.h"
+#include "BulletEffect.h"
 
 CBullet::CBullet()
 {
@@ -128,6 +129,17 @@ void CBullet::Update(float DeltaTime)
 
 		if (Dist <= mCollisionRange + Range)
 		{
+			std::shared_ptr<CWorld>	World = mWorld.lock();
+
+			if (World)
+			{
+				std::weak_ptr<CBulletEffect> Effect = World->CreateGameObject<CBulletEffect>("BulletEffect");
+
+				auto	_Effect = Effect.lock();
+
+				_Effect->SetWorldPos(GetWorldPos());
+			}
+
 			// 1. Component를 이용하는 방법
 			std::weak_ptr<CStateComponent>	StatePtr = Obj->FindComponent<CStateComponent>("State");
 
