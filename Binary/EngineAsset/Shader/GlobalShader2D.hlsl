@@ -83,7 +83,7 @@ VS_OUTPUT_TEX DefaultTexVS(VS_INPUT_TEX input)
     // x, y, z 에는 input.Pos의 x, y, z 가 들어가고 w에는 1.f이 들어간다.
     // mul : 행렬 곱셈연산을 해준다.
     output.Pos = mul(float4(input.Pos, 1.f), cbWVP);
-    output.UV = input.UV;
+    output.UV = ComputeAnimation2DUV(input.UV);
 
     return output;
 }

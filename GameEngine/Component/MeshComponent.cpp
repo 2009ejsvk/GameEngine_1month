@@ -9,6 +9,10 @@
 #include "../World/World.h"
 #include "../World/CameraManager.h"
 #include "../Asset/Material/Material.h"
+#include "Animation2DComponent.h"
+#include "../Asset/Shader/CBufferAnimation2D.h"
+
+std::shared_ptr<class CCBufferAnimation2D> CMeshComponent::mEmptyAnimCBuffer;
 
 CMeshComponent::CMeshComponent()
 {
@@ -36,6 +40,20 @@ CMeshComponent::CMeshComponent(CMeshComponent&& ref)	noexcept :
 
 CMeshComponent::~CMeshComponent()
 {
+}
+
+void CMeshComponent::CreateEmptyAnimCBuffer()
+{
+	mEmptyAnimCBuffer.reset(new CCBufferAnimation2D);
+
+	mEmptyAnimCBuffer->Init();
+
+	mEmptyAnimCBuffer->SetAnimation2DEnable(false);
+}
+
+void CMeshComponent::ClearEmptyAnimCBuffer()
+{
+	mEmptyAnimCBuffer.reset();
 }
 
 void CMeshComponent::SetMesh(const std::weak_ptr<CMesh>& Mesh)
@@ -225,25 +243,38 @@ void CMeshComponent::Render()
 
 	Shader->SetShader();
 
+	auto	Anim = mAnimComponent.lock();
+
+	if (Anim)
+		Anim->SetShader();
+
+	else
+	{
+		mEmptyAnimCBuffer->UpdateBuffer();
+	}
+
 	// 슬롯 수만큼 반복하며 각각의 슬롯을 출력한다.
 	size_t	Size = mMaterialSlot.size();
 
 	for (size_t i = 0; i < Size; ++i)
 	{
-		if (mAnimationEnable)
+		// 애니메이션이 있을 경우
+		if (!mAnimComponent.expired())
 		{
+			auto	Anim = mAnimComponent.lock();
+						
 			// Sprite Texture를 사용할 경우
-			if (mAnimTextureType == EAnimation2DTextureType::SpriteSheet)
+			if (Anim->GetTextureType() == EAnimation2DTextureType::SpriteSheet)
 			{
 				if (mMaterialSlot[i])
 					mMaterialSlot[i]->UpdateConstantBuffer();
 			}
 
 			// 낱장단위 Texture를 사용할 경우
-			else if (mAnimTextureType == EAnimation2DTextureType::Frame)
+			else if (Anim->GetTextureType() == EAnimation2DTextureType::Frame)
 			{
 				if (mMaterialSlot[i])
-					mMaterialSlot[i]->UpdateConstantBuffer(mAnimationFrame);
+					mMaterialSlot[i]->UpdateConstantBuffer(Anim->GetAnimationFrame());
 			}
 		}
 

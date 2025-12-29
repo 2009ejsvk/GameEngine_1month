@@ -46,6 +46,9 @@ void CAnimation2DSequence::Update(float DeltaTime)
 
 			if (mFrame < 0)
 			{
+				if (mFinishNotify)
+					mFinishNotify();
+
 				if (mLoop)
 				{
 					mFrame = Anim->GetFrameCount() - 1;
@@ -71,6 +74,9 @@ void CAnimation2DSequence::Update(float DeltaTime)
 			// 프레임이 프레임 수만큼 도달했다면
 			if (mFrame == Anim->GetFrameCount())
 			{
+				if (mFinishNotify)
+					mFinishNotify();
+
 				// 반복재생 해야 할 경우
 				if (mLoop)
 				{

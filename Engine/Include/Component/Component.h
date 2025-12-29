@@ -77,5 +77,12 @@ public:
 
 protected:
 	virtual CComponent* Clone()	const = 0;
+
+public:
+	template <typename T>
+	std::weak_ptr<T> GetSelf()	const
+	{
+		return std::dynamic_pointer_cast<T>(mSelf.lock());
+	}
 };
 

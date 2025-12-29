@@ -22,25 +22,17 @@ protected:
 	std::weak_ptr<class CMesh>		mMesh;
 	std::vector<std::shared_ptr<class CMaterial>>	mMaterialSlot;
 	std::shared_ptr<class CCBufferTransform>	mTransformCBuffer;
-	bool	mAnimationEnable = false;
-	int		mAnimationFrame = 0;
-	EAnimation2DTextureType	mAnimTextureType =
-		EAnimation2DTextureType::None;
+	std::weak_ptr<class CAnimation2DComponent>	mAnimComponent;
+	static std::shared_ptr<class CCBufferAnimation2D>	mEmptyAnimCBuffer;
 
 public:
-	void SetAnimTextureType(EAnimation2DTextureType Type)
-	{
-		mAnimTextureType = Type;
-	}
+	static void CreateEmptyAnimCBuffer();
+	static void ClearEmptyAnimCBuffer();
 
-	void SetAnimationFrame(int Frame)
+public:
+	void SetAnimComponent(const std::weak_ptr<class CAnimation2DComponent>& AnimComponent)
 	{
-		mAnimationFrame = Frame;
-	}
-
-	void SetAnimationEnable(bool Enable)
-	{
-		mAnimationEnable = Enable;
+		mAnimComponent = AnimComponent;
 	}
 
 public:

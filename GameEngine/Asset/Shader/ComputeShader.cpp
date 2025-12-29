@@ -7,7 +7,3 @@ CComputeShader::CComputeShader()
 CComputeShader::~CComputeShader()
 {
 }
-
-void CComputeShader::SetShader()
-{
-}

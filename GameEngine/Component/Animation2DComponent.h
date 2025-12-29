@@ -22,6 +22,8 @@ protected:
 
 	std::shared_ptr<CAnimation2DSequence>	mCurrentAnimation;
 
+	std::shared_ptr<class CCBufferAnimation2D>	mAnimCBuffer;
+
 	bool	mUpdateEnable = false;
 
 public:
@@ -37,7 +39,11 @@ public:
 	void SetPlayRate(const std::string& Name, float PlayRate);
 	void SetLoop(const std::string& Name, bool Loop);
 	void SetReverse(const std::string& Name, bool Reverse);
+	void SetSymmetry(const std::string& Name, bool Symmetry);
 	void ChangeAnimation(const std::string& Name);
+	void SetShader();
+	EAnimation2DTextureType GetTextureType()	const;
+	int GetAnimationFrame()	const;
 
 public:
 	virtual bool Init();
@@ -47,5 +53,31 @@ public:
 
 protected:
 	virtual CAnimation2DComponent* Clone()	const;
+
+public:
+	template <typename T>
+	void AddNotify(const std::string& SequenceName, 
+		const std::string& Name, int Frame,
+		T* Obj, void(T::* Func)())
+	{
+		auto	iter = mAnimationMap.find(SequenceName);
+
+		if (iter == mAnimationMap.end())
+			return;
+
+		iter->second->AddNotify<T>(Name, Frame, Obj, Func);
+	}
+
+	template <typename T>
+	void SetFinishNotify(const std::string& SequenceName, 
+		T* Obj, void (T::* Func)())
+	{
+		auto	iter = mAnimationMap.find(SequenceName);
+
+		if (iter == mAnimationMap.end())
+			return;
+
+		iter->second->SetFinishNotify<T>(Obj, Func);
+	}
 };
 

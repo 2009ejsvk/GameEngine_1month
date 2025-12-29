@@ -26,5 +26,73 @@ cbuffer CBMaterial : register(b1)
     float3 cbMaterialEmpty;
 };
 
+cbuffer CBAnimatino2D : register(b2)
+{
+    float2 cbLTUV;
+    float2 cbRBUV;
+    int cbAnimation2DEnable;
+    int cbAnimation2DTextureType;
+    int cbTextureSymmetry;
+    float cbAnimation2DEmpty;
+};
+
 SamplerState sbPoint : register(s0);
 SamplerState sbLinear : register(s1);
+
+// 사각형을 그리는 정점의 UV를 인자로 받아온다.
+float2 ComputeAnimation2DUV(float2 UV)
+{
+    // 애니메이션을 적용하지 않을 경우
+    if (cbAnimation2DEnable == 0 ||
+        cbAnimation2DTextureType != 0)
+    {
+        if (cbTextureSymmetry == 1)
+        {
+            if (UV.x == 1.f)
+                UV.x = 0.f;
+            
+            else
+                UV.x = 1.f;
+        }
+        
+        return UV;
+    }
+    
+    float2 Result;
+    
+    // 사각형의 왼쪽 위, 왼쪽 아래 정점일 경우
+    if(UV.x == 0.f)
+    {
+        if (cbTextureSymmetry == 1)
+            Result.x = cbRBUV.x;
+        
+        else
+            Result.x = cbLTUV.x;
+
+    }
+    
+    // 사각형의 오른쪽 위, 오른쪽 아래 정점일 경우
+    else
+    {
+        if (cbTextureSymmetry == 1)
+            Result.x = cbLTUV.x;
+        
+        else
+            Result.x = cbRBUV.x;
+    }
+    
+    // 왼쪽 위, 오른쪽 위 정점일 경우
+    if (UV.y == 0.f)
+    {
+        Result.y = cbLTUV.y;
+    }
+    
+    // 왼쪽 아래, 오른쪽 아래 정점일 경우
+    else
+    {
+        Result.y = cbRBUV.y;
+    }
+
+    return Result;
+
+}

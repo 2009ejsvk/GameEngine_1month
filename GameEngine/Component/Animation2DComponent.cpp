@@ -3,6 +3,8 @@
 #include "../Asset/Animation2D/Animation2DManager.h"
 #include "../Asset/AssetManager.h"
 #include "MeshComponent.h"
+#include "../Asset/Shader/CBufferAnimation2D.h"
+#include "../Asset/Texture/Texture.h"
 
 CAnimation2DComponent::CAnimation2DComponent()
 {
@@ -34,10 +36,14 @@ void CAnimation2DComponent::SetUpdateComponent(
 
 	if (MeshComponent && mCurrentAnimation)
 	{
+		MeshComponent->SetAnimComponent(
+			GetSelf<CAnimation2DComponent>());
+
 		auto	Asset = mCurrentAnimation->GetAsset().lock();
 
 		if (Asset)
 		{
+			mAnimCBuffer->SetAnimation2DTextureType(Asset->GetAnimationTextureType());
 			if (MeshComponent->SetTexture(0, 0,
 				Asset->GetTexture()))
 				mUpdateEnable = true;
@@ -81,6 +87,7 @@ void CAnimation2DComponent::AddAnimation(
 
 			if (Asset)
 			{
+				mAnimCBuffer->SetAnimation2DTextureType(Asset->GetAnimationTextureType());
 				if (MeshComponent->SetTexture(0, 0, Asset->GetTexture()))
 					mUpdateEnable = true;
 			}
@@ -127,6 +134,7 @@ void CAnimation2DComponent::AddAnimation(const std::string& Name,
 
 			if (Asset)
 			{
+				mAnimCBuffer->SetAnimation2DTextureType(Asset->GetAnimationTextureType());
 				if (MeshComponent->SetTexture(0, 0,
 					Asset->GetTexture()))
 					mUpdateEnable = true;
@@ -179,6 +187,17 @@ void CAnimation2DComponent::SetReverse(const std::string& Name,
 	iter->second->SetReverse(Reverse);
 }
 
+void CAnimation2DComponent::SetSymmetry(
+	const std::string& Name, bool Symmetry)
+{
+	auto	iter = mAnimationMap.find(Name);
+
+	if (iter == mAnimationMap.end())
+		return;
+
+	iter->second->SetAnimationSymmetry(Symmetry);
+}
+
 void CAnimation2DComponent::ChangeAnimation(const std::string& Name)
 {
 	if (mUpdateComponent.expired())
@@ -212,21 +231,69 @@ void CAnimation2DComponent::ChangeAnimation(const std::string& Name)
 		auto	Asset = mCurrentAnimation->GetAsset().lock();
 
 		if (Asset)
-			MeshComponent->SetTexture(0, 0, Asset->GetTexture());
-
-		if (mCurrentAnimation->GetReverse())
 		{
-			MeshComponent->SetAnimationFrame(
-				mCurrentAnimation->GetFrameCount() - 1);
+			mAnimCBuffer->SetAnimation2DTextureType(Asset->GetAnimationTextureType());
+			MeshComponent->SetTexture(0, 0, Asset->GetTexture());
 		}
-
-		else
-			MeshComponent->SetAnimationFrame(0);
 	}
+}
+
+void CAnimation2DComponent::SetShader()
+{
+	int Frame = mCurrentAnimation->GetFrame();
+
+	mAnimCBuffer->SetTextureSymmetry(
+		mCurrentAnimation->GetSymmetry());
+
+	auto Asset = mCurrentAnimation->GetAsset().lock();
+
+	if (Asset)
+	{
+		if (Asset->GetAnimationTextureType() ==
+			EAnimation2DTextureType::SpriteSheet)
+		{
+			const FTextureFrame& TexFrame = Asset->GetFrame(Frame);
+
+			auto	Texture = Asset->GetTexture().lock();
+
+			if (Texture)
+			{
+				const FTextureInfo* TexInfo =
+					Texture->GetTexture();
+
+				mAnimCBuffer->SetLTUV(
+					TexFrame.Start.x / TexInfo->Width,
+					TexFrame.Start.y / TexInfo->Height);
+				mAnimCBuffer->SetRBUV(
+					(TexFrame.Start.x + TexFrame.Size.x) / TexInfo->Width,
+					(TexFrame.Start.y + TexFrame.Size.y) / TexInfo->Height);
+			}
+		}
+	}
+
+	mAnimCBuffer->UpdateBuffer();
+}
+
+EAnimation2DTextureType CAnimation2DComponent::GetTextureType() const
+{
+	auto Asset = mCurrentAnimation->GetAsset().lock();
+
+	return Asset->GetAnimationTextureType();
+}
+
+int CAnimation2DComponent::GetAnimationFrame() const
+{
+	return mCurrentAnimation->GetFrame();
 }
 
 bool CAnimation2DComponent::Init()
 {
+	mAnimCBuffer.reset(new CCBufferAnimation2D);
+
+	mAnimCBuffer->Init();
+
+	mAnimCBuffer->SetAnimation2DEnable(true);
+
 	return true;
 }
 
@@ -240,29 +307,24 @@ void CAnimation2DComponent::Update(float DeltaTime)
 		{
 			if (MeshComponent)
 			{
+				MeshComponent->SetAnimComponent(
+					GetSelf<CAnimation2DComponent>());
+
 				auto	Asset = mCurrentAnimation->GetAsset().lock();
 
 				if (Asset)
 				{
+					mAnimCBuffer->SetAnimation2DTextureType(Asset->GetAnimationTextureType());
 					if (MeshComponent->SetTexture(0, 0,
 						Asset->GetTexture()))
 					{
 						mUpdateEnable = true;
-						MeshComponent->SetAnimationEnable(true);
 					}
 				}
 			}
 		}
 
 		mCurrentAnimation->Update(DeltaTime);
-
-		int	Frame = mCurrentAnimation->GetFrame();
-
-		if (MeshComponent)
-		{
-			MeshComponent->SetAnimTextureType(mCurrentAnimation->GetAnimationTextureType());
-			MeshComponent->SetAnimationFrame(Frame);
-		}
 	}
 }
 

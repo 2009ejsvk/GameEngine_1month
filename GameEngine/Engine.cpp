@@ -25,6 +25,8 @@ CEngine::CEngine()
 
 CEngine::~CEngine()
 {
+    CMeshComponent::ClearEmptyAnimCBuffer();
+
     CWorldManager::DestroyInst();
 
     CObject::DestroyCDO();
@@ -61,6 +63,8 @@ bool CEngine::Init(HINSTANCE hInst, const TCHAR* WindowName, int IconID,
     // 애셋 관리자 초기화
     if (!CAssetManager::GetInst()->Init())
         return false;
+
+    CMeshComponent::CreateEmptyAnimCBuffer();
 
     // 월드 관리자 초기화
     if (!CWorldManager::GetInst()->Init())

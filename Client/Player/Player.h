@@ -26,6 +26,7 @@ private:
 	std::weak_ptr<class CStateComponent>	mStateComponent;
 	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent;
 	int		mHP = 10;
+	bool	mAttack = false;
 
 public:
 	void Damage(int Dmg)
@@ -41,5 +42,10 @@ public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
 	virtual void Destroy();
+
+private:
+	void TestNotify();
+	void AttackNotify();
+	void AttackFinish();
 };
 

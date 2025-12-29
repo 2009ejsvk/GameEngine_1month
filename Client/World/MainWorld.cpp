@@ -103,5 +103,17 @@ void CMainWorld::LoadAnimation2D()
 		AnimMgr->AddFrame("PlayerWalk", 0.f, 259.f, 50.f, 37.f);
 		AnimMgr->AddFrame("PlayerWalk", 50.f, 259.f, 50.f, 37.f);
 		AnimMgr->AddFrame("PlayerWalk", 100.f, 259.f, 50.f, 37.f);
+
+		AnimMgr->CreateAnimation("PlayerAttack");
+		AnimMgr->SetAnimation2DTextureType("PlayerAttack",
+			EAnimation2DTextureType::SpriteSheet);
+
+		AnimMgr->SetTexture("PlayerAttack", "PlayerSheet",
+			TEXT("Player/Player.png"));
+
+		AnimMgr->AddFrame("PlayerAttack", 0.f, 0.f, 50.f, 37.f);
+		AnimMgr->AddFrame("PlayerAttack", 50.f, 0.f, 50.f, 37.f);
+		AnimMgr->AddFrame("PlayerAttack", 100.f, 0.f, 50.f, 37.f);
+		AnimMgr->AddFrame("PlayerAttack", 150.f, 0.f, 50.f, 37.f);
 	}
 }

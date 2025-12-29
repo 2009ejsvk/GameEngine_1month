@@ -8,6 +8,13 @@
 #include "../Component/StateComponent.h"
 #include "Component/Animation2DComponent.h"
 
+/*
+1. 몬스터도 이미지로 출력.
+2. 몬스터도 Idle, Attack 2가지 애니메이션 추가
+3. 몬스터가 총알을 발사할 때 공격모션이 나오며 총알 발사하고
+Idle로 되돌아가기.
+*/
+
 CPlayer::CPlayer()
 {
 	SetClassType<CPlayer>();
@@ -48,6 +55,22 @@ bool CPlayer::Init()
 
 		Anim->AddAnimation("PlayerIdle");
 		Anim->AddAnimation("PlayerWalk");
+		Anim->AddAnimation("PlayerAttack");
+		//Anim->ChangeAnimation("PlayerWalk");
+		Anim->SetPlayRate("PlayerAttack", 2.f);
+
+		//Anim->AddNotify<CPlayer>("PlayerIdle", "TestNotify",
+		//	4, this, &CPlayer::TestNotify);
+		Anim->AddNotify<CPlayer>("PlayerAttack",
+			"AttackNotify", 2, this, &CPlayer::AttackNotify);
+		Anim->SetFinishNotify<CPlayer>("PlayerAttack",
+			this, &CPlayer::AttackFinish);
+
+		//Anim->SetFinishNotify<CPlayer>("PlayerIdle", this,
+		//	&CPlayer::TestNotify);
+
+		//Anim->SetSymmetry("PlayerIdle", true);
+		//Anim->SetSymmetry("PlayerWalk", true);
 
 		Anim->SetLoop("PlayerIdle", true);
 		Anim->SetLoop("PlayerWalk", true);
@@ -125,14 +148,22 @@ void CPlayer::Update(float DeltaTime)
 
 	if (Mesh)
 	{
+		auto	Anim = mAnimation2DComponent.lock();
+
+		bool	Move = false;
+
 		if (GetAsyncKeyState('W') & 0x8000)
 		{
 			Mesh->AddRelativePos(Mesh->GetAxis(EAxis::Y) * 100.f * DeltaTime);
+			Anim->ChangeAnimation("PlayerWalk");
+			Move = true;
 		}
 
 		if (GetAsyncKeyState('S') & 0x8000)
 		{
 			Mesh->AddRelativePos(Mesh->GetAxis(EAxis::Y) * -100.f * DeltaTime);
+			Anim->ChangeAnimation("PlayerWalk");
+			Move = true;
 		}
 
 		if (GetAsyncKeyState('A') & 0x8000)
@@ -150,23 +181,12 @@ void CPlayer::Update(float DeltaTime)
 		// 만들어보자.
 		if (GetAsyncKeyState(VK_SPACE) & 0x8000)
 		{
-			std::shared_ptr<CWorld>	World = mWorld.lock();
-
-			if (World)
-			{
-				std::weak_ptr<CBullet>	Bullet = World->CreateGameObject<CBullet>("Bullet");
-
-				std::shared_ptr<CBullet>	BulletObj = Bullet.lock();
-
-				if (BulletObj)
-				{
-					BulletObj->SetWorldPos(GetWorldPos() + GetAxis(EAxis::Y) * 75.f);
-					BulletObj->SetWorldRotation(GetWorldRot());
-					BulletObj->SetCollisionTargetName("Monster");
-					BulletObj->ComputeCollisionRange();
-				}
-			}
+			Anim->ChangeAnimation("PlayerAttack");
+			mAttack = true;
 		}
+
+		if (!Move && !mAttack)
+			Anim->ChangeAnimation("PlayerIdle");
 
 		if (GetAsyncKeyState('1') & 0x8000)
 		{
@@ -236,4 +256,38 @@ void CPlayer::Update(float DeltaTime)
 
 void CPlayer::Destroy()
 {
+}
+
+void CPlayer::TestNotify()
+{
+	OutputDebugString(TEXT("Test Notify\n"));
+}
+
+void CPlayer::AttackNotify()
+{
+	std::shared_ptr<CWorld>	World = mWorld.lock();
+
+	if (World)
+	{
+		std::weak_ptr<CBullet>	Bullet = World->CreateGameObject<CBullet>("Bullet");
+
+		std::shared_ptr<CBullet>	BulletObj = Bullet.lock();
+
+		if (BulletObj)
+		{
+			BulletObj->SetWorldPos(GetWorldPos() + GetAxis(EAxis::Y) * 75.f);
+			BulletObj->SetWorldRotation(GetWorldRot());
+			BulletObj->SetCollisionTargetName("Monster");
+			BulletObj->ComputeCollisionRange();
+		}
+	}
+}
+
+void CPlayer::AttackFinish()
+{
+	mAttack = false;
+	
+	auto	Anim = mAnimation2DComponent.lock();
+
+	Anim->ChangeAnimation("PlayerIdle");
 }

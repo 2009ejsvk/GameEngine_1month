@@ -100,6 +100,9 @@
     <Filter Include="03. Asset\05. Animation2D">
       <UniqueIdentifier>{2d11f4ac-ea8e-41f8-8aec-cc96567f2465}</UniqueIdentifier>
     </Filter>
+    <Filter Include="03. Asset\02. Shader\03. ConstantBuffer\03. Animation2D">
+      <UniqueIdentifier>{48bc8b55-eeb6-46e7-817e-b004c1bedc22}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EngineInfo.h">
@@ -246,6 +249,9 @@
     <ClInclude Include="Component\Animation2DSequence.h">
       <Filter>05. Component\02. ObjectComponent\01. Animation2D</Filter>
     </ClInclude>
+    <ClInclude Include="Asset\Shader\CBufferAnimation2D.h">
+      <Filter>03. Asset\02. Shader\03. ConstantBuffer\03. Animation2D</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine.cpp">
@@ -376,6 +382,9 @@
     </ClCompile>
     <ClCompile Include="Component\Animation2DSequence.cpp">
       <Filter>05. Component\02. ObjectComponent\01. Animation2D</Filter>
+    </ClCompile>
+    <ClCompile Include="Asset\Shader\CBufferAnimation2D.cpp">
+      <Filter>03. Asset\02. Shader\03. ConstantBuffer\03. Animation2D</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

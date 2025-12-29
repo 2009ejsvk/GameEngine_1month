@@ -51,6 +51,8 @@ private:
 
 	std::vector<FAnimation2DNotify>	mNotifyArray;
 
+	std::function<void()>	mFinishNotify;
+
 public:
 	EAnimation2DTextureType GetAnimationTextureType()	const
 	{
@@ -175,6 +177,12 @@ public:
 		Notify.Function = std::bind(Func, Obj);
 
 		mNotifyArray.push_back(Notify);
+	}
+
+	template <typename T>
+	void SetFinishNotify(T* Obj, void (T::* Func)())
+	{
+		mFinishNotify = std::bind(Func, Obj);
 	}
 };
 
