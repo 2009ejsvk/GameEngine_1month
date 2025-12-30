@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../../Object.h"
+#include "../Asset.h"
 #include "CBufferContainer.h"
 
 class CConstantBuffer :
-    public CObject
+    public CAsset
 {
     friend class CShaderManager;
 

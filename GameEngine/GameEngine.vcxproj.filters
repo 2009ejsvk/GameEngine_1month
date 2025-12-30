@@ -103,6 +103,12 @@
     <Filter Include="03. Asset\02. Shader\03. ConstantBuffer\03. Animation2D">
       <UniqueIdentifier>{48bc8b55-eeb6-46e7-817e-b004c1bedc22}</UniqueIdentifier>
     </Filter>
+    <Filter Include="02. World\02. Asset">
+      <UniqueIdentifier>{2109b900-2769-4695-9c8a-72954975c618}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02. World\03. Input">
+      <UniqueIdentifier>{61ad61eb-0767-4495-a92b-afc0aa26c13a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EngineInfo.h">
@@ -252,6 +258,12 @@
     <ClInclude Include="Asset\Shader\CBufferAnimation2D.h">
       <Filter>03. Asset\02. Shader\03. ConstantBuffer\03. Animation2D</Filter>
     </ClInclude>
+    <ClInclude Include="World\WorldAssetManager.h">
+      <Filter>02. World\02. Asset</Filter>
+    </ClInclude>
+    <ClInclude Include="Asset\Asset.h">
+      <Filter>03. Asset</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine.cpp">
@@ -386,6 +398,12 @@
     <ClCompile Include="Asset\Shader\CBufferAnimation2D.cpp">
       <Filter>03. Asset\02. Shader\03. ConstantBuffer\03. Animation2D</Filter>
     </ClCompile>
+    <ClCompile Include="World\WorldAssetManager.cpp">
+      <Filter>02. World\02. Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="Asset\Asset.cpp">
+      <Filter>03. Asset</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Copy.bat">
@@ -402,6 +420,9 @@
   <ItemGroup>
     <Text Include="공간변환.txt">
       <Filter>소스 파일</Filter>
+    </Text>
+    <Text Include="Asset\AssetName.txt">
+      <Filter>03. Asset</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>

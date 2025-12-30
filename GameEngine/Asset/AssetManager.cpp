@@ -64,3 +64,29 @@ bool CAssetManager::Init()
 
 	return true;
 }
+
+void CAssetManager::ReleaseAsset(
+	const std::string& Name,
+	EAssetType AssetType)
+{
+	switch (AssetType)
+	{
+	case EAssetType::Mesh:
+		mMeshManager->ReleaseAsset(Name);
+		break;
+	case EAssetType::Shader:
+		mShaderManager->ReleaseShader(Name);
+		break;
+	case EAssetType::ConstantBuffer:
+		mShaderManager->ReleaseCBuffer(Name);
+		break;
+	case EAssetType::Material:
+		break;
+	case EAssetType::Texture:
+		mTextureManager->ReleaseAsset(Name);
+		break;
+	case EAssetType::Animation2D:
+		mAnimation2DManager->ReleaseAsset(Name);
+		break;
+	}
+}

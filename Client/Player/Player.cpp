@@ -53,9 +53,8 @@ bool CPlayer::Init()
 	{
 		Anim->SetUpdateComponent(mMeshComponent);
 
+		Anim->AddAnimation("PlayerIdle");
 		Anim->AddAnimation("PlayerWalk");
-		//Anim->AddAnimation("PlayerIdle");
-		
 		Anim->AddAnimation("PlayerAttack");
 		//Anim->ChangeAnimation("PlayerWalk");
 		Anim->SetPlayRate("PlayerAttack", 2.f);
@@ -73,7 +72,7 @@ bool CPlayer::Init()
 		//Anim->SetSymmetry("PlayerIdle", true);
 		//Anim->SetSymmetry("PlayerWalk", true);
 
-		//Anim->SetLoop("PlayerIdle", true);
+		Anim->SetLoop("PlayerIdle", true);
 		Anim->SetLoop("PlayerWalk", true);
 	}
 
@@ -186,7 +185,7 @@ void CPlayer::Update(float DeltaTime)
 		}
 
 		if (!Move && !mAttack)
-			//Anim->ChangeAnimation("PlayerIdle");
+			Anim->ChangeAnimation("PlayerIdle");
 
 		if (GetAsyncKeyState('1') & 0x8000)
 		{

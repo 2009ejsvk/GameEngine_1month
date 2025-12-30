@@ -4,6 +4,7 @@
 
 CMesh::CMesh()
 {
+	mAssetType = EAssetType::Mesh;
 }
 
 CMesh::~CMesh()

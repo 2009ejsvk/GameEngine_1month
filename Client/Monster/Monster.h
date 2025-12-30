@@ -27,8 +27,6 @@ private:
 	float	mDetectRange = 400.f;
 	int		mHP = 10;
 
-	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent_;
-
 public:
 	void Damage(int Dmg)
 	{

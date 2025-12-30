@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../Object.h"
+#include "../Asset.h"
 
 struct FVertexBuffer
 {
@@ -51,7 +51,7 @@ struct FMeshSlot
 };
 
 class CMesh :
-    public CObject
+    public CAsset
 {
 	friend class CMeshManager;
 

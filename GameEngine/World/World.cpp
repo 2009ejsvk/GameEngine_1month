@@ -15,6 +15,11 @@ bool CWorld::Init()
 	if (!mCameraManager->Init())
 		return false;
 
+	mWorldAssetManager.reset(new CWorldAssetManager);
+
+	if (!mWorldAssetManager->Init())
+		return false;
+
 	mObjList.reserve(10000);
 
 	return true;
@@ -38,6 +43,8 @@ void CWorld::Update(float DeltaTime)
 	}
 
 	mCameraManager->Update(DeltaTime);
+
+	mWorldAssetManager->Update(DeltaTime);
 }
 
 void CWorld::PostUpdate(float DeltaTime)

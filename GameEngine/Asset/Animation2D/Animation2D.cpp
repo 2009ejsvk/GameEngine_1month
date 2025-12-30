@@ -5,6 +5,7 @@
 
 CAnimation2D::CAnimation2D()
 {
+	mAssetType = EAssetType::Animation2D;
 }
 
 CAnimation2D::~CAnimation2D()

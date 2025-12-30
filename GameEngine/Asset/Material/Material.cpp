@@ -8,10 +8,13 @@
 
 CMaterial::CMaterial()
 {
+	mAssetType = EAssetType::Material;
 }
 
-CMaterial::CMaterial(const CMaterial& ref)
+CMaterial::CMaterial(const CMaterial& ref)	:
+	CAsset(ref)
 {
+	mAssetType = EAssetType::Material;
 	mBaseColor = ref.mBaseColor;
 	mOpacity = ref.mOpacity;
 

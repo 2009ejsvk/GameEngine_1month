@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../Object.h"
+#include "../Asset.h"
 #include "DirectXTex.h"
 #include "../Shader/CBufferContainer.h"
 
@@ -35,7 +35,7 @@ struct FTextureInfo
 
 
 class CTexture :
-    public CObject
+    public CAsset
 {
     friend class CTextureManager;
 
@@ -46,16 +46,10 @@ public:
     virtual ~CTexture();
 
 protected:
-    std::string         mName;
     // 이미지 여러장을 하나의 Texture로 구성 가능하도록 제작.
     std::vector<FTextureInfo*>  mTextureList;
 
 public:
-    const std::string& GetName()    const
-    {
-        return mName;
-    }
-
     const FTextureInfo* GetTexture(int Index = 0)   const
     {
         return mTextureList[Index];

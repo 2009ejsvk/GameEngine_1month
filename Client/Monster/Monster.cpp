@@ -5,8 +5,6 @@
 #include "../Component/StateComponent.h"
 #include "Component/Animation2DComponent.h"
 
-#include "Component/Animation2DComponent.h"
-
 CMonster::CMonster()
 {
 	SetClassType<CMonster>();
@@ -35,22 +33,6 @@ bool CMonster::Init()
 	mStateComponent = CreateComponent<CStateComponent>("State");
 	mAnimation2DComponent = CreateComponent<CAnimation2DComponent>("Animation2D");
 
-<<<<<<< .mine
-	mAnimation2DComponent_ = CreateComponent<CAnimation2DComponent>("Animation2D");
-
-	// 애니메이션 지정
-	auto	Anim_ = mAnimation2DComponent_.lock();
-
-	if (Anim_)
-	{
-		Anim_->AddAnimation("PlayerIdle");
-		Anim_->SetUpdateComponent(mMeshComponent);
-		Anim_->SetLoop("PlayerIdle", true);
-		
-	}
-
-||||||| .r44
-=======
 	// 애니메이션 지정
 	auto	Anim = mAnimation2DComponent.lock();
 
@@ -70,33 +52,14 @@ bool CMonster::Init()
 		Anim->SetLoop("MonsterAttack", true);
 	}
 
->>>>>>> .r45
 	auto	Mesh = mMeshComponent.lock();
 
 	if (Mesh)
 	{
-<<<<<<< .mine
-		//Mesh->SetShader("MaterialColor2D");
-		//Mesh->SetMesh("CenterRectColor");
-
 		Mesh->SetShader("DefaultTexture2D");
 		Mesh->SetMesh("CenterRectTex");
-||||||| .r44
-		Mesh->SetShader("MaterialColor2D");
-		Mesh->SetMesh("CenterRectColor");
-=======
-		Mesh->SetShader("DefaultTexture2D");
-		Mesh->SetMesh("CenterRectTex");
->>>>>>> .r45
 		Mesh->SetRelativeScale(100.f, 100.f);
-<<<<<<< .mine
-
-		Mesh->AddTexture(0, "PlayerSheet", TEXT("Player/Player.png"));
-
-||||||| .r44
-=======
 		Mesh->SetBlendState(0, "AlphaBlend");
->>>>>>> .r45
 	}
 
 	// Target을 구한다.
@@ -113,12 +76,6 @@ bool CMonster::Init()
 void CMonster::Update(float DeltaTime)
 {
 	CGameObject::Update(DeltaTime);
-
-
-	auto	Mesh = mMeshComponent.lock();
-
-	auto	Anim_ = mAnimation2DComponent_.lock();
-	Anim_->ChangeAnimation("PlayerAttack");
 
 	auto Target = mTargetObject.lock();
 
@@ -166,21 +123,6 @@ void CMonster::Update(float DeltaTime)
 		//		{
 		//			FVector3	BulletPos = GetWorldPos() + GetAxis(EAxis::Y) * 75.f;
 
-<<<<<<< .mine
-						BulletObj->SetMoveDir(Dir);
-
-						
-					}
-				}
-			}
-		}
-||||||| .r44
-						BulletObj->SetMoveDir(Dir);
-					}
-				}
-			}
-		}
-=======
 		//			BulletObj->SetWorldPos(BulletPos);
 		//			BulletObj->SetWorldRotation(GetWorldRot());
 		//			BulletObj->SetCollisionTargetName("Player");
@@ -198,10 +140,6 @@ void CMonster::Update(float DeltaTime)
 		//		}
 		//	}
 		//}
->>>>>>> .r45
-		else {
-			//Anim_->ChangeAnimation("PlayerIdle");
-		}
 	}
 
 	else

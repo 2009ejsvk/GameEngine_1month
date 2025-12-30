@@ -34,7 +34,7 @@ bool CTextureManager::LoadTexture(const std::string& Name,
 
 	// 있을 경우
 	if (!Check.expired())
-		return false;
+		return true;
 
 	CTexture* Origin = new CTexture;
 
@@ -61,7 +61,7 @@ bool CTextureManager::LoadTextureFullPath(const std::string& Name,
 
 	// 있을 경우
 	if (!Check.expired())
-		return false;
+		return true;
 
 	CTexture* Origin = new CTexture;
 
@@ -89,7 +89,7 @@ bool CTextureManager::LoadTexture(const std::string& Name,
 
 	// 있을 경우
 	if (!Check.expired())
-		return false;
+		return true;
 
 	CTexture* Origin = new CTexture;
 
@@ -116,7 +116,7 @@ bool CTextureManager::LoadTextureFullPath(const std::string& Name,
 
 	// 있을 경우
 	if (!Check.expired())
-		return false;
+		return true;
 
 	CTexture* Origin = new CTexture;
 
@@ -237,5 +237,19 @@ void CTextureManager::SetSampler(const std::string& Name,
 	{
 		CDevice::GetInst()->GetContext()->CSSetSamplers(Register, 1,
 			&Sampler);
+	}
+}
+
+void CTextureManager::ReleaseAsset(const std::string& Name)
+{
+	auto	iter = mTextureMap.find(Name);
+
+	if (iter != mTextureMap.end())
+	{
+		// 다른 월드에서 더이상 들고 있지 않을 경우
+		if (iter->second.use_count() == 1)
+		{
+			mTextureMap.erase(iter);
+		}
 	}
 }

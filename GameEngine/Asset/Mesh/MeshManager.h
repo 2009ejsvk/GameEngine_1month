@@ -24,5 +24,6 @@ public:
 		DXGI_FORMAT Fmt = DXGI_FORMAT_UNKNOWN,
 		D3D11_USAGE IndexUsage = D3D11_USAGE_DEFAULT);
 	std::weak_ptr<class CMesh> FindMesh(const std::string& Name);
+	void ReleaseAsset(const std::string& Name);
 };
 

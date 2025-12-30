@@ -4,6 +4,7 @@
 
 CTexture::CTexture()
 {
+	mAssetType = EAssetType::Texture;
 }
 
 CTexture::~CTexture()

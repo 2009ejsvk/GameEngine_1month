@@ -5,6 +5,8 @@
 #include "MeshComponent.h"
 #include "../Asset/Shader/CBufferAnimation2D.h"
 #include "../Asset/Texture/Texture.h"
+#include "../World/World.h"
+#include "../World/WorldAssetManager.h"
 
 CAnimation2DComponent::CAnimation2DComponent()
 {
@@ -98,13 +100,16 @@ void CAnimation2DComponent::AddAnimation(
 void CAnimation2DComponent::AddAnimation(const std::string& Name, 
 	float PlayTime, float PlayRate, bool Loop, bool Reverse)
 {
-	auto	AnimMgr = CAssetManager::GetInst()->GetAnimation2DManager().lock();
+	auto	World = mWorld.lock();
 
-	auto	Anim = AnimMgr->FindAnimation(Name);
+	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	std::weak_ptr<CAnimation2D>	Anim =
+		AssetMgr->FindAnimation(Name);
 
 	if (Anim.expired())
 		return;
-
+	
 	auto	_Anim = Anim.lock();
 
 	auto	iter = mAnimationMap.find(_Anim->GetName());
@@ -146,7 +151,9 @@ void CAnimation2DComponent::AddAnimation(const std::string& Name,
 void CAnimation2DComponent::SetPlayTime(const std::string& Name,
 	float PlayTime)
 {
-	auto	iter = mAnimationMap.find(Name);
+	std::string	Key = "Animation2D_" + Name;
+
+	auto	iter = mAnimationMap.find(Key);
 
 	if (iter == mAnimationMap.end())
 		return;
@@ -157,7 +164,9 @@ void CAnimation2DComponent::SetPlayTime(const std::string& Name,
 void CAnimation2DComponent::SetPlayRate(const std::string& Name,
 	float PlayRate)
 {
-	auto	iter = mAnimationMap.find(Name);
+	std::string	Key = "Animation2D_" + Name;
+
+	auto	iter = mAnimationMap.find(Key);
 
 	if (iter == mAnimationMap.end())
 		return;
@@ -168,7 +177,9 @@ void CAnimation2DComponent::SetPlayRate(const std::string& Name,
 void CAnimation2DComponent::SetLoop(const std::string& Name,
 	bool Loop)
 {
-	auto	iter = mAnimationMap.find(Name);
+	std::string	Key = "Animation2D_" + Name;
+
+	auto	iter = mAnimationMap.find(Key);
 
 	if (iter == mAnimationMap.end())
 		return;
@@ -179,7 +190,9 @@ void CAnimation2DComponent::SetLoop(const std::string& Name,
 void CAnimation2DComponent::SetReverse(const std::string& Name,
 	bool Reverse)
 {
-	auto	iter = mAnimationMap.find(Name);
+	std::string	Key = "Animation2D_" + Name;
+
+	auto	iter = mAnimationMap.find(Key);
 
 	if (iter == mAnimationMap.end())
 		return;
@@ -190,7 +203,9 @@ void CAnimation2DComponent::SetReverse(const std::string& Name,
 void CAnimation2DComponent::SetSymmetry(
 	const std::string& Name, bool Symmetry)
 {
-	auto	iter = mAnimationMap.find(Name);
+	std::string	Key = "Animation2D_" + Name;
+
+	auto	iter = mAnimationMap.find(Key);
 
 	if (iter == mAnimationMap.end())
 		return;
@@ -200,16 +215,18 @@ void CAnimation2DComponent::SetSymmetry(
 
 void CAnimation2DComponent::ChangeAnimation(const std::string& Name)
 {
+	std::string	Key = "Animation2D_" + Name;
+
 	if (mUpdateComponent.expired())
 		return;
 
 	else if (!mCurrentAnimation)
 		return;
 
-	else if (mCurrentAnimation->GetName() == Name)
+	else if (mCurrentAnimation->GetName() == Key)
 		return;
 
-	auto	iter = mAnimationMap.find(Name);
+	auto	iter = mAnimationMap.find(Key);
 
 	if (iter == mAnimationMap.end())
 		return;

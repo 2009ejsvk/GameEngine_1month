@@ -22,6 +22,8 @@ public:
 
 public:
 	bool Init();
+	void ReleaseAsset(const std::string& Name,
+		EAssetType AssetType);
 
 private:
 	static CAssetManager* mInst;

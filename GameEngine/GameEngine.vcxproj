@@ -159,6 +159,7 @@
   <ItemGroup>
     <ClInclude Include="Asset\Animation2D\Animation2D.h" />
     <ClInclude Include="Asset\Animation2D\Animation2DManager.h" />
+    <ClInclude Include="Asset\Asset.h" />
     <ClInclude Include="Asset\AssetManager.h" />
     <ClInclude Include="Asset\Material\Material.h" />
     <ClInclude Include="Asset\Material\MaterialManager.h" />
@@ -205,11 +206,13 @@
     <ClInclude Include="Vector4.h" />
     <ClInclude Include="World\CameraManager.h" />
     <ClInclude Include="World\World.h" />
+    <ClInclude Include="World\WorldAssetManager.h" />
     <ClInclude Include="World\WorldManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Asset\Animation2D\Animation2D.cpp" />
     <ClCompile Include="Asset\Animation2D\Animation2DManager.cpp" />
+    <ClCompile Include="Asset\Asset.cpp" />
     <ClCompile Include="Asset\AssetManager.cpp" />
     <ClCompile Include="Asset\Material\Material.cpp" />
     <ClCompile Include="Asset\Material\MaterialManager.cpp" />
@@ -251,6 +254,7 @@
     <ClCompile Include="Vector4.cpp" />
     <ClCompile Include="World\CameraManager.cpp" />
     <ClCompile Include="World\World.cpp" />
+    <ClCompile Include="World\WorldAssetManager.cpp" />
     <ClCompile Include="World\WorldManager.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -260,6 +264,7 @@
     <None Include="Copy.bat" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="Asset\AssetName.txt" />
     <Text Include="공간변환.txt" />
   </ItemGroup>
   <ItemGroup>

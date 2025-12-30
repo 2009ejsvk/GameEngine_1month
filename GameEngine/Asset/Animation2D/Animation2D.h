@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../../Object.h"
+#include "../Asset.h"
 
 // 이 클래스가 하나의 모션이다.
 // 걷기, 달리기, 대기, 공격 4가지의 모션을 가지고 있는 애니메이션이
 // 있다면 이 클래스가 4개 생성이 되어야 한다.
 class CAnimation2D :
-    public CObject
+    public CAsset
 {
     friend class CAnimation2DManager;
 
@@ -17,7 +17,6 @@ public:
     virtual ~CAnimation2D();
 
 protected:
-    std::string         mName;
     // 이 모션이 사용하는 Texture
     std::weak_ptr<class CTexture>   mTexture;
     EAnimation2DTextureType mTextureType =
@@ -25,11 +24,6 @@ protected:
     std::vector<FTextureFrame>  mFrameArray;
 
 public:
-    const std::string& GetName()    const
-    {
-        return mName;
-    }
-
     EAnimation2DTextureType GetAnimationTextureType()   const
     {
         return mTextureType;
@@ -53,11 +47,6 @@ public:
     void SetAnimation2DTextureType(EAnimation2DTextureType Type)
     {
         mTextureType = Type;
-    }
-
-    void SetName(const std::string& Name)
-    {
-        mName = Name;
     }
 
 public:

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../Object.h"
+#include "../Asset.h"
 #include "../Shader/CBufferContainer.h"
 
 struct FMaterialTextureInfo
@@ -13,7 +13,7 @@ struct FMaterialTextureInfo
 };
 
 class CMaterial :
-    public CObject
+    public CAsset
 {
 	friend class CMaterialManager;
 	friend class CMesh;

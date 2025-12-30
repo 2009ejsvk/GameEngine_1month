@@ -14,10 +14,11 @@ bool CAnimation2DManager::Init()
 	return true;
 }
 
-bool CAnimation2DManager::CreateAnimation(const std::string& Name)
+bool CAnimation2DManager::CreateAnimation(
+	const std::string& Name)
 {
 	if (!FindAnimation(Name).expired())
-		return false;
+		return true;
 
 	std::shared_ptr<CAnimation2D>	Animation(new CAnimation2D);
 
@@ -62,66 +63,66 @@ bool CAnimation2DManager::SetTexture(const std::string& AnimationName, const std
 
 	return true;
 }
-
-bool CAnimation2DManager::SetTexture(const std::string& AnimationName, const std::string& Name)
-{
-	auto	iter = mAnimation2DMap.find(AnimationName);
-
-	if (iter == mAnimation2DMap.end())
-		return false;
-
-	iter->second->SetTexture(Name);
-
-	return true;
-}
-
-bool CAnimation2DManager::SetTexture(const std::string& AnimationName, const std::string& Name, const TCHAR* FileName, const std::string& PathName)
-{
-	auto	iter = mAnimation2DMap.find(AnimationName);
-
-	if (iter == mAnimation2DMap.end())
-		return false;
-
-	iter->second->SetTexture(Name, FileName, PathName);
-
-	return true;
-}
-
-bool CAnimation2DManager::SetTextureFullPath(const std::string& AnimationName, const std::string& Name, const TCHAR* FullPath)
-{
-	auto	iter = mAnimation2DMap.find(AnimationName);
-
-	if (iter == mAnimation2DMap.end())
-		return false;
-
-	iter->second->SetTextureFullPath(Name, FullPath);
-
-	return true;
-}
-
-bool CAnimation2DManager::SetTexture(const std::string& AnimationName, const std::string& Name, const std::vector<const TCHAR*>& FileName, const std::string& PathName)
-{
-	auto	iter = mAnimation2DMap.find(AnimationName);
-
-	if (iter == mAnimation2DMap.end())
-		return false;
-
-	iter->second->SetTexture(Name, FileName, PathName);
-
-	return true;
-}
-
-bool CAnimation2DManager::SetTextureFullPath(const std::string& AnimationName, const std::string& Name, const std::vector<const TCHAR*>& FullPath)
-{
-	auto	iter = mAnimation2DMap.find(AnimationName);
-
-	if (iter == mAnimation2DMap.end())
-		return false;
-
-	iter->second->SetTextureFullPath(Name, FullPath);
-
-	return true;
-}
+//
+//bool CAnimation2DManager::SetTexture(const std::string& AnimationName, const std::string& Name)
+//{
+//	auto	iter = mAnimation2DMap.find(AnimationName);
+//
+//	if (iter == mAnimation2DMap.end())
+//		return false;
+//
+//	iter->second->SetTexture(Name);
+//
+//	return true;
+//}
+//
+//bool CAnimation2DManager::SetTexture(const std::string& AnimationName, const std::string& Name, const TCHAR* FileName, const std::string& PathName)
+//{
+//	auto	iter = mAnimation2DMap.find(AnimationName);
+//
+//	if (iter == mAnimation2DMap.end())
+//		return false;
+//
+//	iter->second->SetTexture(Name, FileName, PathName);
+//
+//	return true;
+//}
+//
+//bool CAnimation2DManager::SetTextureFullPath(const std::string& AnimationName, const std::string& Name, const TCHAR* FullPath)
+//{
+//	auto	iter = mAnimation2DMap.find(AnimationName);
+//
+//	if (iter == mAnimation2DMap.end())
+//		return false;
+//
+//	iter->second->SetTextureFullPath(Name, FullPath);
+//
+//	return true;
+//}
+//
+//bool CAnimation2DManager::SetTexture(const std::string& AnimationName, const std::string& Name, const std::vector<const TCHAR*>& FileName, const std::string& PathName)
+//{
+//	auto	iter = mAnimation2DMap.find(AnimationName);
+//
+//	if (iter == mAnimation2DMap.end())
+//		return false;
+//
+//	iter->second->SetTexture(Name, FileName, PathName);
+//
+//	return true;
+//}
+//
+//bool CAnimation2DManager::SetTextureFullPath(const std::string& AnimationName, const std::string& Name, const std::vector<const TCHAR*>& FullPath)
+//{
+//	auto	iter = mAnimation2DMap.find(AnimationName);
+//
+//	if (iter == mAnimation2DMap.end())
+//		return false;
+//
+//	iter->second->SetTextureFullPath(Name, FullPath);
+//
+//	return true;
+//}
 
 bool CAnimation2DManager::AddFrame(const std::string& AnimationName, const FVector2& Start, const FVector2& Size)
 {
@@ -169,4 +170,19 @@ bool CAnimation2DManager::AddFrame(const std::string& AnimationName, int Count, 
 	iter->second->AddFrame(Count, StartX, StartY, SizeX, SizeY);
 
 	return true;
+}
+
+void CAnimation2DManager::ReleaseAsset(
+	const std::string& Name)
+{
+	auto	iter = mAnimation2DMap.find(Name);
+
+	if (iter != mAnimation2DMap.end())
+	{
+		// 다른 월드에서 더이상 들고 있지 않을 경우
+		if (iter->second.use_count() == 1)
+		{
+			mAnimation2DMap.erase(iter);
+		}
+	}
 }

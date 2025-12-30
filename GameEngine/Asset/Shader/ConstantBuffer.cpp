@@ -3,6 +3,7 @@
 
 CConstantBuffer::CConstantBuffer()
 {
+	mAssetType = EAssetType::ConstantBuffer;
 }
 
 CConstantBuffer::~CConstantBuffer()

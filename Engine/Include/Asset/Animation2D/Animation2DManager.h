@@ -24,7 +24,7 @@ public:
 		EAnimation2DTextureType Type);
     bool SetTexture(const std::string& AnimationName,
         const std::weak_ptr<class CTexture>& Texture);
-    bool SetTexture(const std::string& AnimationName,
+    /*bool SetTexture(const std::string& AnimationName,
         const std::string& Name);
     bool SetTexture(const std::string& AnimationName,
         const std::string& Name,
@@ -39,7 +39,7 @@ public:
         const std::string& PathName = "Texture");
     bool SetTextureFullPath(const std::string& AnimationName,
         const std::string& Name,
-        const std::vector<const TCHAR*>& FullPath);
+        const std::vector<const TCHAR*>& FullPath);*/
     bool AddFrame(const std::string& AnimationName,
         const FVector2& Start, const FVector2& Size);
     bool AddFrame(const std::string& AnimationName,
@@ -50,5 +50,6 @@ public:
     bool AddFrame(const std::string& AnimationName,
         int Count, float StartX, float StartY, float SizeX,
         float SizeY);
+    void ReleaseAsset(const std::string& Name);
 };
 

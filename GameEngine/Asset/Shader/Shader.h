@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../../Object.h"
+#include "../Asset.h"
 
 class CShader :
-    public CObject
+    public CAsset
 {
 	friend class CShaderManager;
 

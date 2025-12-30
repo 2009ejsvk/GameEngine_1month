@@ -28,6 +28,8 @@ public:
 
 	std::weak_ptr<CConstantBuffer> FindCBuffer(const std::string& Name);
 	std::weak_ptr<CShader> FindShader(const std::string& Name);
+	void ReleaseShader(const std::string& Name);
+	void ReleaseCBuffer(const std::string& Name);
 
 public:
 	template <typename T>
@@ -38,7 +40,7 @@ public:
 
 		// 있을 경우
 		if (!Check.expired())
-			return false;
+			return true;
 
 		T* Origin = new T;
 
@@ -50,6 +52,8 @@ public:
 		{
 			return false;
 		}
+
+		Shader->SetName(Name);
 
 		mShaderMap.insert(std::make_pair(Name, Shader));
 

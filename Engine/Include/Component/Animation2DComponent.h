@@ -60,7 +60,9 @@ public:
 		const std::string& Name, int Frame,
 		T* Obj, void(T::* Func)())
 	{
-		auto	iter = mAnimationMap.find(SequenceName);
+		std::string	Key = "Animation2D_" + SequenceName;
+
+		auto	iter = mAnimationMap.find(Key);
 
 		if (iter == mAnimationMap.end())
 			return;
@@ -72,7 +74,9 @@ public:
 	void SetFinishNotify(const std::string& SequenceName, 
 		T* Obj, void (T::* Func)())
 	{
-		auto	iter = mAnimationMap.find(SequenceName);
+		std::string	Key = "Animation2D_" + SequenceName;
+
+		auto	iter = mAnimationMap.find(Key);
 
 		if (iter == mAnimationMap.end())
 			return;

@@ -50,7 +50,7 @@ bool CShaderManager::CreateCBuffer(const std::string& Name,
 
 	// 있을 경우
 	if (!Check.expired())
-		return false;
+		return true;
 
 	CConstantBuffer* Origin = new CConstantBuffer;
 
@@ -60,6 +60,8 @@ bool CShaderManager::CreateCBuffer(const std::string& Name,
 
 	if (!CBuffer->Init(Size, Register, ShaderBuffer))
 		return false;
+
+	CBuffer->SetName(Name);
 
 	mCBufferMap.insert(std::make_pair(Name, CBuffer));
 
@@ -86,4 +88,32 @@ std::weak_ptr<CShader> CShaderManager::FindShader(
 		return std::weak_ptr<CShader>();
 
 	return iter->second;
+}
+
+void CShaderManager::ReleaseShader(const std::string& Name)
+{
+	auto	iter = mShaderMap.find(Name);
+
+	if (iter != mShaderMap.end())
+	{
+		// 다른 월드에서 더이상 들고 있지 않을 경우
+		if (iter->second.use_count() == 1)
+		{
+			mShaderMap.erase(iter);
+		}
+	}
+}
+
+void CShaderManager::ReleaseCBuffer(const std::string& Name)
+{
+	auto	iter = mCBufferMap.find(Name);
+
+	if (iter != mCBufferMap.end())
+	{
+		// 다른 월드에서 더이상 들고 있지 않을 경우
+		if (iter->second.use_count() == 1)
+		{
+			mCBufferMap.erase(iter);
+		}
+	}
 }

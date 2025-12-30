@@ -3,6 +3,7 @@
 #include "../EngineInfo.h"
 #include "../Object/GameObject.h"
 #include "CameraManager.h"
+#include "WorldAssetManager.h"
 
 // enable_shared_from_this
 
@@ -16,11 +17,18 @@ protected:
 	std::unordered_multimap<std::string, std::shared_ptr<CGameObject>>	mObjList;
 	std::weak_ptr<CWorld>	mSelf;
 	std::shared_ptr<CCameraManager>	mCameraManager;
+	std::shared_ptr<CWorldAssetManager>	mWorldAssetManager;
 
 public:
 	std::weak_ptr<CCameraManager> GetCameraManager()	const
 	{
 		return mCameraManager;
+	}
+
+
+	std::weak_ptr<CWorldAssetManager> GetWorldAssetManager()	const
+	{
+		return mWorldAssetManager;
 	}
 
 public:

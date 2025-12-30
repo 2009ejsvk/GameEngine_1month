@@ -82,3 +82,14 @@ enum class EAnimation2DTextureType
 	SpriteSheet,
 	Frame
 };
+
+enum class EAssetType
+{
+	None = -1,
+	Mesh,
+	Shader,
+	ConstantBuffer,
+	Material,
+	Texture,
+	Animation2D
+};

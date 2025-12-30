@@ -23,7 +23,7 @@ bool CMeshManager::Init()
 
 	unsigned short	CenterRectColorIdx[6] = { 0, 1, 3, 0, 3, 2 };
 
-	if (!CreateMesh("CenterRectColor", CenterRectColor, sizeof(FVertexColor),
+	if (!CreateMesh("Mesh_CenterRectColor", CenterRectColor, sizeof(FVertexColor),
 		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
 		CenterRectColorIdx, 2, 6, DXGI_FORMAT_R16_UINT,
 		D3D11_USAGE_IMMUTABLE))
@@ -38,7 +38,7 @@ bool CMeshManager::Init()
 		FVertexTex(0.5f, -0.5f, 0.f, 1.f, 1.f)
 	};
 
-	if (!CreateMesh("CenterRectTex", CenterRectTexture,
+	if (!CreateMesh("Mesh_CenterRectTex", CenterRectTexture,
 		sizeof(FVertexTex),
 		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
 		CenterRectColorIdx, 2, 6, DXGI_FORMAT_R16_UINT,
@@ -61,7 +61,7 @@ bool CMeshManager::Init()
 		1, 5, 7, 1, 7, 3, 5, 4, 6, 5, 6, 7, 4, 0, 2, 4, 2, 6,
 		4, 5, 1, 4, 1, 0, 2, 3, 7, 2, 7, 6 };
 
-	if (!CreateMesh("CenterCubeColor", CenterCubeColor, 
+	if (!CreateMesh("Mesh_CenterCubeColor", CenterCubeColor, 
 		sizeof(FVertexColor),
 		8, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
 		CenterCubeColorIdx, 2, 36, DXGI_FORMAT_R16_UINT,
@@ -77,7 +77,7 @@ bool CMeshManager::CreateMesh(const std::string& Name, void* VertexData, int Ver
 
 	// 있을 경우
 	if (!Check.expired())
-		return false;
+		return true;
 
 	std::shared_ptr<CMesh> Mesh;
 
@@ -89,12 +89,15 @@ bool CMeshManager::CreateMesh(const std::string& Name, void* VertexData, int Ver
 		return false;
 	}
 
+	Mesh->SetName(Name);
+
 	mMeshMap.insert(std::make_pair(Name, Mesh));
 
 	return true;
 }
 
-std::weak_ptr<CMesh> CMeshManager::FindMesh(const std::string& Name)
+std::weak_ptr<CMesh> CMeshManager::FindMesh(
+	const std::string& Name)
 {
 	// 못찾으면 end() 가 반환된다.
 	auto iter = mMeshMap.find(Name);
@@ -103,4 +106,18 @@ std::weak_ptr<CMesh> CMeshManager::FindMesh(const std::string& Name)
 		return std::weak_ptr<CMesh>();
 
 	return iter->second;
+}
+
+void CMeshManager::ReleaseAsset(const std::string& Name)
+{
+	auto	iter = mMeshMap.find(Name);
+
+	if (iter != mMeshMap.end())
+	{
+		// 다른 월드에서 더이상 들고 있지 않을 경우
+		if (iter->second.use_count() == 1)
+		{
+			mMeshMap.erase(iter);
+		}
+	}
 }

@@ -39,5 +39,6 @@ public:
     ID3D11SamplerState* FindSampler(const std::string& Name);
     void SetSampler(const std::string& Name, int Register,
         int ShaderBufferType = EShaderBufferType::Pixel);
+    void ReleaseAsset(const std::string& Name);
 };
 
