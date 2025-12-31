@@ -26,7 +26,9 @@ private:
 	std::weak_ptr<class CStateComponent>	mStateComponent;
 	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent;
 	int		mHP = 10;
-	bool	mAttack = false;
+	bool	mAutoIdle = false;
+
+	std::weak_ptr<class CBullet>	mSkill1Bullet;
 
 public:
 	void Damage(int Dmg)
@@ -47,5 +49,13 @@ private:
 	void TestNotify();
 	void AttackNotify();
 	void AttackFinish();
+
+private:
+	void MoveUp();
+	void MoveDown();
+	void AttackKey();
+	void Skill1Press();
+	void Skill1Hold();
+	void Skill1Release();
 };
 

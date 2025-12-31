@@ -205,6 +205,7 @@
     <ClInclude Include="Vector3.h" />
     <ClInclude Include="Vector4.h" />
     <ClInclude Include="World\CameraManager.h" />
+    <ClInclude Include="World\Input.h" />
     <ClInclude Include="World\World.h" />
     <ClInclude Include="World\WorldAssetManager.h" />
     <ClInclude Include="World\WorldManager.h" />
@@ -253,6 +254,7 @@
     <ClCompile Include="Vector3.cpp" />
     <ClCompile Include="Vector4.cpp" />
     <ClCompile Include="World\CameraManager.cpp" />
+    <ClCompile Include="World\Input.cpp" />
     <ClCompile Include="World\World.cpp" />
     <ClCompile Include="World\WorldAssetManager.cpp" />
     <ClCompile Include="World\WorldManager.cpp" />

@@ -316,6 +316,8 @@ void CRenderManager::Render()
 			auto	_Com = (*Com).lock();
 
 			_Com->Render();
+
+			_Com->PostRender();
 		}
 	}
 }

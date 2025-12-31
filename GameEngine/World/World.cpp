@@ -20,6 +20,11 @@ bool CWorld::Init()
 	if (!mWorldAssetManager->Init())
 		return false;
 
+	mInput.reset(new CInput);
+
+	if (!mInput->Init())
+		return false;
+
 	mObjList.reserve(10000);
 
 	return true;
@@ -27,6 +32,9 @@ bool CWorld::Init()
 
 void CWorld::Update(float DeltaTime)
 {
+	// 입력은 오브젝트 업데이트 전에 해야 한다.
+	mInput->Update(DeltaTime);
+
 	auto	iter = mObjList.begin();
 	auto	iterEnd = mObjList.end();
 

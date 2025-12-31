@@ -10,6 +10,12 @@ private:
 	static float	mDeltaTime;	// 이전프레임 시작에서 이전 프레임 끝까지의 시간
 
 public:
+	static float GetDeltaTime()
+	{
+		return mDeltaTime;
+	}
+
+public:
 	static void Init();
 	static float Update();
 };

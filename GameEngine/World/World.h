@@ -4,6 +4,7 @@
 #include "../Object/GameObject.h"
 #include "CameraManager.h"
 #include "WorldAssetManager.h"
+#include "Input.h"
 
 // enable_shared_from_this
 
@@ -18,6 +19,7 @@ protected:
 	std::weak_ptr<CWorld>	mSelf;
 	std::shared_ptr<CCameraManager>	mCameraManager;
 	std::shared_ptr<CWorldAssetManager>	mWorldAssetManager;
+	std::shared_ptr<CInput>	mInput;
 
 public:
 	std::weak_ptr<CCameraManager> GetCameraManager()	const
@@ -25,10 +27,14 @@ public:
 		return mCameraManager;
 	}
 
-
 	std::weak_ptr<CWorldAssetManager> GetWorldAssetManager()	const
 	{
 		return mWorldAssetManager;
+	}
+
+	std::weak_ptr<CInput> GetInput()	const
+	{
+		return mInput;
 	}
 
 public:

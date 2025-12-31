@@ -25,8 +25,14 @@ private:
 
 	std::string	mCollisionTargetName;
 	float		mCollisionRange = 0.f;
+	bool		mMoveEnable = true;
 
 public:
+	void SetMoveEnable(bool Enable)
+	{
+		mMoveEnable = Enable;
+	}
+
 	void ComputeCollisionRange()
 	{
 		FVector3	Scale = GetWorldScale();

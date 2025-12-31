@@ -110,6 +110,11 @@ void CSceneComponent::Render()
 	}*/
 }
 
+void CSceneComponent::PostRender()
+{
+	mVelocity = FVector3::Zero;
+}
+
 CSceneComponent* CSceneComponent::Clone()	const
 {
 	return new CSceneComponent(*this);
@@ -270,6 +275,8 @@ void CSceneComponent::AddRelativeRotationZ(float z)
 
 void CSceneComponent::SetRelativePos(const FVector3& Pos)
 {
+	mVelocity += (Pos - mRelativePos);
+
 	mRelativePos = Pos;
 
 	InheritPos();
@@ -556,6 +563,8 @@ void CSceneComponent::AddWorldRotationZ(float z)
 
 void CSceneComponent::SetWorldPos(const FVector3& Pos)
 {
+	mVelocity += (Pos - mWorldPos);
+
 	FVector3	Move = Pos - mWorldPos;
 
 	//mWorldPos = Pos;

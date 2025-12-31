@@ -16,8 +16,21 @@ private:
 	static bool	mLoop;
 
 public:
-	bool Init(HINSTANCE hInst, const TCHAR* WindowName, int IconID,
-		int SmallIconID, int Width, int Height, bool WindowMode = true);
+	HINSTANCE GetWindowInstance()	const
+	{
+		return mhInst;
+	}
+
+	HWND GetWindowHandle()	const
+	{
+		return mhWnd;
+	}
+
+public:
+	bool Init(HINSTANCE hInst, const TCHAR* WindowName, 
+		int IconID,
+		int SmallIconID, int Width, int Height, 
+		bool WindowMode = true);
 	int Run();
 
 private:

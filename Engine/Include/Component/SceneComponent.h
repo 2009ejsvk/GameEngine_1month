@@ -50,6 +50,7 @@ public:
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);
 	virtual void Render();
+	virtual void PostRender();
 	virtual void Destroy();
 
 protected:
@@ -66,6 +67,7 @@ protected:
 	FVector3	mWorldScale = FVector3::One;
 	FVector3	mWorldRot;
 	FVector3	mWorldPos;
+	FVector3	mVelocity;
 
 	FVector3	mWorldAxis[EAxis::End] =
 	{
@@ -84,6 +86,16 @@ public:
 	void UpdateTransform();
 
 public:
+	const FVector3& GetVelocity()	const
+	{
+		return mVelocity;
+	}
+
+	float GetSpeed()	const
+	{
+		return mVelocity.Length();
+	}
+
 	const FVector3& GetAxis(EAxis::Type Axis)	const
 	{
 		return mWorldAxis[Axis];

@@ -68,9 +68,6 @@
     <ClInclude Include="resource.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="Player\Player.h">
-      <Filter>01. Player</Filter>
-    </ClInclude>
     <ClInclude Include="World\MainWorld.h">
       <Filter>02. World</Filter>
     </ClInclude>
@@ -93,6 +90,9 @@
       <Filter>03. Monster</Filter>
     </ClInclude>
     <ClInclude Include="Player\BulletEffect.h">
+      <Filter>01. Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Player\Player.h">
       <Filter>01. Player</Filter>
     </ClInclude>
   </ItemGroup>

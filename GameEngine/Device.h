@@ -44,6 +44,11 @@ public:
 		return mRS;
 	}
 
+	bool GetWindowMode()	const
+	{
+		return mWindowMode;
+	}
+
 public:
 	bool Init(HWND hWnd, int Width, int Height, bool WindowMode);
 	void ClearBackBuffer();

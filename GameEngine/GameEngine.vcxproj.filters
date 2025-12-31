@@ -264,6 +264,9 @@
     <ClInclude Include="Asset\Asset.h">
       <Filter>03. Asset</Filter>
     </ClInclude>
+    <ClInclude Include="World\Input.h">
+      <Filter>02. World\03. Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine.cpp">
@@ -403,6 +406,9 @@
     </ClCompile>
     <ClCompile Include="Asset\Asset.cpp">
       <Filter>03. Asset</Filter>
+    </ClCompile>
+    <ClCompile Include="World\Input.cpp">
+      <Filter>02. World\03. Input</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
