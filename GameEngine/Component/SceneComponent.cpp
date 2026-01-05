@@ -134,9 +134,9 @@ void CSceneComponent::AddChild(std::weak_ptr<CSceneComponent> Child)
 		_Child->mParent = std::dynamic_pointer_cast<CSceneComponent>(mSelf.lock());
 		mChildList.push_back(Child);
 
-		_Child->SetRelativeScale(mRelativeScale);
-		_Child->SetRelativeRotation(mRelativeRot);
-		_Child->SetRelativePos(mRelativePos);
+		/*_Child->SetRelativeScale(FVector3(1.f, 1.f, 1.f));
+		_Child->SetRelativeRotation(FVector3::Zero);
+		_Child->SetRelativePos(FVector3::Zero);*/
 	}
 }
 

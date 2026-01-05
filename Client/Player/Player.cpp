@@ -36,7 +36,6 @@ bool CPlayer::Init()
 	CGameObject::Init();
 
 	mMeshComponent = CreateComponent<CMeshComponent>("Mesh");
-	mBody = CreateComponent<CColliderBox2D>("Body");
 	mRot = CreateComponent<CSceneComponent>("Rot1");
 	mSubMeshComponent = CreateComponent<CMeshComponent>("Mesh", "Rot1");
 	mCameraComponent = CreateComponent<CCameraComponent>("PlayerCamera");
@@ -93,12 +92,14 @@ bool CPlayer::Init()
 		Mesh->SetBlendState(0, "AlphaBlend");
 	}
 
+	mBody = CreateComponent<CColliderBox2D>("Body");
 	auto	Body = mBody.lock();
 
 	if (Body)
 	{
 		Body->SetBoxSize(100.f, 100.f);
 		Body->SetDebugDraw(true);
+		Body->SetInheritScale(false);
 	}
 
 	auto	RotCom = mRot.lock();
