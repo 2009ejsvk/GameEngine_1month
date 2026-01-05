@@ -8,6 +8,7 @@ E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.cpp;E:\DirectX\UE2025_2D\Obj\Gam
 E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\MeshManager.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\MeshManager.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\PathManager.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\PathManager.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferAnimation2D.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\CBufferAnimation2D.obj
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferCollider.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\CBufferCollider.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferMaterial.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\CBufferMaterial.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferTransform.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\CBufferTransform.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ComputeShader.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ComputeShader.obj
@@ -15,6 +16,7 @@ E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBuffer.cpp;E:\DirectX\UE202
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ConstantBufferData.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\GraphicShader.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\GraphicShader.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\Shader.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Shader.obj
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderCollider.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ShaderCollider.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderColor2D.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ShaderColor2D.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderManager.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ShaderManager.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderMaterialColor2D.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ShaderMaterialColor2D.obj
@@ -24,6 +26,8 @@ E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\TextureManager.cpp;E:\DirectX\UE20
 E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Animation2DComponent.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DSequence.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Animation2DSequence.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\CameraComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\CameraComponent.obj
+E:\DirectX\UE2025_2D\GameEngine\Component\Collider.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Collider.obj
+E:\DirectX\UE2025_2D\GameEngine\Component\ColliderBox2D.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ColliderBox2D.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\Component.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Component.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\MeshComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\MeshComponent.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\MovementComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\MovementComponent.obj

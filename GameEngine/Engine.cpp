@@ -13,6 +13,7 @@
 #include "Component/MeshComponent.h"
 #include "Object/GameObject.h"
 #include "Render/RenderManager.h"
+#include "CollisionInfoManager.h"
 
 CEngine* CEngine::mInst = nullptr;
 bool CEngine::mLoop = true;
@@ -32,6 +33,8 @@ CEngine::~CEngine()
     CObject::DestroyCDO();
 
     CRenderManager::DestroyInst();
+
+    CCollisionInfoManager::DestroyInst();
 
     CAssetManager::DestroyInst();
 
@@ -58,6 +61,10 @@ bool CEngine::Init(HINSTANCE hInst, const TCHAR* WindowName, int IconID,
 
     // 렌더링 관리자 초기화
     if (!CRenderManager::GetInst()->Init())
+        return false;
+
+    // 충돌 정보 관리자 초기화
+    if (!CCollisionInfoManager::GetInst()->Init())
         return false;
 
     // 애셋 관리자 초기화

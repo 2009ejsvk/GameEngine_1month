@@ -6,6 +6,7 @@
 #include "../World/World.h"
 #include "../World/CameraManager.h"
 #include "../Render/RenderManager.h"
+#include "../CollisionInfoManager.h"
 
 CCollider::CCollider()
 {
@@ -43,6 +44,11 @@ void CCollider::SetDebugDraw(bool DebugDraw)
 	}
 }
 
+void CCollider::SetCollisionProfile(const std::string& Name)
+{
+	mProfile = CCollisionInfoManager::GetInst()->FindProfile(Name);
+}
+
 bool CCollider::Init()
 {
 	CSceneComponent::Init();
@@ -53,6 +59,8 @@ bool CCollider::Init()
 
 		mTransformCBuffer->Init();
 	}
+	
+	mProfile = CCollisionInfoManager::GetInst()->FindProfile("Static");
 
 	return true;
 }

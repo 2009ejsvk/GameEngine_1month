@@ -110,3 +110,69 @@ struct FBox2DInfo
 	};
 	FVector2	HalfSize = FVector2(1.f, 1.f);
 };
+
+namespace ECollisionChannel
+{
+	enum Type
+	{
+		Static,
+		Player,
+		Monster,
+		Custom1,
+		Custom2,
+		Custom3,
+		Custom4,
+		Custom5,
+		Custom6,
+		Custom7,
+		Custom8,
+		Custom9,
+		Custom10,
+		End
+	};
+};
+
+struct FCollisionChannel
+{
+	std::string		Name;
+	ECollisionChannel::Type	Channel = ECollisionChannel::Static;
+};
+
+namespace ECollisionInteraction
+{
+	enum Type
+	{
+		Ignore,		// 무시
+		Collision,	// 충돌
+		End
+	};
+}
+
+/*
+1번프로파일
+Channel : Player
+Enable : true
+Interaction[Static] = Collision;
+Interaction[Player] = Ignore;
+Interaction[Monster] = Collision;
+Interaction[Custom1] = Collision;
+Interaction[Custom2] = Ignore;
+
+
+2번프로파일
+Channel : Monster
+Enable : true
+Interaction[Static] = Collision;
+Interaction[Player] = Ignore;
+Interaction[Monster] = Ignore;
+Interaction[Custom1] = Ignore;
+Interaction[Custom2] = Collision;
+*/
+struct FCollisionProfile
+{
+	std::string		Name;
+	// 프로파일이 어떤 채널을 사용하는지.
+	FCollisionChannel*	Channel;
+	bool			Enable = true;
+	ECollisionInteraction::Type	Interaction[ECollisionChannel::End] = {};
+};

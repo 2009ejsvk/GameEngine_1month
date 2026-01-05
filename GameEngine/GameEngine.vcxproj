@@ -184,6 +184,7 @@
     <ClInclude Include="Asset\Texture\DirectXTex.h" />
     <ClInclude Include="Asset\Texture\Texture.h" />
     <ClInclude Include="Asset\Texture\TextureManager.h" />
+    <ClInclude Include="CollisionInfoManager.h" />
     <ClInclude Include="Component\Animation2DComponent.h" />
     <ClInclude Include="Component\Animation2DSequence.h" />
     <ClInclude Include="Component\CameraComponent.h" />
@@ -243,6 +244,7 @@
     <ClCompile Include="Asset\Shader\ShaderTexture2D.cpp" />
     <ClCompile Include="Asset\Texture\Texture.cpp" />
     <ClCompile Include="Asset\Texture\TextureManager.cpp" />
+    <ClCompile Include="CollisionInfoManager.cpp" />
     <ClCompile Include="Component\Animation2DComponent.cpp" />
     <ClCompile Include="Component\Animation2DSequence.cpp" />
     <ClCompile Include="Component\CameraComponent.cpp" />

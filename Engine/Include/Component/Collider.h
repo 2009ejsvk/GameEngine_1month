@@ -23,6 +23,7 @@ protected:
 	FVector3		mRenderScale;
 	bool			mDebugDraw = false;
 	bool			mCollision = false;
+	FCollisionProfile* mProfile = nullptr;
 
 	std::weak_ptr<class CShader>	mShader;
 	std::weak_ptr<class CMesh>		mMesh;
@@ -42,6 +43,7 @@ public:
 
 public:
 	virtual void SetDebugDraw(bool DebugDraw);
+	void SetCollisionProfile(const std::string& Name);
 
 public:
 	virtual bool Init();

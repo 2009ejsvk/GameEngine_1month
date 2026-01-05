@@ -3,6 +3,9 @@
   <ProjectOutputs />
   <ContentFiles>
     <ContentFile>
+      <FullPath>E:\DirectX\UE2025_2D\Engine\Binary\Collider.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
       <FullPath>E:\DirectX\UE2025_2D\Engine\Binary\GlobalShader2D.cso</FullPath>
     </ContentFile>
   </ContentFiles>

@@ -1,4 +1,802 @@
-﻿  ObjectMovementComponent.cpp
+﻿  compilation object save succeeded; see E:\DirectX\UE2025_2D\Engine\Binary\Collider.cso
+  Animation2D.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2D.cpp'을(를) 컴파일하는 중)
+  
+  Animation2DManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2DManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2DManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2DManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2DManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2DManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2DManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2DManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Animation2D/Animation2DManager.cpp'을(를) 컴파일하는 중)
+  
+  Asset.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Asset.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Asset.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Asset.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Asset.cpp'을(를) 컴파일하는 중)
+  
+  AssetManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\AssetManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/AssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/AssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/AssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/AssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/AssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/AssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/AssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/AssetManager.cpp'을(를) 컴파일하는 중)
+  
+  Material.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/Material.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/Material.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/Material.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/Material.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/Material.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/Material.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/Material.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/Material.cpp'을(를) 컴파일하는 중)
+  
+  MaterialManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/MaterialManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/MaterialManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/MaterialManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/MaterialManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/MaterialManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Material/MaterialManager.cpp'을(를) 컴파일하는 중)
+  
+  Mesh.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/Mesh.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/Mesh.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/Mesh.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/Mesh.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/Mesh.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/Mesh.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/Mesh.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/Mesh.cpp'을(를) 컴파일하는 중)
+  
+  MeshManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\MeshManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/MeshManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/MeshManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/MeshManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/MeshManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Mesh/MeshManager.cpp'을(를) 컴파일하는 중)
+  
+  PathManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\PathManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/PathManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/PathManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/PathManager.cpp'을(를) 컴파일하는 중)
+  
+  CBufferAnimation2D.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferAnimation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferAnimation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferAnimation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferAnimation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferAnimation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBuffer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferAnimation2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferAnimation2D.cpp'을(를) 컴파일하는 중)
+  
+  CBufferCollider.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBuffer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferCollider.cpp'을(를) 컴파일하는 중)
+  
+  CBufferMaterial.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferMaterial.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferMaterial.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferMaterial.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferMaterial.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferMaterial.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBuffer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferMaterial.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferMaterial.cpp'을(를) 컴파일하는 중)
+  
+  CBufferTransform.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferTransform.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferTransform.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferTransform.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferTransform.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferTransform.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferTransform.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBuffer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferTransform.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/CBufferTransform.cpp'을(를) 컴파일하는 중)
+  
+  ComputeShader.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ComputeShader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ComputeShader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ComputeShader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ComputeShader.cpp'을(를) 컴파일하는 중)
+  
+  ConstantBuffer.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBuffer.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBuffer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBuffer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBuffer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBuffer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBuffer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBuffer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBuffer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBuffer.cpp'을(를) 컴파일하는 중)
+  
+  ConstantBufferData.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBufferData.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBufferData.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBufferData.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBufferData.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBufferData.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBufferData.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ConstantBufferData.cpp'을(를) 컴파일하는 중)
+  
+  GraphicShader.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\GraphicShader.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\GraphicShader.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/GraphicShader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/GraphicShader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/GraphicShader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/GraphicShader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/GraphicShader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/GraphicShader.cpp'을(를) 컴파일하는 중)
+  
+  Shader.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/Shader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/Shader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/Shader.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/Shader.cpp'을(를) 컴파일하는 중)
+  
+  ShaderCollider.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderCollider.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\GraphicShader.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderCollider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderCollider.cpp'을(를) 컴파일하는 중)
+  
+  ShaderColor2D.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderColor2D.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\GraphicShader.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderColor2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderColor2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderColor2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderColor2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderColor2D.cpp'을(를) 컴파일하는 중)
+  
+  코드를 생성하고 있습니다...
+  컴파일하고 있습니다...
+  ShaderManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\GraphicShader.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBuffer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderManager.cpp'을(를) 컴파일하는 중)
+  
+  ShaderMaterialColor2D.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderMaterialColor2D.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\GraphicShader.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderMaterialColor2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderMaterialColor2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderMaterialColor2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderMaterialColor2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderMaterialColor2D.cpp'을(를) 컴파일하는 중)
+  
+  ShaderTexture2D.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderTexture2D.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\GraphicShader.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderTexture2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderTexture2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderTexture2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderTexture2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Shader/ShaderTexture2D.cpp'을(를) 컴파일하는 중)
+  
+  Texture.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/Texture.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/Texture.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/Texture.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/Texture.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/Texture.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/Texture.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/Texture.cpp'을(를) 컴파일하는 중)
+  
+  TextureManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\TextureManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/TextureManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/TextureManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/TextureManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/TextureManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/TextureManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/TextureManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Asset/Texture/TextureManager.cpp'을(를) 컴파일하는 중)
+  
+  Animation2DComponent.cpp
+E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DComponent.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DSequence.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\World.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DComponent.cpp'을(를) 컴파일하는 중)
+  
+  Animation2DSequence.cpp
+E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DSequence.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DSequence.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DSequence.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DSequence.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DSequence.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DSequence.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DSequence.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Animation2DSequence.cpp'을(를) 컴파일하는 중)
+  
+  CameraComponent.cpp
+E:\DirectX\UE2025_2D\GameEngine\Component\CameraComponent.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\World.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/CameraComponent.cpp'을(를) 컴파일하는 중)
+  
+  Collider.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\World.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Collider.cpp'을(를) 컴파일하는 중)
+  
+  ColliderBox2D.cpp
+E:\DirectX\UE2025_2D\GameEngine\Component\ColliderBox2D.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\World.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ColliderBox2D.cpp'을(를) 컴파일하는 중)
+  
+  Component.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Component.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Component.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Component.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/Component.cpp'을(를) 컴파일하는 중)
+  
+  MeshComponent.cpp
+E:\DirectX\UE2025_2D\GameEngine\Component\MeshComponent.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\World.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DSequence.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MeshComponent.cpp'을(를) 컴파일하는 중)
+  
+  MovementComponent.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Timer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/MovementComponent.cpp'을(를) 컴파일하는 중)
+  
+  ObjectComponent.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ObjectComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ObjectComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ObjectComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ObjectComponent.cpp'을(를) 컴파일하는 중)
+  
+  ObjectMovementComponent.cpp
 E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
   (소스 파일 'Component/ObjectMovementComponent.cpp'을(를) 컴파일하는 중)
   
@@ -14,8 +812,398 @@ E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페
 E:\DirectX\UE2025_2D\GameEngine\Timer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
   (소스 파일 'Component/ObjectMovementComponent.cpp'을(를) 컴파일하는 중)
   
+  ProjectileMovementComponent.cpp
+E:\DirectX\UE2025_2D\GameEngine\Component\ProjectileMovementComponent.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ProjectileMovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ProjectileMovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ProjectileMovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ProjectileMovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ProjectileMovementComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Timer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/ProjectileMovementComponent.cpp'을(를) 컴파일하는 중)
+  
+  SceneComponent.cpp
+E:\DirectX\UE2025_2D\GameEngine\Component\SceneComponent.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/SceneComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/SceneComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/SceneComponent.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Component/SceneComponent.cpp'을(를) 컴파일하는 중)
+  
+  Device.cpp
+E:\DirectX\UE2025_2D\GameEngine\Device.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Device.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Device.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Device.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Device.cpp'을(를) 컴파일하는 중)
+  
+  Engine.cpp
+E:\DirectX\UE2025_2D\GameEngine\Engine.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Engine.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Timer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\World.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ConstantBufferData.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Engine.cpp'을(를) 컴파일하는 중)
+  
+  Matrix.cpp
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Matrix.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Matrix.cpp'을(를) 컴파일하는 중)
+  
+  코드를 생성하고 있습니다...
+E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DSequence.cpp(25,1): warning C4172: 지역 변수 또는 임시 의 주소를 반환하는 중
+  컴파일하고 있습니다...
+  Object.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object.cpp'을(를) 컴파일하는 중)
+  
+  GameObject.cpp
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object/GameObject.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object/GameObject.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object/GameObject.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object/GameObject.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Object/GameObject.cpp'을(를) 컴파일하는 중)
+  
+  BlendState.cpp
+E:\DirectX\UE2025_2D\GameEngine\Render\BlendState.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Render\BlendState.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/BlendState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/BlendState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/BlendState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/BlendState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/BlendState.cpp'을(를) 컴파일하는 중)
+  
+  DepthStencilState.cpp
+E:\DirectX\UE2025_2D\GameEngine\Render\DepthStencilState.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Render\DepthStencilState.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/DepthStencilState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/DepthStencilState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/DepthStencilState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/DepthStencilState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/DepthStencilState.cpp'을(를) 컴파일하는 중)
+  
+  RenderManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\Render\RenderManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Render\BlendState.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Render\DepthStencilState.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderManager.cpp'을(를) 컴파일하는 중)
+  
+  RenderState.cpp
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderState.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Render/RenderState.cpp'을(를) 컴파일하는 중)
+  
+  Timer.cpp
+E:\DirectX\UE2025_2D\GameEngine\Timer.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Timer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Timer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Timer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Timer.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Timer.cpp'을(를) 컴파일하는 중)
+  
+  Vector3.cpp
+E:\DirectX\UE2025_2D\GameEngine\Vector3.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Vector3.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Vector3.cpp'을(를) 컴파일하는 중)
+  
+  Vector4.cpp
+  CameraManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/CameraManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/CameraManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/CameraManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/CameraManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/CameraManager.cpp'을(를) 컴파일하는 중)
+  
+  Input.cpp
+E:\DirectX\UE2025_2D\GameEngine\World\Input.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/Input.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/Input.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/Input.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/Input.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Engine.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/Input.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/Input.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Device.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/Input.cpp'을(를) 컴파일하는 중)
+  
+  World.cpp
+E:\DirectX\UE2025_2D\GameEngine\World\World.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\World\World.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/World.cpp'을(를) 컴파일하는 중)
+  
+  WorldAssetManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\World\WorldAssetManager.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldAssetManager.cpp'을(를) 컴파일하는 중)
+  
+  WorldManager.cpp
+E:\DirectX\UE2025_2D\GameEngine\EngineInfo.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Matrix.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Vector2.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\World.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object\GameObject.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Object.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Mesh\Mesh.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Material\Material.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\CBufferContainer.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\Asset\Animation2D\Animation2D.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+E:\DirectX\UE2025_2D\GameEngine\World\Input.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'World/WorldManager.cpp'을(를) 컴파일하는 중)
+  
+  코드를 생성하고 있습니다...
   GameEngine.vcxproj -> E:\DirectX\UE2025_2D\Engine\Binary\GameEngine_Debug.lib
-  0개 파일이 복사되었습니다.
+  .\EngineInfo.h
+  .\Asset\Shader\CBufferCollider.h
+  .\Asset\Shader\CBufferContainer.h
+  .\Asset\Shader\ShaderCollider.h
+  .\Component\Collider.h
+  .\Component\ColliderBox2D.h
+  6개 파일이 복사되었습니다.
   파일을 찾을 수 없습니다-*.inl
   0개 파일이 복사되었습니다.
-  0개 파일이 복사되었습니다.
+  .\..\Engine\Binary\EngineAsset\Shader\Collider.hlsl
+  .\..\Engine\Binary\EngineAsset\Shader\GlobalShader2D.hlsl
+  .\..\Engine\Binary\EngineAsset\Shader\Share.hlsli
+  3개 파일이 복사되었습니다.
