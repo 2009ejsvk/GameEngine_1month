@@ -29,6 +29,23 @@ bool CMeshManager::Init()
 		D3D11_USAGE_IMMUTABLE))
 		return false;
 
+	FVector3	CenterFrameRect[4] =
+	{
+		FVector3(-0.5f, 0.5f, 0.f),
+		FVector3(0.5f, 0.5f, 0.f),
+		FVector3(-0.5f, -0.5f, 0.f),
+		FVector3(0.5f, -0.5f, 0.f)
+	};
+
+	unsigned short	CenterFrameRectIdx[5] = { 0, 1, 3, 2, 0 };
+
+	if (!CreateMesh("Mesh_CenterFrameRect", CenterFrameRect, sizeof(FVector3),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP,
+		CenterFrameRectIdx, 2, 5, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
+
 	// TextureMesh 사각형 생성
 	FVertexTex	CenterRectTexture[4] =
 	{

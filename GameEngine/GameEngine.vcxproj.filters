@@ -109,6 +109,24 @@
     <Filter Include="02. World\03. Input">
       <UniqueIdentifier>{61ad61eb-0767-4495-a92b-afc0aa26c13a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="05. Component\02. ObjectComponent\02. Movement">
+      <UniqueIdentifier>{2e2b67c8-2ee4-49d2-a893-f8bea4136e71}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="05. Component\01. SceneComponent\03. Collider">
+      <UniqueIdentifier>{d19e288c-6525-454a-840c-92e1ae78c4e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="05. Component\01. SceneComponent\03. Collider\01. 2D">
+      <UniqueIdentifier>{ea6cc39a-2ee0-4f13-af93-32695760dbc7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="05. Component\01. SceneComponent\03. Collider\02. 3D">
+      <UniqueIdentifier>{6e8fd31e-12b9-4975-bafa-a4500db70372}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="03. Asset\02. Shader\02. Shader\04. Collider">
+      <UniqueIdentifier>{37afd51f-6d85-4ff7-a339-c2aa807a1df4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="03. Asset\02. Shader\03. ConstantBuffer\04. Collider">
+      <UniqueIdentifier>{cf1b229d-32e1-4b14-9cd4-dcbd960065f7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EngineInfo.h">
@@ -267,6 +285,27 @@
     <ClInclude Include="World\Input.h">
       <Filter>02. World\03. Input</Filter>
     </ClInclude>
+    <ClInclude Include="Component\MovementComponent.h">
+      <Filter>05. Component\02. ObjectComponent\02. Movement</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\ObjectMovementComponent.h">
+      <Filter>05. Component\02. ObjectComponent\02. Movement</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\ProjectileMovementComponent.h">
+      <Filter>05. Component\02. ObjectComponent\02. Movement</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\Collider.h">
+      <Filter>05. Component\01. SceneComponent\03. Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\ColliderBox2D.h">
+      <Filter>05. Component\01. SceneComponent\03. Collider\01. 2D</Filter>
+    </ClInclude>
+    <ClInclude Include="Asset\Shader\ShaderCollider.h">
+      <Filter>03. Asset\02. Shader\02. Shader\04. Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="Asset\Shader\CBufferCollider.h">
+      <Filter>03. Asset\02. Shader\03. ConstantBuffer\04. Collider</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine.cpp">
@@ -410,6 +449,27 @@
     <ClCompile Include="World\Input.cpp">
       <Filter>02. World\03. Input</Filter>
     </ClCompile>
+    <ClCompile Include="Component\MovementComponent.cpp">
+      <Filter>05. Component\02. ObjectComponent\02. Movement</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\ObjectMovementComponent.cpp">
+      <Filter>05. Component\02. ObjectComponent\02. Movement</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\ProjectileMovementComponent.cpp">
+      <Filter>05. Component\02. ObjectComponent\02. Movement</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\Collider.cpp">
+      <Filter>05. Component\01. SceneComponent\03. Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\ColliderBox2D.cpp">
+      <Filter>05. Component\01. SceneComponent\03. Collider\01. 2D</Filter>
+    </ClCompile>
+    <ClCompile Include="Asset\Shader\ShaderCollider.cpp">
+      <Filter>03. Asset\02. Shader\02. Shader\04. Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="Asset\Shader\CBufferCollider.cpp">
+      <Filter>03. Asset\02. Shader\03. ConstantBuffer\04. Collider</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Copy.bat">
@@ -433,6 +493,9 @@
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Engine\Binary\EngineAsset\Shader\GlobalShader2D.hlsl">
+      <Filter>03. Asset\02. Shader\01. HLSL</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Engine\Binary\EngineAsset\Shader\Collider.hlsl">
       <Filter>03. Asset\02. Shader\01. HLSL</Filter>
     </FxCompile>
   </ItemGroup>

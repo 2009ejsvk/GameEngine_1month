@@ -40,9 +40,23 @@ void CWorld::Update(float DeltaTime)
 
 	for (; iter != iterEnd;)
 	{
-		if (!iter->second->GetAlive())
+		if (iter->second.use_count() == 0)
 		{
 			iter = mObjList.erase(iter);
+			iterEnd = mObjList.end();
+			continue;
+		}
+
+		else if (!iter->second->GetAlive())
+		{
+			iter = mObjList.erase(iter);
+			iterEnd = mObjList.end();
+			continue;
+		}
+
+		else if (!iter->second->GetEnable())
+		{
+			++iter;
 			continue;
 		}
 
@@ -62,9 +76,23 @@ void CWorld::PostUpdate(float DeltaTime)
 
 	for (; iter != iterEnd;)
 	{
-		if (!iter->second->GetAlive())
+		if (iter->second.use_count() == 0)
 		{
 			iter = mObjList.erase(iter);
+			iterEnd = mObjList.end();
+			continue;
+		}
+
+		else if (!iter->second->GetAlive())
+		{
+			iter = mObjList.erase(iter);
+			iterEnd = mObjList.end();
+			continue;
+		}
+
+		else if (!iter->second->GetEnable())
+		{
+			++iter;
 			continue;
 		}
 
@@ -80,9 +108,23 @@ void CWorld::Render()
 
 	for (; iter != iterEnd;)
 	{
-		if (!iter->second->GetAlive())
+		if (iter->second.use_count() == 0)
 		{
 			iter = mObjList.erase(iter);
+			iterEnd = mObjList.end();
+			continue;
+		}
+
+		else if (!iter->second->GetAlive())
+		{
+			iter = mObjList.erase(iter);
+			iterEnd = mObjList.end();
+			continue;
+		}
+
+		else if (!iter->second->GetEnable())
+		{
+			++iter;
 			continue;
 		}
 

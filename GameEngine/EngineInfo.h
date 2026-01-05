@@ -93,3 +93,20 @@ enum class EAssetType
 	Texture,
 	Animation2D
 };
+
+enum class EColliderType
+{
+	Box2D,
+	Sphere2D
+};
+
+struct FBox2DInfo
+{
+	FVector3	Center;
+	FVector3	Axis[2] =
+	{
+		FVector3::Axis[EAxis::X],
+		FVector3::Axis[EAxis::Y]
+	};
+	FVector2	HalfSize = FVector2(1.f, 1.f);
+};

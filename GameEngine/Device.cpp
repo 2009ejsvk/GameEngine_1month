@@ -209,6 +209,7 @@ bool CDevice::Init(HWND hWnd, int Width, int Height, bool WindowMode)
 void CDevice::ClearBackBuffer()
 {
 	// 지정된 색으로 백버퍼를 초기화한다.
+	//float	Color[4] = { 1.f, 1.f, 1.f, 1.f };
 	float	Color[4] = {};
 	mContext->ClearRenderTargetView(mTargetView, Color);
 }

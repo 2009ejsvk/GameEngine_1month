@@ -99,3 +99,10 @@ PS_OUTPUT_COLOR MaterialTexPS(VS_OUTPUT_TEX input)
     
     return output;
 }
+
+float4 FrameVS(float3 Pos : POSITION0)  : SV_POSITION
+{
+    float4 OutputPos = mul(float4(Pos, 1.f), cbWVP);
+    
+    return OutputPos;
+}

@@ -101,10 +101,39 @@ bool CGameObject::Init()
 
 void CGameObject::Update(float DeltaTime)
 {
-	auto Root = mRoot.lock();
+	/*auto Root = mRoot.lock();
 
 	if (Root)
-		Root->Update(DeltaTime);
+		Root->Update(DeltaTime);*/
+
+	auto	iter1 = mSceneComponentList.begin();
+	auto	iter1End = mSceneComponentList.end();
+
+	for (; iter1 != iter1End;)
+	{
+		if ((*iter1).use_count() == 0)
+		{
+			iter1 = mSceneComponentList.erase(iter1);
+			iter1End = mSceneComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter1)->GetAlive())
+		{
+			iter1 = mSceneComponentList.erase(iter1);
+			iter1End = mSceneComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter1)->GetEnable())
+		{
+			++iter1;
+			continue;
+		}
+
+		(*iter1)->Update(DeltaTime);
+		++iter1;
+	}
 
 	auto	iter = mObjectComponentList.begin();
 	auto	iterEnd = mObjectComponentList.end();
@@ -118,6 +147,19 @@ void CGameObject::Update(float DeltaTime)
 			continue;
 		}
 
+		else if (!(*iter)->GetAlive())
+		{
+			iter = mObjectComponentList.erase(iter);
+			iterEnd = mObjectComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter)->GetEnable())
+		{
+			++iter;
+			continue;
+		}
+
 		(*iter)->Update(DeltaTime);
 		++iter;
 	}
@@ -125,10 +167,39 @@ void CGameObject::Update(float DeltaTime)
 
 void CGameObject::PostUpdate(float DeltaTime)
 {
-	auto Root = mRoot.lock();
+	/*auto Root = mRoot.lock();
 
 	if (Root)
-		Root->PostUpdate(DeltaTime);
+		Root->PostUpdate(DeltaTime);*/
+
+	auto	iter1 = mSceneComponentList.begin();
+	auto	iter1End = mSceneComponentList.end();
+
+	for (; iter1 != iter1End;)
+	{
+		if ((*iter1).use_count() == 0)
+		{
+			iter1 = mSceneComponentList.erase(iter1);
+			iter1End = mSceneComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter1)->GetAlive())
+		{
+			iter1 = mSceneComponentList.erase(iter1);
+			iter1End = mSceneComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter1)->GetEnable())
+		{
+			++iter1;
+			continue;
+		}
+
+		(*iter1)->PostUpdate(DeltaTime);
+		++iter1;
+	}
 
 	auto	iter = mObjectComponentList.begin();
 	auto	iterEnd = mObjectComponentList.end();
@@ -139,6 +210,19 @@ void CGameObject::PostUpdate(float DeltaTime)
 		{
 			iter = mObjectComponentList.erase(iter);
 			iterEnd = mObjectComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter)->GetAlive())
+		{
+			iter = mObjectComponentList.erase(iter);
+			iterEnd = mObjectComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter)->GetEnable())
+		{
+			++iter;
 			continue;
 		}
 

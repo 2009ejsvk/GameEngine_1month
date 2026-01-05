@@ -167,6 +167,7 @@
     <ClInclude Include="Asset\Mesh\MeshManager.h" />
     <ClInclude Include="Asset\PathManager.h" />
     <ClInclude Include="Asset\Shader\CBufferAnimation2D.h" />
+    <ClInclude Include="Asset\Shader\CBufferCollider.h" />
     <ClInclude Include="Asset\Shader\CBufferContainer.h" />
     <ClInclude Include="Asset\Shader\CBufferMaterial.h" />
     <ClInclude Include="Asset\Shader\CBufferTransform.h" />
@@ -175,6 +176,7 @@
     <ClInclude Include="Asset\Shader\ConstantBufferData.h" />
     <ClInclude Include="Asset\Shader\GraphicShader.h" />
     <ClInclude Include="Asset\Shader\Shader.h" />
+    <ClInclude Include="Asset\Shader\ShaderCollider.h" />
     <ClInclude Include="Asset\Shader\ShaderColor2D.h" />
     <ClInclude Include="Asset\Shader\ShaderManager.h" />
     <ClInclude Include="Asset\Shader\ShaderMaterialColor2D.h" />
@@ -185,9 +187,14 @@
     <ClInclude Include="Component\Animation2DComponent.h" />
     <ClInclude Include="Component\Animation2DSequence.h" />
     <ClInclude Include="Component\CameraComponent.h" />
+    <ClInclude Include="Component\Collider.h" />
+    <ClInclude Include="Component\ColliderBox2D.h" />
     <ClInclude Include="Component\Component.h" />
     <ClInclude Include="Component\MeshComponent.h" />
+    <ClInclude Include="Component\MovementComponent.h" />
     <ClInclude Include="Component\ObjectComponent.h" />
+    <ClInclude Include="Component\ObjectMovementComponent.h" />
+    <ClInclude Include="Component\ProjectileMovementComponent.h" />
     <ClInclude Include="Component\SceneComponent.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="Engine.h" />
@@ -221,6 +228,7 @@
     <ClCompile Include="Asset\Mesh\MeshManager.cpp" />
     <ClCompile Include="Asset\PathManager.cpp" />
     <ClCompile Include="Asset\Shader\CBufferAnimation2D.cpp" />
+    <ClCompile Include="Asset\Shader\CBufferCollider.cpp" />
     <ClCompile Include="Asset\Shader\CBufferMaterial.cpp" />
     <ClCompile Include="Asset\Shader\CBufferTransform.cpp" />
     <ClCompile Include="Asset\Shader\ComputeShader.cpp" />
@@ -228,6 +236,7 @@
     <ClCompile Include="Asset\Shader\ConstantBufferData.cpp" />
     <ClCompile Include="Asset\Shader\GraphicShader.cpp" />
     <ClCompile Include="Asset\Shader\Shader.cpp" />
+    <ClCompile Include="Asset\Shader\ShaderCollider.cpp" />
     <ClCompile Include="Asset\Shader\ShaderColor2D.cpp" />
     <ClCompile Include="Asset\Shader\ShaderManager.cpp" />
     <ClCompile Include="Asset\Shader\ShaderMaterialColor2D.cpp" />
@@ -237,9 +246,14 @@
     <ClCompile Include="Component\Animation2DComponent.cpp" />
     <ClCompile Include="Component\Animation2DSequence.cpp" />
     <ClCompile Include="Component\CameraComponent.cpp" />
+    <ClCompile Include="Component\Collider.cpp" />
+    <ClCompile Include="Component\ColliderBox2D.cpp" />
     <ClCompile Include="Component\Component.cpp" />
     <ClCompile Include="Component\MeshComponent.cpp" />
+    <ClCompile Include="Component\MovementComponent.cpp" />
     <ClCompile Include="Component\ObjectComponent.cpp" />
+    <ClCompile Include="Component\ObjectMovementComponent.cpp" />
+    <ClCompile Include="Component\ProjectileMovementComponent.cpp" />
     <ClCompile Include="Component\SceneComponent.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Engine.cpp" />
@@ -270,6 +284,16 @@
     <Text Include="공간변환.txt" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="..\Engine\Binary\EngineAsset\Shader\Collider.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">5.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">5.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+    </FxCompile>
     <FxCompile Include="..\Engine\Binary\EngineAsset\Shader\GlobalShader2D.hlsl">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Color2DVS</EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>

@@ -18,7 +18,9 @@ public:
 
 private:
 	std::weak_ptr<class CMeshComponent>	mMeshComponent;
+	std::weak_ptr<class CProjectileMovementComponent>	mMovement;
 	float		mDistance = 600.f;
+	float		mSpeed = 300.f;
 	FVector3	mMoveDir;
 	bool		mMoveDirEnable = false;
 	std::weak_ptr<CGameObject>	mTarget;
@@ -28,10 +30,11 @@ private:
 	bool		mMoveEnable = true;
 
 public:
-	void SetMoveEnable(bool Enable)
-	{
-		mMoveEnable = Enable;
-	}
+	void SetMoveEnable(bool Enable);
+
+	void SetDistance(float Distance);
+
+	void SetSpeed(float Speed);
 
 	void ComputeCollisionRange()
 	{
@@ -47,19 +50,19 @@ public:
 		mCollisionTargetName = Name;
 	}
 
-	void SetMoveDir(const FVector3& MoveDir)
-	{
-		mMoveDirEnable = true;
-		mMoveDir = MoveDir;
-	}
+	void SetMoveDir(const FVector3& MoveDir);
 
 	void SetNearTarget(const std::string& Name);
 
 public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
+	virtual void PostUpdate(float DeltaTime);
 
 protected:
 	virtual CBullet* Clone();
+
+private:
+	void MoveEndFunction();
 };
 

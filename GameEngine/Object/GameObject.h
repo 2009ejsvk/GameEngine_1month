@@ -22,6 +22,7 @@ protected:
 	std::weak_ptr<CGameObject>	mSelf;
 	std::weak_ptr<class CWorld>	mWorld;
 	std::string		mName;
+	bool	mEnable = true;
 	bool	mAlive = true;
 	std::vector<std::shared_ptr<CSceneComponent>>	mSceneComponentList;
 	std::weak_ptr<CSceneComponent>	mRoot;
@@ -29,6 +30,11 @@ protected:
 	std::vector<std::shared_ptr<CObjectComponent>>	mObjectComponentList;
 
 public:
+	bool GetEnable()	const
+	{
+		return mEnable;
+	}
+
 	std::weak_ptr<CSceneComponent> GetRootComponent()	const
 	{
 		return mRoot;
@@ -40,6 +46,11 @@ public:
 	}
 
 public:
+	void SetEnable(bool Enable)
+	{
+		mEnable = Enable;
+	}
+
 	void SetWorld(std::weak_ptr<CWorld> World);
 	void SetSelf(std::weak_ptr<CGameObject> Self);
 	void SetName(const std::string& Name);

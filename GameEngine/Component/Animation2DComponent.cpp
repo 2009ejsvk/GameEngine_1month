@@ -10,6 +10,7 @@
 
 CAnimation2DComponent::CAnimation2DComponent()
 {
+	SetClassType<CAnimation2DComponent>();
 }
 
 CAnimation2DComponent::CAnimation2DComponent(

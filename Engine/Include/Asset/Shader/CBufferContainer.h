@@ -44,3 +44,8 @@ struct FCBufferAnimation2DData
 	int			TextureSymmetry = 0;
 	float		Empty;
 };
+
+struct FCBufferColliderData
+{
+	FVector4	Color;
+};

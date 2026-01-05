@@ -217,6 +217,11 @@ FVector3 FVector3::operator - (int Value)	const
 	return result;
 }
 
+FVector3 FVector3::operator - ()	const
+{
+	return FVector3(-x, -y, -z);
+}
+
 // -=
 const FVector3& FVector3::operator -= (const FVector3& v)
 {
@@ -423,6 +428,11 @@ float FVector3::Length()	const
 {
 	// sqrtf : 루트값 구해주는 기능.
 	return sqrtf(x * x + y * y + z * z);
+}
+
+bool FVector3::IsZero() const
+{
+	return x == 0.f && y == 0.f && z == 0.f;
 }
 
 void FVector3::Normalize()

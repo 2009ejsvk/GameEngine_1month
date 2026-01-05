@@ -9,13 +9,8 @@
 #include "Component/Animation2DComponent.h"
 #include "World/Input.h"
 #include "Timer.h"
-
-/*
-1. 몬스터도 이미지로 출력.
-2. 몬스터도 Idle, Attack 2가지 애니메이션 추가
-3. 몬스터가 총알을 발사할 때 공격모션이 나오며 총알 발사하고
-Idle로 되돌아가기.
-*/
+#include "Component/ObjectMovementComponent.h"
+#include "Component/ColliderBox2D.h"
 
 CPlayer::CPlayer()
 {
@@ -41,12 +36,21 @@ bool CPlayer::Init()
 	CGameObject::Init();
 
 	mMeshComponent = CreateComponent<CMeshComponent>("Mesh");
+	mBody = CreateComponent<CColliderBox2D>("Body");
 	mRot = CreateComponent<CSceneComponent>("Rot1");
 	mSubMeshComponent = CreateComponent<CMeshComponent>("Mesh", "Rot1");
 	mCameraComponent = CreateComponent<CCameraComponent>("PlayerCamera");
 
 	mStateComponent = CreateComponent<CStateComponent>("State");
 	mAnimation2DComponent = CreateComponent<CAnimation2DComponent>("Animation2D");
+	mMovement = CreateComponent<CObjectMovementComponent>("Movement");
+
+	auto	Movement = mMovement.lock();
+
+	if (Movement)
+	{
+		Movement->SetUpdateComponent(mMeshComponent);
+	}
 
 	// 애니메이션 지정
 	auto	Anim = mAnimation2DComponent.lock();
@@ -87,6 +91,14 @@ bool CPlayer::Init()
 		Mesh->SetWorldScale(100.f, 100.f);
 		Mesh->SetMaterialBaseColor(0, 255, 0, 0, 0);
 		Mesh->SetBlendState(0, "AlphaBlend");
+	}
+
+	auto	Body = mBody.lock();
+
+	if (Body)
+	{
+		Body->SetBoxSize(100.f, 100.f);
+		Body->SetDebugDraw(true);
 	}
 
 	auto	RotCom = mRot.lock();
@@ -131,7 +143,7 @@ bool CPlayer::Init()
 	Input->AddBindKey("MoveUp", 'W');
 	Input->SetBindFunction<CPlayer>("MoveUp",
 		EInputType::Hold, this, &CPlayer::MoveUp);
-	Input->SetKeyCtrl("MoveUp", true);
+	//Input->SetKeyCtrl("MoveUp", true);
 
 	Input->AddBindKey("MoveDown", 'S');
 	Input->SetBindFunction<CPlayer>("MoveDown",
@@ -338,11 +350,11 @@ void CPlayer::MoveUp()
 {
 	mAutoIdle = true;
 
+	auto	Movement = mMovement.lock();
 	auto	Mesh = mMeshComponent.lock();
 	auto	Anim = mAnimation2DComponent.lock();
 
-	Mesh->AddRelativePos(Mesh->GetAxis(EAxis::Y) * 
-		100.f * CTimer::GetDeltaTime());
+	Movement->AddMove(Mesh->GetAxis(EAxis::Y));
 	Anim->ChangeAnimation("PlayerWalk");
 }
 
@@ -350,11 +362,11 @@ void CPlayer::MoveDown()
 {
 	mAutoIdle = true;
 
+	auto	Movement = mMovement.lock();
 	auto	Mesh = mMeshComponent.lock();
 	auto	Anim = mAnimation2DComponent.lock();
 
-	Mesh->AddRelativePos(Mesh->GetAxis(EAxis::Y) *
-		-100.f * CTimer::GetDeltaTime());
+	Movement->AddMove(-Mesh->GetAxis(EAxis::Y));
 	Anim->ChangeAnimation("PlayerWalk");
 }
 
@@ -363,48 +375,6 @@ void CPlayer::AttackKey()
 	mAutoIdle = false;
 	auto	Anim = mAnimation2DComponent.lock();
 	Anim->ChangeAnimation("PlayerAttack");
-
-	//		// 총알을 생성한다.
-		for (int i = 0; i < 12; ++i)
-		{
-			std::shared_ptr<CWorld>	World = mWorld.lock();
-
-			if (World)
-			{
-				std::weak_ptr<CBullet>	Bullet = World->CreateGameObject<CBullet>("Bullet");
-
-				std::shared_ptr<CBullet>	BulletObj = Bullet.lock();
-
-				if (BulletObj)
-				{
-					FVector3	BulletPos;
-					FVector3	BulletDir;
-					FMatrix		DirMatrix;
-
-					// i값에 따라 30도만큼 증가된 각도를 이용하여
-					// 총알을 생성할 방향이 회전되게 하기 위해
-					// 회전행렬을 생성한다.
-					DirMatrix.RotationZ(i * 30.f);
-
-					// 플레이어의 Y축을 기준으로 회전된 방향을 구한다.
-					BulletDir = GetAxis(EAxis::Y).TransformNormal(DirMatrix);
-					BulletDir.Normalize();
-
-					// 구해준 방향으로 90만큼 떨어진 위치를 구한다.
-					BulletDir *= 90.f;
-
-					BulletPos = GetWorldPos() + BulletDir;
-
-					BulletObj->SetWorldPos(BulletPos);
-					//BulletObj->SetWorldRotation(GetWorldRot());
-					BulletObj->ComputeCollisionRange();
-
-					// 타겟을 정한다.
-					BulletObj->SetNearTarget("Monster");
-					BulletObj->SetCollisionTargetName("Monster");
-				}
-			}
-		}
 }
 
 void CPlayer::Skill1Press()

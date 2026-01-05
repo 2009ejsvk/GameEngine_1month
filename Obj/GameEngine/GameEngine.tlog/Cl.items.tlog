@@ -26,7 +26,10 @@ E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DSequence.cpp;E:\DirectX\UE2
 E:\DirectX\UE2025_2D\GameEngine\Component\CameraComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\CameraComponent.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\Component.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Component.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\MeshComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\MeshComponent.obj
+E:\DirectX\UE2025_2D\GameEngine\Component\MovementComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\MovementComponent.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\ObjectComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ObjectComponent.obj
+E:\DirectX\UE2025_2D\GameEngine\Component\ObjectMovementComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ObjectMovementComponent.obj
+E:\DirectX\UE2025_2D\GameEngine\Component\ProjectileMovementComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ProjectileMovementComponent.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\SceneComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\SceneComponent.obj
 E:\DirectX\UE2025_2D\GameEngine\Device.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Device.obj
 E:\DirectX\UE2025_2D\GameEngine\Engine.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Engine.obj

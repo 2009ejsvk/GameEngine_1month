@@ -27,9 +27,15 @@ protected:
 	std::weak_ptr<CComponent>	mSelf;
 	std::string		mName;
 	bool	mAlive = true;
+	bool	mEnable = true;
 	EComponentType	mComponentType;
 
 public:
+	bool GetEnable()	const
+	{
+		return mEnable;
+	}
+
 	EComponentType GetComponentType()	const
 	{
 		return mComponentType;
@@ -56,6 +62,11 @@ public:
 	}
 
 public:
+	void SetEnable(bool Enable)
+	{
+		mEnable = Enable;
+	}
+
 	void SetSelf(std::weak_ptr<CComponent> Self)
 	{
 		mSelf = Self;

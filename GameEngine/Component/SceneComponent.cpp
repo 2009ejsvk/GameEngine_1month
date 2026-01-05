@@ -71,7 +71,7 @@ bool CSceneComponent::Init()
 
 void CSceneComponent::Update(float DeltaTime)
 {
-	size_t	Size = mChildList.size();
+	/*size_t	Size = mChildList.size();
 
 	for (size_t i = 0; i < Size; ++i)
 	{
@@ -79,14 +79,14 @@ void CSceneComponent::Update(float DeltaTime)
 
 		if (Child)
 			Child->Update(DeltaTime);
-	}
+	}*/
 }
 
 void CSceneComponent::PostUpdate(float DeltaTime)
 {
 	UpdateTransform();
 
-	size_t	Size = mChildList.size();
+	/*size_t	Size = mChildList.size();
 
 	for (size_t i = 0; i < Size; ++i)
 	{
@@ -94,7 +94,7 @@ void CSceneComponent::PostUpdate(float DeltaTime)
 
 		if (Child)
 			Child->PostUpdate(DeltaTime);
-	}
+	}*/
 }
 
 void CSceneComponent::Render()

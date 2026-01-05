@@ -24,6 +24,7 @@ bool CMesh::CreateMesh(void* VertexData, int VertexSize, int VertexCount, D3D11_
 	// 버텍스 버퍼를 만든다.
 	mVB.Size = VertexSize;
 	mVB.Count = VertexCount;
+	mPrimitive = Primitive;
 
 	if (!CreateBuffer(&mVB.Buffer, D3D11_BIND_VERTEX_BUFFER, VertexData,
 		VertexSize, VertexCount, VertexUsage))

@@ -72,6 +72,8 @@ struct FVector3
 
 	FVector3 operator - (int Value)	const;
 
+	FVector3 operator - ()	const;
+
 	// -=
 	const FVector3& operator -= (const FVector3& v);
 
@@ -135,6 +137,8 @@ struct FVector3
 #pragma region Function
 
 	float Length()	const;
+
+	bool IsZero()	const;
 
 	void Normalize();
 

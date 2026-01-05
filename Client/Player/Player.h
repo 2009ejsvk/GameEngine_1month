@@ -25,6 +25,8 @@ private:
 	std::weak_ptr<class CCameraComponent>	mCameraComponent;
 	std::weak_ptr<class CStateComponent>	mStateComponent;
 	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent;
+	std::weak_ptr<class CObjectMovementComponent>	mMovement;
+	std::weak_ptr<class CColliderBox2D>	mBody;
 	int		mHP = 10;
 	bool	mAutoIdle = false;
 
