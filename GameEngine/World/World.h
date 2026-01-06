@@ -5,6 +5,7 @@
 #include "CameraManager.h"
 #include "WorldAssetManager.h"
 #include "Input.h"
+#include "WorldCollision.h"
 
 // enable_shared_from_this
 
@@ -16,10 +17,12 @@ public:
 
 protected:
 	std::unordered_multimap<std::string, std::shared_ptr<CGameObject>>	mObjList;
+	std::vector<std::weak_ptr<CGameObject>>	mStartObjList;
 	std::weak_ptr<CWorld>	mSelf;
 	std::shared_ptr<CCameraManager>	mCameraManager;
 	std::shared_ptr<CWorldAssetManager>	mWorldAssetManager;
 	std::shared_ptr<CInput>	mInput;
+	std::shared_ptr<CWorldCollision>	mCollision;
 
 public:
 	std::weak_ptr<CCameraManager> GetCameraManager()	const
@@ -37,6 +40,11 @@ public:
 		return mInput;
 	}
 
+	std::weak_ptr<CWorldCollision> GetCollision()	const
+	{
+		return mCollision;
+	}
+
 public:
 	void SetSelf(std::weak_ptr<CWorld> Self)
 	{
@@ -48,6 +56,9 @@ public:
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);
 	virtual void Render();
+
+private:
+	void Begin();
 
 public:
 	template <typename T>
@@ -68,6 +79,8 @@ public:
 		}
 
 		mObjList.insert(std::make_pair(Name, Obj));
+
+		mStartObjList.push_back(Obj);
 
 		return Obj;
 	}
@@ -101,6 +114,8 @@ public:
 		}
 
 		mObjList.insert(std::make_pair(Name, Obj));
+
+		mStartObjList.push_back(Obj);
 
 		return Obj;
 	}

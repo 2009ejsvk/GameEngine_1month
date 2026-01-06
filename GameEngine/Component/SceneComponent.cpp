@@ -55,6 +55,17 @@ CSceneComponent::~CSceneComponent()
 {
 }
 
+void CSceneComponent::Begin()
+{
+	CComponent::Begin();
+
+	InheritScale();
+
+	InheritRotation();
+
+	InheritPos();
+}
+
 bool CSceneComponent::Init()
 {
 	CComponent::Init();
@@ -134,9 +145,9 @@ void CSceneComponent::AddChild(std::weak_ptr<CSceneComponent> Child)
 		_Child->mParent = std::dynamic_pointer_cast<CSceneComponent>(mSelf.lock());
 		mChildList.push_back(Child);
 
-		_Child->SetRelativeScale(mRelativeScale);
-		_Child->SetRelativeRotation(mRelativeRot);
-		_Child->SetRelativePos(mRelativePos);
+		/*_Child->SetRelativeScale(FVector3(1.f, 1.f, 1.f));
+		_Child->SetRelativeRotation(FVector3::Zero);
+		_Child->SetRelativePos(FVector3::Zero);*/
 	}
 }
 
@@ -698,7 +709,7 @@ void CSceneComponent::InheritWorldRotation()
 		auto	Child = mChildList[i].lock();
 
 		if (Child)
-			Child->InheritWorldRotation();
+			Child->InheritRotation();
 	}
 
 	for (size_t i = 0; i < Size; ++i)

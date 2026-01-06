@@ -41,6 +41,11 @@ public:
 		return mDebugDraw;
 	}
 
+	FCollisionProfile* GetCollisionProfile()	const
+	{
+		return mProfile;
+	}
+
 public:
 	virtual void SetDebugDraw(bool DebugDraw);
 	void SetCollisionProfile(const std::string& Name);
@@ -53,5 +58,9 @@ public:
 
 protected:
 	virtual CCollider* Clone()	const = 0;
+
+public:
+	virtual bool Collision(FVector3& HitPoint,
+		std::shared_ptr<CCollider> Dest) = 0;
 };
 

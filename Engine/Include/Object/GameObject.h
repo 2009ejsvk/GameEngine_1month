@@ -56,6 +56,8 @@ public:
 	void SetName(const std::string& Name);
 
 public:
+	// Begin 함수는 오브젝트가 월드에 배치되고 처음 한번만 호출되는 함수이다.
+	virtual void Begin();
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);

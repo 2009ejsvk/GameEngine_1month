@@ -1,9 +1,11 @@
-#include "MainWorld.h"
+﻿#include "MainWorld.h"
 #include "../Player/Player.h"
+#include "../Player/test.h"
 #include "../Monster/Monster.h"
 #include "../Monster/MonsterSpawnPoint.h"
 #include "Asset/AssetManager.h"
 #include "Asset/Animation2D/Animation2DManager.h"
+#include "CollisionInfoManager.h"
 
 CMainWorld::CMainWorld()
 {
@@ -17,9 +19,49 @@ bool CMainWorld::Init()
 {
 	CWorld::Init();
 
+	CCollisionInfoManager::GetInst()->CreateChannel("PlayerAttack");
+	CCollisionInfoManager::GetInst()->CreateChannel("MonsterAttack");
+
+	CCollisionInfoManager::GetInst()->CreateProfile("PlayerAttack",
+		"PlayerAttack", true);
+	CCollisionInfoManager::GetInst()->CreateProfile("MonsterAttack",
+		"MonsterAttack", true);
+
+	CCollisionInfoManager::GetInst()->SetProfileInteraction(
+		"PlayerAttack", "PlayerAttack", 
+		ECollisionInteraction::Ignore);
+	CCollisionInfoManager::GetInst()->SetProfileInteraction(
+		"PlayerAttack", "Player",
+		ECollisionInteraction::Ignore);
+	CCollisionInfoManager::GetInst()->SetProfileInteraction(
+		"PlayerAttack", "MonsterAttack",
+		ECollisionInteraction::Ignore);
+
+	CCollisionInfoManager::GetInst()->SetProfileInteraction(
+		"MonsterAttack", "Monster",
+		ECollisionInteraction::Ignore);
+	CCollisionInfoManager::GetInst()->SetProfileInteraction(
+		"MonsterAttack", "MonsterAttack",
+		ECollisionInteraction::Ignore);
+
 	LoadAnimation2D();
 
+	std::weak_ptr<Ctest>	test1 = CreateGameObject<Ctest>("test");
+	std::shared_ptr<Ctest>	test1_ = test1.lock();
+	if (test1_)
+	{
+		test1_->SetWorldPos(0.f, 300.f);
+	}
+
+	std::weak_ptr<Ctest>	test2 = CreateGameObject<Ctest>("test");
+	std::shared_ptr<Ctest>	test2_ = test2.lock();
+	if (test2_)
+	{
+		test2_->SetWorldPos(0.f, 200.f);
+	}
+
 	std::weak_ptr<CPlayer>	Player = CreateGameObject<CPlayer>("Player");
+
 
 	std::weak_ptr<CMonster>	Monster1 = CreateGameObject<CMonster>("Monster");
 

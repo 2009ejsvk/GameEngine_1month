@@ -130,6 +130,9 @@
     <Filter Include="07. Collision">
       <UniqueIdentifier>{7514968e-98bd-47d2-af43-cb626588cfba}</UniqueIdentifier>
     </Filter>
+    <Filter Include="02. World\04. Collision">
+      <UniqueIdentifier>{62bca857-cb12-41a8-9f20-4b4cc8f3422a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EngineInfo.h">
@@ -312,6 +315,12 @@
     <ClInclude Include="CollisionInfoManager.h">
       <Filter>07. Collision</Filter>
     </ClInclude>
+    <ClInclude Include="World\WorldCollision.h">
+      <Filter>02. World\04. Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\Collision.h">
+      <Filter>05. Component\01. SceneComponent\03. Collider</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine.cpp">
@@ -478,6 +487,12 @@
     </ClCompile>
     <ClCompile Include="CollisionInfoManager.cpp">
       <Filter>07. Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="World\WorldCollision.cpp">
+      <Filter>02. World\04. Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\Collision.cpp">
+      <Filter>05. Component\01. SceneComponent\03. Collider</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

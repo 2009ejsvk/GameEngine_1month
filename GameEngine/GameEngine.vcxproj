@@ -94,6 +94,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -128,6 +129,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -190,6 +192,7 @@
     <ClInclude Include="Component\CameraComponent.h" />
     <ClInclude Include="Component\Collider.h" />
     <ClInclude Include="Component\ColliderBox2D.h" />
+    <ClInclude Include="Component\Collision.h" />
     <ClInclude Include="Component\Component.h" />
     <ClInclude Include="Component\MeshComponent.h" />
     <ClInclude Include="Component\MovementComponent.h" />
@@ -216,6 +219,7 @@
     <ClInclude Include="World\Input.h" />
     <ClInclude Include="World\World.h" />
     <ClInclude Include="World\WorldAssetManager.h" />
+    <ClInclude Include="World\WorldCollision.h" />
     <ClInclude Include="World\WorldManager.h" />
   </ItemGroup>
   <ItemGroup>
@@ -250,6 +254,7 @@
     <ClCompile Include="Component\CameraComponent.cpp" />
     <ClCompile Include="Component\Collider.cpp" />
     <ClCompile Include="Component\ColliderBox2D.cpp" />
+    <ClCompile Include="Component\Collision.cpp" />
     <ClCompile Include="Component\Component.cpp" />
     <ClCompile Include="Component\MeshComponent.cpp" />
     <ClCompile Include="Component\MovementComponent.cpp" />
@@ -273,6 +278,7 @@
     <ClCompile Include="World\Input.cpp" />
     <ClCompile Include="World\World.cpp" />
     <ClCompile Include="World\WorldAssetManager.cpp" />
+    <ClCompile Include="World\WorldCollision.cpp" />
     <ClCompile Include="World\WorldManager.cpp" />
   </ItemGroup>
   <ItemGroup>

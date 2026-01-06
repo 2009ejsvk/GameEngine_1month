@@ -7,6 +7,7 @@
 #include "../Asset/Mesh/Mesh.h"
 #include "../World/World.h"
 #include "../World/WorldAssetManager.h"
+#include "Collision.h"
 
 CColliderBox2D::CColliderBox2D()
 {
@@ -154,4 +155,21 @@ void CColliderBox2D::PostUpdate(float DeltaTime)
 CColliderBox2D* CColliderBox2D::Clone()	const
 {
 	return new CColliderBox2D(*this);
+}
+
+bool CColliderBox2D::Collision(FVector3& HitPoint, 
+	std::shared_ptr<CCollider> Dest)
+{
+	// 상대방의 충돌체 모양이 무엇이냐에 따라 충돌 알고리즘이 달라진다.
+	switch (Dest->GetColliderType())
+	{
+	case EColliderType::Box2D:
+		// 둘다 회전이 0일 경우 AABB, 아니면 OBB 충돌을 진행한다.
+		return CCollision::CollisionBox2DToBox2D(HitPoint, this,
+			dynamic_cast<CColliderBox2D*>(Dest.get()));
+	case EColliderType::Sphere2D:
+		break;
+	}
+
+	return false;
 }

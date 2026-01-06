@@ -1,5 +1,7 @@
 #include "CollisionInfoManager.h"
 
+CCollisionInfoManager* CCollisionInfoManager::mInst = nullptr;
+
 CCollisionInfoManager::CCollisionInfoManager()
 {
 }
@@ -17,7 +19,7 @@ CCollisionInfoManager::~CCollisionInfoManager()
 	auto	iter1 = mChannelMap.begin();
 	auto	iter1End = mChannelMap.end();
 
-	for (; iter1 != iter1End; ++iter)
+	for (; iter1 != iter1End; ++iter1)
 	{
 		SAFE_DELETE(iter1->second);
 	}

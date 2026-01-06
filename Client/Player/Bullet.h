@@ -19,6 +19,7 @@ public:
 private:
 	std::weak_ptr<class CMeshComponent>	mMeshComponent;
 	std::weak_ptr<class CProjectileMovementComponent>	mMovement;
+	std::weak_ptr<class CColliderBox2D>	mBody;
 	float		mDistance = 600.f;
 	float		mSpeed = 300.f;
 	FVector3	mMoveDir;
@@ -30,6 +31,8 @@ private:
 	bool		mMoveEnable = true;
 
 public:
+	void SetCollisionName(const std::string& Name);
+
 	void SetMoveEnable(bool Enable);
 
 	void SetDistance(float Distance);

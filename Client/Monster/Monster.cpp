@@ -4,6 +4,7 @@
 #include "World/World.h"
 #include "../Component/StateComponent.h"
 #include "Component/Animation2DComponent.h"
+#include "Component/ColliderBox2D.h"
 
 CMonster::CMonster()
 {
@@ -60,6 +61,17 @@ bool CMonster::Init()
 		Mesh->SetMesh("CenterRectTex");
 		Mesh->SetRelativeScale(100.f, 100.f);
 		Mesh->SetBlendState(0, "AlphaBlend");
+	}
+
+	mBody = CreateComponent<CColliderBox2D>("Body");
+	auto	Body = mBody.lock();
+
+	if (Body)
+	{
+		Body->SetCollisionProfile("Monster");
+		Body->SetBoxSize(100.f, 100.f);
+		Body->SetDebugDraw(true);
+		Body->SetInheritScale(false);
 	}
 
 	// Target을 구한다.
@@ -173,6 +185,7 @@ void CMonster::AttackNotify()
 		{
 			FVector3	BulletPos = GetWorldPos() + GetAxis(EAxis::Y) * 75.f;
 
+			BulletObj->SetCollisionName("MonsterAttack");
 			BulletObj->SetWorldPos(BulletPos);
 			BulletObj->SetWorldRotation(GetWorldRot());
 			BulletObj->SetCollisionTargetName("Player");

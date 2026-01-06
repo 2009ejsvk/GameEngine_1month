@@ -4,6 +4,7 @@
 #include "../Asset/Shader/CBufferTransform.h"
 #include "../Asset/Mesh/Mesh.h"
 #include "../World/World.h"
+#include "../World/WorldCollision.h"
 #include "../World/CameraManager.h"
 #include "../Render/RenderManager.h"
 #include "../CollisionInfoManager.h"
@@ -61,6 +62,18 @@ bool CCollider::Init()
 	}
 	
 	mProfile = CCollisionInfoManager::GetInst()->FindProfile("Static");
+
+	auto	World = mWorld.lock();
+
+	if (World)
+	{
+		auto	CollisionMgr = World->GetCollision().lock();
+
+		if (CollisionMgr)
+		{
+			CollisionMgr->AddCollider(std::dynamic_pointer_cast<CCollider>(mSelf.lock()));
+		}
+	}
 
 	return true;
 }

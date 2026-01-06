@@ -22,6 +22,11 @@ CObjectComponent::~CObjectComponent()
 {
 }
 
+void CObjectComponent::Begin()
+{
+	CComponent::Begin();
+}
+
 bool CObjectComponent::Init()
 {
 	CComponent::Init();

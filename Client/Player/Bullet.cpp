@@ -7,6 +7,7 @@
 #include "../Interface/StateInterface.h"
 #include "BulletEffect.h"
 #include "Component/ProjectileMovementComponent.h"
+#include "Component/ColliderBox2D.h"
 
 CBullet::CBullet()
 {
@@ -25,6 +26,16 @@ CBullet::CBullet(CBullet&& ref) noexcept :
 
 CBullet::~CBullet()
 {
+}
+
+void CBullet::SetCollisionName(const std::string& Name)
+{
+	auto	Body = mBody.lock();
+
+	if (Body)
+	{
+		Body->SetCollisionProfile(Name);
+	}
 }
 
 void CBullet::SetMoveEnable(bool Enable)
@@ -127,6 +138,17 @@ bool CBullet::Init()
 		Mesh->SetShader("MaterialColor2D");
 		Mesh->SetMesh("CenterRectColor");
 		Mesh->SetRelativeScale(50.f, 50.f);
+	}
+
+	mBody = CreateComponent<CColliderBox2D>("Body");
+	auto	Body = mBody.lock();
+
+	if (Body)
+	{
+		Body->SetCollisionProfile("PlayerAttack");
+		Body->SetBoxSize(100.f, 100.f);
+		Body->SetDebugDraw(true);
+		Body->SetInheritScale(false);
 	}
 
 	return true;
@@ -249,81 +271,81 @@ void CBullet::PostUpdate(float DeltaTime)
 	CGameObject::PostUpdate(DeltaTime);
 
 	// 충돌 대상을 찾아온다.
-	std::list<std::weak_ptr<CGameObject>>	CollisionList;
+	//std::list<std::weak_ptr<CGameObject>>	CollisionList;
 
-	std::shared_ptr<CWorld>	World = mWorld.lock();
+	//std::shared_ptr<CWorld>	World = mWorld.lock();
 
-	if (World)
-	{
-		World->FindObjectList<CGameObject>(mCollisionTargetName,
-			CollisionList);
-	}
+	//if (World)
+	//{
+	//	World->FindObjectList<CGameObject>(mCollisionTargetName,
+	//		CollisionList);
+	//}
 
-	auto	iter = CollisionList.begin();
-	auto	iterEnd = CollisionList.end();
+	//auto	iter = CollisionList.begin();
+	//auto	iterEnd = CollisionList.end();
 
-	for (; iter != iterEnd; ++iter)
-	{
-		auto	Obj = (*iter).lock();
+	//for (; iter != iterEnd; ++iter)
+	//{
+	//	auto	Obj = (*iter).lock();
 
-		FVector3	Scale = Obj->GetWorldScale();
+	//	FVector3	Scale = Obj->GetWorldScale();
 
-		Scale /= 2.f;
+	//	Scale /= 2.f;
 
-		float Range = sqrtf(Scale.x * Scale.x + Scale.y * Scale.y);
+	//	float Range = sqrtf(Scale.x * Scale.x + Scale.y * Scale.y);
 
-		// 물체 사이의 거리를 구한다.
-		FVector3	SelfPos = GetWorldPos();
-		FVector3	DestPos = Obj->GetWorldPos();
-		FVector3	Dir = DestPos - SelfPos;
-		float Dist = Dir.Length();
+	//	// 물체 사이의 거리를 구한다.
+	//	FVector3	SelfPos = GetWorldPos();
+	//	FVector3	DestPos = Obj->GetWorldPos();
+	//	FVector3	Dir = DestPos - SelfPos;
+	//	float Dist = Dir.Length();
 
-		if (Dist <= mCollisionRange + Range)
-		{
-			std::shared_ptr<CWorld>	World = mWorld.lock();
+	//	if (Dist <= mCollisionRange + Range)
+	//	{
+	//		std::shared_ptr<CWorld>	World = mWorld.lock();
 
-			if (World)
-			{
-				std::weak_ptr<CBulletEffect> Effect = World->CreateGameObject<CBulletEffect>("BulletEffect");
+	//		if (World)
+	//		{
+	//			std::weak_ptr<CBulletEffect> Effect = World->CreateGameObject<CBulletEffect>("BulletEffect");
 
-				auto	_Effect = Effect.lock();
+	//			auto	_Effect = Effect.lock();
 
-				_Effect->SetWorldPos(GetWorldPos());
-			}
+	//			_Effect->SetWorldPos(GetWorldPos());
+	//		}
 
-			// 1. Component를 이용하는 방법
-			std::weak_ptr<CStateComponent>	StatePtr = Obj->FindComponent<CStateComponent>("State");
+	//		// 1. Component를 이용하는 방법
+	//		std::weak_ptr<CStateComponent>	StatePtr = Obj->FindComponent<CStateComponent>("State");
 
-			if (!StatePtr.expired())
-			{
-				auto	State = StatePtr.lock();
+	//		if (!StatePtr.expired())
+	//		{
+	//			auto	State = StatePtr.lock();
 
-				State->AddHP(-1);
-			}
+	//			State->AddHP(-1);
+	//		}
 
-			// 2. GameObject를 이용하는 방법
-			// 충돌 대상이 플레이어일 경우 플레이어의 체력을 감소시킨다.
-			// 플레이어가 아니라 몬스터일 경우 몬스터의 체력을 감소시킨다.
-			/*if (std::dynamic_pointer_cast<CPlayer>(Obj))
-			{
-				std::dynamic_pointer_cast<CPlayer>(Obj)->Damage(1);
-			}
+	//		// 2. GameObject를 이용하는 방법
+	//		// 충돌 대상이 플레이어일 경우 플레이어의 체력을 감소시킨다.
+	//		// 플레이어가 아니라 몬스터일 경우 몬스터의 체력을 감소시킨다.
+	//		/*if (std::dynamic_pointer_cast<CPlayer>(Obj))
+	//		{
+	//			std::dynamic_pointer_cast<CPlayer>(Obj)->Damage(1);
+	//		}
 
-			else
-			{
-				std::dynamic_pointer_cast<CMonster>(Obj)->Damage(1);
-			}*/
+	//		else
+	//		{
+	//			std::dynamic_pointer_cast<CMonster>(Obj)->Damage(1);
+	//		}*/
 
-			// 3. 다중상속을 활용하는 방법
-			/*std::shared_ptr<CStateInterface>	StateInterface =
-				std::dynamic_pointer_cast<CStateInterface>(Obj);
+	//		// 3. 다중상속을 활용하는 방법
+	//		/*std::shared_ptr<CStateInterface>	StateInterface =
+	//			std::dynamic_pointer_cast<CStateInterface>(Obj);
 
-			StateInterface->AddHP(-1);*/
+	//		StateInterface->AddHP(-1);*/
 
 
-			Destroy();
-		}
-	}
+	//		Destroy();
+	//	}
+	//}
 }
 
 CBullet* CBullet::Clone()

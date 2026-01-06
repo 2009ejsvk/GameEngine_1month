@@ -23,6 +23,7 @@ E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderMaterialColor2D.cpp;E:\Direct
 E:\DirectX\UE2025_2D\GameEngine\Asset\Shader\ShaderTexture2D.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\ShaderTexture2D.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\Texture.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Texture.obj
 E:\DirectX\UE2025_2D\GameEngine\Asset\Texture\TextureManager.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\TextureManager.obj
+E:\DirectX\UE2025_2D\GameEngine\CollisionInfoManager.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\CollisionInfoManager.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Animation2DComponent.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\Animation2DSequence.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Animation2DSequence.obj
 E:\DirectX\UE2025_2D\GameEngine\Component\CameraComponent.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\CameraComponent.obj
@@ -51,4 +52,5 @@ E:\DirectX\UE2025_2D\GameEngine\World\CameraManager.cpp;E:\DirectX\UE2025_2D\Obj
 E:\DirectX\UE2025_2D\GameEngine\World\Input.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\Input.obj
 E:\DirectX\UE2025_2D\GameEngine\World\World.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\World.obj
 E:\DirectX\UE2025_2D\GameEngine\World\WorldAssetManager.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\WorldAssetManager.obj
+E:\DirectX\UE2025_2D\GameEngine\World\WorldCollision.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\WorldCollision.obj
 E:\DirectX\UE2025_2D\GameEngine\World\WorldManager.cpp;E:\DirectX\UE2025_2D\Obj\GameEngine\WorldManager.obj

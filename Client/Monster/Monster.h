@@ -22,9 +22,10 @@ private:
 	std::weak_ptr<class CMeshComponent>	mMeshComponent;
 	std::weak_ptr<class CStateComponent>	mStateComponent;
 	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent;
+	std::weak_ptr<class CColliderBox2D>	mBody;
 	float	mFireTime = 0.f;
 	std::weak_ptr<CGameObject>	mTargetObject;
-	float	mDetectRange = 400.f;
+	float	mDetectRange = 600.f;
 	int		mHP = 10;
 
 public:

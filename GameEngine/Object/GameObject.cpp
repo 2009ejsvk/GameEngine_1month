@@ -1,4 +1,4 @@
-#include "GameObject.h"
+﻿#include "GameObject.h"
 
 CGameObject::CGameObject()
 {
@@ -93,6 +93,25 @@ void CGameObject::SetName(const std::string& Name)
 	mName = Name;
 }
 
+
+void CGameObject::Begin()
+{
+	auto	iter1 = mSceneComponentList.begin();
+	auto	iter1End = mSceneComponentList.end();
+
+	for (; iter1 != iter1End; ++iter1)
+	{
+		(*iter1)->Begin();
+	}
+
+	auto	iter = mObjectComponentList.begin();
+	auto	iterEnd = mObjectComponentList.end();
+
+	for (; iter != iterEnd; ++iter)
+	{
+		(*iter)->Begin();
+	}
+}
 
 bool CGameObject::Init()
 {

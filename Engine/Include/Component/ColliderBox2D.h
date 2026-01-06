@@ -46,5 +46,9 @@ public:
 
 protected:
 	virtual CColliderBox2D* Clone()	const;
+
+public:
+	virtual bool Collision(FVector3& HitPoint,
+		std::shared_ptr<CCollider> Dest);
 };
 

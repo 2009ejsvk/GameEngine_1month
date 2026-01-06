@@ -35,6 +35,10 @@ void CComponent::SetOwner(std::weak_ptr<CGameObject> Owner)
 	mOwner = Owner;
 }
 
+void CComponent::Begin()
+{
+}
+
 bool CComponent::Init()
 {
 	return true;
