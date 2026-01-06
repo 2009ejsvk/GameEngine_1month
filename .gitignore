@@ -62,3 +62,9 @@ Obj/
 
 *.cso
 *.txt
+
+# --- SVN(Subversion) 관련 파일 차단 ---
+.svn/                  # SVN 데이터 폴더
+*.mine                 # 충돌 시 생성되는 내 수정본
+*.r[0-9]* # r44, r45 같은 리비전 번호가 붙은 파일들
+*.svn-base             # SVN 베이스 파일
