@@ -55,3 +55,7 @@ Thumbs.db
 desktop.ini
 *.log
 *.tmp
+
+Obj/
+*.mine
+*.r[0-9]*
