@@ -1,4 +1,4 @@
-#include "CollisionInfoManager.h"
+﻿#include "CollisionInfoManager.h"
 
 CCollisionInfoManager* CCollisionInfoManager::mInst = nullptr;
 
