@@ -176,3 +176,9 @@ struct FCollisionProfile
 	bool			Enable = true;
 	ECollisionInteraction::Type	Interaction[ECollisionChannel::End] = {};
 };
+
+struct FSphere2DInfo
+{
+	FVector3	Center;
+	float		Radius = 0.f;
+};

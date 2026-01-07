@@ -45,6 +45,53 @@ bool CMeshManager::Init()
 		D3D11_USAGE_IMMUTABLE))
 		return false;
 
+	FVector3	LBFrameRect[4] =
+	{
+		FVector3(0.f, 1.f, 0.f),
+		FVector3(1.f, 1.f, 0.f),
+		FVector3(0.f, 0.f, 0.f),
+		FVector3(1.f, 0.f, 0.f)
+	};
+
+	unsigned short	LBFrameRectIdx[5] = { 0, 1, 3, 2, 0 };
+
+	if (!CreateMesh("Mesh_LBFrameRect", LBFrameRect, sizeof(FVector3),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP,
+		LBFrameRectIdx, 2, 5, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
+	// FrameSphere2D 생성
+	std::vector<FVector3>	FrameSphere2D;
+
+	for (int i = 0; i < 360; i += 12)
+	{
+		FVector3	Pos;
+		Pos.x = cosf(DirectX::XMConvertToRadians((float)i));
+		Pos.y = sinf(DirectX::XMConvertToRadians((float)i));
+
+		FrameSphere2D.push_back(Pos);
+	}
+
+	std::vector<unsigned short>	FrameSphere2DIdx;
+
+	size_t	PosCount = FrameSphere2D.size();
+
+	for (size_t i = 0; i < PosCount; ++i)
+	{
+		FrameSphere2DIdx.push_back((unsigned short)i);
+	}
+
+	FrameSphere2DIdx.push_back(0);
+
+	if (!CreateMesh("Mesh_FrameSphere2D", &FrameSphere2D[0],
+		sizeof(FVector3),
+		(int)PosCount, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP,
+		&FrameSphere2DIdx[0], 2, (int)FrameSphere2DIdx.size(),
+		DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
 
 	// TextureMesh 사각형 생성
 	FVertexTex	CenterRectTexture[4] =

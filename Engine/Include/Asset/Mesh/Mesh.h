@@ -66,8 +66,26 @@ protected:
 	std::vector<std::shared_ptr<FMeshSlot>>	mMeshSlot;
 	D3D11_PRIMITIVE_TOPOLOGY	mPrimitive =
 		D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	FVector3	mMin = FVector3(FLT_MAX, FLT_MAX, FLT_MAX);
+	FVector3	mMax = FVector3(FLT_MIN, FLT_MIN, FLT_MIN);
+	FVector3	mMeshSize;
 
 public:
+	const FVector3& GetMin()	const
+	{
+		return mMin;
+	}
+
+	const FVector3& GetMax()	const
+	{
+		return mMax;
+	}
+
+	const FVector3& GetMeshSize()	const
+	{
+		return mMeshSize;
+	}
+
 	size_t GetMeshSlotCount()	const
 	{
 		return mMeshSlot.size();

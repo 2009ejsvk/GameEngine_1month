@@ -302,6 +302,10 @@ void CMeshComponent::Render()
 	mTransformCBuffer->SetViewMatrix(ViewMat);
 	mTransformCBuffer->SetProjMatrix(ProjMat);
 
+	FVector3	PivotSize = mPivot * Mesh->GetMeshSize();
+
+	mTransformCBuffer->SetPivotSize(PivotSize);
+
 	mTransformCBuffer->UpdateBuffer();
 
 	Shader->SetShader();

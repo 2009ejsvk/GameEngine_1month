@@ -17,6 +17,7 @@ CMesh::~CMesh()
 	}*/
 }
 
+// 위치|색상   위치|UV
 bool CMesh::CreateMesh(void* VertexData, int VertexSize, int VertexCount, D3D11_USAGE VertexUsage, D3D11_PRIMITIVE_TOPOLOGY Primitive,
 	void* IndexData, int IndexSize, int IndexCount, DXGI_FORMAT Fmt, 
 	D3D11_USAGE IndexUsage)
@@ -26,9 +27,39 @@ bool CMesh::CreateMesh(void* VertexData, int VertexSize, int VertexCount, D3D11_
 	mVB.Count = VertexCount;
 	mPrimitive = Primitive;
 
-	if (!CreateBuffer(&mVB.Buffer, D3D11_BIND_VERTEX_BUFFER, VertexData,
+	if (!CreateBuffer(&mVB.Buffer, D3D11_BIND_VERTEX_BUFFER, 
+		VertexData,
 		VertexSize, VertexCount, VertexUsage))
 		return false;
+
+	char* Vertices = (char*)VertexData;
+
+	for (int i = 0; i < VertexCount; ++i)
+	{
+		FVector3	Pos = *((FVector3*)Vertices);
+
+		if (mMin.x > Pos.x)
+			mMin.x = Pos.x;
+
+		if (mMin.y > Pos.y)
+			mMin.y = Pos.y;
+
+		if (mMin.z > Pos.z)
+			mMin.z = Pos.z;
+
+		if (mMax.x < Pos.x)
+			mMax.x = Pos.x;
+
+		if (mMax.y < Pos.y)
+			mMax.y = Pos.y;
+
+		if (mMax.z < Pos.z)
+			mMax.z = Pos.z;
+
+		Vertices += VertexSize;
+	}
+
+	mMeshSize = mMax - mMin;
 
 	// 인덱스 데이터가 있다면 인덱스 버퍼도 만들어준다.
 	if (IndexData)

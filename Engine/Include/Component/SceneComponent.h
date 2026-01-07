@@ -61,6 +61,8 @@ protected:
 	bool		mInheritScale = true;
 	bool		mInheritRot = true;
 
+	FVector3	mPivot;
+
 	FVector3	mRelativeScale = FVector3::One;
 	FVector3	mRelativeRot;
 	FVector3	mRelativePos;
@@ -87,6 +89,11 @@ public:
 	void UpdateTransform();
 
 public:
+	const FVector3& GetPivot()	const
+	{
+		return mPivot;
+	}
+
 	const FVector3& GetVelocity()	const
 	{
 		return mVelocity;
@@ -135,6 +142,21 @@ public:
 public:
 	void SetInheritScale(bool Scale);
 	void SetInheritRot(bool Rot);
+
+	void SetPivot(const FVector3& Pivot)
+	{
+		mPivot = Pivot;
+	}
+
+	void SetPivot(float x, float y, float z)
+	{
+		mPivot = FVector3(x, y, z);
+	}
+
+	void SetPivot(float x, float y)
+	{
+		mPivot = FVector3(x, y, 0.f);
+	}
 
 	void SetRelativeScale(const FVector3& Scale);
 	void SetRelativeScale(const FVector2& Scale);

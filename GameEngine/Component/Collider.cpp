@@ -147,6 +147,8 @@ void CCollider::Render()
 			}
 		}
 
+		auto	Mesh = mMesh.lock();
+
 		FMatrix	ScaleMatrix, RotMatrix, TranslateMatrix, WorldMatrix;
 
 		ScaleMatrix.Scaling(mRenderScale);
@@ -158,6 +160,10 @@ void CCollider::Render()
 		mTransformCBuffer->SetWorldMatrix(WorldMatrix);
 		mTransformCBuffer->SetViewMatrix(ViewMat);
 		mTransformCBuffer->SetProjMatrix(ProjMat);
+
+		FVector3	PivotSize = mPivot * Mesh->GetMeshSize();
+
+		mTransformCBuffer->SetPivotSize(mPivot);
 
 		mTransformCBuffer->UpdateBuffer();
 
@@ -172,8 +178,6 @@ void CCollider::Render()
 		auto	Shader = mShader.lock();
 
 		Shader->SetShader();
-
-		auto	Mesh = mMesh.lock();
 
 		Mesh->Render();
 	}

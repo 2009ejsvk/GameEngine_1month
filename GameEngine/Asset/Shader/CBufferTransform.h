@@ -34,5 +34,10 @@ public:
 	{
 		mData.Proj = Proj;
 	}
+
+	void SetPivotSize(const FVector3& PivotSize)
+	{
+		mData.PivotSize = PivotSize;
+	}
 };
 

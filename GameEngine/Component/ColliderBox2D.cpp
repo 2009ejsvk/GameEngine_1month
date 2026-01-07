@@ -8,6 +8,7 @@
 #include "../World/World.h"
 #include "../World/WorldAssetManager.h"
 #include "Collision.h"
+#include "ColliderSphere2D.h"
 
 CColliderBox2D::CColliderBox2D()
 {
