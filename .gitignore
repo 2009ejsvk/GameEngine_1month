@@ -68,3 +68,4 @@ Obj/
 *.mine
 *.r[0-9]*
 *.svn-base
+/.vs

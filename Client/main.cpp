@@ -9,6 +9,7 @@
 #include "Monster/Monster.h"
 #include "Monster/MonsterSpawnPoint.h"
 #include "Component/StateComponent.h"
+#include "GlobalSetting.h"
 
 #ifdef _DEBUG
 // 라이브러리 링크를 걸어준다.
@@ -27,6 +28,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_ LPWSTR    lpCmdLine,
     _In_ int       nCmdShow)
 {
+    CEngine::GetInst()->CreateEngineSetting<CGlobalSetting>();
+
     if (!CEngine::GetInst()->Init(hInstance, TEXT("GameClient"), IDI_ICON1, IDI_ICON1,
         1280, 720, true))
     {

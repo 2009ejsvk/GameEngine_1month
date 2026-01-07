@@ -22,6 +22,8 @@ CEngine::CEngine()
 {
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     //_CrtSetBreakAlloc(151);
+
+    mSetting.reset(new CEngineSetting);
 }
 
 CEngine::~CEngine()
@@ -72,6 +74,8 @@ bool CEngine::Init(HINSTANCE hInst, const TCHAR* WindowName, int IconID,
         return false;
 
     CMeshComponent::CreateEmptyAnimCBuffer();
+
+    mSetting->Init();
 
     // 월드 관리자 초기화
     if (!CWorldManager::GetInst()->Init())

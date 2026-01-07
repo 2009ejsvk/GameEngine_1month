@@ -4,7 +4,6 @@
 #include "../Monster/MonsterSpawnPoint.h"
 #include "Asset/AssetManager.h"
 #include "Asset/Animation2D/Animation2DManager.h"
-#include "CollisionInfoManager.h"
 
 CMainWorld::CMainWorld()
 {
@@ -17,31 +16,6 @@ CMainWorld::~CMainWorld()
 bool CMainWorld::Init()
 {
 	CWorld::Init();
-
-	CCollisionInfoManager::GetInst()->CreateChannel("PlayerAttack");
-	CCollisionInfoManager::GetInst()->CreateChannel("MonsterAttack");
-
-	CCollisionInfoManager::GetInst()->CreateProfile("PlayerAttack",
-		"PlayerAttack", true);
-	CCollisionInfoManager::GetInst()->CreateProfile("MonsterAttack",
-		"MonsterAttack", true);
-
-	CCollisionInfoManager::GetInst()->SetProfileInteraction(
-		"PlayerAttack", "PlayerAttack", 
-		ECollisionInteraction::Ignore);
-	CCollisionInfoManager::GetInst()->SetProfileInteraction(
-		"PlayerAttack", "Player",
-		ECollisionInteraction::Ignore);
-	CCollisionInfoManager::GetInst()->SetProfileInteraction(
-		"PlayerAttack", "MonsterAttack",
-		ECollisionInteraction::Ignore);
-
-	CCollisionInfoManager::GetInst()->SetProfileInteraction(
-		"MonsterAttack", "Monster",
-		ECollisionInteraction::Ignore);
-	CCollisionInfoManager::GetInst()->SetProfileInteraction(
-		"MonsterAttack", "MonsterAttack",
-		ECollisionInteraction::Ignore);
 
 	LoadAnimation2D();
 

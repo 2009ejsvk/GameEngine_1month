@@ -2,6 +2,7 @@
 
 #include "EngineInfo.h"
 #include "Object.h"
+#include "EngineSetting.h"
 
 class CEngine
 {
@@ -12,6 +13,7 @@ private:
 private:
 	HINSTANCE	mhInst;
 	HWND		mhWnd;
+	std::shared_ptr<CEngineSetting>	mSetting;
 
 	static bool	mLoop;
 
@@ -58,6 +60,15 @@ public:
 	bool Create(const TCHAR* WindowName, int Width, int Height);
 
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+public:
+	template <typename T>
+	std::weak_ptr<T> CreateEngineSetting()
+	{
+		mSetting.reset(new T);
+
+		return std::dynamic_pointer_cast<T>(mSetting);
+	}
 
 private:
 	static CEngine* mInst;
