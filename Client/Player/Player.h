@@ -27,6 +27,8 @@ private:
 	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent;
 	std::weak_ptr<class CObjectMovementComponent>	mMovement;
 	std::weak_ptr<class CColliderBox2D>	mBody;
+	std::weak_ptr<class CColliderSphere2D>	mSphere2D;
+	std::weak_ptr<class CColliderLine2D>	mLine2D;
 	int		mHP = 10;
 	bool	mAutoIdle = false;
 

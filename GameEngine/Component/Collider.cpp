@@ -151,9 +151,11 @@ void CCollider::Render()
 
 		FMatrix	ScaleMatrix, RotMatrix, TranslateMatrix, WorldMatrix;
 
+		FVector3	RenderPos = mWorldPos + mOffset;
+
 		ScaleMatrix.Scaling(mRenderScale);
 		RotMatrix.Rotation(mWorldRot);
-		TranslateMatrix.Translation(mWorldPos);
+		TranslateMatrix.Translation(RenderPos);
 
 		WorldMatrix = ScaleMatrix * RotMatrix * TranslateMatrix;
 
@@ -163,7 +165,7 @@ void CCollider::Render()
 
 		FVector3	PivotSize = mPivot * Mesh->GetMeshSize();
 
-		mTransformCBuffer->SetPivotSize(mPivot);
+		mTransformCBuffer->SetPivotSize(PivotSize);
 
 		mTransformCBuffer->UpdateBuffer();
 

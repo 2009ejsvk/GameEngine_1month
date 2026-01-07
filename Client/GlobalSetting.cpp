@@ -36,5 +36,13 @@ bool CGlobalSetting::Init()
 		"MonsterAttack", "MonsterAttack",
 		ECollisionInteraction::Ignore);
 
+	CCollisionInfoManager::GetInst()->SetProfileInteraction(
+		"Player", "Player",
+		ECollisionInteraction::Ignore);
+
+	CCollisionInfoManager::GetInst()->SetProfileInteraction(
+		"Monster", "Monster",
+		ECollisionInteraction::Ignore);
+
 	return true;
 }

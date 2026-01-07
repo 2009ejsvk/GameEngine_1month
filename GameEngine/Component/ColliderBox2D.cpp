@@ -9,6 +9,7 @@
 #include "../World/WorldAssetManager.h"
 #include "Collision.h"
 #include "ColliderSphere2D.h"
+#include "ColliderLine2D.h"
 
 CColliderBox2D::CColliderBox2D()
 {
@@ -169,6 +170,9 @@ bool CColliderBox2D::Collision(FVector3& HitPoint,
 		return CCollision::CollisionBox2DToBox2D(HitPoint, this,
 			dynamic_cast<CColliderBox2D*>(Dest.get()));
 	case EColliderType::Sphere2D:
+		return CCollision::CollisionBox2DToSphere2D(HitPoint,
+			this, dynamic_cast<CColliderSphere2D*>(Dest.get()));
+	case EColliderType::Line2D:
 		break;
 	}
 

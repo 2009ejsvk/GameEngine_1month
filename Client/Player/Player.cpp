@@ -11,6 +11,8 @@
 #include "Timer.h"
 #include "Component/ObjectMovementComponent.h"
 #include "Component/ColliderBox2D.h"
+#include "Component/ColliderSphere2D.h"
+#include "Component/ColliderLine2D.h"
 
 CPlayer::CPlayer()
 {
@@ -86,10 +88,11 @@ bool CPlayer::Init()
 	if (Mesh)
 	{
 		Mesh->SetShader("DefaultTexture2D");
-		Mesh->SetMesh("CenterRectTex");
+		Mesh->SetMesh("RectTex");
 		Mesh->SetWorldScale(100.f, 100.f);
 		Mesh->SetMaterialBaseColor(0, 255, 0, 0, 0);
 		Mesh->SetBlendState(0, "AlphaBlend");
+		Mesh->SetPivot(0.5f, 0.f);
 	}
 
 	mBody = CreateComponent<CColliderBox2D>("Body");
@@ -101,6 +104,32 @@ bool CPlayer::Init()
 		Body->SetBoxSize(100.f, 100.f);
 		Body->SetDebugDraw(true);
 		Body->SetInheritScale(false);
+		Body->SetCenterOffset(0.f, 50.f, 0.f);
+	}
+
+	mSphere2D = CreateComponent<CColliderSphere2D>("Sphere2D");
+	auto	Sphere2D = mSphere2D.lock();
+
+	if (Sphere2D)
+	{
+		Sphere2D->SetCollisionProfile("Player");
+		Sphere2D->SetRadius(sqrtf(20000.f) * 0.5f);
+		Sphere2D->SetDebugDraw(true);
+		Sphere2D->SetInheritScale(false);
+		Sphere2D->SetCenterOffset(0.f, 50.f, 0.f);
+	}
+
+	mLine2D = CreateComponent<CColliderLine2D>("Line2D");
+	auto	Line2D = mLine2D.lock();
+
+	if (Sphere2D)
+	{
+		Line2D->SetCollisionProfile("Player");
+		//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
+		Line2D->SetLineDistance(200.f);
+		Line2D->SetDebugDraw(true);
+		Line2D->SetInheritScale(false);
+		Line2D->SetCenterOffset(0.f, 100.f, 0.f);
 	}
 
 	auto	RotCom = mRot.lock();

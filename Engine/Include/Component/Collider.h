@@ -25,6 +25,9 @@ protected:
 	bool			mCollision = false;
 	FCollisionProfile* mProfile = nullptr;
 
+	// 충돌체 위치로부터 얼마나 떨어져서 Center를 만들어줄지에 대한 값.
+	FVector3			mOffset;
+
 	// 이 충돌체와 부딪친 충돌체는 서로 떨어지기 전까지
 	// 이 맵에 보관해둔다.
 	std::unordered_map<CCollider*, std::weak_ptr<CCollider>>	mCollisionObjectMap;
@@ -60,6 +63,16 @@ public:
 public:
 	virtual void SetDebugDraw(bool DebugDraw);
 	void SetCollisionProfile(const std::string& Name);
+
+	void SetCenterOffset(const FVector3& Offset)
+	{
+		mOffset = Offset;
+	}
+
+	void SetCenterOffset(float x, float y, float z)
+	{
+		mOffset = FVector3(x, y, z);
+	}
 
 public:
 	virtual bool Init();

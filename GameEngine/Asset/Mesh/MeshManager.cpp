@@ -109,6 +109,21 @@ bool CMeshManager::Init()
 		D3D11_USAGE_IMMUTABLE))
 		return false;
 
+	FVertexTex	RectTexture[4] =
+	{
+		FVertexTex(0.f, 1.f, 0.f, 0.f, 0.f),
+		FVertexTex(1.f, 1.f, 0.f, 1.f, 0.f),
+		FVertexTex(0.f, 0.f, 0.f, 0.f, 1.f),
+		FVertexTex(1.f, 0.f, 0.f, 1.f, 1.f)
+	};
+
+	if (!CreateMesh("Mesh_RectTex", RectTexture,
+		sizeof(FVertexTex),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+		CenterRectColorIdx, 2, 6, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
 	FVertexColor	CenterCubeColor[8] =
 	{
 		FVertexColor(-0.5f, 0.5f, -0.5f, 1.f, 0.f, 0.f, 1.f),
@@ -130,6 +145,28 @@ bool CMeshManager::Init()
 		8, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
 		CenterCubeColorIdx, 2, 36, DXGI_FORMAT_R16_UINT,
 		D3D11_USAGE_IMMUTABLE))
+		return false;
+
+	FVector3	LineUp[2] =
+	{
+		FVector3(0.f, 0.f, 0.f),
+		FVector3(0.f, 1.f, 0.f)
+	};
+
+	if (!CreateMesh("Mesh_LineUP2D", LineUp,
+		sizeof(FVector3),
+		2, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP))
+		return false;
+
+	FVector3	LineRight[2] =
+	{
+		FVector3(0.f, 0.f, 0.f),
+		FVector3(1.f, 0.f, 0.f)
+	};
+
+	if (!CreateMesh("Mesh_LineRight2D", LineRight,
+		sizeof(FVector3),
+		2, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP))
 		return false;
 
 	return true;

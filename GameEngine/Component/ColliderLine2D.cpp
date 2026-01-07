@@ -1,4 +1,4 @@
-#include "ColliderSphere2D.h"
+#include "ColliderLine2D.h"
 #include "../Asset/AssetManager.h"
 #include "../Asset/Shader/ShaderManager.h"
 #include "../Asset/Shader/Shader.h"
@@ -9,30 +9,30 @@
 #include "../World/WorldAssetManager.h"
 #include "Collision.h"
 #include "ColliderBox2D.h"
-#include "ColliderLine2D.h"
+#include "ColliderSphere2D.h"
 
-CColliderSphere2D::CColliderSphere2D()
+CColliderLine2D::CColliderLine2D()
 {
-	mColliderType = EColliderType::Sphere2D;
+	mColliderType = EColliderType::Line2D;
 }
 
-CColliderSphere2D::CColliderSphere2D(const CColliderSphere2D& ref) :
+CColliderLine2D::CColliderLine2D(const CColliderLine2D& ref) :
 	CCollider(ref)
 {
-	mColliderType = EColliderType::Sphere2D;
+	mColliderType = EColliderType::Line2D;
 }
 
-CColliderSphere2D::CColliderSphere2D(CColliderSphere2D&& ref) noexcept :
+CColliderLine2D::CColliderLine2D(CColliderLine2D&& ref) noexcept :
 	CCollider(std::move(ref))
 {
-	mColliderType = EColliderType::Sphere2D;
+	mColliderType = EColliderType::Line2D;
 }
 
-CColliderSphere2D::~CColliderSphere2D()
+CColliderLine2D::~CColliderLine2D()
 {
 }
 
-void CColliderSphere2D::SetDebugDraw(bool DebugDraw)
+void CColliderLine2D::SetDebugDraw(bool DebugDraw)
 {
 	CCollider::SetDebugDraw(DebugDraw);
 
@@ -51,7 +51,7 @@ void CColliderSphere2D::SetDebugDraw(bool DebugDraw)
 		{
 			auto	AssetMgr = World->GetWorldAssetManager().lock();
 
-			mMesh = AssetMgr->FindMesh("FrameSphere2D");
+			mMesh = AssetMgr->FindMesh("LineUP2D");
 		}
 
 		else
@@ -61,7 +61,7 @@ void CColliderSphere2D::SetDebugDraw(bool DebugDraw)
 
 			std::shared_ptr<CMeshManager>   MeshMgr = Weak_MeshMgr.lock();
 
-			mMesh = MeshMgr->FindMesh("Mesh_FrameSphere2D");
+			mMesh = MeshMgr->FindMesh("Mesh_LineUP2D");
 		}
 
 		mColliderCBuffer.reset(new CCBufferCollider);
@@ -70,7 +70,7 @@ void CColliderSphere2D::SetDebugDraw(bool DebugDraw)
 	}
 }
 
-bool CColliderSphere2D::Init()
+bool CColliderLine2D::Init()
 {
 	CCollider::Init();
 
@@ -89,7 +89,7 @@ bool CColliderSphere2D::Init()
 		{
 			auto	AssetMgr = World->GetWorldAssetManager().lock();
 
-			mMesh = AssetMgr->FindMesh("FrameSphere2D");
+			mMesh = AssetMgr->FindMesh("LineUP2D");
 		}
 
 		else
@@ -99,7 +99,7 @@ bool CColliderSphere2D::Init()
 
 			std::shared_ptr<CMeshManager>   MeshMgr = Weak_MeshMgr.lock();
 
-			mMesh = MeshMgr->FindMesh("Mesh_FrameSphere2D");
+			mMesh = MeshMgr->FindMesh("Mesh_LineUP2D");
 		}
 
 		mColliderCBuffer.reset(new CCBufferCollider);
@@ -110,42 +110,46 @@ bool CColliderSphere2D::Init()
 	return true;
 }
 
-void CColliderSphere2D::Update(float DeltaTime)
+void CColliderLine2D::Update(float DeltaTime)
 {
 	CCollider::Update(DeltaTime);
 }
 
-void CColliderSphere2D::PostUpdate(float DeltaTime)
+void CColliderLine2D::PostUpdate(float DeltaTime)
 {
 	CCollider::PostUpdate(DeltaTime);
 
-	mInfo.Center = mWorldPos + mOffset;
+	mInfo.Start = mWorldPos + mOffset;
+	mInfo.End = mInfo.Start + mLineDir * mDistance;
 
-	mRenderScale.x = mWorldScale.x * mInfo.Radius;
-	mRenderScale.y = mWorldScale.y * mInfo.Radius;
+	mRenderScale.x = 1.f;
+	mRenderScale.y = mDistance;
 	mRenderScale.z = 1.f;
 }
 
-CColliderSphere2D* CColliderSphere2D::Clone()	const
+CColliderLine2D* CColliderLine2D::Clone()	const
 {
-	return new CColliderSphere2D(*this);
+	return new CColliderLine2D(*this);
 }
 
-bool CColliderSphere2D::Collision(FVector3& HitPoint,
+bool CColliderLine2D::Collision(FVector3& HitPoint,
 	std::shared_ptr<CCollider> Dest)
 {
 	// 상대방의 충돌체 모양이 무엇이냐에 따라 충돌 알고리즘이 달라진다.
 	switch (Dest->GetColliderType())
 	{
 	case EColliderType::Box2D:
-		return CCollision::CollisionBox2DToSphere2D(HitPoint, 
-			dynamic_cast<CColliderBox2D*>(Dest.get()), this);
+		/*return CCollision::CollisionBox2DToSphere2D(HitPoint,
+			dynamic_cast<CColliderBox2D*>(Dest.get()), this);*/
+		break;
 	case EColliderType::Sphere2D:
-		return CCollision::CollisionSphere2DToSphere2D(HitPoint, this,
-			dynamic_cast<CColliderSphere2D*>(Dest.get()));
+		/*return CCollision::CollisionSphere2DToSphere2D(HitPoint, this,
+			dynamic_cast<CColliderLine2D*>(Dest.get()));*/
+		break;
 	case EColliderType::Line2D:
 		break;
 	}
 
 	return false;
 }
+

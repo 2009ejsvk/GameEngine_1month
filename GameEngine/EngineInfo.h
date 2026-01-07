@@ -97,7 +97,8 @@ enum class EAssetType
 enum class EColliderType
 {
 	Box2D,
-	Sphere2D
+	Sphere2D,
+	Line2D
 };
 
 struct FBox2DInfo
@@ -181,4 +182,10 @@ struct FSphere2DInfo
 {
 	FVector3	Center;
 	float		Radius = 0.f;
+};
+
+struct FLine2DInfo
+{
+	FVector3	Start;
+	FVector3	End;
 };

@@ -64,14 +64,15 @@ bool CMonster::Init()
 		Mesh->SetBlendState(0, "AlphaBlend");
 	}
 
-	mBody = CreateComponent<CColliderSphere2D>("Body");
+	mBody = CreateComponent<CColliderBox2D>("Body");
+	//mBody = CreateComponent<CColliderSphere2D>("Body");
 	auto	Body = mBody.lock();
 
 	if (Body)
 	{
 		Body->SetCollisionProfile("Monster");
-		//Body->SetBoxSize(100.f, 100.f);
-		Body->SetRadius(sqrtf(100.f * 100.f + 100.f * 100.f) * 0.5f);
+		Body->SetBoxSize(100.f, 100.f);
+		//Body->SetRadius(sqrtf(100.f * 100.f + 100.f * 100.f) * 0.5f);
 		Body->SetDebugDraw(true);
 		Body->SetInheritScale(false);
 	}

@@ -19,9 +19,6 @@ public:
 protected:
 	FSphere2DInfo		mInfo;
 
-	// 충돌체 위치로부터 얼마나 떨어져서 Center를 만들어줄지에 대한 값.
-	FVector3			mOffset;
-
 public:
 	const FSphere2DInfo& GetInfo()	const
 	{
@@ -29,16 +26,6 @@ public:
 	}
 
 public:
-	void SetCenterOffset(const FVector3& Offset)
-	{
-		mOffset = Offset;
-	}
-
-	void SetCenterOffset(float x, float y, float z)
-	{
-		mOffset = FVector3(x, y, z);
-	}
-
 	void SetRadius(float Radius)
 	{
 		mInfo.Radius = Radius;
