@@ -34,9 +34,7 @@ out/                   # CMake 등 빌드 출력
 *.aps
 
 # --- 사용자 설정 파일 (개인마다 다름) ---
-*.user
 *.suo
-*.filters
 *.userosscache
 *.sln.docstates
 
