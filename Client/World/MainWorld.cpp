@@ -31,7 +31,7 @@ bool CMainWorld::Init()
 		Monster->SetWorldRotationZ(180.f);
 	}
 
-	Monster1 = CreateGameObject<CMonster>("Monster");
+	/*Monster1 = CreateGameObject<CMonster>("Monster");
 
 	Monster = Monster1.lock();
 
@@ -51,7 +51,7 @@ bool CMainWorld::Init()
 		Point->SetWorldRotationZ(20.f);
 		Point->SetSpawnClass<CMonster>();
 		Point->SetSpawnTime(5.f);
-	}
+	}*/
 
 	return true;
 }

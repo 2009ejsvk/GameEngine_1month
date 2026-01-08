@@ -1,4 +1,4 @@
-#include "Player.h"
+﻿#include "Player.h"
 #include "Component/MeshComponent.h"
 #include "Component/CameraComponent.h"
 #include "Bullet.h"
@@ -104,7 +104,7 @@ bool CPlayer::Init()
 		Body->SetBoxSize(100.f, 100.f);
 		Body->SetDebugDraw(true);
 		Body->SetInheritScale(false);
-		Body->SetCenterOffset(0.f, 50.f, 0.f);
+		Body->SetRelativePos(0.f, 50.f);
 	}
 
 	mSphere2D = CreateComponent<CColliderSphere2D>("Sphere2D");
@@ -116,20 +116,43 @@ bool CPlayer::Init()
 		Sphere2D->SetRadius(sqrtf(20000.f) * 0.5f);
 		Sphere2D->SetDebugDraw(true);
 		Sphere2D->SetInheritScale(false);
-		Sphere2D->SetCenterOffset(0.f, 50.f, 0.f);
+		Sphere2D->SetRelativePos(0.f, 50.f);
 	}
 
 	mLine2D = CreateComponent<CColliderLine2D>("Line2D");
 	auto	Line2D = mLine2D.lock();
 
-	if (Sphere2D)
+	if (Line2D)
 	{
 		Line2D->SetCollisionProfile("Player");
 		//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
 		Line2D->SetLineDistance(200.f);
 		Line2D->SetDebugDraw(true);
 		Line2D->SetInheritScale(false);
-		Line2D->SetCenterOffset(0.f, 100.f, 0.f);
+		Line2D->SetRelativePos(0.f, 100.f);
+		//Line2D->SetInheritRot(false); // Player의 회전을 상속받지 않도록 설정
+
+		// ✅ 추가: 회전으로 대각선 만들기
+		Line2D->SetRelativeRotationZ(45.f);  // Z축 기준 45도 회전
+
+	}
+
+	mLine2D_ = CreateComponent<CColliderLine2D>("Line2D");
+	auto	Line2D_ = mLine2D_.lock();
+	
+	if (Line2D_)
+	{
+		Line2D_->SetCollisionProfile("Player");
+		//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
+		Line2D_->SetLineDistance(200.f);
+		Line2D_->SetDebugDraw(true);
+		Line2D_->SetInheritScale(false);
+		Line2D_->SetRelativePos(0.f, 100.f);
+		//Line2D->SetInheritRot(false); // Player의 회전을 상속받지 않도록 설정
+
+		// ✅ 추가: 회전으로 대각선 만들기
+		Line2D_->SetRelativeRotationZ(90.f);  // Z축 기준 45도 회전
+
 	}
 
 	auto	RotCom = mRot.lock();
@@ -418,8 +441,9 @@ void CPlayer::MoveLeft()
 	auto	Mesh = mMeshComponent.lock();
 	auto	Anim = mAnimation2DComponent.lock();
 
-	Movement->AddMove(-Mesh->GetAxis(EAxis::X));
+	//Movement->AddMove(-Mesh->GetAxis(EAxis::X));
 	Anim->ChangeAnimation("PlayerWalk");
+	Mesh->AddRelativeRotationZ(180.f * CTimer::GetDeltaTime());
 }
 
 void CPlayer::MoveRight()
@@ -430,8 +454,9 @@ void CPlayer::MoveRight()
 	auto	Mesh = mMeshComponent.lock();
 	auto	Anim = mAnimation2DComponent.lock();
 
-	Movement->AddMove(Mesh->GetAxis(EAxis::X));
+	//Movement->AddMove(Mesh->GetAxis(EAxis::X));
 	Anim->ChangeAnimation("PlayerWalk");
+	Mesh->AddRelativeRotationZ(-180.f * CTimer::GetDeltaTime());
 }
 
 void CPlayer::AttackKey()

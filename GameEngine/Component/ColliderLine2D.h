@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Collider.h"
 
@@ -18,7 +18,7 @@ public:
 
 protected:
 	FLine2DInfo		mInfo;
-	FVector3		mLineDir;
+	FVector3		mLineDir = FVector3::Axis[EAxis::Y];
 	float			mDistance = 100.f;
 
 public:
@@ -38,6 +38,8 @@ public:
 	{
 		mLineDir = FVector3(x, y, z);
 		mLineDir.Normalize();
+
+
 	}
 
 	void SetLineDir(float x, float y)

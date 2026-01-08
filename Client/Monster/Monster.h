@@ -22,8 +22,9 @@ private:
 	std::weak_ptr<class CMeshComponent>	mMeshComponent;
 	std::weak_ptr<class CStateComponent>	mStateComponent;
 	std::weak_ptr<class CAnimation2DComponent>	mAnimation2DComponent;
-	//std::weak_ptr<class CColliderSphere2D>	mBody;
-	std::weak_ptr<class CColliderBox2D>	mBody;
+	std::weak_ptr<class CColliderSphere2D>	mBody;
+	//std::weak_ptr<class CColliderBox2D>	mBody;
+	std::weak_ptr<class CColliderLine2D>	mLine2D;
 	float	mFireTime = 0.f;
 	std::weak_ptr<CGameObject>	mTargetObject;
 	float	mDetectRange = 600.f;

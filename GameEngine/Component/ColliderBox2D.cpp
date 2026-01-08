@@ -61,7 +61,7 @@ void CColliderBox2D::SetDebugDraw(bool DebugDraw)
 
 			std::shared_ptr<CMeshManager>   MeshMgr = Weak_MeshMgr.lock();
 
-			mMesh = MeshMgr->FindMesh("CenterFrameRect");
+			mMesh = MeshMgr->FindMesh("Mesh_CenterFrameRect");
 		}
 
 		mColliderCBuffer.reset(new CCBufferCollider);
@@ -173,7 +173,8 @@ bool CColliderBox2D::Collision(FVector3& HitPoint,
 		return CCollision::CollisionBox2DToSphere2D(HitPoint,
 			this, dynamic_cast<CColliderSphere2D*>(Dest.get()));
 	case EColliderType::Line2D:
-		break;
+		return CCollision::CollisionBox2DToLine2D(HitPoint, this,
+			dynamic_cast<CColliderLine2D*>(Dest.get()));
 	}
 
 	return false;

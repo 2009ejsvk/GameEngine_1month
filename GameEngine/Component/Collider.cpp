@@ -151,7 +151,7 @@ void CCollider::Render()
 
 		FMatrix	ScaleMatrix, RotMatrix, TranslateMatrix, WorldMatrix;
 
-		FVector3	RenderPos = mWorldPos + mOffset;
+		FVector3	RenderPos = mWorldPos;
 
 		ScaleMatrix.Scaling(mRenderScale);
 		RotMatrix.Rotation(mWorldRot);

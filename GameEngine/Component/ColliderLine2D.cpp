@@ -119,8 +119,25 @@ void CColliderLine2D::PostUpdate(float DeltaTime)
 {
 	CCollider::PostUpdate(DeltaTime);
 
-	mInfo.Start = mWorldPos + mOffset;
-	mInfo.End = mInfo.Start + mLineDir * mDistance;
+	mInfo.Start = mWorldPos;
+
+	// 회전된 선의 방향을 구한다.
+	FVector3	Dir;
+
+	Dir = mLineDir.TransformNormal(mRotMatrix);
+	Dir.Normalize();
+
+	mInfo.End = mInfo.Start + Dir * mDistance;
+
+	mMin.x = mInfo.Start.x < mInfo.End.x ? mInfo.Start.x :
+		mInfo.End.x;
+	mMin.y = mInfo.Start.y < mInfo.End.y ? mInfo.Start.y :
+		mInfo.End.y;
+
+	mMax.x = mInfo.Start.x > mInfo.End.x ? mInfo.Start.x :
+		mInfo.End.x;
+	mMax.y = mInfo.Start.y > mInfo.End.y ? mInfo.Start.y :
+		mInfo.End.y;
 
 	mRenderScale.x = 1.f;
 	mRenderScale.y = mDistance;
@@ -139,15 +156,15 @@ bool CColliderLine2D::Collision(FVector3& HitPoint,
 	switch (Dest->GetColliderType())
 	{
 	case EColliderType::Box2D:
-		/*return CCollision::CollisionBox2DToSphere2D(HitPoint,
-			dynamic_cast<CColliderBox2D*>(Dest.get()), this);*/
+		return CCollision::CollisionBox2DToLine2D(HitPoint, 
+			dynamic_cast<CColliderBox2D*>(Dest.get()), this);
 		break;
 	case EColliderType::Sphere2D:
-		/*return CCollision::CollisionSphere2DToSphere2D(HitPoint, this,
-			dynamic_cast<CColliderLine2D*>(Dest.get()));*/
-		break;
+		return CCollision::CollisionSphere2DToLine2D(HitPoint,
+			dynamic_cast<CColliderSphere2D*>(Dest.get()), this);
 	case EColliderType::Line2D:
-		break;
+		return CCollision::CollisionLine2DToLine2D(HitPoint,
+			dynamic_cast<CColliderLine2D*>(Dest.get()), this);
 	}
 
 	return false;

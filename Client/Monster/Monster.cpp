@@ -6,6 +6,7 @@
 #include "Component/Animation2DComponent.h"
 #include "Component/ColliderBox2D.h"
 #include "Component/ColliderSphere2D.h"
+#include "Component/ColliderLine2D.h"
 
 CMonster::CMonster()
 {
@@ -64,17 +65,31 @@ bool CMonster::Init()
 		Mesh->SetBlendState(0, "AlphaBlend");
 	}
 
-	mBody = CreateComponent<CColliderBox2D>("Body");
-	//mBody = CreateComponent<CColliderSphere2D>("Body");
+	//mBody = CreateComponent<CColliderBox2D>("Body");
+	mBody = CreateComponent<CColliderSphere2D>("Body");
 	auto	Body = mBody.lock();
 
 	if (Body)
 	{
 		Body->SetCollisionProfile("Monster");
-		Body->SetBoxSize(100.f, 100.f);
-		//Body->SetRadius(sqrtf(100.f * 100.f + 100.f * 100.f) * 0.5f);
+		//Body->SetBoxSize(100.f, 100.f);
+		Body->SetRadius(sqrtf(100.f * 100.f + 100.f * 100.f) * 0.5f);
 		Body->SetDebugDraw(true);
 		Body->SetInheritScale(false);
+	}
+
+	mLine2D = CreateComponent<CColliderLine2D>("Line2D");
+	auto	Line2D = mLine2D.lock();
+
+	if (Line2D)
+	{
+		Line2D->SetCollisionProfile("Monster");
+		//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
+		Line2D->SetLineDistance(200.f);
+		Line2D->SetDebugDraw(true);
+		Line2D->SetInheritScale(false);
+		//Line2D->SetRelativePos(0.f, 100.f, 0.f);
+		//Line2D->SetCenterOffset(0.f, 100.f, 0.f);
 	}
 
 	// Target을 구한다.

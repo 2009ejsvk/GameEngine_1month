@@ -119,7 +119,7 @@ void CColliderSphere2D::PostUpdate(float DeltaTime)
 {
 	CCollider::PostUpdate(DeltaTime);
 
-	mInfo.Center = mWorldPos + mOffset;
+	mInfo.Center = mWorldPos;
 
 	mRenderScale.x = mWorldScale.x * mInfo.Radius;
 	mRenderScale.y = mWorldScale.y * mInfo.Radius;
@@ -144,7 +144,8 @@ bool CColliderSphere2D::Collision(FVector3& HitPoint,
 		return CCollision::CollisionSphere2DToSphere2D(HitPoint, this,
 			dynamic_cast<CColliderSphere2D*>(Dest.get()));
 	case EColliderType::Line2D:
-		break;
+		return CCollision::CollisionSphere2DToLine2D(HitPoint, this,
+			dynamic_cast<CColliderLine2D*>(Dest.get()));
 	}
 
 	return false;

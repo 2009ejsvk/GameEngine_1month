@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Object/GameObject.h"
 #include "../Interface/StateInterface.h"
@@ -29,6 +29,7 @@ private:
 	std::weak_ptr<class CColliderBox2D>	mBody;
 	std::weak_ptr<class CColliderSphere2D>	mSphere2D;
 	std::weak_ptr<class CColliderLine2D>	mLine2D;
+	std::weak_ptr<class CColliderLine2D>	mLine2D_;
 	int		mHP = 10;
 	bool	mAutoIdle = false;
 
