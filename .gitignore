@@ -15,7 +15,6 @@ out/                   # CMake 등 빌드 출력
 # --- 컴파일 결과물 (Binary) ---
 *.exe
 *.dll
-*.pdb
 *.ilk
 *.exp
 *.obj
@@ -28,7 +27,6 @@ out/                   # CMake 등 빌드 출력
 *.lastbuildstate
 
 # --- 게임 엔진 특화 (Shader 컴파일 등) ---
-*.cso                  # Compiled Shader Object (충돌 주범)
 *.gmcache
 *.aps
 
