@@ -1,5 +1,5 @@
 /* =========================================================
-   Tropico 6 Engine Plan — Portfolio Pitch Deck
+   Tropico Engine Plan (2D) — Portfolio Pitch Deck
    App Logic + Dynamic Rendering + Animations
    v2 — Critical fixes + Polish
    ========================================================= */
@@ -8,13 +8,13 @@ const dataModel = {
   heroMetrics: [
     { label: "개발 기간", value: "2026.02.26 ~ 03.26", icon: "📅" },
     { label: "목표 플레이", value: "30~45분", icon: "🎮" },
-    { label: "맵 스케일", value: "군도 2개 섬", icon: "🏝️" },
+    { label: "참조 스타일", value: "Tropico 1 (2D)", icon: "🧭" },
     { label: "구현 환경", value: "2D 고정 격자", icon: "🔲" }
   ],
   portfolioBadges: [
     { title: "Playable First", desc: "1개월 안에 실제 플레이 가능 상태를 증명", tone: "teal" },
     { title: "Engine Base", desc: "학습용으로 제공된 언리얼 엔진 구조의 DirectX11 구현 버전을 기반으로 개발", tone: "gold" },
-    { title: "Extension Ready", desc: "여건 확보 시 확장 후보 즉시 착수", tone: "orange" }
+    { title: "2D Visual Direction", desc: "Tropico 1 스타일 2D 시각 구성을 기준으로 UI/배치 규칙을 통일", tone: "orange" }
   ],
   coreLoop: ["건설", "생산/물류", "시민 생활/행복", "정치 대응"],
   doneCriteria: [
@@ -49,12 +49,12 @@ const dataModel = {
     { title: "15개 미션 캠페인 구조", trigger: "콘텐츠 제작 파이프라인 확보 시" }
   ],
   constructionOriginal: [
-    "3D, 두 격자(사각+삼각) 조합으로 자유 배치",
-    "도로는 스플라인 기반 자유 곡선 배치",
-    "건물 배치 시 지형/도로 연결 자동 스냅"
+    "Tropico 1 방식의 2D 아이소메트릭 타일 기반 시점",
+    "건물/도로가 타일 단위로 배치되고 연결 상태가 즉시 표현",
+    "지면→도로→건물 순 레이어 렌더링으로 가시성 확보"
   ],
   constructionMvp: [
-    "아이소메트릭 타일맵(마름모) 좌표 변환으로 고정 시점 구현",
+    "Tropico 1 스타일 아이소메트릭 타일맵(마름모) 좌표 변환으로 고정 시점 구현",
     "건물 배치: 그리드 스냅 + 크기별 타일 점유(1x1, 2x2, 3x3)",
     "도로: 타일 배치 후 8방향 인접 체크로 자동 스프라이트 선택",
     "도로 연결 그래프를 길찾기(A*) 입력으로 사용"
@@ -169,7 +169,7 @@ const dataModel = {
   principles: [
     "데이터 우선(테이블 기반)",
     "렌더·시뮬 틱 분리",
-    "2D 고정 격자/고정 카메라",
+    "Tropico 1 스타일 2D 고정 격자/고정 카메라",
     "원거리 시민 저빈도 업데이트",
     "경로탐색 호출 수 제한",
     "플레이 긴장감 우선"
