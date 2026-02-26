@@ -55,9 +55,9 @@ const dataModel = {
   ],
   constructionMvp: [
     "Tropico 1 스타일 아이소메트릭 타일맵(마름모) 좌표 변환으로 고정 시점 구현",
-    "건물 배치: 그리드 스냅 + 크기별 타일 점유(1x1, 2x2, 3x3)",
+    "건물 배치: 그리드 스냅 + 타일 점유 기반 배치 검증",
     "도로: 타일 배치 후 8방향 인접 체크로 자동 스프라이트 선택",
-    "도로 연결 그래프를 길찾기(A*) 입력으로 사용"
+    "도로 연결 그래프를 JPS(점프 포인트 서치, A* 기반) 길찾기 입력으로 사용"
   ],
   constructionRoadCards: [
     { title: "직선/커브 자동화", note: "도로 인접 패턴에 따라 시각 자산 자동 교체" },
@@ -91,12 +91,12 @@ const dataModel = {
     "시민은 집→직장→서비스→집 경로로 이동"
   ],
   logisticsMvp: [
-    "기존 엔진 CThreadNavigation 기반 A* 경로탐색 재사용",
+    "기존 엔진 CThreadNavigation 기반 JPS(점프 포인트 서치, A* 기반) 경로탐색 적용",
     "시민 경로(집↔직장↔서비스)를 도로 그래프에서 계산",
     "Teamster 경로(생산→가공→항구) 배달 루프 구현",
     "도로 미연결 시 이동 불가: 도로 그래프가 곧 이동 권한"
   ],
-  logisticsKeyPoints: ["A* 경로탐색", "도로 그래프", "Teamster 큐", "항구 자동 수출"],
+  logisticsKeyPoints: ["JPS 경로탐색(A* 기반)", "도로 그래프", "Teamster 큐", "항구 자동 수출"],
   logisticsRouteCards: [
     { title: "시민 이동", note: "생활 루프를 우선순위 없는 상시 경로로 운용" },
     { title: "물류 운송", note: "생산물 우선순위 큐로 정체 시 핵심 자원 보호" },
