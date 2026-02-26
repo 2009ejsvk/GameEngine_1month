@@ -4,6 +4,7 @@
 #include "World/WorldManager.h"
 #include "World/MainWorld.h"
 #include "World/StartWorld.h"
+#include "Player/MainCamera.h"
 #include "Player/Player.h"
 #include "Player/Bullet.h"
 #include "Player/Missile.h"
@@ -39,6 +40,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     CEngine::CreateCDO<CPlayer>();
+    CEngine::CreateCDO<CMainCamera>();
     CEngine::CreateCDO<CBullet>();
     CEngine::CreateCDO<CMissile>();
     CEngine::CreateCDO<CMonster>();

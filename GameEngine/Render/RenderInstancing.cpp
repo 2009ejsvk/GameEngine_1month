@@ -64,17 +64,27 @@ void CRenderInstancing::AddRenderList(
 {
 	auto	_Obj = Obj.lock();
 
-	if (!_Obj->GetEnable())
+	if (!_Obj || !_Obj->GetEnable())
 		return;
 	
 	if (mRenderList.empty())
 	{
 		mWorld = _Obj->GetWorld();
 		mBlendState = _Obj->GetBlendState();
+
 		auto Shader = _Obj->GetShader().lock();
+
+		if (!Shader)
+			return;
+
 		std::string	Name = Shader->GetName() +
 			"Instancing";
 		mShader = CAssetManager::GetInst()->GetShaderManager().lock()->FindShader(Name);
+
+		// 원본 셰이더에 대응되는 Instancing 셰이더가 없으면
+		// 인스턴싱 경로를 사용하지 않는다.
+		if (mShader.expired())
+			return;
 	}
 
 	mRenderList.push_back(Obj);
@@ -150,6 +160,16 @@ void CRenderInstancing::Update(float DeltaTime)
 	if (!mRender || mRenderList.empty())
 		return;
 
+	auto	World = mWorld.lock();
+
+	if (!World)
+		return;
+
+	auto	Mesh = mMesh.lock();
+
+	if (!Mesh)
+		return;
+
 	if (mRenderList.size() > 1)
 		mRenderList.sort(CRenderManager::SortYRenderList);
 
@@ -157,12 +177,11 @@ void CRenderInstancing::Update(float DeltaTime)
 
 	mInstancingCount = 0;
 
-	auto	World = mWorld.lock();
-
 	auto	CameraMgr = World->GetCameraManager().lock();
-
-	auto	Mesh = mMesh.lock();
 	auto	Texture = mTexture.lock();
+
+	if (!CameraMgr)
+		return;
 
 	auto	iter = mRenderList.begin();
 	auto	iterEnd = mRenderList.end();
@@ -268,7 +287,16 @@ void CRenderInstancing::Render()
 	{
 		auto	Com = (*iter).lock();
 
-		Com->SetRenderOption(EComponentRenderOption::Normal);
+		if (Com)
+			Com->SetRenderOption(EComponentRenderOption::Normal);
+	}
+
+	if (!Mesh || !Shader)
+	{
+		if (BlendState)
+			BlendState->ResetState();
+
+		return;
 	}
 
 	if (Texture)

@@ -908,6 +908,7 @@
     <None Include="Asset\Sound\fmod_errors.cs">
       <Filter>03. Asset\06. Sound\01. Lib</Filter>
     </None>
+    <None Include="..\.editorconfig" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="공간변환.txt">

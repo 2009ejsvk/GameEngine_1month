@@ -5,11 +5,13 @@
 #include "Asset/AssetManager.h"
 #include "Asset/Animation2D/Animation2DManager.h"
 #include "Component/ColliderBox2D.h"
+#include "Component/MeshComponent.h"
 #include "../UI/MainWidget.h"
 #include "World/WorldUIManager.h"
 #include "Render/RenderManager.h"
 #include "../PostProcess/PostProcessHit.h"
 #include "../Map/TileMapMain.h"
+#include "../Player/MainCamera.h"
 
 CMainWorld::CMainWorld()
 {
@@ -23,17 +25,55 @@ bool CMainWorld::Init()
 {
 	CWorld::Init();
 
-	LoadAnimation2D();
+	// 왼쪽 상단 디버그 렌더타겟(카메라 미리보기) 출력 비활성화.
+	CRenderManager::GetInst()->SetDebugTarget(false);
 
-	LoadSound();
+	// LoadAnimation2D();
 
-	CreateUI();
+	// LoadSound();
 
-	std::weak_ptr<CTileMapMain>	TileMap = CreateGameObject<CTileMapMain>("TileMap");
+	// CreateUI();
 
-	TileMap.lock()->LoadTileMap(TEXT("Map/MainMap.tlm"), "Asset");
+	// MainWorld 화면 출력 요소는 우선 모두 주석 처리하고
+	// 이동 가능한 카메라만 별도로 배치한다.
+	CreateGameObject<CMainCamera>("MainCamera");
 
-	std::weak_ptr<CPlayer>	Player = CreateGameObject<CPlayer>("Player");
+	// 카메라 이동/줌 테스트용 기능 없는 오브젝트를 배치한다.
+	auto CreateDummyObject = [&](const std::string& Name,
+		const FVector3& Pos, const FVector3& Scale)
+	{
+		auto Obj = CreateGameObject<CGameObject>(Name).lock();
+
+		if (!Obj)
+			return;
+
+		auto Mesh = Obj->CreateComponent<CMeshComponent>("Mesh").lock();
+
+		if (!Mesh)
+			return;
+
+		Mesh->SetShader("Color2D");
+		Mesh->SetMesh("CenterRectColor");
+		Mesh->SetWorldScale(Scale);
+		Mesh->SetWorldPos(Pos);
+	};
+
+	CreateDummyObject("Dummy_Origin", FVector3(0.f, 0.f, 0.f),
+		FVector3(220.f, 220.f, 1.f));
+	CreateDummyObject("Dummy_East", FVector3(800.f, 0.f, 0.f),
+		FVector3(150.f, 150.f, 1.f));
+	CreateDummyObject("Dummy_West", FVector3(-800.f, 0.f, 0.f),
+		FVector3(150.f, 150.f, 1.f));
+	CreateDummyObject("Dummy_North", FVector3(0.f, 600.f, 0.f),
+		FVector3(150.f, 150.f, 1.f));
+	CreateDummyObject("Dummy_South", FVector3(0.f, -600.f, 0.f),
+		FVector3(150.f, 150.f, 1.f));
+	CreateDummyObject("Dummy_Far", FVector3(1800.f, 1200.f, 0.f),
+		FVector3(240.f, 240.f, 1.f));
+
+	// std::weak_ptr<CTileMapMain>	TileMap = CreateGameObject<CTileMapMain>("TileMap");
+	// TileMap.lock()->LoadTileMap(TEXT("Map/MainMap.tlm"), "Asset");
+	// std::weak_ptr<CPlayer>	Player = CreateGameObject<CPlayer>("Player");
 
 	//for (int i = 0; i < 30; ++i)
 	//{
@@ -48,19 +88,16 @@ bool CMainWorld::Init()
 	//	}
 	//}
 
-	std::weak_ptr<CGameObject>	Wall = CreateGameObject<CGameObject>("Wall");
-
-	auto	WallObj = Wall.lock();
-
-	auto	WallBox =
-		WallObj->CreateComponent<CColliderBox2D>("Wall").lock();
-
-	WallBox->SetCollisionProfile("Static");
-	WallBox->SetBoxSize(500.f, 50.f);
-	WallBox->SetDebugDraw(true);
-	WallBox->SetInheritScale(false);
-	WallBox->SetWorldPos(0.f, -200.f);
-	WallBox->SetStatic(true);
+	// std::weak_ptr<CGameObject>	Wall = CreateGameObject<CGameObject>("Wall");
+	// auto	WallObj = Wall.lock();
+	// auto	WallBox =
+	// 	WallObj->CreateComponent<CColliderBox2D>("Wall").lock();
+	// WallBox->SetCollisionProfile("Static");
+	// WallBox->SetBoxSize(500.f, 50.f);
+	// WallBox->SetDebugDraw(true);
+	// WallBox->SetInheritScale(false);
+	// WallBox->SetWorldPos(0.f, -200.f);
+	// WallBox->SetStatic(true);
 	//WallBox->SetWorldRotationZ(45.f);
 
 	/*std::weak_ptr<CMonster>	Monster1 = CreateGameObject<CMonster>("Monster");
@@ -85,12 +122,11 @@ bool CMainWorld::Init()
 		Point->SetSpawnTime(5.f);
 	}*/
 
-	if (!CRenderManager::GetInst()->CheckPostProcess("Hit"))
-	{
-		auto Hit = CRenderManager::GetInst()->CreatePostProcess<CPostProcessHit>("Hit", 3).lock();
-
-		Hit->SetEnable(false);
-	}
+	// if (!CRenderManager::GetInst()->CheckPostProcess("Hit"))
+	// {
+	// 	auto Hit = CRenderManager::GetInst()->CreatePostProcess<CPostProcessHit>("Hit", 3).lock();
+	// 	Hit->SetEnable(false);
+	// }
 
 	return true;
 }

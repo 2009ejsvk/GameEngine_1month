@@ -94,6 +94,7 @@ private:
 	FVector2		mMousePos;
 	FVector2		mMouseWorldPos;
 	FVector2		mMouseMove;
+	int				mMouseWheelDelta = 0;
 	bool			mMouseCheckStart = false;
 
 public:
@@ -110,6 +111,11 @@ public:
 	const FVector2& GetMouseMove()	const
 	{
 		return mMouseMove;
+	}
+
+	int GetMouseWheelDelta() const
+	{
+		return mMouseWheelDelta;
 	}
 
 	bool GetMouseState(EMouseType::Type MouseType,

@@ -159,6 +159,9 @@
     <ClCompile Include="Player\EditorPlayer.cpp">
       <Filter>01. Player</Filter>
     </ClCompile>
+    <ClCompile Include="Player\MainCamera.cpp">
+      <Filter>01. Player</Filter>
+    </ClCompile>
     <ClCompile Include="UI\EditorWidget.cpp">
       <Filter>07. UI\04. Editor</Filter>
     </ClCompile>
@@ -251,6 +254,9 @@
     <ClInclude Include="Player\EditorPlayer.h">
       <Filter>01. Player</Filter>
     </ClInclude>
+    <ClInclude Include="Player\MainCamera.h">
+      <Filter>01. Player</Filter>
+    </ClInclude>
     <ClInclude Include="UI\EditorWidget.h">
       <Filter>07. UI\04. Editor</Filter>
     </ClInclude>
@@ -269,6 +275,7 @@
     <None Include="Copy.bat">
       <Filter>소스 파일</Filter>
     </None>
+    <None Include="..\.editorconfig" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Binary\Asset\Shader\PostProcess.hlsl">

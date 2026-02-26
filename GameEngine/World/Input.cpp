@@ -58,10 +58,14 @@ bool CInput::Init()
 
 void CInput::Update(float DeltaTime)
 {
+	mMouseWheelDelta = 0;
+
     if (mInputType == EInputSystemType::DInput)
     {
         UpdateKeyboard();
         UpdateMouse();
+
+		mMouseWheelDelta = mMouseState.lZ;
     }
 
 	// 마우스 위치를 갱신한다.
