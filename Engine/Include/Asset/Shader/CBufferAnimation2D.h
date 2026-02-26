@@ -57,5 +57,10 @@ public:
 	{
 		mData.TextureSymmetry = Symmetry ? 1 : 0;
 	}
+
+	void SetAnimFrame(int Frame)
+	{
+		mData.AnimFrame = Frame;
+	}
 };
 

@@ -72,5 +72,7 @@ private:
 	void CollisionBegin(const FVector3& HitPoint,
 		class CCollider* Dest);
 	void CollisionEnd(class CCollider* Dest);
+	void CollisionHit(const FVector3& HitPoint,
+		class CCollider* Dest);
 };
 

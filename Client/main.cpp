@@ -3,6 +3,7 @@
 #include "resource.h"
 #include "World/WorldManager.h"
 #include "World/MainWorld.h"
+#include "World/StartWorld.h"
 #include "Player/Player.h"
 #include "Player/Bullet.h"
 #include "Player/Missile.h"
@@ -45,7 +46,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     CEngine::CreateCDO<CStateComponent>();
 
     // 시작 월드를 지정한다.
-    CWorldManager::GetInst()->CreateWorld<CMainWorld>(false);
+    CWorldManager::GetInst()->CreateWorld<CStartWorld>(false);
 
     int Ret = CEngine::GetInst()->Run();
 

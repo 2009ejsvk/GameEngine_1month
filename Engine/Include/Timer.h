@@ -9,14 +9,23 @@ private:
 	static LARGE_INTEGER	mPrevCount;	// 이전 프레임의 카운트 수
 	static float	mDeltaTime;	// 이전프레임 시작에서 이전 프레임 끝까지의 시간
 
+	static float	mFPS;
+	static float	mFPSTime;
+	static int		mFPSTick;
+
 public:
 	static float GetDeltaTime()
 	{
 		return mDeltaTime;
 	}
 
+	static float GetFPS()
+	{
+		return mFPS;
+	}
+
 public:
 	static void Init();
-	static float Update();
+	static float Update(HWND hWnd);
 };
 

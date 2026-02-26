@@ -3,6 +3,9 @@
 LARGE_INTEGER CTimer::mFrequency;
 LARGE_INTEGER CTimer::mPrevCount;
 float CTimer::mDeltaTime = 0.f;
+float CTimer::mFPS = 0.f;
+float CTimer::mFPSTime = 0.f;
+int CTimer::mFPSTick = 0;
 
 void CTimer::Init()
 {
@@ -13,7 +16,7 @@ void CTimer::Init()
 	QueryPerformanceCounter(&mPrevCount);
 }
 
-float CTimer::Update()
+float CTimer::Update(HWND hWnd)
 {
 	LARGE_INTEGER	Count;
 
@@ -27,6 +30,27 @@ float CTimer::Update()
 	// 현재 프레임의 카운트를 이전 프레임의 카운트 저장하여 다음 프레임에서
 	// 시간을 구할 수 있게 해준다.
 	mPrevCount = Count;
+
+	mFPSTime += mDeltaTime;
+
+	++mFPSTick;
+
+	if (mFPSTick == 60)
+	{
+		mFPS = mFPSTick / mFPSTime;
+		mFPSTime = 0.f;
+		mFPSTick = 0;
+
+		char	FPSText[64] = {};
+
+		sprintf_s(FPSText, "FPS : %.5f\n", mFPS);
+
+#ifdef _DEBUG
+		OutputDebugStringA(FPSText);
+#else
+		SetWindowTextA(hWnd, FPSText);
+#endif // _DEBUG
+	}
 
 
 	return mDeltaTime;

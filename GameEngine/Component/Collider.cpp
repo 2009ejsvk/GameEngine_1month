@@ -74,7 +74,8 @@ void CCollider::SetDebugDraw(bool DebugDraw)
 
 		auto	self = std::dynamic_pointer_cast<CSceneComponent>(mSelf.lock());
 
-		CRenderManager::GetInst()->AddRenderLayer(self);
+		//CRenderManager::GetInst()->AddRenderLayer(self);
+		mRenderType = EComponentRender::Render;
 
 		mTransformCBuffer.reset(new CCBufferTransform);
 
@@ -207,4 +208,33 @@ void CCollider::CallCollisionEnd(CCollider* Dest)
 
 	if (mCollisionEndFunc)
 		mCollisionEndFunc(Dest);
+}
+
+void CCollider::CallCollisionHit(const FVector3& HitPoint,
+	const std::weak_ptr<CCollider>& Dest)
+{
+	auto	_Dest = Dest.lock();
+
+	//mCollisionObjectMap.insert(std::make_pair(_Dest.get(), Dest));
+
+	//mCollision = true;
+
+	if (mCollisionHitFunc)
+		mCollisionHitFunc(HitPoint, _Dest.get());
+}
+
+void CCollider::CollisionHitEnd()
+{
+}
+
+void CCollider::CallCollisionMouseBegin(const FVector3& MousePos)
+{
+	if (mCollisionMouseBeginFunc)
+		mCollisionMouseBeginFunc(MousePos);
+}
+
+void CCollider::CallCollisionMouseEnd(const FVector3& MousePos)
+{
+	if (mCollisionMouseEndFunc)
+		mCollisionMouseEndFunc(MousePos);
 }

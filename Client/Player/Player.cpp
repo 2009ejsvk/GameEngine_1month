@@ -1,4 +1,4 @@
-﻿#include "Player.h"
+#include "Player.h"
 #include "Component/MeshComponent.h"
 #include "Component/CameraComponent.h"
 #include "Bullet.h"
@@ -13,6 +13,12 @@
 #include "Component/ColliderBox2D.h"
 #include "Component/ColliderSphere2D.h"
 #include "Component/ColliderLine2D.h"
+#include "Component/WidgetComponent.h"
+#include "World/WorldUIManager.h"
+#include "../UI/MainWidget.h"
+#include "../UI/PlayerStateWidget.h"
+#include "../UI/WorldHUD.h"
+#include "Render/RenderManager.h"
 
 CPlayer::CPlayer()
 {
@@ -37,12 +43,13 @@ bool CPlayer::Init()
 {
 	CGameObject::Init();
 
-	mMeshComponent = CreateComponent<CMeshComponent>("Mesh");
+	mMeshComponent = CreateComponent<CMeshComponent>("PlayerMesh");
 	mRot = CreateComponent<CSceneComponent>("Rot1");
 	mSubMeshComponent = CreateComponent<CMeshComponent>("Mesh", "Rot1");
 	mCameraComponent = CreateComponent<CCameraComponent>("PlayerCamera");
 
 	mStateComponent = CreateComponent<CStateComponent>("State");
+	mHUDWidget = CreateComponent<CWidgetComponent>("Widget");
 	mAnimation2DComponent = CreateComponent<CAnimation2DComponent>("Animation2D");
 	mMovement = CreateComponent<CObjectMovementComponent>("Movement");
 
@@ -107,7 +114,7 @@ bool CPlayer::Init()
 		Body->SetRelativePos(0.f, 50.f);
 	}
 
-	mSphere2D = CreateComponent<CColliderSphere2D>("Sphere2D");
+	/*mSphere2D = CreateComponent<CColliderSphere2D>("Sphere2D");
 	auto	Sphere2D = mSphere2D.lock();
 
 	if (Sphere2D)
@@ -117,43 +124,20 @@ bool CPlayer::Init()
 		Sphere2D->SetDebugDraw(true);
 		Sphere2D->SetInheritScale(false);
 		Sphere2D->SetRelativePos(0.f, 50.f);
-	}
+	}*/
 
-	mLine2D = CreateComponent<CColliderLine2D>("Line2D");
-	auto	Line2D = mLine2D.lock();
+	//mLine2D = CreateComponent<CColliderLine2D>("Line2D");
+	//auto	Line2D = mLine2D.lock();
 
-	if (Line2D)
-	{
-		Line2D->SetCollisionProfile("Player");
-		//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
-		Line2D->SetLineDistance(200.f);
-		Line2D->SetDebugDraw(true);
-		Line2D->SetInheritScale(false);
-		Line2D->SetRelativePos(0.f, 100.f);
-		//Line2D->SetInheritRot(false); // Player의 회전을 상속받지 않도록 설정
-
-		// ✅ 추가: 회전으로 대각선 만들기
-		Line2D->SetRelativeRotationZ(45.f);  // Z축 기준 45도 회전
-
-	}
-
-	mLine2D_ = CreateComponent<CColliderLine2D>("Line2D");
-	auto	Line2D_ = mLine2D_.lock();
-	
-	if (Line2D_)
-	{
-		Line2D_->SetCollisionProfile("Player");
-		//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
-		Line2D_->SetLineDistance(200.f);
-		Line2D_->SetDebugDraw(true);
-		Line2D_->SetInheritScale(false);
-		Line2D_->SetRelativePos(0.f, 100.f);
-		//Line2D->SetInheritRot(false); // Player의 회전을 상속받지 않도록 설정
-
-		// ✅ 추가: 회전으로 대각선 만들기
-		Line2D_->SetRelativeRotationZ(90.f);  // Z축 기준 45도 회전
-
-	}
+	//if (Line2D)
+	//{
+	//	Line2D->SetCollisionProfile("Player");
+	//	//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
+	//	Line2D->SetLineDistance(200.f);
+	//	Line2D->SetDebugDraw(true);
+	//	Line2D->SetInheritScale(false);
+	//	Line2D->SetRelativePos(0.f, 100.f);
+	//}
 
 	auto	RotCom = mRot.lock();
 
@@ -186,6 +170,24 @@ bool CPlayer::Init()
 			90.f, (float)RS.Width, (float)RS.Height, 1000.f);
 
 		Camera->SetInheritRot(false);
+	}
+
+	auto	Widget = mHUDWidget.lock();
+
+	if (Widget)
+	{
+		Widget->SetInheritScale(false);
+		Widget->SetInheritRot(false);
+		Widget->SetRelativePos(0.f, 140.f, 0.f);
+		Widget->SetRelativeScale(80.f, 40.f);
+
+		auto InWidget = Widget->SetWidget<CWorldHUD>("PlayerHUD").lock();
+
+		InWidget->SetSize(80.f, 40.f);
+		InWidget->SetPlayerName(TEXT("Player"));
+
+		mHPWidgetFunc.push_back(std::bind(&CWorldHUD::SetPlayerHP, InWidget.get(),
+			std::placeholders::_1, std::placeholders::_2));
 	}
 
 
@@ -225,6 +227,34 @@ bool CPlayer::Init()
 	Input->AddBindKey("Attack", VK_SPACE);
 	Input->SetBindFunction<CPlayer>("Attack",
 		EInputType::Press, this, &CPlayer::AttackKey);
+
+	Input->AddBindKey("Jump", VK_RETURN);
+	Input->SetBindFunction<CPlayer>("Jump",
+		EInputType::Press, this, &CPlayer::JumpKey);
+
+	Input->AddBindKey("MoveTarget", VK_RBUTTON);
+	Input->SetBindFunction<CPlayer>("MoveTarget",
+		EInputType::Press, this, &CPlayer::MoveTarget);
+
+	auto	UIManager = World->GetUIManager().lock();
+
+	auto MainWidget = UIManager->FindWidget<CMainWidget>("MainWidget").lock();
+
+	if (MainWidget)
+	{
+		auto PlayerState = MainWidget->FindWidget<CPlayerStateWidget>("PlayerState").lock();
+
+		if (PlayerState)
+		{
+			PlayerState->SetPlayerName(TEXT("Player"));
+
+			mHPWidgetFunc.push_back(std::bind(&CPlayerStateWidget::SetPlayerHP, PlayerState.get(),
+				std::placeholders::_1, std::placeholders::_2));
+
+			mMPWidgetFunc = std::bind(&CPlayerStateWidget::SetPlayerMP, PlayerState.get(),
+				std::placeholders::_1, std::placeholders::_2);
+		}
+	}
 
 	return true;
 }
@@ -373,6 +403,26 @@ void CPlayer::Destroy()
 {
 }
 
+float CPlayer::TakeDamage(float Damage)
+{
+	mHP -= Damage;
+
+	CRenderManager::GetInst()->EnablePostProcess("Hit");
+
+	if (mHP < 0.f)
+		mHP = 0.f;
+
+	auto	iter = mHPWidgetFunc.begin();
+	auto	iterEnd = mHPWidgetFunc.end();
+
+	for (; iter != iterEnd; ++iter)
+	{
+		(*iter)((float)mHP, (float)mHPMax);
+	}
+
+	return Damage;
+}
+
 void CPlayer::TestNotify()
 {
 	OutputDebugString(TEXT("Test Notify\n"));
@@ -443,7 +493,7 @@ void CPlayer::MoveLeft()
 
 	//Movement->AddMove(-Mesh->GetAxis(EAxis::X));
 	Anim->ChangeAnimation("PlayerWalk");
-	Mesh->AddRelativeRotationZ(180.f * CTimer::GetDeltaTime());
+	Mesh->AddRelativeRotationZ(-180.f * CTimer::GetDeltaTime());
 }
 
 void CPlayer::MoveRight()
@@ -456,7 +506,7 @@ void CPlayer::MoveRight()
 
 	//Movement->AddMove(Mesh->GetAxis(EAxis::X));
 	Anim->ChangeAnimation("PlayerWalk");
-	Mesh->AddRelativeRotationZ(-180.f * CTimer::GetDeltaTime());
+	Mesh->AddRelativeRotationZ(180.f * CTimer::GetDeltaTime());
 }
 
 void CPlayer::AttackKey()
@@ -464,6 +514,18 @@ void CPlayer::AttackKey()
 	mAutoIdle = false;
 	auto	Anim = mAnimation2DComponent.lock();
 	Anim->ChangeAnimation("PlayerAttack");
+}
+
+void CPlayer::JumpKey()
+{
+	auto	Mesh = mMeshComponent.lock();
+
+	if (Mesh)
+	{
+		Mesh->SetSimulatePhysics(true);
+		Mesh->SetUseGravity(true);
+		//Mesh->AddForce
+	}
 }
 
 void CPlayer::Skill1Press()
@@ -507,4 +569,15 @@ void CPlayer::Skill1Release()
 	auto	Bullet = mSkill1Bullet.lock();
 
 	Bullet->SetMoveEnable(true);
+}
+
+void CPlayer::MoveTarget()
+{
+	auto	Movement = mMovement.lock();
+
+	auto	World = mWorld.lock();
+
+	auto	Input = World->GetInput().lock();
+
+	Movement->MovePath(Input->GetMouseWorldPos());
 }

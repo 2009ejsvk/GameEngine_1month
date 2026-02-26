@@ -2,8 +2,17 @@
 #include "ShaderColor2D.h"
 #include "ShaderMaterialColor2D.h"
 #include "ShaderTexture2D.h"
+#include "ShaderDefaultTex.h"
 #include "ShaderCollider.h"
+#include "ShaderUIDefault.h"
+#include "ShaderNullBuffer.h"
+#include "ShaderTileMap.h"
+#include "ShaderTileMapInstancing.h"
+#include "ShaderTileMapLineInstancing.h"
+#include "ShaderBlur.h"
 #include "ConstantBuffer.h"
+#include "ShaderTexture2DInstancing.h"
+#include "ShaderMaterialColor2DInstancing.h"
 
 CShaderManager::CShaderManager()
 {
@@ -25,11 +34,23 @@ bool CShaderManager::Init()
 		return false;
 
 	if (!CreateCBuffer("Animation2D", sizeof(FCBufferAnimation2DData),
-		2, EShaderBufferType::Vertex))
+		2, EShaderBufferType::VP))
 		return false;
 
 	if (!CreateCBuffer("Collider", sizeof(FCBufferColliderData),
 		10, EShaderBufferType::Pixel))
+		return false;
+
+	if (!CreateCBuffer("UIDefault", sizeof(FCBufferUIDefaultData),
+		10, EShaderBufferType::VP))
+		return false;
+
+	if (!CreateCBuffer("Blur", sizeof(FCBufferBlur),
+		10, EShaderBufferType::Pixel))
+		return false;
+
+	if (!CreateCBuffer("TileMap", sizeof(FCBufferTileMapData),
+		10, EShaderBufferType::VP))
 		return false;
 
 
@@ -41,11 +62,50 @@ bool CShaderManager::Init()
 		"EngineShader"))
 		return false;
 
+	if (!CreateShader<CShaderMaterialColor2DInstancing>("MaterialColor2DInstancing",
+		"EngineShader"))
+		return false;
+
 	if (!CreateShader<CShaderTexture2D>("DefaultTexture2D",
 		"EngineShader"))
 		return false;
 
+	if (!CreateShader<CShaderTexture2DInstancing>(
+		"DefaultTexture2DInstancing",
+		"EngineShader"))
+		return false;
+
+	if (!CreateShader<CShaderDefaultTex>("DefaultTex",
+		"EngineShader"))
+		return false;
+
 	if (!CreateShader<CShaderCollider>("Collider",
+		"EngineShader"))
+		return false;
+
+	if (!CreateShader<CShaderUIDefault>("UIDefault",
+		"EngineShader"))
+		return false;
+
+	if (!CreateShader<CShaderNullBuffer>("NullBuffer",
+		"EngineShader"))
+		return false;
+
+	if (!CreateShader<CShaderBlur>("Blur",
+		"EngineShader"))
+		return false;
+
+	if (!CreateShader<CShaderTileMap>("TileMap",
+		"EngineShader"))
+		return false;
+
+	if (!CreateShader<CShaderTileMapInstancing>(
+		"TileMapInstancing",
+		"EngineShader"))
+		return false;
+
+	if (!CreateShader<CShaderTileMapLineInstancing>(
+		"TileMapLineInstancing",
 		"EngineShader"))
 		return false;
 

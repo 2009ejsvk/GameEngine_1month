@@ -2,48 +2,6 @@
 
 #include "../Asset.h"
 
-struct FVertexBuffer
-{
-	// 버텍스를 저장하기 위한 버퍼
-	ID3D11Buffer* Buffer = nullptr;
-	// 버텍스 1개의 메모리 크기
-	int		Size = 0;
-	// 버택스 개수
-	int		Count = 0;
-
-	FVertexBuffer()
-	{
-	}
-
-	~FVertexBuffer()
-	{
-		if (Buffer)
-			Buffer->Release();
-	}
-};
-
-struct FIndexBuffer
-{
-	// 인덱스를 저장하기 위한 버퍼
-	ID3D11Buffer* Buffer = nullptr;
-	// 인덱스 1개의 메모리 크기
-	int		Size = 0;
-	// 인덱스 개수
-	int		Count = 0;
-	// 인덱스를 이용해서 출력할 때 인덱스 타입을 지정하는 용도로 사용한다.
-	DXGI_FORMAT	Fmt = DXGI_FORMAT_UNKNOWN;
-
-	FIndexBuffer()
-	{
-	}
-
-	~FIndexBuffer()
-	{
-		if (Buffer)
-			Buffer->Release();
-	}
-};
-
 struct FMeshSlot
 {
 	FIndexBuffer	IndexBuffer;
@@ -113,7 +71,10 @@ public:
 		DXGI_FORMAT Fmt = DXGI_FORMAT_UNKNOWN,
 		D3D11_USAGE IndexUsage = D3D11_USAGE_DEFAULT);
 	void Render();
+	void RenderInstancing(const FVertexBuffer& InstancingBuffer, int Count);
 	void Render(int SlotIndex);
+	void RenderInstancing(int SlotIndex,
+		const FVertexBuffer& InstancingBuffer, int Count);
 	void SetMaterial(int SlotIndex);
 	void SetMaterialBaseColor(int SlotIndex,
 		float r, float g, float b, float a);

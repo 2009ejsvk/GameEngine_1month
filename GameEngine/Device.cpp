@@ -8,14 +8,12 @@ CDevice::CDevice()
 
 CDevice::~CDevice()
 {
-	if (mTargetView)
-		mTargetView->Release();
+	SAFE_RELEASE(m2DTarget);
+	SAFE_RELEASE(m2DFactory);
 
-	if (mDepthView)
-		mDepthView->Release();
-
-	if (mSwapChain)
-		mSwapChain->Release();
+	SAFE_RELEASE(mTargetView);
+	SAFE_RELEASE(mDepthView);
+	SAFE_RELEASE(mSwapChain);
 
 	// Context에 지정된 상태를 지워준다.
 	if (mContext)
@@ -38,11 +36,14 @@ bool CDevice::Init(HWND hWnd, int Width, int Height, bool WindowMode)
 	mRS.Height = Height;
 	mWindowMode = WindowMode;
 
-	UINT	Flag = 0;
+	mTexelSize.x = 1.f / Width;
+	mTexelSize.y = 1.f / Height;
+
+	UINT	Flag = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 
 #ifdef _DEBUG
 
-	Flag = D3D11_CREATE_DEVICE_DEBUG;
+	Flag |= D3D11_CREATE_DEVICE_DEBUG;
 
 #endif // _DEBUG
 
@@ -202,6 +203,34 @@ bool CDevice::Init(HWND hWnd, int Width, int Height, bool WindowMode)
 
 	// 뷰포트를 지정한다.
 	mContext->RSSetViewports(1, &VP);
+
+	// Font 출력을 위한 2D 초기화
+	if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
+		&m2DFactory)))
+		return false;
+
+	// 위에서 생성한 3D BackBuffer와 2D BackBuffer를 연결해서
+	// 2D출력을 3D BackBuffer에 출력될 수 있게 한다.
+	IDXGISurface* BackSurface = nullptr;
+
+	mSwapChain->GetBuffer(0, IID_PPV_ARGS(&BackSurface));
+
+	// 2D 렌더타겟을 생성한다. 이 렌더타겟이 출력하는 Surface는
+	// 3D 백버퍼용 Surface로 지정하여 2D 출력 시 지정된 3D 백버퍼 Surface에
+	// 출력되게 한다.
+	D2D1_RENDER_TARGET_PROPERTIES	Props =
+		D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_HARDWARE,
+			D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN,
+				D2D1_ALPHA_MODE_PREMULTIPLIED));
+
+	if (FAILED(m2DFactory->CreateDxgiSurfaceRenderTarget(BackSurface,
+		Props, &m2DTarget)))
+	{
+		SAFE_RELEASE(BackSurface);
+		return false;
+	}
+
+	SAFE_RELEASE(BackSurface);
 
 	return true;
 }

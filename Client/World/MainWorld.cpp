@@ -4,6 +4,12 @@
 #include "../Monster/MonsterSpawnPoint.h"
 #include "Asset/AssetManager.h"
 #include "Asset/Animation2D/Animation2DManager.h"
+#include "Component/ColliderBox2D.h"
+#include "../UI/MainWidget.h"
+#include "World/WorldUIManager.h"
+#include "Render/RenderManager.h"
+#include "../PostProcess/PostProcessHit.h"
+#include "../Map/TileMapMain.h"
 
 CMainWorld::CMainWorld()
 {
@@ -19,21 +25,47 @@ bool CMainWorld::Init()
 
 	LoadAnimation2D();
 
+	LoadSound();
+
+	CreateUI();
+
+	std::weak_ptr<CTileMapMain>	TileMap = CreateGameObject<CTileMapMain>("TileMap");
+
+	TileMap.lock()->LoadTileMap(TEXT("Map/MainMap.tlm"), "Asset");
+
 	std::weak_ptr<CPlayer>	Player = CreateGameObject<CPlayer>("Player");
 
-	std::weak_ptr<CMonster>	Monster1 = CreateGameObject<CMonster>("Monster");
+	//for (int i = 0; i < 30; ++i)
+	//{
+	//	std::weak_ptr<CMonster>	Monster1 = CreateGameObject<CMonster>("Monster");
 
-	std::shared_ptr<CMonster>	Monster = Monster1.lock();
+	//	std::shared_ptr<CMonster>	Monster = Monster1.lock();
 
-	if (Monster)
-	{
-		Monster->SetWorldPos(-400.f, 300.f);
-		Monster->SetWorldRotationZ(180.f);
-	}
+	//	if (Monster)
+	//	{
+	//		Monster->SetWorldPos(-500.f + i * 30.f, 300.f);
+	//		//Monster->SetWorldRotationZ(180.f);
+	//	}
+	//}
 
-	/*Monster1 = CreateGameObject<CMonster>("Monster");
+	std::weak_ptr<CGameObject>	Wall = CreateGameObject<CGameObject>("Wall");
 
-	Monster = Monster1.lock();
+	auto	WallObj = Wall.lock();
+
+	auto	WallBox =
+		WallObj->CreateComponent<CColliderBox2D>("Wall").lock();
+
+	WallBox->SetCollisionProfile("Static");
+	WallBox->SetBoxSize(500.f, 50.f);
+	WallBox->SetDebugDraw(true);
+	WallBox->SetInheritScale(false);
+	WallBox->SetWorldPos(0.f, -200.f);
+	WallBox->SetStatic(true);
+	//WallBox->SetWorldRotationZ(45.f);
+
+	/*std::weak_ptr<CMonster>	Monster1 = CreateGameObject<CMonster>("Monster");
+
+	auto Monster = Monster1.lock();
 
 	if (Monster)
 	{
@@ -47,11 +79,18 @@ bool CMainWorld::Init()
 
 	if (Point)
 	{
-		Point->SetWorldPos(-400.f, -300.f);
+		Point->SetWorldPos(100.f, 0.f);
 		Point->SetWorldRotationZ(20.f);
 		Point->SetSpawnClass<CMonster>();
 		Point->SetSpawnTime(5.f);
 	}*/
+
+	if (!CRenderManager::GetInst()->CheckPostProcess("Hit"))
+	{
+		auto Hit = CRenderManager::GetInst()->CreatePostProcess<CPostProcessHit>("Hit", 3).lock();
+
+		Hit->SetEnable(false);
+	}
 
 	return true;
 }
@@ -112,10 +151,12 @@ void CMainWorld::LoadAnimation2D()
 	mWorldAssetManager->AddFrame("PlayerAttack", 150.f, 0.f, 50.f, 37.f);
 
 	mWorldAssetManager->CreateAnimation("MonsterIdle");
-	mWorldAssetManager->SetAnimation2DTextureType("MonsterIdle",
+	mWorldAssetManager->SetAnimation2DTextureType(
+		"MonsterIdle",
 		EAnimation2DTextureType::SpriteSheet);
 
-	mWorldAssetManager->SetTexture("MonsterIdle", "MonsterSheet",
+	mWorldAssetManager->SetTexture("MonsterIdle",
+		"MonsterSheet",
 		TEXT("Monster.png"));
 
 	for (int i = 0; i < 14; ++i)
@@ -140,7 +181,7 @@ void CMainWorld::LoadAnimation2D()
 
 	mWorldAssetManager->CreateAnimation("Explosion");
 	mWorldAssetManager->SetAnimation2DTextureType("Explosion",
-		EAnimation2DTextureType::Frame);
+		EAnimation2DTextureType::Array);
 
 	for (int i = 1; i <= 89; ++i)
 	{
@@ -152,8 +193,8 @@ void CMainWorld::LoadAnimation2D()
 		TextureFileName.push_back(FileName);
 	}
 
-	mWorldAssetManager->SetTexture("Explosion", "Explosion",
-		TextureFileName);
+	mWorldAssetManager->SetTextureArray("Explosion", 
+		"Explosion", TextureFileName);
 
 	for (int i = 0; i < 89; ++i)
 	{
@@ -162,4 +203,21 @@ void CMainWorld::LoadAnimation2D()
 	TextureFileName.clear();
 
 	mWorldAssetManager->AddFrame("Explosion", 89, 0.f, 0.f, 320.f, 240.f);
+}
+
+void CMainWorld::LoadSound()
+{
+	mWorldAssetManager->LoadSound("MainBGM", "BGM", true,
+		"MainBgm.mp3");
+
+	mWorldAssetManager->LoadSound("Fire", "Effect", false,
+		"Fire1.wav");
+
+	//mWorldAssetManager->SoundPlay("MainBGM");
+}
+
+void CMainWorld::CreateUI()
+{
+	std::weak_ptr<CMainWidget>	MainWidget =
+		mUIManager->CreateWidget<CMainWidget>("MainWidget");
 }

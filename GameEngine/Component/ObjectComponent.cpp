@@ -42,6 +42,10 @@ void CObjectComponent::PostUpdate(float DeltaTime)
 {
 }
 
+void CObjectComponent::PostRender()
+{
+}
+
 void CObjectComponent::Destroy()
 {
 	CComponent::Destroy();

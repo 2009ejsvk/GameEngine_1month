@@ -1,6 +1,8 @@
 #include "Input.h"
 #include "../Engine.h"
 #include "../Device.h"
+#include "CameraManager.h"
+#include "World.h"
 
 CInput::CInput()
 {
@@ -15,6 +17,24 @@ CInput::~CInput()
     {
         SAFE_DELETE(iter->second);
     }
+}
+
+void CInput::DeviceAcquire()
+{
+	if (mKeyboard)
+		mKeyboard->Acquire();
+
+	if (mMouse)
+		mMouse->Acquire();
+}
+
+void CInput::DeviceUnAcquire()
+{
+	if (mKeyboard)
+		mKeyboard->Unacquire();
+
+	if (mMouse)
+		mMouse->Unacquire();
 }
 
 bool CInput::Init()
@@ -43,6 +63,9 @@ void CInput::Update(float DeltaTime)
         UpdateKeyboard();
         UpdateMouse();
     }
+
+	// 마우스 위치를 갱신한다.
+	UpdateMousePos(DeltaTime);
 
 	// 입력 상태를 갱신한다.
 	UpdateInput(DeltaTime);
@@ -90,8 +113,7 @@ bool CInput::InitDevice()
     // 다시 Acquire 함수로 얻어온다.
     // DIERR_NOTACQUIRED : 아직 획득이 안된 상태. Acquire 호출로
     // 해결
-    if (FAILED(mKeyboard->Acquire()))
-        return false;
+	mKeyboard->Acquire();
 
 
 
@@ -128,8 +150,7 @@ bool CInput::InitDevice()
             DISCL_EXCLUSIVE | DISCL_FOREGROUND);
     }
 
-    if (FAILED(mMouse->Acquire()))
-        return false;
+	mMouse->Acquire();
 
     return true;
 }
@@ -189,6 +210,58 @@ void CInput::UpdateMouse()
             }
         }
     }
+}
+
+void CInput::UpdateMousePos(float DeltaTime)
+{
+	POINT	MousePT;
+
+	// 아래 함수는 Screen 좌표로 마우스 위치를 구해준다.
+	GetCursorPos(&MousePT);
+
+	// 스크린 좌표를 클라이언트 좌표로 변환한다.
+	ScreenToClient(mhWnd, &MousePT);
+
+	// 디바이스 해상도와 윈도우 크기는 다를 수 있기 때문에 창과 디바이스의
+	// 크기 비율을 이용하여 마우스 좌표를 디바이스 공간의 좌표로 변환한다.
+	FVector2 Ratio = CDevice::GetInst()->GetResolutionRatio();
+	FResolution	ViewportRS = CDevice::GetInst()->GetResolution();
+
+	FVector2	MousePos;
+
+	// 윈도우 마우스 좌표를 비율을 곱해서 디바이스 공간의 좌표로 변환한다.
+	MousePos.x = MousePT.x * Ratio.x;
+	MousePos.y = MousePT.y * Ratio.y;
+
+	FVector2	MouseWorldPos = MousePos;
+	// 월드공간은 위가 Y+ 방향이기 때문에 마우스 좌표를 반전시켜줘야 한다.
+	MouseWorldPos.y = ViewportRS.Height - MousePos.y;
+
+	if (mMouseCheckStart)
+	{
+		mMouseMove = MousePos - mMousePos;
+	}
+
+	else
+		mMouseCheckStart = true;
+
+	mMousePos = MousePos;
+
+	// 최종 월드 위치는 카메라의 위치에 위에서 구해준 월드공간 좌표를 더해서
+	// 구해준다.
+	auto	World = mWorld.lock();
+
+	auto	CameraMgr = World->GetCameraManager().lock();
+
+	FVector3	CameraPos = CameraMgr->GetMainCameraWorldPos();
+
+	// CameraPos는 화면의 가운데를 기준으로 만들어진다. 그러므로 화면크기의
+	// 절반을 빼주어야 왼쪽, 아래 기준으로 마우스 위치가 만들어진다.
+	mMouseWorldPos.x = CameraPos.x + MouseWorldPos.x -
+		ViewportRS.Width * 0.5f;
+	mMouseWorldPos.y = CameraPos.y + MouseWorldPos.y -
+		ViewportRS.Height * 0.5f;
+
 }
 
 void CInput::UpdateInput(float DeltaTime)

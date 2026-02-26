@@ -56,6 +56,42 @@ void CMeshComponent::ClearEmptyAnimCBuffer()
 	mEmptyAnimCBuffer.reset();
 }
 
+FVector4 CMeshComponent::GetBaseColor(int SlotIndex) const
+{
+	if (mMaterialSlot.size() <= SlotIndex)
+		return FVector4::Black;
+
+	return mMaterialSlot[SlotIndex]->GetBaseColor();
+}
+
+std::weak_ptr<CMesh> CMeshComponent::GetMesh()	const
+{
+	return mMesh;
+}
+
+std::weak_ptr<CTexture> CMeshComponent::GetTexture(
+	int SlotIndex)	const
+{
+	if (mMaterialSlot.size() <= SlotIndex)
+		return std::weak_ptr<CTexture>();
+
+	return mMaterialSlot[SlotIndex]->GetTexture();
+}
+
+std::weak_ptr<CShader> CMeshComponent::GetShader()	const
+{
+	return mShader;
+}
+
+std::weak_ptr<CRenderState> CMeshComponent::GetBlendState(
+	int SlotIndex) const
+{
+	if (mMaterialSlot.size() <= SlotIndex)
+		return std::weak_ptr<CRenderState>();
+
+	return mMaterialSlot[SlotIndex]->GetBlendState();
+}
+
 void CMeshComponent::SetMesh(const std::weak_ptr<CMesh>& Mesh)
 {
 	mMesh = Mesh;
@@ -64,19 +100,20 @@ void CMeshComponent::SetMesh(const std::weak_ptr<CMesh>& Mesh)
 
 	if (_Mesh)
 	{
-		mMaterialSlot.clear();
-
-		size_t	SlotCount = _Mesh->GetMeshSlotCount();
-
-		for (size_t i = 0; i < SlotCount; ++i)
+		if (mMaterialSlot.empty())
 		{
-			std::shared_ptr<FMeshSlot>	Slot = _Mesh->GetMeshSlot((int)i);
+			size_t	SlotCount = _Mesh->GetMeshSlotCount();
 
-			CMaterial* Material = Slot->Material->Clone();
+			for (size_t i = 0; i < SlotCount; ++i)
+			{
+				std::shared_ptr<FMeshSlot>	Slot = _Mesh->GetMeshSlot((int)i);
 
-			std::shared_ptr<CMaterial>	Mtrl(Material);
+				CMaterial* Material = Slot->Material->Clone();
 
-			mMaterialSlot.push_back(Mtrl);
+				std::shared_ptr<CMaterial>	Mtrl(Material);
+
+				mMaterialSlot.push_back(Mtrl);
+			}
 		}
 	}
 }
@@ -219,10 +256,48 @@ void CMeshComponent::AddTextureFullPath(int SlotIndex, const std::string& Name, 
 		Register, ShaderBufferType, Index);
 }
 
+void CMeshComponent::AddTextureArray(int SlotIndex, const std::string& Name, const std::vector<const TCHAR*>& FileName, const std::string& PathName, int Register, int ShaderBufferType, int Index)
+{
+	auto	World = mWorld.lock();
+
+	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr->LoadTextureArray(Name, FileName, PathName))
+		return;
+
+	std::weak_ptr<CTexture>	Texture =
+		AssetMgr->FindTexture(Name);
+
+	mMaterialSlot[SlotIndex]->AddTexture(Texture,
+		Register, ShaderBufferType, Index);
+}
+
+void CMeshComponent::AddTextureFullPathArray(int SlotIndex, const std::string& Name, const std::vector<const TCHAR*>& FullPath, int Register, int ShaderBufferType, int Index)
+{
+	auto	World = mWorld.lock();
+
+	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr->LoadTextureArrayFullPath(Name, FullPath))
+		return;
+
+	std::weak_ptr<CTexture>	Texture =
+		AssetMgr->FindTexture(Name);
+
+	mMaterialSlot[SlotIndex]->AddTexture(Texture,
+		Register, ShaderBufferType, Index);
+}
+
 bool CMeshComponent::SetTexture(int SlotIndex, int TextureIndex, const std::weak_ptr<class CTexture>& Texture)
 {
 	if ((int)mMaterialSlot.size() <= SlotIndex)
-		return false;
+	{
+		std::shared_ptr<CMaterial>	Mtrl(new CMaterial);
+
+		Mtrl->Init();
+
+		mMaterialSlot.push_back(Mtrl);
+	}
 
 	return mMaterialSlot[SlotIndex]->SetTexture(TextureIndex,
 		Texture);
@@ -342,6 +417,13 @@ void CMeshComponent::Render()
 			{
 				if (mMaterialSlot[i])
 					mMaterialSlot[i]->UpdateConstantBuffer(Anim->GetAnimationFrame());
+			}
+
+			// Array일때
+			else
+			{
+				if (mMaterialSlot[i])
+					mMaterialSlot[i]->UpdateConstantBufferArray(1);
 			}
 		}
 

@@ -41,7 +41,7 @@ bool CMissile::Init()
 {
 	CGameObject::Init();
 
-	mMeshComponent = CreateComponent<CMeshComponent>("Mesh");
+	mMeshComponent = CreateComponent<CMeshComponent>("MissileMesh");
 	mCameraComponent = CreateComponent<CCameraComponent>("MissileCamera");
 
 	auto	Mesh = mMeshComponent.lock();

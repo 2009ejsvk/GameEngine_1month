@@ -69,6 +69,7 @@ public:
 	~CInput();
 
 private:
+	std::weak_ptr<class CWorld>		mWorld;
 	EInputSystemType	mInputType = EInputSystemType::DInput;
 	HINSTANCE	mhInst;
 	HWND		mhWnd;
@@ -90,7 +91,51 @@ private:
 
 	bool	mMouseButton[EMouseType::End][EInputType::End] = {};
 
+	FVector2		mMousePos;
+	FVector2		mMouseWorldPos;
+	FVector2		mMouseMove;
+	bool			mMouseCheckStart = false;
+
 public:
+	const FVector2& GetMousePos()	const
+	{
+		return mMousePos;
+	}
+
+	const FVector2& GetMouseWorldPos()	const
+	{
+		return mMouseWorldPos;
+	}
+
+	const FVector2& GetMouseMove()	const
+	{
+		return mMouseMove;
+	}
+
+	bool GetMouseState(EMouseType::Type MouseType,
+		EInputType::Type InputType)
+	{
+		return mMouseButton[MouseType][InputType];
+	}
+
+	bool GetCtrl(EInputType::Type Type)	const
+	{
+		return mCtrlState[Type];
+	}
+
+	bool GetAlt(EInputType::Type Type)	const
+	{
+		return mAltState[Type];
+	}
+
+	bool GetShift(EInputType::Type Type)	const
+	{
+		return mShiftState[Type];
+	}
+
+public:
+	void DeviceAcquire();
+	void DeviceUnAcquire();
 	bool Init();
 	void Update(float DeltaTime);
 
@@ -98,6 +143,7 @@ private:
 	bool InitDevice();
 	void UpdateKeyboard();
 	void UpdateMouse();
+	void UpdateMousePos(float DeltaTime);
 	void UpdateInput(float DeltaTime);
 	void UpdateDInput(float DeltaTime);
 	void UpdateWindowInput(float DeltaTime);

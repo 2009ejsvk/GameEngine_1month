@@ -39,9 +39,11 @@ bool CPathManager::Init()
 	CreatePath("Asset", TEXT("Asset\\"));
 	CreatePath("Shader", TEXT("Shader\\"), "Asset");
 	CreatePath("Texture", TEXT("Texture\\"), "Asset");
+	CreatePath("Sound", TEXT("Sound\\"), "Asset");
 	CreatePath("EngineAsset", TEXT("EngineAsset\\"));
 	CreatePath("EngineShader", TEXT("Shader\\"), "EngineAsset");
 	CreatePath("EngineTexture", TEXT("Texture\\"), "EngineAsset");
+	CreatePath("EngineFont", TEXT("Font\\"), "EngineAsset");
 
 	return true;
 }
@@ -79,4 +81,23 @@ const TCHAR* CPathManager::FindPath(const std::string& Name)
 		return nullptr;
 
 	return iter->second;
+}
+
+const char* CPathManager::FindPathMultibyte(const std::string& Name)
+{
+	auto iter = mPathMap.find(Name);
+
+	if (iter == mPathMap.end())
+		return nullptr;
+
+	static char	Path[MAX_PATH] = {};
+
+	memset(Path, 0, MAX_PATH);
+
+	int Length = WideCharToMultiByte(CP_ACP, 0, iter->second, -1,
+		nullptr, 0, nullptr, nullptr);
+	WideCharToMultiByte(CP_ACP, 0, iter->second, -1, Path, Length,
+		nullptr, nullptr);
+
+	return Path;
 }

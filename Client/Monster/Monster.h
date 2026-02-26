@@ -25,10 +25,13 @@ private:
 	std::weak_ptr<class CColliderSphere2D>	mBody;
 	//std::weak_ptr<class CColliderBox2D>	mBody;
 	std::weak_ptr<class CColliderLine2D>	mLine2D;
+	std::weak_ptr<class CWidgetComponent>	mHUDWidget;
 	float	mFireTime = 0.f;
 	std::weak_ptr<CGameObject>	mTargetObject;
 	float	mDetectRange = 600.f;
 	int		mHP = 10;
+	int		mHPMax = 10;
+	std::vector<std::function<void(float, float)>>	mHPWidgetFunc;
 
 public:
 	void Damage(int Dmg)
@@ -43,6 +46,7 @@ public:
 public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
+	virtual float TakeDamage(float Damage);
 
 protected:
 	virtual CMonster* Clone();

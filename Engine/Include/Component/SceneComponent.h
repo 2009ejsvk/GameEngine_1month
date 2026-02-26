@@ -8,6 +8,12 @@ enum class EComponentRender : unsigned char
 	Render
 };
 
+enum class EComponentRenderOption : unsigned char
+{
+	Normal,
+	Instancing
+};
+
 class CSceneComponent :
     public CComponent
 {
@@ -25,14 +31,28 @@ public:
 protected:
 	std::weak_ptr<CSceneComponent>	mParent;
 	EComponentRender	mRenderType = EComponentRender::None;
+	EComponentRenderOption	mRenderOption =
+		EComponentRenderOption::Normal;
 	std::vector<std::weak_ptr<CSceneComponent>>	mChildList;
 	int	mRenderLayer = 0;
 
 public:
+	EComponentRenderOption GetRenderOption()	const
+	{
+		return mRenderOption;
+	}
+
+	void SetRenderOption(EComponentRenderOption Option)
+	{
+		mRenderOption = Option;
+	}
+
 	void SetRenderLayer(int Layer)
 	{
 		mRenderLayer = Layer;
 	}
+
+	void SetRenderLayer(const std::string& Name);
 
 public:
 	EComponentRender GetRenderType()	const
@@ -46,6 +66,14 @@ public:
 	}
 
 public:
+	virtual std::weak_ptr<class CMesh> GetMesh()	const;
+	virtual std::weak_ptr<class CTexture> GetTexture(int SlotIndex = 0)	const;
+	virtual std::weak_ptr<class CShader> GetShader()	const;
+	virtual std::weak_ptr<class CRenderState> GetBlendState(int SlotIndex = 0)	const;
+	virtual std::weak_ptr<class CAnimation2DComponent> GetAnimComponent()	 const;
+	virtual FVector4 GetBaseColor(int SlotIndex = 0)	const;
+
+public:
 	virtual void Begin();
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
@@ -56,6 +84,46 @@ public:
 
 protected:
 	virtual CSceneComponent* Clone()	const;
+
+protected:
+	bool	mSimulatePhysics = false;
+	bool	mUseGravity = false;	// 중력 사용
+	float		mMass = 1.f;	// 질량
+	FVector3	mAccel;
+	FVector3	mPhysicsVelocity;
+
+public:
+	bool GetSimulatePhysics()	const
+	{
+		return mSimulatePhysics;
+	}
+
+	bool GetUseGravity()	const
+	{
+		return mUseGravity;
+	}
+
+public:
+	void SetSimulatePhysics(bool SimulatePhysics)
+	{
+		mSimulatePhysics = SimulatePhysics;
+	}
+
+	void SetUseGravity(bool UseGravity)
+	{
+		mUseGravity = UseGravity;
+	}
+
+	void AddForce(const FVector3& Force)
+	{
+		mAccel += Force * (1.f / max(mMass, 0.0001f));
+	}
+
+	void ClearPhysics()
+	{
+		mAccel = FVector3::Zero;
+		mPhysicsVelocity = FVector3::Zero;
+	}
 
 protected:
 	bool		mInheritScale = true;

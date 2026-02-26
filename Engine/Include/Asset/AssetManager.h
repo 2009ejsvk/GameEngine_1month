@@ -13,15 +13,20 @@ private:
 	std::shared_ptr<class CShaderManager>	mShaderManager;
 	std::shared_ptr<class CTextureManager>	mTextureManager;
 	std::shared_ptr<class CAnimation2DManager>	mAnimation2DManager;
+	std::shared_ptr<class CSoundManager>	mSoundManager;
+	std::shared_ptr<class CFontManager>		mFontManager;
 
 public:
 	std::weak_ptr<class CMeshManager> GetMeshManager();
 	std::weak_ptr<class CShaderManager> GetShaderManager();
 	std::weak_ptr<class CTextureManager> GetTextureManager();
 	std::weak_ptr<class CAnimation2DManager> GetAnimation2DManager();
+	std::weak_ptr<class CSoundManager> GetSoundManager();
+	std::weak_ptr<class CFontManager> GetFontManager();
 
 public:
 	bool Init();
+	void Update();
 	void ReleaseAsset(const std::string& Name,
 		EAssetType AssetType);
 

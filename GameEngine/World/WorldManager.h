@@ -12,15 +12,23 @@ private:
 private:
 	std::shared_ptr<CWorld>	mWorld;
 	std::shared_ptr<CWorld>	mNextWorld;
+	std::shared_ptr<CWorld>	mAsyncWorld;
 
 public:
 	std::weak_ptr<CWorld> GetWorld()	const;
 
 public:
+	void InputActive();
+	void InputDeactive();
 	bool Init();
-	void Update(float DeltaTime);
-	void PostUpdate(float DeltaTime);
+	bool Update(float DeltaTime);
+	bool PostUpdate(float DeltaTime);
 	void Render();
+	void RenderUI();
+	void PostRender();
+
+private:
+	bool ChangeWorld();
 
 public:
 	template <typename T>
@@ -31,6 +39,9 @@ public:
 			mNextWorld = std::make_shared<T>();
 
 			mNextWorld->SetSelf(mNextWorld);
+
+			if (mWorld)
+				mWorld->ClearWorld();
 
 			if (!mNextWorld->Init())
 				return std::weak_ptr<T>();
@@ -46,6 +57,31 @@ public:
 			return std::weak_ptr<T>();
 
 		return std::dynamic_pointer_cast<T>(mWorld);
+	}
+
+	template <typename T>
+	std::weak_ptr<T> CreateAsyncWorld()
+	{
+		mAsyncWorld = std::make_shared<T>();
+
+		mAsyncWorld->SetSelf(mAsyncWorld);
+
+		if (!mAsyncWorld->Init())
+			return std::weak_ptr<T>();
+
+		//mNextWorld = mAsyncWorld;
+		//mAsyncWorld.reset();
+
+		return std::dynamic_pointer_cast<T>(mAsyncWorld);
+	}
+
+	void CompleteAsyncWorld()
+	{
+		if (mWorld)
+			mWorld->ClearWorld();
+
+		mNextWorld = mAsyncWorld;
+		mAsyncWorld.reset();
 	}
 
 private:

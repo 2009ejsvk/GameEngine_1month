@@ -30,6 +30,14 @@ CMaterial::~CMaterial()
 {
 }
 
+std::weak_ptr<CTexture> CMaterial::GetTexture(int Index)	const
+{
+	if (mTextureArray.size() <= Index)
+		return std::weak_ptr<CTexture>();
+
+	return mTextureArray[Index]->Texture;
+}
+
 void CMaterial::SetBlendState(const std::string& Name)
 {
 	mBlendState = CRenderManager::GetInst()->FindRenderState(Name);
@@ -151,6 +159,52 @@ void CMaterial::AddTextureFullPath(const std::string& Name, const std::vector<co
 	mTextureArray.push_back(TexInfo);
 }
 
+void CMaterial::AddTextureArray(const std::string& Name,
+	const std::vector<const TCHAR*>& FileName,
+	const std::string& PathName,
+	int Register, int ShaderBufferType,
+	int Index)
+{
+	FMaterialTextureInfo* Origin = new FMaterialTextureInfo;
+
+	std::shared_ptr<FMaterialTextureInfo>	TexInfo(Origin);
+
+	auto	TextureManager = CAssetManager::GetInst()->GetTextureManager().lock();
+
+	TextureManager->LoadTextureArray(Name, FileName, PathName);
+
+	TexInfo->Texture = TextureManager->FindTexture(Name);
+	TexInfo->Name = Name;
+	TexInfo->Register = Register;
+	TexInfo->ShaderBufferType = ShaderBufferType;
+	TexInfo->Index = Index;
+
+	mTextureArray.push_back(TexInfo);
+}
+
+void CMaterial::AddTextureFullPathArray(
+	const std::string& Name,
+	const std::vector<const TCHAR*>& FullPath,
+	int Register, int ShaderBufferType,
+	int Index)
+{
+	FMaterialTextureInfo* Origin = new FMaterialTextureInfo;
+
+	std::shared_ptr<FMaterialTextureInfo>	TexInfo(Origin);
+
+	auto	TextureManager = CAssetManager::GetInst()->GetTextureManager().lock();
+
+	TextureManager->LoadTextureArrayFullPath(Name, FullPath);
+
+	TexInfo->Texture = TextureManager->FindTexture(Name);
+	TexInfo->Name = Name;
+	TexInfo->Register = Register;
+	TexInfo->ShaderBufferType = ShaderBufferType;
+	TexInfo->Index = Index;
+
+	mTextureArray.push_back(TexInfo);
+}
+
 bool CMaterial::SetTexture(int TextureIndex, 
 	const std::weak_ptr<class CTexture>& Texture)
 {
@@ -256,6 +310,32 @@ void CMaterial::UpdateConstantBuffer(int TextureIndex)
 			Texture->SetShader(mTextureArray[i]->Register,
 				mTextureArray[i]->ShaderBufferType,
 				TextureIndex);
+		}
+	}
+
+	mMaterialCBuffer->UpdateBuffer();
+
+	if (!mBlendState.expired())
+	{
+		auto	State = mBlendState.lock();
+
+		State->SetState();
+	}
+}
+
+void CMaterial::UpdateConstantBufferArray(int Register)
+{
+	size_t	Size = mTextureArray.size();
+
+	for (size_t i = 0; i < Size; ++i)
+	{
+		auto	Texture = mTextureArray[i]->Texture.lock();
+
+		if (Texture)
+		{
+			Texture->SetShader(Register,
+				mTextureArray[i]->ShaderBufferType,
+				0);
 		}
 	}
 

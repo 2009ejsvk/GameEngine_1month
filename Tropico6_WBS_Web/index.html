@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tropico 6 스타일 도시건설·정치 시뮬레이션 게임 엔진 구현 계획 — 1개월 MVP 실행 전략 포트폴리오">
+  <meta name="theme-color" content="#6c5ce7">
+  <title>Tropico 6 Engine Plan — Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <header class="deck-bar">
+    <div class="deck-brand">
+      <span class="badge">Portfolio</span>
+      <strong>Tropico 6 Engine Plan</strong>
+      <span id="slideTitle" class="slide-title-label"></span>
+    </div>
+
+    <div class="deck-progress-wrap" aria-hidden="true">
+      <div class="deck-progress">
+        <div id="progressFill" class="deck-progress-fill"></div>
+      </div>
+    </div>
+
+    <div class="deck-controls">
+      <button id="prevBtn" class="ctrl-btn" title="이전 (←)">← Prev</button>
+      <span id="slideCounter" class="counter">1 / 13</span>
+      <button id="nextBtn" class="ctrl-btn" title="다음 (→)">Next →</button>
+      <button id="fullBtn" class="ctrl-btn accent" title="전체화면 (F)">⛶ Full</button>
+    </div>
+  </header>
+
+  <aside class="deck-outline" aria-label="슬라이드 목차">
+    <ol id="outlineList"></ol>
+  </aside>
+
+  <main id="deck" class="deck" aria-label="발표 슬라이드">
+
+    <!-- ==================== 1. COVER ==================== -->
+    <section class="slide theme-cover" data-title="커버">
+      <div class="slide-inner">
+        <!-- Hero image -->
+        <div class="hero-banner reveal">
+          <img src="img/1977246657-311d3eb07eddb853fd1a636c564377002c5cbb2d771bc98bd3dfe4dae9e475b5-d.webp"
+            alt="Tropico 6 Landscape" class="hero-img">
+          <div class="hero-overlay">
+            <p class="eyebrow">City-Builder × Political Simulation</p>
+            <h1 class="hero-title">트로피코 6 구현 전략<br><span class="gradient-text">1개월 실행 계획</span></h1>
+          </div>
+        </div>
+        <p class="lead reveal">학습용으로 제공된 언리얼 엔진 구조를 DirectX 11로 구현한 엔진을 기반으로,<br>2026년 2월 26일부터 3월 26일까지 코어 버티컬 슬라이스를
+          완성한다.</p>
+
+        <div class="hero-metrics reveal" id="heroMetrics"></div>
+        <div class="portfolio-badges reveal" id="portfolioBadges"></div>
+
+        <div class="speaker-note reveal">
+          <strong>핵심 메시지</strong>
+          <p>이번 계획은 "전체 복제"가 아니라 "플레이 가능한 핵심 루프"를 빠르게 증명하는 데 집중한다.</p>
+        </div>
+
+        <div class="slide-footer reveal">
+          <span id="ddayBadge" class="dday-badge">D-28</span>
+          <span class="footer-brand">Game Engine Portfolio · DirectX 11</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 2. 목표와 루프 ==================== -->
+    <section class="slide" data-title="목표와 루프">
+      <div class="slide-inner two-col">
+        <article class="panel reveal">
+          <h2>프로젝트 목표</h2>
+          <p class="desc">건설 → 생산/물류 → 시민 욕구 → 정치 대응이 끊기지 않는 통치 시뮬레이션 루프를 30~45분 플레이로 검증하고, 50~200 NPC가 개별적으로 이동/행동하도록
+            구현한다.</p>
+          <div id="loopFlow" class="loop-flow"></div>
+          <div class="ref-screenshot reveal">
+            <img src="img/543508187.jpg" alt="Tropico 6 Overview HUD" loading="lazy">
+            <span class="img-caption">Tropico 6 — 인구/행복/경제/파벌/외교 시스템 Overview</span>
+          </div>
+        </article>
+
+        <article class="panel reveal">
+          <h2>완료 기준 (DoD)</h2>
+          <ul id="doneCriteria" class="list compact"></ul>
+          <div id="successMeters" class="success-meters"></div>
+        </article>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 3. 범위 확정 ==================== -->
+    <section class="slide" data-title="범위 확정">
+      <div class="slide-inner two-col">
+        <article class="panel reveal">
+          <h2>MVP Scope</h2>
+          <p class="desc">이번 달 필수 구현 항목 — 데모 품질과 직결</p>
+          <div id="inScopeCards" class="scope-cards"></div>
+          <div class="ref-screenshot reveal">
+            <img src="img/vekLl7g.jpg" alt="Tropico 6 Plantation" loading="lazy">
+            <span class="img-caption">생산 체인 — 고무 플랜테이션 운영 화면</span>
+          </div>
+        </article>
+
+        <article class="panel reveal danger">
+          <h2>확장 후보</h2>
+          <p class="desc">여건 충족 시 즉시 착수</p>
+          <div id="outScopeCards" class="scope-cards scope-cards-soft"></div>
+          <div class="ref-screenshot reveal">
+            <img src="img/Tropico6-10.jpg" alt="Tropico 6 Space Program" loading="lazy">
+            <span class="img-caption">확장 콘텐츠 참고 — 우주 프로그램</span>
+          </div>
+        </article>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 4. 건설 시스템 ==================== -->
+    <section class="slide" data-title="건설 시스템">
+      <div class="slide-inner two-col">
+        <article class="panel reveal">
+          <h2>트로피코 6 원본</h2>
+          <ul id="constructionOriginal" class="list compact"></ul>
+          <div class="ref-screenshot reveal">
+            <img src="img/zxq1bor.jpg" alt="Tropico 6 Road System" loading="lazy">
+            <span class="img-caption">원본 도로 시스템 — 자유 곡선 연결</span>
+          </div>
+        </article>
+
+        <article class="panel reveal">
+          <h2>2D 엔진 구현 방식</h2>
+          <ul id="constructionMvp" class="list compact"></ul>
+          <div id="constructionRoadCards" class="scope-cards"></div>
+          <div class="ref-screenshot-row reveal">
+            <div class="ref-screenshot small">
+              <img src="img/ps4+menu.jpg" alt="Tropico 6 Build Menu" loading="lazy">
+              <span class="img-caption">건설 메뉴</span>
+            </div>
+            <div class="ref-screenshot small">
+              <img src="img/178856aab64cb755c7cdf6434b3856195b1cb161d83247d3b95ca6fad6439a12.jpg"
+                alt="Tropico 6 Building View" loading="lazy">
+              <span class="img-caption">도시 건물 배치</span>
+            </div>
+          </div>
+        </article>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 5. 생산 체인 ==================== -->
+    <section class="slide" data-title="생산 체인">
+      <div class="slide-inner">
+        <div class="two-col">
+          <article class="panel reveal">
+            <h2>원본 경제 구조</h2>
+            <ul id="productionOriginal" class="list compact"></ul>
+            <div class="ref-screenshot reveal">
+              <img src="img/vekLl7g.jpg" alt="Tropico 6 Plantation" loading="lazy">
+              <span class="img-caption">플랜테이션 운영 화면</span>
+            </div>
+          </article>
+          <article class="panel reveal">
+            <h2>MVP 체인 정의</h2>
+            <ul id="productionMvp" class="list compact"></ul>
+            <div id="productionChainFlow" class="loop-flow"></div>
+          </article>
+        </div>
+        <div id="productionResourceCards" class="scope-cards reveal"></div>
+        <div class="ref-screenshot-row reveal">
+          <div class="ref-screenshot small">
+            <img src="img/tropico-6-review-shacknews-screenshot-04.jpg" alt="Tropico 6 Resource Overlay"
+              loading="lazy">
+            <span class="img-caption">자원 오버레이</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/543508187.jpg" alt="Tropico 6 Overview" loading="lazy">
+            <span class="img-caption">경제 상태 모니터링</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/iSvny64.jpg" alt="Tropico 6 Industry View" loading="lazy">
+            <span class="img-caption">가공 산업 라인</span>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 6. 물류 & 길찾기 ==================== -->
+    <section class="slide" data-title="물류 & 길찾기">
+      <div class="slide-inner">
+        <div class="two-col">
+          <article class="panel reveal">
+            <h2>트로피코 6 물류 특징</h2>
+            <ul id="logisticsOriginal" class="list compact"></ul>
+            <div class="ref-screenshot reveal">
+              <img src="img/xJVJpX2eiazJ7f1XZoDkqN_xt5thIO3E11CPKT5rX9Ea7gBic5nsiBR2K3uHFejjtOGEV-mTp6uvyilULwYtbMxsM9HvpmPAQER5MaQyyF5ME8PCDxcMwOpWLsy8V_g3SkXGR1W7bT09kOnQQ2ug8w.webp"
+                alt="Tropico 6 Port Logistics" loading="lazy">
+              <span class="img-caption">항구 물류 허브</span>
+            </div>
+          </article>
+          <article class="panel reveal">
+            <h2>2D 엔진 구현 계획</h2>
+            <ul id="logisticsMvp" class="list compact"></ul>
+            <div id="logisticsKeyPoints" class="chips"></div>
+            <div id="logisticsRouteCards" class="scope-cards"></div>
+          </article>
+        </div>
+        <div class="ref-screenshot-row reveal">
+          <div class="ref-screenshot small">
+            <img src="img/PfPkM1yp3TBJ00nNRosxu2zyF4p2B0gELQwsPK3tV-6c1SrFsJYGcwIolPuCuGlgKbcYBw3SbNyxK_ZVS26O9SndFVAry4VnwXbWz0Idnpcq7A0VDqkPKDSGUC_ZKiLpOMIQb7cmVxfK2NzcHA-7Uw.webp"
+              alt="Tropico 6 Bus Traffic" loading="lazy">
+            <span class="img-caption">교통 흐름</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/your-game-is-lagging-at-1fps-at-4x-speed-after-hitting-2-3k-v0-9zxv358sx0ld1.png"
+              alt="Tropico 6 Traffic Congestion" loading="lazy">
+            <span class="img-caption">대규모 교통 병목</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/tropico-6-review-shacknews-screenshot-01.jpg" alt="Tropico 6 Teamster Era" loading="lazy">
+            <span class="img-caption">초기 물류 운영</span>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 7. 시민 생활 ==================== -->
+    <section class="slide" data-title="시민 생활">
+      <div class="slide-inner">
+        <div class="two-col">
+          <article class="panel reveal">
+            <h2>원본 시민/행복 모델</h2>
+            <ul id="happinessOriginal" class="list compact"></ul>
+            <div class="ref-screenshot reveal">
+              <img src="img/454754296.jpg" alt="Tropico 6 Happiness Panel" loading="lazy">
+              <span class="img-caption">행복도 패널</span>
+            </div>
+          </article>
+          <article class="panel reveal">
+            <h2>MVP 구현 범위</h2>
+            <ul id="happinessMvp" class="list compact"></ul>
+            <div id="happinessFactors" class="chips"></div>
+            <div id="happinessMeters" class="success-meters"></div>
+          </article>
+        </div>
+        <div class="ref-screenshot-row reveal">
+          <div class="ref-screenshot small">
+            <img src="img/1702878108_preview_20190404133037_1.jpg" alt="Tropico 6 Citizen Detail" loading="lazy">
+            <span class="img-caption">시민 상세 정보</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/CUp18HL.jpg" alt="Tropico 6 Citizen Info" loading="lazy">
+            <span class="img-caption">시민 정보 창</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/0.jpg" alt="Tropico 6 Residential Area" loading="lazy">
+            <span class="img-caption">주거 및 생활권</span>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 8. 정치 시스템 ==================== -->
+    <section class="slide" data-title="정치 시스템">
+      <div class="slide-inner">
+        <div class="two-col">
+          <article class="panel reveal">
+            <h2>트로피코 6 원본 정치</h2>
+            <ul id="politicsOriginal" class="list compact"></ul>
+            <div class="ref-screenshot reveal">
+              <img src="img/454754312.jpg" alt="Tropico 6 Politics Panel" loading="lazy">
+              <span class="img-caption">정치/파벌 패널</span>
+            </div>
+          </article>
+          <article class="panel reveal">
+            <h2>MVP 정치 루프</h2>
+            <ul id="politicsMvp" class="list compact"></ul>
+            <div id="factionCards" class="scope-cards"></div>
+          </article>
+        </div>
+        <div class="two-col">
+          <article class="panel reveal">
+            <h3>칙령 3종</h3>
+            <div id="decreeCards" class="scope-cards"></div>
+          </article>
+          <article class="panel reveal">
+            <h3>선거/이벤트 시각화</h3>
+            <div class="ref-screenshot-row">
+              <div class="ref-screenshot small">
+                <img src="img/resize.webp" alt="Tropico 6 Event Popup" loading="lazy">
+                <span class="img-caption">정치 이벤트</span>
+              </div>
+              <div class="ref-screenshot small">
+                <img src="img/543508187.jpg" alt="Tropico 6 System Overview" loading="lazy">
+                <span class="img-caption">정치 영향 종합 HUD</span>
+              </div>
+              <div class="ref-screenshot small">
+                <img src="img/tropico-in-chaos-el-presidente-shot-nation-on-the-brink-of-v0-xdal2ac44npe1.jpg"
+                  alt="Tropico 6 Rebellion" loading="lazy">
+                <span class="img-caption">반란 리스크 상황</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 9. 엔진 적용 ==================== -->
+    <section class="slide" data-title="엔진 적용">
+      <div class="slide-inner">
+        <div class="ref-screenshot wide reveal">
+          <img src="img/downtown-area-v0-sqvb8j0mkjjf1.jpg" alt="Tropico 6 Downtown" loading="lazy">
+          <span class="img-caption">구현 목표 — 대규모 도시 시뮬레이션 (시민 5,000+)</span>
+        </div>
+        <div class="triple">
+          <article class="panel reveal">
+            <h2>기반 엔진</h2>
+            <ul id="reuseList" class="list compact"></ul>
+          </article>
+          <article class="panel reveal">
+            <h2>신규 시스템</h2>
+            <ul id="newSystems" class="list compact"></ul>
+          </article>
+          <article class="panel reveal">
+            <h2>구현 원칙</h2>
+            <div id="principles" class="chips"></div>
+          </article>
+        </div>
+        <div class="engine-visual reveal">
+          <div id="engineMix" class="engine-mix"></div>
+          <div id="architectureFlow" class="architecture-flow"></div>
+        </div>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 10. 4주 로드맵 ==================== -->
+    <section class="slide" data-title="4주 로드맵">
+      <div class="slide-inner">
+        <h2 class="reveal">주차별 실행 로드맵</h2>
+        <div class="ref-screenshot wide reveal">
+          <img src="img/tropico-6-review-shacknews-screenshot-01.jpg" alt="Tropico 6 Colonial Era" loading="lazy">
+          <span class="img-caption">식민지 시대 → 세계대전 전환 (시대별 로드맵 진행)</span>
+        </div>
+        <div id="weekHeat" class="week-heat reveal"></div>
+        <div id="roadmap" class="roadmap reveal"></div>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 11. WBS 상세 ==================== -->
+    <section class="slide" data-title="WBS 상세">
+      <div class="slide-inner">
+        <div class="wbs-head reveal">
+          <h2>WBS Detailed View</h2>
+          <div id="weekTabs" class="week-tabs"></div>
+        </div>
+        <p id="wbsSummary" class="wbs-summary reveal"></p>
+        <div id="wbsKpis" class="wbs-kpis reveal"></div>
+        <div class="table-wrap reveal">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>작업</th>
+                <th>기간</th>
+                <th>선행</th>
+                <th>완료 기준</th>
+                <th>주차</th>
+              </tr>
+            </thead>
+            <tbody id="wbsRows"></tbody>
+          </table>
+        </div>
+        <div class="ref-screenshot-row reveal">
+          <div class="ref-screenshot small">
+            <img src="img/0.jpg" alt="건설 현장" loading="lazy">
+            <span class="img-caption">건설 시스템</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/1702878108_preview_20190404133037_1.jpg" alt="시민 정보" loading="lazy">
+            <span class="img-caption">시민 시뮬레이션</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/resize.webp" alt="정치 이벤트" loading="lazy">
+            <span class="img-caption">정치 이벤트</span>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 12. 리스크 관리 ==================== -->
+    <section class="slide" data-title="리스크 관리">
+      <div class="slide-inner two-col">
+        <article class="panel reveal">
+          <h2>리스크 & 대응</h2>
+          <ul id="risks" class="list"></ul>
+          <div id="riskMatrix" class="risk-matrix"></div>
+          <div class="ref-screenshot reveal">
+            <img src="img/tropico-in-chaos-el-presidente-shot-nation-on-the-brink-of-v0-xdal2ac44npe1.jpg"
+              alt="Tropico 6 Chaos" loading="lazy">
+            <span class="img-caption">리스크 시나리오 — 시민 반란 상황</span>
+          </div>
+        </article>
+        <article class="panel reveal">
+          <h2>발표 운영</h2>
+          <ol id="webPages" class="list ordered"></ol>
+          <div id="portfolioProof" class="proof-strip"></div>
+          <div class="kpi-box">
+            <h3>핵심 KPI</h3>
+            <ul>
+              <li>프레임: 시민 200명 기준 안정 FPS</li>
+              <li>플레이: 30분 이상 경제/정치 이벤트 발생</li>
+              <li>품질: 4주차 기능 동결 후 안정화 완료</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
+    </section>
+
+    <!-- ==================== 13. 클로징 ==================== -->
+    <section class="slide theme-end" data-title="클로징">
+      <div class="slide-inner">
+        <div class="ref-screenshot wide reveal">
+          <img src="img/city-tour-v0-24g1ed8sk8n91.jpg" alt="Tropico 6 Modern City" loading="lazy">
+          <span class="img-caption">최종 목표 — 확장 완료 시 대규모 도시 시뮬레이션</span>
+        </div>
+        <h2 class="reveal">결론</h2>
+        <p class="lead reveal">한 달 안에 "트로피코스러운 통치의 긴장감"을 증명하고,<br>여건이 확보되면 확장 후보 항목도 추가 수행한다.</p>
+        <div class="final-grid">
+          <article class="panel reveal">
+            <h3>이번 달 산출물</h3>
+            <ul class="list">
+              <li>플레이 가능한 MVP 빌드</li>
+              <li>WBS 완료 보고서</li>
+              <li>다음 단계 확장 백로그</li>
+            </ul>
+          </article>
+          <article class="panel reveal">
+            <h3>다음 의사결정</h3>
+            <ul class="list">
+              <li>2개월차: 냉전/관광/불가사의 확장 여부</li>
+              <li>인원 증원 시 일정 재산정</li>
+              <li>툴링(맵 편집/밸런싱) 투자 비율 확정</li>
+            </ul>
+            <div id="ifPossiblePlan" class="if-possible"></div>
+          </article>
+        </div>
+
+        <div class="ref-screenshot-row reveal">
+          <div class="ref-screenshot small">
+            <img src="img/palace-2.jpg" alt="Palace" loading="lazy">
+            <span class="img-caption">대통령 궁</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/tropico6_2141973b.jpg" alt="Archipelago" loading="lazy">
+            <span class="img-caption">군도 전경</span>
+          </div>
+          <div class="ref-screenshot small">
+            <img src="img/my-island-izeria-v0-8ipt4liiq1pe1.jpg" alt="Island" loading="lazy">
+            <span class="img-caption">섬 개발</span>
+          </div>
+        </div>
+
+        <div class="closing-brand reveal">
+          <p>Game Engine Portfolio · Built with DirectX 11</p>
+          <p class="closing-sub">학습용 언리얼 엔진 구조 → DirectX 11 자체 구현 엔진</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav id="dotNav" class="dot-nav" aria-label="슬라이드 네비게이션"></nav>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

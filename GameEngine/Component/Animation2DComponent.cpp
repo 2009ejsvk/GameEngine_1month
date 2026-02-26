@@ -39,17 +39,21 @@ void CAnimation2DComponent::SetUpdateComponent(
 
 	if (MeshComponent && mCurrentAnimation)
 	{
-		MeshComponent->SetAnimComponent(
-			GetSelf<CAnimation2DComponent>());
+		if (!mUpdateEnable)
+		{
+			MeshComponent->SetAnimComponent(
+				GetSelf<CAnimation2DComponent>());
+
+			mUpdateEnable = true;
+		}
 
 		auto	Asset = mCurrentAnimation->GetAsset().lock();
 
 		if (Asset)
 		{
 			mAnimCBuffer->SetAnimation2DTextureType(Asset->GetAnimationTextureType());
-			if (MeshComponent->SetTexture(0, 0,
-				Asset->GetTexture()))
-				mUpdateEnable = true;
+			MeshComponent->SetTexture(0, 0,
+				Asset->GetTexture());
 		}
 	}
 }
@@ -86,19 +90,27 @@ void CAnimation2DComponent::AddAnimation(
 
 		if (MeshComponent && mCurrentAnimation)
 		{
+			if (!mUpdateEnable)
+			{
+				MeshComponent->SetAnimComponent(
+					GetSelf<CAnimation2DComponent>());
+
+				mUpdateEnable = true;
+			}
+
 			auto	Asset = mCurrentAnimation->GetAsset().lock();
 
 			if (Asset)
 			{
 				mAnimCBuffer->SetAnimation2DTextureType(Asset->GetAnimationTextureType());
-				if (MeshComponent->SetTexture(0, 0, Asset->GetTexture()))
-					mUpdateEnable = true;
+				MeshComponent->SetTexture(0, 0, Asset->GetTexture());
 			}
 		}
 	}
 }
 
-void CAnimation2DComponent::AddAnimation(const std::string& Name, 
+void CAnimation2DComponent::AddAnimation(
+	const std::string& Name, 
 	float PlayTime, float PlayRate, bool Loop, bool Reverse)
 {
 	auto	World = mWorld.lock();
@@ -136,14 +148,20 @@ void CAnimation2DComponent::AddAnimation(const std::string& Name,
 
 		if (MeshComponent && mCurrentAnimation)
 		{
+			if (!mUpdateEnable)
+			{
+				MeshComponent->SetAnimComponent(
+					GetSelf<CAnimation2DComponent>());
+
+				mUpdateEnable = true;
+			}
+
 			auto	Asset = mCurrentAnimation->GetAsset().lock();
 
 			if (Asset)
 			{
 				mAnimCBuffer->SetAnimation2DTextureType(Asset->GetAnimationTextureType());
-				if (MeshComponent->SetTexture(0, 0,
-					Asset->GetTexture()))
-					mUpdateEnable = true;
+				MeshComponent->SetTexture(0, 0, Asset->GetTexture());
 			}
 		}
 	}
@@ -262,7 +280,7 @@ void CAnimation2DComponent::SetShader()
 
 	mAnimCBuffer->SetTextureSymmetry(
 		mCurrentAnimation->GetSymmetry());
-
+	
 	auto Asset = mCurrentAnimation->GetAsset().lock();
 
 	if (Asset)
@@ -287,6 +305,10 @@ void CAnimation2DComponent::SetShader()
 					(TexFrame.Start.y + TexFrame.Size.y) / TexInfo->Height);
 			}
 		}
+
+		else if(Asset->GetAnimationTextureType() ==
+			EAnimation2DTextureType::Array)
+			int a = 0;
 	}
 
 	mAnimCBuffer->UpdateBuffer();
@@ -302,6 +324,62 @@ EAnimation2DTextureType CAnimation2DComponent::GetTextureType() const
 int CAnimation2DComponent::GetAnimationFrame() const
 {
 	return mCurrentAnimation->GetFrame();
+}
+
+FVector2 CAnimation2DComponent::GetAnimLTUV()
+{
+	auto Asset = mCurrentAnimation->GetAsset().lock();
+
+	int Frame = mCurrentAnimation->GetFrame();
+
+	if (Asset->GetAnimationTextureType() ==
+		EAnimation2DTextureType::SpriteSheet)
+	{
+		const FTextureFrame& TexFrame = Asset->GetFrame(Frame);
+
+		auto	Texture = Asset->GetTexture().lock();
+
+		if (Texture)
+		{
+			const FTextureInfo* TexInfo =
+				Texture->GetTexture();
+
+			return FVector2(TexFrame.Start.x / TexInfo->Width,
+				TexFrame.Start.y / TexInfo->Height);
+		}
+
+		return FVector2(0.f, 0.f);
+	}
+
+	return FVector2(0.f, 0.f);
+}
+
+FVector2 CAnimation2DComponent::GetAnimRBUV()
+{
+	auto Asset = mCurrentAnimation->GetAsset().lock();
+
+	int Frame = mCurrentAnimation->GetFrame();
+
+	if (Asset->GetAnimationTextureType() ==
+		EAnimation2DTextureType::SpriteSheet)
+	{
+		const FTextureFrame& TexFrame = Asset->GetFrame(Frame);
+
+		auto	Texture = Asset->GetTexture().lock();
+
+		if (Texture)
+		{
+			const FTextureInfo* TexInfo =
+				Texture->GetTexture();
+
+			return FVector2((TexFrame.Start.x + TexFrame.Size.x) / TexInfo->Width,
+				(TexFrame.Start.y + TexFrame.Size.y) / TexInfo->Height);
+		}
+
+		return FVector2(0.f, 0.f);
+	}
+
+	return FVector2(1.f, 1.f);
 }
 
 bool CAnimation2DComponent::Init()
@@ -328,7 +406,9 @@ void CAnimation2DComponent::Update(float DeltaTime)
 				MeshComponent->SetAnimComponent(
 					GetSelf<CAnimation2DComponent>());
 
-				auto	Asset = mCurrentAnimation->GetAsset().lock();
+				mUpdateEnable = true;
+
+				/*auto	Asset = mCurrentAnimation->GetAsset().lock();
 
 				if (Asset)
 				{
@@ -338,11 +418,14 @@ void CAnimation2DComponent::Update(float DeltaTime)
 					{
 						mUpdateEnable = true;
 					}
-				}
+				}*/
 			}
 		}
 
 		mCurrentAnimation->Update(DeltaTime);
+
+		mAnimCBuffer->SetAnimFrame(
+			mCurrentAnimation->GetFrame());
 	}
 }
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Collider.h"
 
@@ -58,6 +58,7 @@ public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);
+	virtual void UpdateInfo();
 
 protected:
 	virtual CColliderLine2D* Clone()	const;
@@ -65,5 +66,8 @@ protected:
 public:
 	virtual bool Collision(FVector3& HitPoint,
 		std::shared_ptr<CCollider> Dest);
+	virtual bool CollisionManifold(FCollisionManifold& Result,
+		std::shared_ptr<CCollider> Dest);
+	virtual bool CollisionMouse(const FVector2& MousePos);
 };
 

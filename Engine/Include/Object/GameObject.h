@@ -61,8 +61,11 @@ public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);
+	virtual void UpdateTransform();
 	virtual void Render();
+	virtual void PostRender();
 	virtual void Destroy();
+	virtual float TakeDamage(float Damage);
 
 protected:
 	virtual CGameObject* Clone();
@@ -97,6 +100,34 @@ public:
 	}
 
 	template <typename T>
+	std::weak_ptr<T> FindComponent()
+	{
+		auto	iter = mSceneComponentList.begin();
+		auto	iterEnd = mSceneComponentList.end();
+
+		for (; iter != iterEnd; ++iter)
+		{
+			if ((*iter)->GetClassType() == typeid(T).hash_code())
+			{
+				return std::dynamic_pointer_cast<T>(*iter);
+			}
+		}
+
+		auto	iter1 = mObjectComponentList.begin();
+		auto	iter1End = mObjectComponentList.end();
+
+		for (; iter1 != iter1End; ++iter1)
+		{
+			if ((*iter1)->GetClassType() == typeid(T).hash_code())
+			{
+				return std::dynamic_pointer_cast<T>(*iter1);
+			}
+		}
+
+		return std::weak_ptr<T>();
+	}
+
+	template <typename T>
 	std::weak_ptr<T> CreateComponent(
 		const std::string& Name,
 		const std::string& ParentName = "Root")
@@ -118,7 +149,9 @@ public:
 		if (Component->mComponentType == EComponentType::Scene)
 		{
 			if (mSceneComponentList.empty())
+			{
 				mRoot = std::dynamic_pointer_cast<CSceneComponent>(Component);
+			}
 
 			else
 			{
@@ -175,6 +208,19 @@ public:
 	}
 
 public:
+	bool GetSimulatePhysics()	const;
+	bool GetUseGravity()	const;
+
+public:
+	void SetSimulatePhysics(bool SimulatePhysics);
+	void SetUseGravity(bool UseGravity);
+	void AddForce(const FVector3& Force);
+	void ClearPhysics();
+
+public:
+	const FVector3& GetPivot()	const;
+	const FVector3& GetVelocity()	const;
+	float GetSpeed()	const;
 	const FVector3& GetAxis(EAxis::Type Axis)	const;
 	const FVector3& GetRelativeScale()	const;
 	const FVector3& GetRelativeRot()	const;

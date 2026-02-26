@@ -122,6 +122,65 @@ void CMesh::Render()
 	}
 }
 
+void CMesh::RenderInstancing(
+	const FVertexBuffer& InstancingBuffer, int Count)
+{
+	if (Count == 0)
+		return;
+
+	ID3D11DeviceContext* Context =
+		CDevice::GetInst()->GetContext();
+
+	// 출력할 도형 타입을 지정한다.
+	Context->IASetPrimitiveTopology(mPrimitive);
+
+	// 출력할 버텍스 버퍼를 지정한다.
+	ID3D11Buffer* VB[2] =
+	{
+		mVB.Buffer,
+		InstancingBuffer.Buffer
+	};
+
+	UINT	Stride[2] = { mVB.Size, InstancingBuffer.Size };
+	UINT	Offset[2] = {};
+
+	Context->IASetVertexBuffers(0, 2,
+		VB, Stride, Offset);
+
+	if (mMeshSlot.empty())
+	{
+		Context->IASetIndexBuffer(
+			nullptr, DXGI_FORMAT_UNKNOWN, 0);
+		Context->DrawInstanced(mVB.Count, Count,
+			0, 0);
+	}
+
+	else
+	{
+		size_t	Size = mMeshSlot.size();
+
+		for (size_t i = 0; i < Size; ++i)
+		{
+			// 출력에 사용할 인덱스 버퍼를 지정한다.
+			Context->IASetIndexBuffer(
+				mMeshSlot[i]->IndexBuffer.Buffer,
+				mMeshSlot[i]->IndexBuffer.Fmt, 0);
+			// 인덱스 버퍼의 인덱스를 참고하여 화면에 도형을 출력한다.
+			Context->DrawIndexedInstanced(
+				mMeshSlot[i]->IndexBuffer.Count,
+				Count, 0, 0, 0);
+		}
+	}
+
+	/*Stride[0] = 0;
+	Stride[1] = 0;
+	VB[0] = nullptr;
+	VB[1] = nullptr;
+
+	Context->IASetVertexBuffers(0, 2,
+		VB, Stride, Offset);*/
+}
+
 void CMesh::Render(int SlotIndex)
 {
 	UINT	Stride = mVB.Size;
@@ -149,6 +208,56 @@ void CMesh::Render(int SlotIndex)
 		// 인덱스 버퍼의 인덱스를 참고하여 화면에 도형을 출력한다.
 		CDevice::GetInst()->GetContext()->DrawIndexed(
 			mMeshSlot[SlotIndex]->IndexBuffer.Count, 0, 0);
+	}
+}
+
+void CMesh::RenderInstancing(int SlotIndex,
+	const FVertexBuffer& InstancingBuffer, int Count)
+{
+	if (Count == 0)
+		return;
+
+	ID3D11DeviceContext* Context =
+		CDevice::GetInst()->GetContext();
+
+	// 출력할 도형 타입을 지정한다.
+	Context->IASetPrimitiveTopology(mPrimitive);
+
+	// 출력할 버텍스 버퍼를 지정한다.
+	ID3D11Buffer* VB[2] =
+	{
+		mVB.Buffer,
+		InstancingBuffer.Buffer
+	};
+
+	UINT	Stride[2] = { mVB.Size, InstancingBuffer.Size };
+	UINT	Offset[2] = {};
+
+	Context->IASetVertexBuffers(0, 2,
+		VB, Stride, Offset);
+
+	if (mMeshSlot.empty())
+	{
+		Context->IASetIndexBuffer(
+			nullptr, DXGI_FORMAT_UNKNOWN, 0);
+		Context->DrawInstanced(mVB.Count, Count,
+			0, 0);
+	}
+
+	else
+	{
+		// Material 정보를 Shader 상수버퍼로 남겨준다.
+		if (mMeshSlot[SlotIndex]->Material)
+			mMeshSlot[SlotIndex]->Material->UpdateConstantBuffer();
+
+		// 출력에 사용할 인덱스 버퍼를 지정한다.
+		Context->IASetIndexBuffer(
+			mMeshSlot[SlotIndex]->IndexBuffer.Buffer,
+			mMeshSlot[SlotIndex]->IndexBuffer.Fmt, 0);
+		// 인덱스 버퍼의 인덱스를 참고하여 화면에 도형을 출력한다.
+		Context->DrawIndexedInstanced(
+			mMeshSlot[SlotIndex]->IndexBuffer.Count,
+			Count, 0, 0, 0);
 	}
 }
 

@@ -17,6 +17,7 @@ class CMaterial :
 {
 	friend class CMaterialManager;
 	friend class CMesh;
+	friend class CMeshComponent;
 
 protected:
 	CMaterial();
@@ -32,6 +33,19 @@ protected:
 	float			mOpacity = 1.f;
 	std::shared_ptr<class CCBufferMaterial>	mMaterialCBuffer;
 	std::weak_ptr<class CRenderState>	mBlendState;
+
+public:
+	FVector4 GetBaseColor()	const
+	{
+		return mBaseColor;
+	}
+
+	std::weak_ptr<class CRenderState> GetBlendState()
+	{
+		return mBlendState;
+	}
+
+	std::weak_ptr<class CTexture> GetTexture(int Index = 0)	const;
 
 public:
 	void SetBlendState(const std::string& Name);
@@ -60,9 +74,17 @@ public:
 		const std::vector<const TCHAR*>& FullPath,
 		int Register = 0, int ShaderBufferType = EShaderBufferType::Pixel,
 		int Index = 0);
+	void AddTextureArray(const std::string& Name,
+		const std::vector<const TCHAR*>& FileName,
+		const std::string& PathName = "Texture",
+		int Register = 0, int ShaderBufferType = EShaderBufferType::Pixel,
+		int Index = 0);
+	void AddTextureFullPathArray(const std::string& Name,
+		const std::vector<const TCHAR*>& FullPath,
+		int Register = 0, int ShaderBufferType = EShaderBufferType::Pixel,
+		int Index = 0);
 	bool SetTexture(int TextureIndex, 
 		const std::weak_ptr<class CTexture>& Texture);
-	bool SetTextureIndex(int TextureIndex);
 	void SetBaseColor(float r, float g, float b, float a);
 	void SetBaseColor(int r, int g,
 		int b, int a);
@@ -73,6 +95,7 @@ public:
 	bool Init();
 	void UpdateConstantBuffer();
 	void UpdateConstantBuffer(int TextureIndex);
+	void UpdateConstantBufferArray(int Register);
 	void Reset();
 	CMaterial* Clone()	const;
 };

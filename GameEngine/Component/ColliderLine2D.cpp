@@ -13,6 +13,7 @@
 
 CColliderLine2D::CColliderLine2D()
 {
+	SetClassType<CColliderLine2D>();
 	mColliderType = EColliderType::Line2D;
 }
 
@@ -119,6 +120,11 @@ void CColliderLine2D::PostUpdate(float DeltaTime)
 {
 	CCollider::PostUpdate(DeltaTime);
 
+	UpdateInfo();
+}
+
+void CColliderLine2D::UpdateInfo()
+{
 	mInfo.Start = mWorldPos;
 
 	// 회전된 선의 방향을 구한다.
@@ -170,3 +176,29 @@ bool CColliderLine2D::Collision(FVector3& HitPoint,
 	return false;
 }
 
+bool CColliderLine2D::CollisionManifold(FCollisionManifold& Result,
+	std::shared_ptr<CCollider> Dest)
+{
+	switch (Dest->GetColliderType())
+	{
+	case EColliderType::Box2D:
+		// 둘다 회전이 0일 경우 AABB, 아니면 OBB 충돌을 진행한다.
+		return CCollision::ManifoldLine2DToBox2D(Result, this,
+			dynamic_cast<CColliderBox2D*>(Dest.get()));
+	case EColliderType::Sphere2D:
+		return CCollision::ManifoldLine2DToSphere2D(Result,
+			this, dynamic_cast<CColliderSphere2D*>(Dest.get()));
+	case EColliderType::Line2D:
+		return CCollision::ManifoldLine2DToLine2D(Result, this,
+			dynamic_cast<CColliderLine2D*>(Dest.get()));
+	}
+
+	return false;
+}
+
+bool CColliderLine2D::CollisionMouse(const FVector2& MousePos)
+{
+	FVector3	HitPoint;
+	FVector3	Point(MousePos.x, MousePos.y, 0.f);
+	return CCollision::CollisionLine2DToPoint(HitPoint, mInfo, Point);
+}

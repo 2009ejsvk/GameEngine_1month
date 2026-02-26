@@ -16,6 +16,7 @@ private:
 	std::shared_ptr<CEngineSetting>	mSetting;
 
 	static bool	mLoop;
+	static bool mDeactivateOnce;
 
 public:
 	HINSTANCE GetWindowInstance()	const
@@ -34,12 +35,13 @@ public:
 		int SmallIconID, int Width, int Height, 
 		bool WindowMode = true);
 	int Run();
+	void Destroy();
 
 private:
 	void Logic();
 
 	// 물체들의 정보를 갱신하는 함수
-	void Update(float DeltaTime);
+	bool Update(float DeltaTime);
 
 	// 갱신된 정보를 화면에 출력하는 함수
 	void Render();

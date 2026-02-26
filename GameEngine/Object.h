@@ -15,6 +15,12 @@ public:
 protected:
 	size_t mClassType = 0;
 
+public:
+	size_t GetClassType()	const
+	{
+		return mClassType;
+	}
+
 protected:
 	template <typename T>
 	void SetClassType()

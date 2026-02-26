@@ -69,6 +69,7 @@ public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);
+	virtual void PostRender();
 	virtual void Destroy();
 
 protected:

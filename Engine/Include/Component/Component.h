@@ -85,6 +85,7 @@ public:
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);
 	virtual void Render();
+	virtual void PostRender() = 0;
 	virtual void Destroy();
 
 protected:

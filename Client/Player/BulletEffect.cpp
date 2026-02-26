@@ -25,7 +25,7 @@ bool CBulletEffect::Init()
 {
 	CGameObject::Init();
 
-	mMeshComponent = CreateComponent<CMeshComponent>("Mesh");
+	mMeshComponent = CreateComponent<CMeshComponent>("BulletEffectMesh");
 	mAnimation2DComponent = CreateComponent<CAnimation2DComponent>("Animation2D");
 
 	// 애니메이션 지정

@@ -1,9 +1,11 @@
 #pragma once
 
 #include "MovementComponent.h"
+#include "../World/NavAgent.h"
 
 class CObjectMovementComponent :
-    public CMovementComponent
+	public CMovementComponent,
+	public CNavAgent
 {
 	friend class CGameObject;
 
@@ -55,10 +57,17 @@ public:
 		mMoveDir += Dir;
 	}
 
+	void Move(const FVector3& Pos);
+	void Move(const FVector2& Pos);
+	void MovePath(const FVector3& Pos);
+	void MovePath(const FVector2& Pos);
+	virtual void StartPath();
+
 public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);
+	virtual void PostRender();
 	virtual void Destroy();
 
 protected:

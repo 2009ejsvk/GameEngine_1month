@@ -130,7 +130,7 @@ void CGameObject::Update(float DeltaTime)
 
 	for (; iter1 != iter1End;)
 	{
-		if ((*iter1).use_count() == 0)
+		if (!(*iter1))
 		{
 			iter1 = mSceneComponentList.erase(iter1);
 			iter1End = mSceneComponentList.end();
@@ -159,7 +159,7 @@ void CGameObject::Update(float DeltaTime)
 
 	for (; iter != iterEnd;)
 	{
-		if ((*iter).use_count() == 0)
+		if (!(*iter))
 		{
 			iter = mObjectComponentList.erase(iter);
 			iterEnd = mObjectComponentList.end();
@@ -196,7 +196,7 @@ void CGameObject::PostUpdate(float DeltaTime)
 
 	for (; iter1 != iter1End;)
 	{
-		if ((*iter1).use_count() == 0)
+		if (!(*iter1))
 		{
 			iter1 = mSceneComponentList.erase(iter1);
 			iter1End = mSceneComponentList.end();
@@ -225,7 +225,7 @@ void CGameObject::PostUpdate(float DeltaTime)
 
 	for (; iter != iterEnd;)
 	{
-		if ((*iter).use_count() == 0)
+		if (!(*iter))
 		{
 			iter = mObjectComponentList.erase(iter);
 			iterEnd = mObjectComponentList.end();
@@ -250,12 +250,106 @@ void CGameObject::PostUpdate(float DeltaTime)
 	}
 }
 
+void CGameObject::UpdateTransform()
+{
+	auto	iter1 = mSceneComponentList.begin();
+	auto	iter1End = mSceneComponentList.end();
+
+	for (; iter1 != iter1End;)
+	{
+		if (!(*iter1))
+		{
+			iter1 = mSceneComponentList.erase(iter1);
+			iter1End = mSceneComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter1)->GetAlive())
+		{
+			iter1 = mSceneComponentList.erase(iter1);
+			iter1End = mSceneComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter1)->GetEnable())
+		{
+			++iter1;
+			continue;
+		}
+
+		(*iter1)->UpdateTransform();
+		++iter1;
+	}
+}
+
 void CGameObject::Render()
 {
 	auto Root = mRoot.lock();
 
 	if (Root)
 		Root->Render();
+}
+
+void CGameObject::PostRender()
+{
+	auto	iter1 = mSceneComponentList.begin();
+	auto	iter1End = mSceneComponentList.end();
+
+	for (; iter1 != iter1End;)
+	{
+		if (!(*iter1))
+		{
+			iter1 = mSceneComponentList.erase(iter1);
+			iter1End = mSceneComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter1)->GetAlive())
+		{
+			iter1 = mSceneComponentList.erase(iter1);
+			iter1End = mSceneComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter1)->GetEnable())
+		{
+			++iter1;
+			continue;
+		}
+
+		(*iter1)->PostRender();
+		++iter1;
+	}
+
+
+	auto	iter = mObjectComponentList.begin();
+	auto	iterEnd = mObjectComponentList.end();
+
+	for (; iter != iterEnd;)
+	{
+		if (!(*iter))
+		{
+			iter = mObjectComponentList.erase(iter);
+			iterEnd = mObjectComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter)->GetAlive())
+		{
+			iter = mObjectComponentList.erase(iter);
+			iterEnd = mObjectComponentList.end();
+			continue;
+		}
+
+		else if (!(*iter)->GetEnable())
+		{
+			++iter;
+			continue;
+		}
+
+		(*iter)->PostRender();
+		++iter;
+	}
 }
 
 CGameObject* CGameObject::Clone()
@@ -266,6 +360,109 @@ CGameObject* CGameObject::Clone()
 void CGameObject::Destroy()
 {
 	mAlive = false;
+
+	auto	iter1 = mSceneComponentList.begin();
+	auto	iter1End = mSceneComponentList.end();
+
+	for (; iter1 != iter1End; ++iter1)
+	{
+		(*iter1)->Destroy();
+	}
+
+	auto	iter = mObjectComponentList.begin();
+	auto	iterEnd = mObjectComponentList.end();
+
+	for (; iter != iterEnd; ++iter)
+	{
+		(*iter)->Destroy();
+	}
+}
+
+float CGameObject::TakeDamage(float Damage)
+{
+	return 0.0f;
+}
+
+bool CGameObject::GetSimulatePhysics()	const
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		return Root->GetSimulatePhysics();
+
+	return false;
+}
+
+bool CGameObject::GetUseGravity()	const
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		return Root->GetUseGravity();
+
+	return false;
+}
+
+void CGameObject::SetSimulatePhysics(bool SimulatePhysics)
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		Root->SetSimulatePhysics(SimulatePhysics);
+}
+
+void CGameObject::SetUseGravity(bool UseGravity)
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		Root->SetUseGravity(UseGravity);
+}
+
+void CGameObject::AddForce(const FVector3& Force)
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		Root->AddForce(Force);
+}
+
+void CGameObject::ClearPhysics()
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		Root->ClearPhysics();
+}
+
+const FVector3& CGameObject::GetPivot()	const
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		return Root->GetPivot();
+
+	return FVector3::Zero;
+}
+
+const FVector3& CGameObject::GetVelocity()	const
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		return Root->GetVelocity();
+
+	return FVector3::Zero;
+}
+
+float CGameObject::GetSpeed()	const
+{
+	auto	Root = mRoot.lock();
+
+	if (Root)
+		return Root->GetSpeed();
+
+	return 0.f;
 }
 
 const FVector3& CGameObject::GetAxis(EAxis::Type Axis)	const

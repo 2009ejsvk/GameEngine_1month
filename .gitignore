@@ -15,6 +15,7 @@ out/                   # CMake 등 빌드 출력
 # --- 컴파일 결과물 (Binary) ---
 *.exe
 *.dll
+*.lib
 *.ilk
 *.exp
 *.obj

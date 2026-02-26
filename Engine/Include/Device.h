@@ -24,11 +24,28 @@ private:
 	// 해상도
 	FResolution		mRS;
 
+	// TexelSize
+	FVector2		mTexelSize;
+
 	bool		mWindowMode = false;
 
 	HWND		mhWnd;
 
+private:
+	ID2D1RenderTarget* m2DTarget = nullptr;
+	ID2D1Factory* m2DFactory = nullptr;
+
 public:
+	const FVector2& GetTexelSize()	const
+	{
+		return mTexelSize;
+	}
+
+	ID2D1RenderTarget* Get2DTarget()	const
+	{
+		return m2DTarget;
+	}
+
 	ID3D11Device* GetDevice()	const
 	{
 		return mDevice;
@@ -47,6 +64,19 @@ public:
 	bool GetWindowMode()	const
 	{
 		return mWindowMode;
+	}
+
+	FVector2 GetResolutionRatio()	const
+	{
+		// 윈도우 클라이언트 영역의 크기를 얻어온다.
+		RECT	WindowRC;
+		GetClientRect(mhWnd, &WindowRC);
+
+		FVector2	Ratio;
+		Ratio.x = mRS.Width / (float)(WindowRC.right - WindowRC.left);
+		Ratio.y = mRS.Height / (float)(WindowRC.bottom - WindowRC.top);
+
+		return Ratio;
 	}
 
 public:

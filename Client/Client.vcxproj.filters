@@ -1,0 +1,278 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="소스 파일">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="헤더 파일">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="리소스 파일">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="01. Player">
+      <UniqueIdentifier>{2cbd72ef-029e-4db4-a60f-37bac5dbf3a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02. World">
+      <UniqueIdentifier>{d16df0c0-509c-4df8-8c1a-2ea1567ca95d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="03. Monster">
+      <UniqueIdentifier>{b20109aa-1ea7-4746-ab38-6b143566bc78}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="04. Component">
+      <UniqueIdentifier>{653ce010-efc1-4dcf-b040-5d5769d850d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="04. Component\01. State">
+      <UniqueIdentifier>{5170b423-560e-4cca-97a2-22ef19f14a6b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="05. Interface">
+      <UniqueIdentifier>{165b9001-342c-4720-87b5-c7497c431442}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="06. Setting">
+      <UniqueIdentifier>{031f271d-7fbc-418d-980e-12209691b400}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="07. UI">
+      <UniqueIdentifier>{ca0e7dc3-1b62-443f-a2d0-91da64d6d0eb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="07. UI\01. Main">
+      <UniqueIdentifier>{30404e4a-a0b0-426c-912b-2ea6edff9e9d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="07. UI\01. Main\01. Inventory">
+      <UniqueIdentifier>{602ce66d-945c-46c1-9ac0-78daf08f0309}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="07. UI\01. Main\02. PlayerState">
+      <UniqueIdentifier>{65de7c6a-9d4c-431c-a099-bc3387c5cbc4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="07. UI\01. Main\03. WorldHUD">
+      <UniqueIdentifier>{49761d37-77c6-4ce2-95f4-0ea55cb0b444}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="07. UI\02. Start">
+      <UniqueIdentifier>{b0d493ee-8c16-4806-ab1a-fc11f2a4922f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="07. UI\03. Loading">
+      <UniqueIdentifier>{68d2c04e-d93f-4f1a-a981-68a3ea447e54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="08. Thread">
+      <UniqueIdentifier>{d814d790-e88b-4dba-b16f-5c93e128429a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="09. PostProcess">
+      <UniqueIdentifier>{67597a7b-df66-4738-ac14-8ec30fad1cb8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="10. Shader">
+      <UniqueIdentifier>{9267be13-57f6-477f-ae96-794844e71286}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="10. Shader\01. HLSL">
+      <UniqueIdentifier>{e49ede15-25cf-4fde-9a03-670420c5a671}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="11. Map">
+      <UniqueIdentifier>{16274a5f-90c3-4974-95c3-2b0b950f0548}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="07. UI\04. Editor">
+      <UniqueIdentifier>{dc526ad9-c200-4dbb-b198-9270d4992ca7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Player\Player.cpp">
+      <Filter>01. Player</Filter>
+    </ClCompile>
+    <ClCompile Include="World\MainWorld.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="Player\Bullet.cpp">
+      <Filter>01. Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Monster\Monster.cpp">
+      <Filter>03. Monster</Filter>
+    </ClCompile>
+    <ClCompile Include="Player\Missile.cpp">
+      <Filter>01. Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Component\StateComponent.cpp">
+      <Filter>04. Component\01. State</Filter>
+    </ClCompile>
+    <ClCompile Include="Interface\StateInterface.cpp">
+      <Filter>05. Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="Monster\MonsterSpawnPoint.cpp">
+      <Filter>03. Monster</Filter>
+    </ClCompile>
+    <ClCompile Include="Player\BulletEffect.cpp">
+      <Filter>01. Player</Filter>
+    </ClCompile>
+    <ClCompile Include="GlobalSetting.cpp">
+      <Filter>06. Setting</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\MainWidget.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Inventory.cpp">
+      <Filter>07. UI\01. Main\01. Inventory</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Slot.cpp">
+      <Filter>07. UI\01. Main\01. Inventory</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\SlotIcon.cpp">
+      <Filter>07. UI\01. Main\01. Inventory</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\PlayerStateWidget.cpp">
+      <Filter>07. UI\01. Main\02. PlayerState</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\WorldHUD.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="World\StartWorld.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\StartWidget.cpp">
+      <Filter>07. UI\02. Start</Filter>
+    </ClCompile>
+    <ClCompile Include="World\LoadingWorld.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\LoadingWidget.cpp">
+      <Filter>07. UI\03. Loading</Filter>
+    </ClCompile>
+    <ClCompile Include="Thread\LoadingThread.cpp">
+      <Filter>08. Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="PostProcess\PostProcessHit.cpp">
+      <Filter>09. PostProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader\ShaderPostProcessHit.cpp">
+      <Filter>10. Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader\CBufferHit.cpp">
+      <Filter>10. Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\TileMapMain.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="World\EditorWorld.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="Player\EditorPlayer.cpp">
+      <Filter>01. Player</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\EditorWidget.cpp">
+      <Filter>07. UI\04. Editor</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="resource.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="World\MainWorld.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="Player\Bullet.h">
+      <Filter>01. Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Monster\Monster.h">
+      <Filter>03. Monster</Filter>
+    </ClInclude>
+    <ClInclude Include="Player\Missile.h">
+      <Filter>01. Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Component\StateComponent.h">
+      <Filter>04. Component\01. State</Filter>
+    </ClInclude>
+    <ClInclude Include="Interface\StateInterface.h">
+      <Filter>05. Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="Monster\MonsterSpawnPoint.h">
+      <Filter>03. Monster</Filter>
+    </ClInclude>
+    <ClInclude Include="Player\BulletEffect.h">
+      <Filter>01. Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Player\Player.h">
+      <Filter>01. Player</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalSetting.h">
+      <Filter>06. Setting</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\MainWidget.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Inventory.h">
+      <Filter>07. UI\01. Main\01. Inventory</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Slot.h">
+      <Filter>07. UI\01. Main\01. Inventory</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\SlotIcon.h">
+      <Filter>07. UI\01. Main\01. Inventory</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\PlayerStateWidget.h">
+      <Filter>07. UI\01. Main\02. PlayerState</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\WorldHUD.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="World\StartWorld.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\StartWidget.h">
+      <Filter>07. UI\02. Start</Filter>
+    </ClInclude>
+    <ClInclude Include="World\LoadingWorld.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\LoadingWidget.h">
+      <Filter>07. UI\03. Loading</Filter>
+    </ClInclude>
+    <ClInclude Include="Thread\LoadingThread.h">
+      <Filter>08. Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="ClientInfo.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="PostProcess\PostProcessHit.h">
+      <Filter>09. PostProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader\ShaderPostProcessHit.h">
+      <Filter>10. Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader\CBufferHit.h">
+      <Filter>10. Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="Map\TileMapMain.h">
+      <Filter>11. Map</Filter>
+    </ClInclude>
+    <ClInclude Include="World\EditorWorld.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="Player\EditorPlayer.h">
+      <Filter>01. Player</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\EditorWidget.h">
+      <Filter>07. UI\04. Editor</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Client.rc">
+      <Filter>리소스 파일</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon1.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Copy.bat">
+      <Filter>소스 파일</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\Binary\Asset\Shader\PostProcess.hlsl">
+      <Filter>10. Shader\01. HLSL</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>

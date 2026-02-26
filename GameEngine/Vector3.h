@@ -18,6 +18,10 @@ struct FVector3
 
 	FVector3(FVector3&& v);
 
+	FVector3(const struct FVector2& v);
+
+	FVector3(struct FVector2&& v);
+
 	FVector3(const DirectX::XMVECTOR& v);
 
 #pragma endregion Construction
@@ -25,6 +29,8 @@ struct FVector3
 #pragma region Equal
 
 	const FVector3& operator = (const FVector3& v);
+
+	const FVector3& operator = (const struct FVector2& v);
 
 	const FVector3& operator = (const DirectX::XMVECTOR& v);
 
@@ -150,6 +156,8 @@ struct FVector3
 	FVector3 Cross(const FVector3& v)	const;
 
 	float Distance(const FVector3& v)	const;
+
+	float Distance(const struct FVector2& v)	const;
 
 	DirectX::XMVECTOR Convert()	const;
 

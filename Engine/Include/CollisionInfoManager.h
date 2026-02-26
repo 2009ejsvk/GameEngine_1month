@@ -20,11 +20,11 @@ public:
 	bool CreateProfile(const std::string& Name,
 		const std::string& ChannelName, bool Enable,
 		ECollisionInteraction::Type DefaultInteraction =
-		ECollisionInteraction::Collision);
+		ECollisionInteraction::Block);
 	bool CreateProfile(const std::string& Name,
 		ECollisionChannel::Type Channel, bool Enable,
 		ECollisionInteraction::Type DefaultInteraction =
-		ECollisionInteraction::Collision);
+		ECollisionInteraction::Block);
 	bool SetProfileInteraction(const std::string& Name,
 		const std::string& ChannelName,
 		ECollisionInteraction::Type Interaction);

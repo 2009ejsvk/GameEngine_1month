@@ -8,6 +8,7 @@
 #include "BulletEffect.h"
 #include "Component/ProjectileMovementComponent.h"
 #include "Component/ColliderBox2D.h"
+#include "World/WorldAssetManager.h"
 
 CBullet::CBullet()
 {
@@ -116,7 +117,7 @@ bool CBullet::Init()
 {
 	CGameObject::Init();
 
-	mMeshComponent = CreateComponent<CMeshComponent>("Mesh");
+	mMeshComponent = CreateComponent<CMeshComponent>("BulletMesh");
 	mMovement = CreateComponent<CProjectileMovementComponent>("Movement");
 
 	auto	Movement = mMovement.lock();
@@ -137,6 +138,7 @@ bool CBullet::Init()
 	{
 		Mesh->SetShader("MaterialColor2D");
 		Mesh->SetMesh("CenterRectColor");
+		Mesh->SetMaterialBaseColor(0, 255, 0, 0, 255);
 		Mesh->SetRelativeScale(50.f, 50.f);
 	}
 
@@ -150,6 +152,9 @@ bool CBullet::Init()
 
 		Body->SetCollisionEndFunction<CBullet>(this,
 			&CBullet::CollisionEnd);
+
+		Body->SetCollisionHitFunction<CBullet>(this,
+			&CBullet::CollisionHit);
 
 		Body->SetCollisionProfile("PlayerAttack");
 		Body->SetBoxSize(50.f, 50.f);
@@ -367,6 +372,26 @@ void CBullet::MoveEndFunction()
 
 void CBullet::CollisionBegin(const FVector3& HitPoint, CCollider* Dest)
 {
+	/*Destroy();
+
+	std::shared_ptr<CWorld>	World = mWorld.lock();
+
+	if (World)
+	{
+		std::weak_ptr<CBulletEffect> Effect = World->CreateGameObject<CBulletEffect>("BulletEffect");
+
+		auto	_Effect = Effect.lock();
+		
+		_Effect->SetWorldPos(HitPoint);
+	}*/
+}
+
+void CBullet::CollisionEnd(CCollider* Dest)
+{
+}
+
+void CBullet::CollisionHit(const FVector3& HitPoint, CCollider* Dest)
+{
 	Destroy();
 
 	std::shared_ptr<CWorld>	World = mWorld.lock();
@@ -378,9 +403,16 @@ void CBullet::CollisionBegin(const FVector3& HitPoint, CCollider* Dest)
 		auto	_Effect = Effect.lock();
 
 		_Effect->SetWorldPos(HitPoint);
-	}
-}
 
-void CBullet::CollisionEnd(CCollider* Dest)
-{
+		auto DestObj = Dest->GetOwner().lock();
+
+		if (DestObj)
+		{
+			DestObj->TakeDamage(1.f);
+		}
+
+		/*auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+		AssetMgr->SoundPlay("Fire");*/
+	}
 }

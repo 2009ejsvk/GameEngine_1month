@@ -14,5 +14,7 @@ public:
 
 private:
 	void LoadAnimation2D();
+	void LoadSound();
+	void CreateUI();
 };
 

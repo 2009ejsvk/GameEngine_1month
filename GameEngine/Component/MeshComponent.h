@@ -34,6 +34,17 @@ public:
 	{
 		mAnimComponent = AnimComponent;
 	}
+	virtual std::weak_ptr<class CAnimation2DComponent> GetAnimComponent()	 const
+	{
+		return mAnimComponent;
+	}
+	virtual FVector4 GetBaseColor(int SlotIndex = 0)	const;
+
+public:
+	virtual std::weak_ptr<class CMesh> GetMesh()	const;
+	virtual std::weak_ptr<class CTexture> GetTexture(int SlotIndex = 0)	const;
+	virtual std::weak_ptr<class CShader> GetShader()	const;
+	virtual std::weak_ptr<class CRenderState> GetBlendState(int SlotIndex = 0)	const;
 
 public:
 	void SetMesh(const std::weak_ptr<class CMesh>& Mesh);
@@ -65,6 +76,15 @@ public:
 		int Register = 0, int ShaderBufferType = EShaderBufferType::Pixel,
 		int Index = 0);
 	void AddTextureFullPath(int SlotIndex, const std::string& Name,
+		const std::vector<const TCHAR*>& FullPath,
+		int Register = 0, int ShaderBufferType = EShaderBufferType::Pixel,
+		int Index = 0);
+	void AddTextureArray(int SlotIndex, const std::string& Name,
+		const std::vector<const TCHAR*>& FileName,
+		const std::string& PathName = "Texture",
+		int Register = 0, int ShaderBufferType = EShaderBufferType::Pixel,
+		int Index = 0);
+	void AddTextureFullPathArray(int SlotIndex, const std::string& Name,
 		const std::vector<const TCHAR*>& FullPath,
 		int Register = 0, int ShaderBufferType = EShaderBufferType::Pixel,
 		int Index = 0);

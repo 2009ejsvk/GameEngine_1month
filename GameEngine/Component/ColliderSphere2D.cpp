@@ -13,6 +13,7 @@
 
 CColliderSphere2D::CColliderSphere2D()
 {
+	SetClassType<CColliderSphere2D>();
 	mColliderType = EColliderType::Sphere2D;
 }
 
@@ -119,11 +120,19 @@ void CColliderSphere2D::PostUpdate(float DeltaTime)
 {
 	CCollider::PostUpdate(DeltaTime);
 
+	UpdateInfo();
+}
+
+void CColliderSphere2D::UpdateInfo()
+{
 	mInfo.Center = mWorldPos;
 
 	mRenderScale.x = mWorldScale.x * mInfo.Radius;
 	mRenderScale.y = mWorldScale.y * mInfo.Radius;
 	mRenderScale.z = 1.f;
+
+	mMin = mInfo.Center - mInfo.Radius;
+	mMax = mInfo.Center + mInfo.Radius;
 }
 
 CColliderSphere2D* CColliderSphere2D::Clone()	const
@@ -149,4 +158,32 @@ bool CColliderSphere2D::Collision(FVector3& HitPoint,
 	}
 
 	return false;
+}
+
+bool CColliderSphere2D::CollisionManifold(FCollisionManifold& Result,
+	std::shared_ptr<CCollider> Dest)
+{
+	switch (Dest->GetColliderType())
+	{
+	case EColliderType::Box2D:
+		// 둘다 회전이 0일 경우 AABB, 아니면 OBB 충돌을 진행한다.
+		return CCollision::ManifoldSphere2DToBox2D(Result, this,
+			dynamic_cast<CColliderBox2D*>(Dest.get()));
+	case EColliderType::Sphere2D:
+		return CCollision::ManifoldSphere2DToSphere2D(Result,
+			this, dynamic_cast<CColliderSphere2D*>(Dest.get()));
+	case EColliderType::Line2D:
+		return CCollision::ManifoldSphere2DToLine2D(Result, this,
+			dynamic_cast<CColliderLine2D*>(Dest.get()));
+	}
+
+	return false;
+}
+
+bool CColliderSphere2D::CollisionMouse(const FVector2& MousePos)
+{
+	FVector3	HitPoint;
+	FVector3	Point(MousePos.x, MousePos.y, 0.f);
+	return CCollision::CollisionSphere2DToPoint(HitPoint, mInfo, 
+		Point);
 }

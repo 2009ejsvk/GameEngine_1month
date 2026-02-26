@@ -35,9 +35,9 @@ void CGraphicShader::AddInputDesc(const char* Semantic, UINT SemanticIndex,
 	Desc.InputSlot = InputSlot;
 	Desc.InputSlotClass = InputSlotClass;
 	Desc.InstanceDataStepRate = InstanceDataStepRate;
-	Desc.AlignedByteOffset = mSize;
+	Desc.AlignedByteOffset = mSize[InputSlot];
 
-	mSize += Size;
+	mSize[InputSlot] += Size;
 
 	mInputDesc.push_back(Desc);
 }

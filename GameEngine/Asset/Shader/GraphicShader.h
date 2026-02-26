@@ -22,7 +22,7 @@ protected:
 	// 이 구조체 2개가 있어야 지정이 가능하다.
 	std::vector<D3D11_INPUT_ELEMENT_DESC>	mInputDesc;
 
-	UINT		mSize = 0;
+	UINT		mSize[2] = {};
 
 	// VertexShader 객체
 	ID3D11VertexShader* mVS = nullptr;

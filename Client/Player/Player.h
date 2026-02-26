@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Object/GameObject.h"
 #include "../Interface/StateInterface.h"
@@ -29,11 +29,15 @@ private:
 	std::weak_ptr<class CColliderBox2D>	mBody;
 	std::weak_ptr<class CColliderSphere2D>	mSphere2D;
 	std::weak_ptr<class CColliderLine2D>	mLine2D;
-	std::weak_ptr<class CColliderLine2D>	mLine2D_;
+	std::weak_ptr<class CWidgetComponent>	mHUDWidget;
 	int		mHP = 10;
+	int		mHPMax = 10;
 	bool	mAutoIdle = false;
 
 	std::weak_ptr<class CBullet>	mSkill1Bullet;
+
+	std::vector<std::function<void(float, float)>>	mHPWidgetFunc;
+	std::function<void(float, float)>	mMPWidgetFunc;
 
 public:
 	void Damage(int Dmg)
@@ -49,6 +53,7 @@ public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
 	virtual void Destroy();
+	virtual float TakeDamage(float Damage);
 
 private:
 	void TestNotify();
@@ -61,8 +66,10 @@ private:
 	void MoveLeft();
 	void MoveRight();
 	void AttackKey();
+	void JumpKey();
 	void Skill1Press();
 	void Skill1Hold();
 	void Skill1Release();
+	void MoveTarget();
 };
 

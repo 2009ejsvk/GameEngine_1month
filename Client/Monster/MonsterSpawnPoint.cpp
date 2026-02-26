@@ -57,6 +57,8 @@ void CMonsterSpawnPoint::Update(float DeltaTime)
 
 			Monster->SetWorldPos(GetWorldPos());
 			Monster->SetWorldRotation(GetWorldRot());
+			Monster->SetSimulatePhysics(true);
+			Monster->SetUseGravity(true);
 
 			mSpawnMonster = Monster;
 		}

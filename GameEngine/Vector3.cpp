@@ -1,5 +1,6 @@
 
 #include "Vector3.h"
+#include "Vector2.h"
 #include "Matrix.h"
 
 
@@ -32,10 +33,24 @@ FVector3::FVector3(const FVector3& v) :
 {
 }
 
+FVector3::FVector3(const struct FVector2& v) :
+	x(v.x),
+	y(v.y),
+	z(0.f)
+{
+}
+
 FVector3::FVector3(FVector3&& v) :
 	x(v.x),
 	y(v.y),
 	z(v.z)
+{
+}
+
+FVector3::FVector3(FVector2&& v) :
+	x(v.x),
+	y(v.y),
+	z(0.f)
 {
 }
 
@@ -54,6 +69,14 @@ const FVector3& FVector3::operator = (const FVector3& v)
 	x = v.x;
 	y = v.y;
 	z = v.z;
+	return *this;
+}
+
+const FVector3& FVector3::operator = (const FVector2& v)
+{
+	x = v.x;
+	y = v.y;
+	z = 0.f;
 	return *this;
 }
 
@@ -479,6 +502,13 @@ FVector3 FVector3::Cross(const FVector3& v)	const
 float FVector3::Distance(const FVector3& v)	const
 {
 	FVector3 v1 = *this - v;
+
+	return v1.Length();
+}
+
+float FVector3::Distance(const FVector2& v)	const
+{
+	FVector3 v1 = *this - FVector3(v.x, v.y, 0.f);
 
 	return v1.Length();
 }

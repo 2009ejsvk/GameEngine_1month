@@ -14,9 +14,12 @@
 #include "Object/GameObject.h"
 #include "Render/RenderManager.h"
 #include "CollisionInfoManager.h"
+#include "UI/Widget.h"
+#include "ThreadManager.h"
 
 CEngine* CEngine::mInst = nullptr;
 bool CEngine::mLoop = true;
+bool CEngine::mDeactivateOnce = false;
 
 CEngine::CEngine()
 {
@@ -32,6 +35,8 @@ CEngine::~CEngine()
 
     CWorldManager::DestroyInst();
 
+    CThreadManager::DestroyInst();
+
     CObject::DestroyCDO();
 
     CRenderManager::DestroyInst();
@@ -43,7 +48,8 @@ CEngine::~CEngine()
     CDevice::DestroyInst();
 }
 
-bool CEngine::Init(HINSTANCE hInst, const TCHAR* WindowName, int IconID,
+bool CEngine::Init(HINSTANCE hInst, const TCHAR* WindowName, 
+    int IconID,
     int SmallIconID, int Width, int Height, bool WindowMode)
 {
     srand((unsigned int)GetTickCount());
@@ -61,10 +67,6 @@ bool CEngine::Init(HINSTANCE hInst, const TCHAR* WindowName, int IconID,
     if (!CDevice::GetInst()->Init(mhWnd, Width, Height, WindowMode))
         return false;
 
-    // 렌더링 관리자 초기화
-    if (!CRenderManager::GetInst()->Init())
-        return false;
-
     // 충돌 정보 관리자 초기화
     if (!CCollisionInfoManager::GetInst()->Init())
         return false;
@@ -73,9 +75,19 @@ bool CEngine::Init(HINSTANCE hInst, const TCHAR* WindowName, int IconID,
     if (!CAssetManager::GetInst()->Init())
         return false;
 
+    // 렌더링 관리자 초기화
+    if (!CRenderManager::GetInst()->Init())
+        return false;
+
+    // 스레드 관리자 초기화
+    if (!CThreadManager::GetInst()->Init())
+        return false;
+
     CMeshComponent::CreateEmptyAnimCBuffer();
 
     mSetting->Init();
+
+    CWidget::CreateUIProjection((float)Width, (float)Height);
 
     // 월드 관리자 초기화
     if (!CWorldManager::GetInst()->Init())
@@ -121,20 +133,34 @@ int CEngine::Run()
     return (int)msg.wParam;
 }
 
+void CEngine::Destroy()
+{
+    DestroyWindow(mhWnd);
+}
+
 void CEngine::Logic()
 {
-    float DeltaTime = CTimer::Update();
+    float DeltaTime = CTimer::Update(mhWnd);
 
-    Update(DeltaTime);
+    if (Update(DeltaTime))
+        return;
+
+    CAssetManager::GetInst()->Update();
+
+    CRenderManager::GetInst()->Update(DeltaTime);
 
     Render();
 }
 
-void CEngine::Update(float DeltaTime)
+bool CEngine::Update(float DeltaTime)
 {
-    CWorldManager::GetInst()->Update(DeltaTime);
+    if (CWorldManager::GetInst()->Update(DeltaTime))
+        return true;
 
-    CWorldManager::GetInst()->PostUpdate(DeltaTime);
+    if (CWorldManager::GetInst()->PostUpdate(DeltaTime))
+        return true;
+
+    return false;
 }
 
 void CEngine::Render()
@@ -142,8 +168,11 @@ void CEngine::Render()
     CDevice::GetInst()->BeginRender();
 
     // 출력할 코드들.
-    //CWorldManager::GetInst()->Render();
+    CWorldManager::GetInst()->Render();
+
     CRenderManager::GetInst()->Render();
+
+    CWorldManager::GetInst()->PostRender();
 
     CDevice::GetInst()->EndRender();
 }
@@ -237,6 +266,22 @@ LRESULT CEngine::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
+    case WM_ACTIVATEAPP:
+        // 활성화
+        if (wParam)
+        {
+            if(mDeactivateOnce)
+                CWorldManager::GetInst()->InputActive();
+
+        }
+
+        // 비활성화
+        else
+        {
+            mDeactivateOnce = true;
+            CWorldManager::GetInst()->InputDeactive();
+        }
+        break;
     case WM_PAINT:
     {
         PAINTSTRUCT ps;

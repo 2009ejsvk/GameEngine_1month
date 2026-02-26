@@ -7,6 +7,8 @@
 #include "Component/ColliderBox2D.h"
 #include "Component/ColliderSphere2D.h"
 #include "Component/ColliderLine2D.h"
+#include "Component/WidgetComponent.h"
+#include "../UI/WorldHUD.h"
 
 CMonster::CMonster()
 {
@@ -31,10 +33,11 @@ bool CMonster::Init()
 {
 	CGameObject::Init();
 
-	mMeshComponent = CreateComponent<CMeshComponent>("Mesh");
+	mMeshComponent = CreateComponent<CMeshComponent>("MonsterMesh");
 
 	mStateComponent = CreateComponent<CStateComponent>("State");
 	mAnimation2DComponent = CreateComponent<CAnimation2DComponent>("Animation2D");
+	mHUDWidget = CreateComponent<CWidgetComponent>("Widget");
 
 	// 애니메이션 지정
 	auto	Anim = mAnimation2DComponent.lock();
@@ -63,6 +66,9 @@ bool CMonster::Init()
 		Mesh->SetMesh("CenterRectTex");
 		Mesh->SetRelativeScale(100.f, 100.f);
 		Mesh->SetBlendState(0, "AlphaBlend");
+
+		//Mesh->SetSimulatePhysics(true);
+		//Mesh->SetUseGravity(true);
 	}
 
 	//mBody = CreateComponent<CColliderBox2D>("Body");
@@ -78,19 +84,19 @@ bool CMonster::Init()
 		Body->SetInheritScale(false);
 	}
 
-	mLine2D = CreateComponent<CColliderLine2D>("Line2D");
-	auto	Line2D = mLine2D.lock();
+	//mLine2D = CreateComponent<CColliderLine2D>("Line2D");
+	//auto	Line2D = mLine2D.lock();
 
-	if (Line2D)
-	{
-		Line2D->SetCollisionProfile("Monster");
-		//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
-		Line2D->SetLineDistance(200.f);
-		Line2D->SetDebugDraw(true);
-		Line2D->SetInheritScale(false);
-		//Line2D->SetRelativePos(0.f, 100.f, 0.f);
-		//Line2D->SetCenterOffset(0.f, 100.f, 0.f);
-	}
+	//if (Line2D)
+	//{
+	//	Line2D->SetCollisionProfile("Monster");
+	//	//Line2D->SetRadius(sqrtf(20000.f) * 0.5f);
+	//	Line2D->SetLineDistance(200.f);
+	//	Line2D->SetDebugDraw(true);
+	//	Line2D->SetInheritScale(false);
+	//	//Line2D->SetRelativePos(0.f, 100.f, 0.f);
+	//	//Line2D->SetCenterOffset(0.f, 100.f, 0.f);
+	//}
 
 	// Target을 구한다.
 	std::shared_ptr<CWorld>	World = mWorld.lock();
@@ -98,6 +104,25 @@ bool CMonster::Init()
 	if (World)
 	{
 		mTargetObject = World->FindObject<CGameObject>("Player");
+	}
+
+
+	auto	Widget = mHUDWidget.lock();
+
+	if (Widget)
+	{
+		Widget->SetInheritScale(false);
+		Widget->SetInheritRot(false);
+		Widget->SetRelativePos(0.f, 140.f, 0.f);
+		Widget->SetRelativeScale(80.f, 40.f);
+
+		auto InWidget = Widget->SetWidget<CWorldHUD>("MonsterHUD").lock();
+
+		InWidget->SetSize(80.f, 40.f);
+		InWidget->SetPlayerName(TEXT("Monster"));
+
+		mHPWidgetFunc.push_back(std::bind(&CWorldHUD::SetPlayerHP, InWidget.get(),
+			std::placeholders::_1, std::placeholders::_2));
 	}
 
 	return true;
@@ -182,6 +207,27 @@ void CMonster::Update(float DeltaTime)
 			Anim->ChangeAnimation("MonsterIdle");
 		}*/
 	}
+}
+
+float CMonster::TakeDamage(float Damage)
+{
+	mHP -= Damage;
+
+	if (mHP < 0.f)
+		mHP = 0.f;
+	char	Test[256] = {};
+	sprintf_s(Test, "HP : %d\n", mHP);
+	OutputDebugStringA(Test);
+
+	auto	iter = mHPWidgetFunc.begin();
+	auto	iterEnd = mHPWidgetFunc.end();
+
+	for (; iter != iterEnd; ++iter)
+	{
+		(*iter)((float)mHP, (float)mHPMax);
+	}
+
+	return Damage;
 }
 
 CMonster* CMonster::Clone()

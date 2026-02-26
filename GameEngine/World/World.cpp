@@ -8,6 +8,16 @@ CWorld::~CWorld()
 {
 }
 
+void CWorld::InputActive()
+{
+	mInput->DeviceAcquire();
+}
+
+void CWorld::InputDeactive()
+{
+	mInput->DeviceUnAcquire();
+}
+
 bool CWorld::Init()
 {
 	mCameraManager.reset(new CCameraManager);
@@ -22,12 +32,32 @@ bool CWorld::Init()
 
 	mInput.reset(new CInput);
 
+	mInput->mWorld = mSelf;
+
 	if (!mInput->Init())
 		return false;
 
 	mCollision.reset(new CWorldCollision);
 
+	mCollision->SetWorld(mSelf);
+
 	if (!mCollision->Init())
+		return false;
+
+	mUIManager.reset(new CWorldUIManager);
+
+	mUIManager->mWorld = mSelf;
+	mUIManager->mSelf = mUIManager;
+
+	if (!mUIManager->Init())
+		return false;
+
+	mNavigation.reset(new CWorldNavigation);
+
+	mNavigation->mWorld = mSelf;
+	mNavigation->mSelf = mNavigation;
+
+	if (!mNavigation->Init())
 		return false;
 
 	mObjList.reserve(10000);
@@ -76,6 +106,10 @@ void CWorld::Update(float DeltaTime)
 	mCameraManager->Update(DeltaTime);
 
 	mWorldAssetManager->Update(DeltaTime);
+
+	mNavigation->Update(DeltaTime);
+
+	mUIManager->Update(DeltaTime);
 }
 
 void CWorld::PostUpdate(float DeltaTime)
@@ -113,12 +147,52 @@ void CWorld::PostUpdate(float DeltaTime)
 
 	// 모든 데이터 업데이트가 완료된 후에 충돌을 진행한다.
 	mCollision->Update(DeltaTime);
+
+	iter = mObjList.begin();
+	iterEnd = mObjList.end();
+
+	for (; iter != iterEnd;)
+	{
+		if (iter->second.use_count() == 0)
+		{
+			iter = mObjList.erase(iter);
+			iterEnd = mObjList.end();
+			continue;
+		}
+
+		else if (!iter->second->GetAlive())
+		{
+			iter = mObjList.erase(iter);
+			iterEnd = mObjList.end();
+			continue;
+		}
+
+		else if (!iter->second->GetEnable())
+		{
+			++iter;
+			continue;
+		}
+
+		iter->second->UpdateTransform();
+		++iter;
+	}
 }
 
 void CWorld::Render()
 {
 	Begin();
 
+#ifdef _DEBUG
+
+	mCollision->Render();
+
+#endif // _DEBUG
+
+	mCollision->ReturnNodePool();
+}
+
+void CWorld::PostRender()
+{
 	auto	iter = mObjList.begin();
 	auto	iterEnd = mObjList.end();
 
@@ -144,9 +218,19 @@ void CWorld::Render()
 			continue;
 		}
 
-		iter->second->Render();
+		iter->second->PostRender();
 		++iter;
 	}
+}
+
+void CWorld::RenderUI()
+{
+	mUIManager->Render();
+}
+
+void CWorld::ClearWorld()
+{
+	mWorldAssetManager->ClearAsset();
 }
 
 void CWorld::Begin()
@@ -164,4 +248,9 @@ void CWorld::Begin()
 
 		mStartObjList.clear();
 	}
+}
+
+void CWorld::BeginManager()
+{
+	mNavigation->Begin();
 }

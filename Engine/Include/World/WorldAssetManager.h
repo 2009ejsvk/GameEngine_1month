@@ -10,6 +10,8 @@
 #include "../Asset/Texture/Texture.h"
 #include "../Asset/Animation2D/Animation2DManager.h"
 #include "../Asset/Animation2D/Animation2D.h"
+#include "../Asset/Sound/SoundManager.h"
+#include "../Asset/Sound/Sound.h"
 
 class CWorldAssetManager
 {
@@ -26,6 +28,7 @@ private:
 	std::unordered_map<std::string, std::shared_ptr<class CAsset>>  mAssetMap;
 
 public:
+	void ClearAsset();
 	bool Init();
 	void Update(float DeltaTime);
 
@@ -33,7 +36,7 @@ public:
 
 public:
 	bool CreateMesh(const std::string& Name, 
-		void* VertexData, 
+		bool Keep, void* VertexData,
 		int VertexSize, int VertexCount,
 		D3D11_USAGE VertexUsage, 
 		D3D11_PRIMITIVE_TOPOLOGY Primitive,
@@ -60,6 +63,11 @@ public:
 		const std::vector<const TCHAR*>& FileName,
 		const std::string& PathName = "Texture");
 	bool LoadTextureFullPath(const std::string& Name,
+		const std::vector<const TCHAR*> FullPath);
+	bool LoadTextureArray(const std::string& Name,
+		const std::vector<const TCHAR*>& FileName,
+		const std::string& PathName);
+	bool LoadTextureArrayFullPath(const std::string& Name,
 		const std::vector<const TCHAR*> FullPath);
 	std::weak_ptr<CTexture> FindTexture(
 		const std::string& Name);
@@ -92,6 +100,13 @@ public:
 	bool SetTextureFullPath(const std::string& AnimationName,
 		const std::string& Name,
 		const std::vector<const TCHAR*>& FullPath);
+	bool SetTextureArray(const std::string& AnimationName,
+		const std::string& Name,
+		const std::vector<const TCHAR*>& FileName,
+		const std::string& PathName = "Texture");
+	bool SetTextureArrayFullPath(const std::string& AnimationName,
+		const std::string& Name,
+		const std::vector<const TCHAR*>& FullPath);
 	bool AddFrame(const std::string& AnimationName,
 		const FVector2& Start, const FVector2& Size);
 	bool AddFrame(const std::string& AnimationName,
@@ -104,5 +119,19 @@ public:
 		float SizeY);
 
 #pragma endregion Animation2D
+
+#pragma region Sound
+
+	bool LoadSound(const std::string& Name,
+		const std::string& GroupName, bool Loop, const char* FileName,
+		const std::string& PathName = "Sound");
+	std::weak_ptr<CSound> FindSound(const std::string& Name);
+
+	void SoundPlay(const std::string& Name);
+	void SoundStop(const std::string& Name);
+	void SoundPause(const std::string& Name);
+	void SoundResume(const std::string& Name);
+
+#pragma endregion Sound
 };
 

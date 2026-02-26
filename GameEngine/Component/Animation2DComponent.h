@@ -44,6 +44,8 @@ public:
 	void SetShader();
 	EAnimation2DTextureType GetTextureType()	const;
 	int GetAnimationFrame()	const;
+	FVector2 GetAnimLTUV();
+	FVector2 GetAnimRBUV();
 
 public:
 	virtual bool Init();

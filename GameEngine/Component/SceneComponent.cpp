@@ -1,15 +1,19 @@
 #include "SceneComponent.h"
 #include "../Render/RenderManager.h"
+#include "../Render/RenderState.h"
 
 CSceneComponent::CSceneComponent()
 {
 	SetClassType<CSceneComponent>();
 	mComponentType = EComponentType::Scene;
+
+	SetRenderLayer("Default");
 }
 
 CSceneComponent::CSceneComponent(const CSceneComponent& ref)	:
 	CComponent(ref)
 {
+	mRenderLayer = ref.mRenderLayer;
 	mComponentType = EComponentType::Scene;
 	mRenderType = ref.mRenderType;
 	mInheritScale = ref.mInheritScale;
@@ -32,6 +36,7 @@ CSceneComponent::CSceneComponent(const CSceneComponent& ref)	:
 CSceneComponent::CSceneComponent(CSceneComponent&& ref)	noexcept :
 	CComponent(std::move(ref))
 {
+	mRenderLayer = ref.mRenderLayer;
 	mComponentType = EComponentType::Scene;
 	mRenderType = ref.mRenderType;
 	mInheritScale = ref.mInheritScale;
@@ -55,6 +60,44 @@ CSceneComponent::~CSceneComponent()
 {
 }
 
+void CSceneComponent::SetRenderLayer(const std::string& Name)
+{
+	mRenderLayer =
+		CRenderManager::GetInst()->GetLayerOrder(Name);
+}
+
+std::weak_ptr<CMesh> CSceneComponent::GetMesh()	const
+{
+	return std::weak_ptr<CMesh>();
+}
+
+std::weak_ptr<CTexture> CSceneComponent::GetTexture(
+	int SlotIndex)	const
+{
+	return std::weak_ptr<CTexture>();
+}
+
+std::weak_ptr<CShader> CSceneComponent::GetShader()	const
+{
+	return std::weak_ptr<CShader>();
+}
+
+std::weak_ptr<CRenderState> CSceneComponent::GetBlendState(int SlotIndex) const
+{
+	return std::weak_ptr<CRenderState>();
+}
+
+std::weak_ptr<CAnimation2DComponent> CSceneComponent::GetAnimComponent()	 const
+{
+	return std::weak_ptr<CAnimation2DComponent>();
+}
+
+FVector4 CSceneComponent::GetBaseColor(int SlotIndex) const
+{
+	return FVector4::Black;
+}
+
+
 void CSceneComponent::Begin()
 {
 	CComponent::Begin();
@@ -64,11 +107,8 @@ void CSceneComponent::Begin()
 	InheritRotation();
 
 	InheritPos();
-}
 
-bool CSceneComponent::Init()
-{
-	CComponent::Init();
+	mVelocity = FVector3::Zero;
 
 	if (mRenderType == EComponentRender::Render)
 	{
@@ -76,12 +116,30 @@ bool CSceneComponent::Init()
 
 		CRenderManager::GetInst()->AddRenderLayer(self);
 	}
+}
+
+bool CSceneComponent::Init()
+{
+	CComponent::Init();
 
 	return true;
 }
 
 void CSceneComponent::Update(float DeltaTime)
 {
+	// 중력 적용
+	if (mSimulatePhysics)
+	{
+		if (mUseGravity)
+		{
+			mAccel.y -= GRAVITY2D;
+		}
+
+		mPhysicsVelocity += mAccel * DeltaTime;
+
+		AddRelativePos(mPhysicsVelocity * DeltaTime);
+	}
+
 	/*size_t	Size = mChildList.size();
 
 	for (size_t i = 0; i < Size; ++i)
@@ -95,7 +153,7 @@ void CSceneComponent::Update(float DeltaTime)
 
 void CSceneComponent::PostUpdate(float DeltaTime)
 {
-	UpdateTransform();
+	//UpdateTransform();
 
 	/*size_t	Size = mChildList.size();
 
@@ -124,6 +182,9 @@ void CSceneComponent::Render()
 void CSceneComponent::PostRender()
 {
 	mVelocity = FVector3::Zero;
+
+	// 가속도 초기화
+	mAccel = FVector3::Zero;
 }
 
 CSceneComponent* CSceneComponent::Clone()	const

@@ -40,6 +40,11 @@ void CMovementComponent::PostUpdate(float DeltaTime)
 {
 }
 
+void CMovementComponent::PostRender()
+{
+	CObjectComponent::PostRender();
+}
+
 void CMovementComponent::Destroy()
 {
 	CObjectComponent::Destroy();

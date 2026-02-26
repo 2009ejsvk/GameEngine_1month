@@ -14,6 +14,13 @@
 
 #endif // _DEBUG
 
+enum class ETextureType
+{
+    Normal,
+    Frame,
+    Array
+};
+
 struct FTextureInfo
 {
     // Texture의 Pixel 정보를 저장하기 위한 객체이다.
@@ -25,6 +32,8 @@ struct FTextureInfo
 
     unsigned int    Width = 0;
     unsigned int    Height = 0;
+
+    std::wstring    FullPath;
 
     ~FTextureInfo()
     {
@@ -48,6 +57,9 @@ public:
 protected:
     // 이미지 여러장을 하나의 Texture로 구성 가능하도록 제작.
     std::vector<FTextureInfo*>  mTextureList;
+    ETextureType mTextureType = ETextureType::Normal;
+    ID3D11ShaderResourceView* mArraySRV = nullptr;
+    int                         mArrayCount = 0;
 
 public:
     const FTextureInfo* GetTexture(int Index = 0)   const
@@ -60,18 +72,33 @@ public:
         return (int)mTextureList.size();
     }
 
+    ETextureType GetTextureType()   const
+    {
+        return mTextureType;
+    }
+
 public:
     bool LoadTexture(const TCHAR* FileName,
         const std::string& PathName);
     bool LoadTexture(const TCHAR* FullPath);
     bool LoadTexture(const std::vector<const TCHAR*>& FileName,
         const std::string& PathName);
-    bool LoadTexture(const std::vector<const TCHAR*> FullPath);
+    bool LoadTexture(
+        const std::vector<const TCHAR*>& FullPath);
+    bool LoadTextureArray(
+        const std::vector<const TCHAR*>& FileName,
+        const std::string& PathName);
+    bool LoadTextureArray(
+        const std::vector<const TCHAR*>& FullPath);
     void SetShader(int Register, int ShaderBufferType,
         int TextureIndex);
 
 
 private:
     bool CreateResourceView(int Index = 0);
+    bool CreateResourceViewArray();
+
+public:
+    void Save(FILE* File);
 };
 

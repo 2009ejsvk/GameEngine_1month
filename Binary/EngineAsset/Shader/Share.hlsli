@@ -9,6 +9,14 @@ Shader 의 레지스터
 임시레지스터 : 연산 시 사용되는 레지스터
 */
 
+struct VS_OUTPUT_TEX
+{
+    // SV_ 가 붙은 레지스터는 VS에서 값을 넣어주는 용도이며 다른곳에서 이 값을
+    // 가져와서 사용하면 안된다.
+    float4 Pos : SV_POSITION;
+    float2 UV : TEXCOORD;
+};
+
 // CPU -> GPU로 자주 바뀌는 값을 전달하는 기능이다.
 cbuffer CBTransform : register(b0)
 {
@@ -35,7 +43,7 @@ cbuffer CBAnimatino2D : register(b2)
     int cbAnimation2DEnable;
     int cbAnimation2DTextureType;
     int cbTextureSymmetry;
-    float cbAnimation2DEmpty;
+    int cbAnimation2DFrame;
 };
 
 SamplerState sbPoint : register(s0);
@@ -97,4 +105,30 @@ float2 ComputeAnimation2DUV(float2 UV)
 
     return Result;
 
+}
+
+static float4 NullPos[4] =
+{
+    float4(-1.f, 1.f, 0.f, 1.f),
+    float4(1.f, 1.f, 0.f, 1.f),
+    float4(-1.f, -1.f, 0.f, 1.f),
+    float4(1.f, -1.f, 0.f, 1.f)
+};
+
+static float2 NullUV[4] =
+{
+    float2(0.f, 0.f),
+    float2(1.f, 0.f),
+    float2(0.f, 1.f),
+    float2(1.f, 1.f)
+};
+
+VS_OUTPUT_TEX NullTexVS(uint VertexID : SV_VertexID)
+{
+    VS_OUTPUT_TEX output = (VS_OUTPUT_TEX) 0;
+    
+    output.Pos = NullPos[VertexID];
+    output.UV = NullUV[VertexID];
+    
+    return output;
 }

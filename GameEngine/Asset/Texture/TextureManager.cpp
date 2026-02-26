@@ -42,7 +42,7 @@ bool CTextureManager::LoadTexture(const std::string& Name,
 
 	Texture.reset(Origin);
 
-	Texture->mName = Name;
+	Texture->SetName(Name);
 
 	if (!Texture->LoadTexture(FileName, PathName))
 	{
@@ -69,7 +69,7 @@ bool CTextureManager::LoadTextureFullPath(const std::string& Name,
 
 	Texture.reset(Origin);
 
-	Texture->mName = Name;
+	Texture->SetName(Name);
 
 	if (!Texture->LoadTexture(FullPath))
 	{
@@ -97,7 +97,7 @@ bool CTextureManager::LoadTexture(const std::string& Name,
 
 	Texture.reset(Origin);
 
-	Texture->mName = Name;
+	Texture->SetName(Name);
 
 	if (!Texture->LoadTexture(FileName, PathName))
 	{
@@ -124,9 +124,65 @@ bool CTextureManager::LoadTextureFullPath(const std::string& Name,
 
 	Texture.reset(Origin);
 
-	Texture->mName = Name;
+	Texture->SetName(Name);
 
 	if (!Texture->LoadTexture(FullPath))
+	{
+		return false;
+	}
+
+	mTextureMap.insert(std::make_pair(Name, Texture));
+
+	return true;
+}
+
+bool CTextureManager::LoadTextureArray(const std::string& Name,
+	const std::vector<const TCHAR*>& FileName,
+	const std::string& PathName)
+{
+	std::weak_ptr<CTexture>	Check = FindTexture(Name);
+
+	// 있을 경우
+	if (!Check.expired())
+		return true;
+
+	CTexture* Origin = new CTexture;
+
+	std::shared_ptr<CTexture> Texture;
+
+	Texture.reset(Origin);
+
+	Texture->SetName(Name);
+
+	if (!Texture->LoadTextureArray(FileName, PathName))
+	{
+		return false;
+	}
+
+	mTextureMap.insert(std::make_pair(Name, Texture));
+
+	return true;
+}
+
+bool CTextureManager::LoadTextureArrayFullPath(
+	const std::string& Name, 
+	const std::vector<const TCHAR*> FullPath)
+{
+	std::weak_ptr<CTexture>	Check = FindTexture(Name);
+
+	// 있을 경우
+	if (!Check.expired())
+		return true;
+
+	CTexture* Origin = new CTexture;
+
+	std::shared_ptr<CTexture> Texture;
+
+	Texture.reset(Origin);
+
+	Texture->SetName(Name);
+
+	if (!Texture->LoadTextureArray(FullPath))
 	{
 		return false;
 	}

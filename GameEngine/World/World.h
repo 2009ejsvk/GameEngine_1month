@@ -6,11 +6,15 @@
 #include "WorldAssetManager.h"
 #include "Input.h"
 #include "WorldCollision.h"
+#include "WorldUIManager.h"
+#include "WorldNavigation.h"
 
 // enable_shared_from_this
 
 class CWorld
 {
+	friend class CWorldManager;
+
 public:
 	CWorld();
 	virtual ~CWorld();
@@ -23,8 +27,15 @@ protected:
 	std::shared_ptr<CWorldAssetManager>	mWorldAssetManager;
 	std::shared_ptr<CInput>	mInput;
 	std::shared_ptr<CWorldCollision>	mCollision;
+	std::shared_ptr<CWorldUIManager>	mUIManager;
+	std::shared_ptr<CWorldNavigation>	mNavigation;
 
 public:
+	std::weak_ptr<CWorldNavigation> GetNavigation()	const
+	{
+		return mNavigation;
+	}
+
 	std::weak_ptr<CCameraManager> GetCameraManager()	const
 	{
 		return mCameraManager;
@@ -45,6 +56,11 @@ public:
 		return mCollision;
 	}
 
+	std::weak_ptr<CWorldUIManager> GetUIManager()	const
+	{
+		return mUIManager;
+	}
+
 public:
 	void SetSelf(std::weak_ptr<CWorld> Self)
 	{
@@ -52,13 +68,19 @@ public:
 	}
 
 public:
+	void InputActive();
+	void InputDeactive();
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
 	virtual void PostUpdate(float DeltaTime);
 	virtual void Render();
+	virtual void PostRender();
+	virtual void RenderUI();
+	void ClearWorld();
 
 private:
 	void Begin();
+	void BeginManager();
 
 public:
 	template <typename T>
