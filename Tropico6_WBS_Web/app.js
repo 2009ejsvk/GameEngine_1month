@@ -26,10 +26,25 @@ const dataModel = {
     "2D 고정 격자 환경에서 주요 시스템 플레이가 가능하다.",
     "30~45분 플레이에서 흑자/적자/정치 위기를 모두 경험한다."
   ],
-  successMeters: [
-    { label: "루프 연동도", value: 88, detail: "건설-경제-정치가 한 세션에서 연결" },
-    { label: "시스템 가시성", value: 82, detail: "HUD/오버레이에서 상태 즉시 확인" },
-    { label: "데모 완성도", value: 80, detail: "포트폴리오 데모 발표 기준 충족" }
+  successSignals: [
+    {
+      label: "루프 연동 검증",
+      state: "세션 로그",
+      detail: "건설-경제-정치 이벤트가 한 세션에서 연속 발생",
+      proof: "검증 방법: 플레이 타임라인과 이벤트 발생 로그 대조"
+    },
+    {
+      label: "시스템 가시성 검증",
+      state: "HUD 체크",
+      detail: "핵심 상태(재정/행복/물류/지지율)를 HUD에서 즉시 확인",
+      proof: "검증 방법: 오버레이 토글 시 상태 변화가 바로 반영되는지 확인"
+    },
+    {
+      label: "데모 발표 준비도",
+      state: "리허설 기준",
+      detail: "포트폴리오 데모 시나리오를 10분 내 재현 가능",
+      proof: "검증 방법: 발표 리허설 3회 연속 성공 여부 체크"
+    }
   ],
   mvpScope: [
     { title: "군도 2개 섬 + 연결 인프라", note: "도로/운송항 단순화 포함" },
@@ -72,17 +87,29 @@ const dataModel = {
     "자원 비옥도/고갈 메카닉으로 장기 운영 압박"
   ],
   productionMvp: [
-    "2단계 체인: 원자재(농장/광산) → 가공(공장) → 수출(항구)",
-    "자원 4종: 사탕수수/목재/광물/면화",
-    "건물 패널에 작업자/효율/재고량 표시",
-    "시대는 식민지 1종만 구현 후 확장 후보로 분리"
+    "운영 루프: 원자재(농장/광산) → 가공(공장) → 항구 집하 → 수출 정산",
+    "생산량 계산: 기본 생산량 × 작업자 충원율 × 예산 보정치",
+    "재고 규칙: 입력/출력 재고 상한 도달 시 건물 상태 자동 전환(가동/대기)",
+    "운송 정책: Teamster 큐 우선순위(필수재 > 가공재 > 수출재) 적용",
+    "병목 알림: 공장 입력 부족·항구 적체·운송 지연을 HUD 경고로 노출"
   ],
-  productionChainFlow: ["원자재 생산", "가공", "항구 집하", "수출"],
+  productionChainFlow: [
+    "원자재 생산(농장·광산)",
+    "1차 가공(공장)",
+    "항구 집하·검수",
+    "수출 정산·재정 반영"
+  ],
   productionResourceCards: [
-    { title: "사탕수수 → 럼", note: "농장 → 럼 공장 → 항구" },
-    { title: "목재 → 판자", note: "벌목 캠프 → 판자 공장 → 항구" },
-    { title: "광물 → 무기", note: "광산 → 무기 공장 → 항구" },
-    { title: "면화 → 직물", note: "면화 농장 → 직물 공장 → 항구" }
+    { title: "사탕수수 → 럼", note: "농장 → 럼 공장 → 항구 (현금흐름 중심 수출)" },
+    { title: "목재 → 판자", note: "벌목 캠프 → 판자 공장 → 항구 (건설/수출 겸용)" },
+    { title: "광물 → 무기", note: "광산 → 무기 공장 → 항구 (고가·저회전 체인)" },
+    { title: "면화 → 직물", note: "면화 농장 → 직물 공장 → 항구 (안정 물량 체인)" }
+  ],
+  productionControlCards: [
+    { title: "처리량 공식", note: "기본 생산량 × 작업자 충원율 × 건물 예산 보정" },
+    { title: "재고 상한 제어", note: "입력/출력 재고 임계치 도달 시 자동 가동률 조정" },
+    { title: "운송 우선순위", note: "필수재 우선 배차로 시민 서비스 중단 리스크 최소화" },
+    { title: "항구 정산 주기", note: "출항 틱마다 단가×물량을 재정에 즉시 반영" }
   ],
   logisticsOriginal: [
     "Teamster 건물이 트럭 NPC를 생성해 자원 수거/배달",
@@ -116,10 +143,25 @@ const dataModel = {
     "행복 하락 시 반란 위험도 상승 이벤트 트리거"
   ],
   happinessFactors: ["음식", "주거", "의료", "오락", "치안"],
-  happinessMeters: [
-    { label: "음식 커버리지", value: 82, detail: "식량 공급과 접근성 기반" },
-    { label: "주거 만족도", value: 74, detail: "주거 품질과 직장 거리 반영" },
-    { label: "서비스 접근성", value: 79, detail: "의료/오락/치안 시설 거리 반영" }
+  happinessSignals: [
+    {
+      label: "음식 수급 판정",
+      state: "생산-소비-재고",
+      detail: "식량 생산량, 소비량, 창고 재고를 틱 단위로 집계해 부족 여부를 판단",
+      proof: "부족 상태가 연속 3틱 지속되면 행복 하락과 불만 이벤트 가중"
+    },
+    {
+      label: "주거/출근 부담 판정",
+      state: "거리·품질 모델",
+      detail: "주거 품질 점수와 직장 이동시간을 함께 반영해 주거 만족도를 계산",
+      proof: "통근 시간이 임계값을 넘으면 생산성·행복도에 동시 페널티 적용"
+    },
+    {
+      label: "서비스 접근성 판정",
+      state: "커버리지 맵",
+      detail: "의료·오락·치안 시설 반경 내 인구 비율로 접근성을 산정",
+      proof: "시설 신설/철거 후 다음 시뮬레이션 틱에 즉시 재계산"
+    }
   ],
   politicsOriginal: [
     "8개 파벌(자본가/공산/군사/자유/환경/지식인/보수/종교) 운영",
@@ -233,6 +275,108 @@ const dataModel = {
 /* ── State ─────────────────────────────────── */
 const state = { activeIndex: 0, weekFilter: "all" };
 const byId = (id) => document.getElementById(id);
+const SLIDE_ASPECT_RATIO = 16 / 9;
+let adaptiveImageFrame = 0;
+
+function applyAdaptiveImageHeights() {
+  const images = [...document.querySelectorAll(".ref-screenshot img")];
+
+  images.forEach(img => {
+    if (!img.dataset.baseMaxHeight) {
+      const base = parseFloat(getComputedStyle(img).maxHeight);
+      img.dataset.baseMaxHeight = Number.isFinite(base) ? String(base) : "0";
+    }
+    const base = parseFloat(img.dataset.baseMaxHeight);
+    if (base > 0) img.style.maxHeight = `${base}px`;
+    else img.style.removeProperty("max-height");
+  });
+
+  // 1) 패널 내부 여백이 남으면 해당 패널의 대표 이미지를 먼저 확장한다.
+  document.querySelectorAll(".panel").forEach(panel => {
+    const frame = panel.querySelector(".ref-screenshot:not(.small):not(.wide)");
+    if (!frame) return;
+    const img = frame.querySelector("img");
+    if (!img) return;
+
+    const base = parseFloat(img.dataset.baseMaxHeight || "0");
+    if (base <= 0) return;
+
+    const caption = frame.querySelector(".img-caption");
+    const captionH = caption ? caption.offsetHeight : 0;
+
+    // panel 안에서 frame이 시작되는 지점 아래로 이미지가 확장 가능한 높이 계산
+    const panelSpace = Math.floor(panel.clientHeight - frame.offsetTop - captionH - 14);
+    if (panelSpace <= base + 8) return;
+
+    const cap = Math.floor(panel.clientHeight * 0.86);
+    const next = Math.min(panelSpace, cap);
+    img.style.maxHeight = `${Math.max(base, next)}px`;
+  });
+
+  // 2) 슬라이드 전체에 여백이 남으면 메인 이미지를 추가 확장한다.
+  document.querySelectorAll(".slide-inner").forEach(inner => {
+    const innerStyle = getComputedStyle(inner);
+    const padBottom = parseFloat(innerStyle.paddingBottom) || 0;
+
+    let contentBottom = 0;
+    [...inner.children].forEach(child => {
+      if (child.offsetParent === null) return;
+      const bottom = child.offsetTop + child.offsetHeight;
+      if (bottom > contentBottom) contentBottom = bottom;
+    });
+
+    const freeSpace = Math.floor(inner.clientHeight - padBottom - contentBottom);
+    if (freeSpace < 36) return;
+
+    const preferredTargets = [...inner.querySelectorAll(".panel .ref-screenshot:not(.small):not(.wide) img")];
+    const fallbackTargets = [...inner.querySelectorAll(".ref-screenshot:not(.small):not(.wide) img")];
+    const targets = preferredTargets.length ? preferredTargets : fallbackTargets;
+    if (!targets.length) return;
+
+    const bonus = Math.min(260, Math.floor(freeSpace / targets.length));
+    targets.forEach(img => {
+      const base = parseFloat(img.dataset.baseMaxHeight || "0");
+      if (base <= 0) return;
+      const hardCap = Math.floor(inner.clientHeight * 0.68);
+      const next = Math.min(base + bonus, hardCap);
+      const current = parseFloat(img.style.maxHeight || "0");
+      img.style.maxHeight = `${Math.max(current, next)}px`;
+    });
+  });
+}
+
+function scheduleAdaptiveImageHeights() {
+  if (adaptiveImageFrame) cancelAnimationFrame(adaptiveImageFrame);
+  adaptiveImageFrame = requestAnimationFrame(() => {
+    adaptiveImageFrame = 0;
+    applyAdaptiveImageHeights();
+  });
+}
+
+function updateSlideViewportSize() {
+  const deck = byId("deck");
+  const slide = document.querySelector(".slide");
+  if (!deck || !slide) return;
+
+  const cs = getComputedStyle(slide);
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+
+  const availW = Math.max(320, deck.clientWidth - padX);
+  const availH = Math.max(180, deck.clientHeight - padY);
+
+  let width = availW;
+  let height = width / SLIDE_ASPECT_RATIO;
+
+  if (height > availH) {
+    height = availH;
+    width = height * SLIDE_ASPECT_RATIO;
+  }
+
+  document.documentElement.style.setProperty("--slide-fixed-width", `${Math.floor(width)}px`);
+  document.documentElement.style.setProperty("--slide-fixed-height", `${Math.floor(height)}px`);
+  scheduleAdaptiveImageHeights();
+}
 
 /* ── D-Day Calculation ─────────────────────── */
 function getDDay() {
@@ -269,6 +413,21 @@ function renderFlow(targetId, steps) {
       <strong>${step}</strong>
     </div>
     ${i < steps.length - 1 ? '<div class="loop-arrow">→</div>' : ""}
+  `).join("");
+}
+
+function renderSignalCards(targetId, items) {
+  const t = byId(targetId);
+  if (!t) return;
+  t.innerHTML = items.map(item => `
+    <article class="meter-card">
+      <div class="meter-head">
+        <strong>${item.label}</strong>
+        <span>${item.state}</span>
+      </div>
+      <p>${item.detail}</p>
+      <p>${item.proof}</p>
+    </article>
   `).join("");
 }
 
@@ -348,7 +507,11 @@ function renderLoopFlow() {
 }
 
 function renderSuccessMeters() {
-  renderMeters("successMeters", dataModel.successMeters);
+  renderSignalCards("successMeters", dataModel.successSignals);
+}
+
+function renderHappinessSignals() {
+  renderSignalCards("happinessMeters", dataModel.happinessSignals);
 }
 
 function renderScopeCards(targetId, items, mode) {
@@ -378,6 +541,7 @@ function renderSystemSlides() {
   renderList("productionOriginal", dataModel.productionOriginal);
   renderList("productionMvp", dataModel.productionMvp);
   renderFlow("productionChainFlow", dataModel.productionChainFlow);
+  renderInfoCards("productionControlCards", dataModel.productionControlCards, "OPS");
   renderInfoCards("productionResourceCards", dataModel.productionResourceCards, "CHAIN");
 
   renderList("logisticsOriginal", dataModel.logisticsOriginal);
@@ -388,7 +552,7 @@ function renderSystemSlides() {
   renderList("happinessOriginal", dataModel.happinessOriginal);
   renderList("happinessMvp", dataModel.happinessMvp);
   renderChips("happinessFactors", dataModel.happinessFactors);
-  renderMeters("happinessMeters", dataModel.happinessMeters);
+  renderHappinessSignals();
 
   renderList("politicsOriginal", dataModel.politicsOriginal);
   renderList("politicsMvp", dataModel.politicsMvp);
@@ -658,7 +822,10 @@ function goToSlide(slides, index) {
   slides[target].scrollIntoView({ behavior: "smooth", block: "start" });
 
   /* Ensure reveal fires even if IntersectionObserver misses it */
-  setTimeout(() => revealSlide(slides[target]), 120);
+  setTimeout(() => {
+    revealSlide(slides[target]);
+    scheduleAdaptiveImageHeights();
+  }, 120);
 }
 
 function bindDeckControls(slides) {
@@ -700,6 +867,7 @@ function watchSlides(slides) {
       state.activeIndex = idx;
       updateNavState(slides, idx);
       revealSlide(slides[idx]);
+      scheduleAdaptiveImageHeights();
     });
   }, { root: deck, threshold: [0.3, 0.5, 0.7] });
   slides.forEach(s => obs.observe(s));
@@ -735,6 +903,7 @@ function bootstrap() {
   renderIfPossiblePlan();
 
   const slides = [...document.querySelectorAll(".slide")];
+  updateSlideViewportSize();
   buildSlideNav(slides);
   updateNavState(slides, 0);
 
@@ -744,6 +913,12 @@ function bootstrap() {
   bindDeckControls(slides);
   watchSlides(slides);
   setupBarAnimations();
+  document.querySelectorAll(".ref-screenshot img").forEach(img => {
+    if (!img.complete) img.addEventListener("load", scheduleAdaptiveImageHeights, { once: true });
+  });
+  scheduleAdaptiveImageHeights();
+  window.addEventListener("resize", updateSlideViewportSize);
+  document.addEventListener("fullscreenchange", updateSlideViewportSize);
 
   /* Update D-Day every minute */
   setInterval(renderDDay, 60000);

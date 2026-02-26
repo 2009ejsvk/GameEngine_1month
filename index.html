@@ -33,7 +33,7 @@
 
     <div class="deck-controls">
       <button id="prevBtn" class="ctrl-btn" title="이전 (←)">← Prev</button>
-      <span id="slideCounter" class="counter">1 / 13</span>
+      <span id="slideCounter" class="counter">1 / 12</span>
       <button id="nextBtn" class="ctrl-btn" title="다음 (→)">Next →</button>
       <button id="fullBtn" class="ctrl-btn accent" title="전체화면 (F)">⛶ Full</button>
     </div>
@@ -168,8 +168,10 @@
           </article>
           <article class="panel reveal">
             <h2>MVP 체인 정의</h2>
+            <p class="desc">생산량 공식, 병목 감지, 수출 정산까지 한 루프로 묶어 데모에서 재정 변화를 즉시 확인한다.</p>
             <ul id="productionMvp" class="list compact"></ul>
             <div id="productionChainFlow" class="loop-flow"></div>
+            <div id="productionControlCards" class="scope-cards"></div>
           </article>
         </div>
         <div id="productionResourceCards" class="scope-cards reveal"></div>
@@ -400,37 +402,7 @@
       <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
     </section>
 
-    <!-- ==================== 12. 리스크 관리 ==================== -->
-    <section class="slide" data-title="리스크 관리">
-      <div class="slide-inner two-col">
-        <article class="panel reveal">
-          <h2>리스크 & 대응</h2>
-          <ul id="risks" class="list"></ul>
-          <div id="riskMatrix" class="risk-matrix"></div>
-          <div class="ref-screenshot reveal">
-            <img src="img/tropico-in-chaos-el-presidente-shot-nation-on-the-brink-of-v0-xdal2ac44npe1.jpg"
-              alt="Tropico 6 Chaos" loading="lazy">
-            <span class="img-caption">리스크 시나리오 — 시민 반란 상황</span>
-          </div>
-        </article>
-        <article class="panel reveal">
-          <h2>발표 운영</h2>
-          <ol id="webPages" class="list ordered"></ol>
-          <div id="portfolioProof" class="proof-strip"></div>
-          <div class="kpi-box">
-            <h3>핵심 KPI</h3>
-            <ul>
-              <li>프레임: 시민 200명 기준 안정 FPS</li>
-              <li>플레이: 30분 이상 경제/정치 이벤트 발생</li>
-              <li>품질: 4주차 기능 동결 후 안정화 완료</li>
-            </ul>
-          </div>
-        </article>
-      </div>
-      <div class="slide-footer-inline">Game Engine Portfolio · DirectX 11</div>
-    </section>
-
-    <!-- ==================== 13. 클로징 ==================== -->
+    <!-- ==================== 12. 클로징 ==================== -->
     <section class="slide theme-end" data-title="클로징">
       <div class="slide-inner">
         <div class="ref-screenshot wide reveal">
@@ -438,23 +410,20 @@
           <span class="img-caption">최종 목표 — Tropico 1 스타일 2D 운영 시뮬레이션 완성</span>
         </div>
         <h2 class="reveal">결론</h2>
-        <p class="lead reveal">한 달 안에 "트로피코스러운 통치의 긴장감"을 증명하고,<br>여건이 확보되면 확장 후보 항목도 추가 수행한다.</p>
+        <p class="lead reveal">한 달 안에 2D 기반 통치 시뮬레이션의 핵심 루프를 실제 플레이로 증명하고,<br>기능·성능·발표 품질까지 갖춘 완결형 MVP를 마무리한다.</p>
         <div class="final-grid">
           <article class="panel reveal">
             <h3>이번 달 산출물</h3>
             <ul class="list">
-              <li>플레이 가능한 MVP 빌드</li>
-              <li>WBS 완료 보고서</li>
-              <li>다음 단계 확장 백로그</li>
+              <li>플레이 가능한 MVP 데모 빌드 (건설→생산/물류→시민→정치 루프 30~45분 검증)</li>
+              <li>핵심 시스템 구현 결과물 (2D 타일맵, JPS 기반 경로탐색, 경제/정치 시뮬레이션 로직)</li>
+              <li>WBS 완료 보고서 (주차별 완료율, 이슈/리스크 처리 내역, 성능 측정 로그)</li>
+              <li>확장 후보 백로그 (항목별 선행 조건, 우선순위, 예상 추가 공수)</li>
             </ul>
           </article>
           <article class="panel reveal">
-            <h3>다음 의사결정</h3>
-            <ul class="list">
-              <li>2개월차: 냉전/관광/불가사의 확장 여부</li>
-              <li>인원 증원 시 일정 재산정</li>
-              <li>툴링(맵 편집/밸런싱) 투자 비율 확정</li>
-            </ul>
+            <h3>확장 가능성 (옵션)</h3>
+            <p class="desc">이번 프로젝트는 1개월 완주를 목표로 종료하며, 일정 여유가 생길 경우에만 아래 확장 후보를 선택적으로 검토한다.</p>
             <div id="ifPossiblePlan" class="if-possible"></div>
           </article>
         </div>
