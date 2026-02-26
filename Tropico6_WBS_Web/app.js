@@ -875,6 +875,7 @@ function watchSlides(slides) {
 
 /* ── Bootstrap ─────────────────────────────── */
 function bootstrap() {
+  document.body.classList.add("presentation-mode");
   injectAnimStyles();
 
   renderHeroMetrics();

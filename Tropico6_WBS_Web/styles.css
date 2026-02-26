@@ -1710,74 +1710,74 @@ tbody tr:hover {
 
 /* ── Responsive ────────────────────────────── */
 @media (max-width: 1200px) {
-  .deck-outline {
+  body:not(.presentation-mode) .deck-outline {
     display: none;
   }
 
-  .deck {
+  body:not(.presentation-mode) .deck {
     margin-left: 0;
   }
 }
 
 @media (max-width: 980px) {
-  .deck-bar {
+  body:not(.presentation-mode) .deck-bar {
     flex-wrap: wrap;
     gap: 0.4rem;
   }
 
-  .slide-title-label {
+  body:not(.presentation-mode) .slide-title-label {
     display: none;
   }
 
-  .hero-metrics {
+  body:not(.presentation-mode) .hero-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .portfolio-badges,
-  .scope-cards,
-  .week-heat,
-  .wbs-kpis {
+  body:not(.presentation-mode) .portfolio-badges,
+  body:not(.presentation-mode) .scope-cards,
+  body:not(.presentation-mode) .week-heat,
+  body:not(.presentation-mode) .wbs-kpis {
     grid-template-columns: 1fr;
   }
 
-  .two-col,
-  .triple,
-  .roadmap,
-  .final-grid,
-  .engine-visual,
-  .architecture-flow {
+  body:not(.presentation-mode) .two-col,
+  body:not(.presentation-mode) .triple,
+  body:not(.presentation-mode) .roadmap,
+  body:not(.presentation-mode) .final-grid,
+  body:not(.presentation-mode) .engine-visual,
+  body:not(.presentation-mode) .architecture-flow {
     grid-template-columns: 1fr;
   }
 
-  .loop-flow {
+  body:not(.presentation-mode) .loop-flow {
     flex-wrap: wrap;
     justify-content: flex-start;
   }
 
-  .loop-step,
-  #productionChainFlow .loop-step {
+  body:not(.presentation-mode) .loop-step,
+  body:not(.presentation-mode) #productionChainFlow .loop-step {
     flex: 1 1 calc(50% - 0.6rem);
   }
 
-  .loop-arrow {
+  body:not(.presentation-mode) .loop-arrow {
     display: none;
   }
 
-  .arch-link {
+  body:not(.presentation-mode) .arch-link {
     justify-self: center;
   }
 
-  .dot-nav {
+  body:not(.presentation-mode) .dot-nav {
     right: 0.45rem;
   }
 }
 
 @media (max-width: 620px) {
-  .slide {
+  body:not(.presentation-mode) .slide {
     padding-top: 5.5rem;
   }
 
-  .dot-nav {
+  body:not(.presentation-mode) .dot-nav {
     bottom: 0.6rem;
     top: auto;
     right: 50%;
