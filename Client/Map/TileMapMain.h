@@ -19,9 +19,13 @@ public:
 public:
 	virtual void Begin();
 	virtual bool Init();
+	virtual void PostUpdate(float DeltaTime);
 
 public:
 	void LoadTileMap(const TCHAR* FileName,
 		const std::string& PathName = "Root");
+
+private:
+	float	mRenderCountLogTime = 0.f;
 };
 

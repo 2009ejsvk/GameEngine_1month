@@ -56,6 +56,10 @@ public:
 		if (!mWorld->Init())
 			return std::weak_ptr<T>();
 
+		// 즉시 교체(Next=false) 경로는 ChangeWorld를 타지 않으므로
+		// 매니저 시작(네비게이션 스레드 Resume 포함)을 여기서 수행한다.
+		mWorld->BeginManager();
+
 		return std::dynamic_pointer_cast<T>(mWorld);
 	}
 

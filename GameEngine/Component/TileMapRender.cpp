@@ -416,17 +416,17 @@ void CTileMapRender::Render()
 
 			Texture->SetShader(1, EShaderBufferType::Pixel,
 				0);
-
-			auto	State = mTileAlphaBlend.lock();
-
-			if (State)
-				State->SetState();
-
-			TileMap->RenderTile();
-
-			if (State)
-				State->ResetState();
 		}
+
+		auto	State = mTileAlphaBlend.lock();
+
+		if (State)
+			State->SetState();
+
+		TileMap->RenderTile();
+
+		if (State)
+			State->ResetState();
 
 		TileMap->RenderTileOutLine();
 	}

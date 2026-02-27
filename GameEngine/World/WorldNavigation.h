@@ -18,6 +18,7 @@ private:
 	std::weak_ptr<CWorldNavigation>	mSelf;
 	std::vector<std::shared_ptr<CThreadNavigation>>	mThreadList;
 	std::shared_ptr<CThreadQueue>	mNavQueue;
+	std::weak_ptr<class CTileMapComponent>	mTileMap;
 
 public:
 	void AddData(int Header, int Size, unsigned char* Data);
@@ -31,7 +32,9 @@ public:
 	void CreateNavigationThread(int Count,
 		const std::weak_ptr<class CTileMapComponent>& TileMap);
 	void FindPath(const FVector3& Start, const FVector3& End,
-		std::weak_ptr<class CComponent>* Agent);
+		std::weak_ptr<class CComponent>* Agent,
+		const std::string& TargetObjectName = "",
+		unsigned int RequestId = 0);
 
 private:
 	void NavigationComplete(int Size, unsigned char* Data);

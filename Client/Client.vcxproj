@@ -102,6 +102,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -136,6 +138,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -169,6 +173,8 @@
     <ClCompile Include="GlobalSetting.cpp" />
     <ClCompile Include="Interface\StateInterface.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Map\BuildingMarkerOrb.cpp" />
+    <ClCompile Include="Map\PlacementAreaObject.cpp" />
     <ClCompile Include="Map\TileMapMain.cpp" />
     <ClCompile Include="Monster\Monster.cpp" />
     <ClCompile Include="Monster\MonsterSpawnPoint.cpp" />
@@ -201,6 +207,8 @@
     <ClInclude Include="Component\StateComponent.h" />
     <ClInclude Include="GlobalSetting.h" />
     <ClInclude Include="Interface\StateInterface.h" />
+    <ClInclude Include="Map\BuildingMarkerOrb.h" />
+    <ClInclude Include="Map\PlacementAreaObject.h" />
     <ClInclude Include="Map\TileMapMain.h" />
     <ClInclude Include="Monster\Monster.h" />
     <ClInclude Include="Monster\MonsterSpawnPoint.h" />

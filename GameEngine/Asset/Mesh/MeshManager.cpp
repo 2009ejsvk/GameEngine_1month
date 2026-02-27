@@ -114,6 +114,29 @@ bool CMeshManager::Init()
 		D3D11_USAGE_IMMUTABLE))
 		return false;
 
+	// FrameSphere2DColor 생성
+	std::vector<FVertexColor>	FrameSphere2DColor;
+
+	for (int i = 0; i < 360; i += 12)
+	{
+		FVertexColor	Pos;
+		Pos.Pos.x = cosf(DirectX::XMConvertToRadians((float)i));
+		Pos.Pos.y = sinf(DirectX::XMConvertToRadians((float)i));
+		Pos.Pos.z = 0.f;
+		Pos.Color = FVector4::White;
+
+		FrameSphere2DColor.push_back(Pos);
+	}
+
+	if (!CreateMesh("Mesh_FrameSphere2DColor",
+		true, &FrameSphere2DColor[0],
+		sizeof(FVertexColor),
+		(int)FrameSphere2DColor.size(), D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP,
+		&FrameSphere2DIdx[0], 2, (int)FrameSphere2DIdx.size(),
+		DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
 
 	// TextureMesh 사각형 생성
 	FVertexTex	CenterRectTexture[4] =

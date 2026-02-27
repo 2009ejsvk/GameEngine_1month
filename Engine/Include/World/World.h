@@ -77,6 +77,13 @@ public:
 	virtual void PostRender();
 	virtual void RenderUI();
 	void ClearWorld();
+	bool BuildNavigationSnapshot(
+		const std::shared_ptr<class CTileMapComponent>& TileMap,
+		int EndTileIndex,
+		const std::string& PreferredTargetObjectName,
+		std::vector<unsigned char>& OutBlockedMask,
+		std::vector<int>& OutGoalIndices,
+		std::string& OutResolvedTargetObjectName);
 
 private:
 	void Begin();

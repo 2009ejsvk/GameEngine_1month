@@ -1,4 +1,5 @@
 #include "MainCamera.h"
+#include "../Map/PlacementAreaObject.h"
 #include "Component/CameraComponent.h"
 #include "Component/ObjectMovementComponent.h"
 #include "Device.h"
@@ -74,6 +75,14 @@ bool CMainCamera::Init()
     Input->SetBindFunction<CMainCamera>("MainCameraMoveRight",
         EInputType::Hold, this, &CMainCamera::MoveRight);
 
+    Input->AddBindKey("MainCameraMoveArea", VK_RBUTTON);
+    Input->SetBindFunction<CMainCamera>("MainCameraMoveArea",
+        EInputType::Press, this, &CMainCamera::MoveCurrentArea);
+
+    Input->AddBindKey("MainCameraPlace", VK_LBUTTON);
+    Input->SetBindFunction<CMainCamera>("MainCameraPlace",
+        EInputType::Press, this, &CMainCamera::PlaceCurrentArea);
+
     return true;
 }
 
@@ -142,4 +151,110 @@ void CMainCamera::MoveRight()
 
     if (Movement)
         Movement->AddMove(GetAxis(EAxis::X));
+}
+
+void CMainCamera::MoveCurrentArea()
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+        return;
+
+    const FVector2 MouseWorldPos = Input->GetMouseWorldPos();
+
+    RefreshPlacementObjects();
+
+    auto PlacementObject = PickPlacementObject(MouseWorldPos);
+
+    if (!PlacementObject)
+        return;
+
+    auto ActiveObject = mActivePlacementObject.lock();
+
+    if (ActiveObject && ActiveObject != PlacementObject)
+    {
+        ActiveObject->CancelMovePreview();
+    }
+
+    mActivePlacementObject = PlacementObject;
+    PlacementObject->StartMovePreview(MouseWorldPos);
+}
+
+void CMainCamera::PlaceCurrentArea()
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+        return;
+
+    const FVector2 MouseWorldPos = Input->GetMouseWorldPos();
+
+    RefreshPlacementObjects();
+
+    auto PlacementObject = mActivePlacementObject.lock();
+
+    if (!PlacementObject)
+    {
+        PlacementObject = PickPlacementObject(MouseWorldPos);
+        mActivePlacementObject = PlacementObject;
+    }
+
+    if (PlacementObject)
+        PlacementObject->ConfirmPlacement();
+}
+
+void CMainCamera::RefreshPlacementObjects()
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    if (mBuildingAObject.expired())
+    {
+        mBuildingAObject = World->FindObject<CPlacementAreaObject>(
+            "BuildingA");
+    }
+
+    if (mBuildingBObject.expired())
+    {
+        mBuildingBObject = World->FindObject<CPlacementAreaObject>(
+            "BuildingB");
+    }
+}
+
+std::shared_ptr<CPlacementAreaObject> CMainCamera::PickPlacementObject(
+    const FVector2& MouseWorldPos)
+{
+    auto BuildingA = mBuildingAObject.lock();
+    auto BuildingB = mBuildingBObject.lock();
+
+    if (BuildingA && BuildingA->ContainsPlacedTile(MouseWorldPos))
+        return BuildingA;
+
+    if (BuildingB && BuildingB->ContainsPlacedTile(MouseWorldPos))
+        return BuildingB;
+
+    if (BuildingA && BuildingB)
+    {
+        const float DistA = BuildingA->GetCenterDistanceSq(MouseWorldPos);
+        const float DistB = BuildingB->GetCenterDistanceSq(MouseWorldPos);
+
+        return DistA <= DistB ? BuildingA : BuildingB;
+    }
+
+    if (BuildingA)
+        return BuildingA;
+
+    return BuildingB;
 }

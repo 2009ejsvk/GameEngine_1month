@@ -527,6 +527,9 @@ void CTileMapComponent::Update(float DeltaTime)
 
 void CTileMapComponent::PostUpdate(float DeltaTime)
 {
+	if (mCountX <= 0 || mCountY <= 0)
+		return;
+
 	FVector3	Center;
 
 	auto	World = mWorld.lock();
@@ -543,42 +546,53 @@ void CTileMapComponent::PostUpdate(float DeltaTime)
 
 	FResolution	RS = CDevice::GetInst()->GetResolution();
 
-	switch (mShape)
+	if (mUseViewCulling)
 	{
-	case Rect:
-		mViewStartX = (int)((Center.x - RS.Width * 0.5f) /
-			mTileSize.x);
-		mViewStartY = (int)((Center.y - RS.Height * 0.5f) /
-			mTileSize.y);
+		switch (mShape)
+		{
+		case Rect:
+			mViewStartX = (int)((Center.x - RS.Width * 0.5f) /
+				mTileSize.x);
+			mViewStartY = (int)((Center.y - RS.Height * 0.5f) /
+				mTileSize.y);
 
-		mViewEndX = (int)((Center.x + RS.Width * 0.5f) /
-			mTileSize.x);
-		mViewEndY = (int)((Center.y + RS.Height * 0.5f) /
-			mTileSize.y);
-		break;
-	case Isometric:
-	{
-		FVector2	LB, RT;
+			mViewEndX = (int)((Center.x + RS.Width * 0.5f) /
+				mTileSize.x);
+			mViewEndY = (int)((Center.y + RS.Height * 0.5f) /
+				mTileSize.y);
+			break;
+		case Isometric:
+		{
+			FVector2	LB, RT;
 
-		LB.x = Center.x - RS.Width * 0.5f;
-		LB.y = Center.y - RS.Height * 0.5f;
+			LB.x = Center.x - RS.Width * 0.5f;
+			LB.y = Center.y - RS.Height * 0.5f;
 
-		RT.x = Center.x + RS.Width * 0.5f;
-		RT.y = Center.y + RS.Height * 0.5f;
+			RT.x = Center.x + RS.Width * 0.5f;
+			RT.y = Center.y + RS.Height * 0.5f;
 
-		mViewStartX = GetTileRenderIndexX(LB);
-		mViewStartY = GetTileRenderIndexY(LB);
+			mViewStartX = GetTileRenderIndexX(LB);
+			mViewStartY = GetTileRenderIndexY(LB);
 
-		mViewEndX = GetTileRenderIndexX(RT);
-		mViewEndY = GetTileRenderIndexY(RT);
+			mViewEndX = GetTileRenderIndexX(RT);
+			mViewEndY = GetTileRenderIndexY(RT);
 
-		mViewStartX -= 2;
-		mViewEndX += 2;
+			mViewStartX -= 2;
+			mViewEndX += 2;
 
-		mViewStartY -= 2;
-		mViewEndY += 2;
+			mViewStartY -= 2;
+			mViewEndY += 2;
+		}
+			break;
+		}
 	}
-		break;
+
+	else
+	{
+		mViewStartX = 0;
+		mViewStartY = 0;
+		mViewEndX = mCountX - 1;
+		mViewEndY = mCountY - 1;
 	}
 
 	mViewStartX = Clamp<int>(mViewStartX, 0, mCountX - 1);
@@ -596,6 +610,12 @@ void CTileMapComponent::PostUpdate(float DeltaTime)
 	{
 		mTileIstData.clear();
 		mTileIstData.resize(mInstancingCount);
+	}
+
+	if (mTileLineIstData.size() < mInstancingCount)
+	{
+		mTileLineIstData.clear();
+		mTileLineIstData.resize(mInstancingCount);
 	}
 
 	auto	Owner = mOwner.lock();

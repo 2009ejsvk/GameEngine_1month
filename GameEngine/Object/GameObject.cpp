@@ -383,6 +383,21 @@ float CGameObject::TakeDamage(float Damage)
 	return 0.0f;
 }
 
+bool CGameObject::IsNavigationObstacle()	const
+{
+	return false;
+}
+
+void CGameObject::GetNavigationBlockedTiles(
+	std::vector<int>& OutIndices)
+{
+}
+
+void CGameObject::GetNavigationGoalTiles(
+	std::vector<int>& OutIndices)
+{
+}
+
 bool CGameObject::GetSimulatePhysics()	const
 {
 	auto	Root = mRoot.lock();

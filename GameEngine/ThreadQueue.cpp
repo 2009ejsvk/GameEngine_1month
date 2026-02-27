@@ -17,6 +17,9 @@ void CThreadQueue::push(int Header, int Size, unsigned char* Data)
 	if (mSize == 200)
 		return;
 
+	if (Size < 0 || Size > THREAD_QUEUE_DATA_SIZE)
+		return;
+
 	mPush = (mPush + 1) % 200;
 
 	mData[mPush].Header = Header;

@@ -33,6 +33,21 @@ protected:
 	float	mViewDistance = 1000.f;
 
 public:
+	ECameraProjectionType GetProjectionType()	const
+	{
+		return mProjType;
+	}
+
+	float GetViewWidth()	const
+	{
+		return mWidth;
+	}
+
+	float GetViewHeight()	const
+	{
+		return mHeight;
+	}
+
 	const FMatrix& GetViewMatrix()	const
 	{
 		return mViewMatrix;

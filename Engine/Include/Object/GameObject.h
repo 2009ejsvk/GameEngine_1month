@@ -35,6 +35,11 @@ public:
 		return mEnable;
 	}
 
+	const std::string& GetName()	const
+	{
+		return mName;
+	}
+
 	std::weak_ptr<CSceneComponent> GetRootComponent()	const
 	{
 		return mRoot;
@@ -66,6 +71,9 @@ public:
 	virtual void PostRender();
 	virtual void Destroy();
 	virtual float TakeDamage(float Damage);
+	virtual bool IsNavigationObstacle()	const;
+	virtual void GetNavigationBlockedTiles(std::vector<int>& OutIndices);
+	virtual void GetNavigationGoalTiles(std::vector<int>& OutIndices);
 
 protected:
 	virtual CGameObject* Clone();

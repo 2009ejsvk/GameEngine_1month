@@ -56,6 +56,7 @@ protected:
 	int		mViewStartY = 0;
 	int		mViewEndX = 0;
 	int		mViewEndY = 0;
+	bool	mUseViewCulling = true;
 
 public:
 	ETileShape GetTileShape()	const
@@ -86,6 +87,16 @@ public:
 	int GetTileFrameCount()	const
 	{
 		return (int)mTileFrame.size();
+	}
+
+	int GetInstancingCount()	const
+	{
+		return mInstancingCount;
+	}
+
+	int GetLineInstancingCount()	const
+	{
+		return mLineInstancingCount;
 	}
 
 	ETileType GetTileType(int Index);
@@ -123,6 +134,11 @@ public:
 	{
 		mTileTextureSize.x = x;
 		mTileTextureSize.y = y;
+	}
+
+	void SetViewCulling(bool Enable)
+	{
+		mUseViewCulling = Enable;
 	}
 
 public:

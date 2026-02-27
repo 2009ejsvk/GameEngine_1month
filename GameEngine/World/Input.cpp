@@ -1,6 +1,7 @@
 #include "Input.h"
 #include "../Engine.h"
 #include "../Device.h"
+#include "../Component/CameraComponent.h"
 #include "CameraManager.h"
 #include "World.h"
 
@@ -258,13 +259,28 @@ void CInput::UpdateMousePos(float DeltaTime)
 	auto	CameraMgr = World->GetCameraManager().lock();
 
 	FVector3	CameraPos = CameraMgr->GetMainCameraWorldPos();
+	float	ViewWidth = (float)ViewportRS.Width;
+	float	ViewHeight = (float)ViewportRS.Height;
+
+	auto	MainCamera = CameraMgr->GetMainCamera().lock();
+
+	if (MainCamera &&
+		MainCamera->GetProjectionType() == ECameraProjectionType::Ortho)
+	{
+		ViewWidth = MainCamera->GetViewWidth();
+		ViewHeight = MainCamera->GetViewHeight();
+	}
+
+	float ScreenLocalX = MouseWorldPos.x - ViewportRS.Width * 0.5f;
+	float ScreenLocalY = MouseWorldPos.y - ViewportRS.Height * 0.5f;
+
+	float WorldScaleX = ViewWidth / max(1.f, (float)ViewportRS.Width);
+	float WorldScaleY = ViewHeight / max(1.f, (float)ViewportRS.Height);
 
 	// CameraPos는 화면의 가운데를 기준으로 만들어진다. 그러므로 화면크기의
 	// 절반을 빼주어야 왼쪽, 아래 기준으로 마우스 위치가 만들어진다.
-	mMouseWorldPos.x = CameraPos.x + MouseWorldPos.x -
-		ViewportRS.Width * 0.5f;
-	mMouseWorldPos.y = CameraPos.y + MouseWorldPos.y -
-		ViewportRS.Height * 0.5f;
+	mMouseWorldPos.x = CameraPos.x + ScreenLocalX * WorldScaleX;
+	mMouseWorldPos.y = CameraPos.y + ScreenLocalY * WorldScaleY;
 
 }
 

@@ -2,11 +2,13 @@
 
 #include "Sync.h"
 
+constexpr int THREAD_QUEUE_DATA_SIZE = 8192;
+
 struct FThreadQueueData
 {
 	int		Header = 0;
 	int		Size = 0;
-	unsigned char	Data[1024] = {};
+	unsigned char	Data[THREAD_QUEUE_DATA_SIZE] = {};
 };
 
 class CThreadQueue

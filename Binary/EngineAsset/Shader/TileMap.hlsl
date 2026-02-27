@@ -146,10 +146,14 @@ VS_OUTPUT_TEX_COLOR TileMapInstancingVS(VS_INPUT_INSTANCING_TEX input,
 PS_OUTPUT_COLOR TileMapInstancingPS(VS_OUTPUT_TEX_COLOR input)
 {
     PS_OUTPUT_COLOR output = (PS_OUTPUT_COLOR) 0;
+
+    // UV 기준 마름모 외곽은 잘라내서 아이소메트릭 다이아 타일만 남긴다.
+    float2 uv = input.UV;
+    float diamond = abs(uv.x - 0.5f) + abs(uv.y - 0.5f);
+    clip(0.5f - diamond);
     
-    float4 TextureColor = tbTileTexture.Sample(sbLinear, input.UV);
-    
-    output.Color = TextureColor * input.Color;
+    // 인스턴싱 컬러를 그대로 타일 채움색으로 사용한다.
+    output.Color = input.Color;
     
     return output;
 }
@@ -171,7 +175,8 @@ PS_OUTPUT_COLOR TileMapLineInstancingPS(VS_OUTPUT_OUTLINECOLOR input)
 {
     PS_OUTPUT_COLOR output = (PS_OUTPUT_COLOR) 0;
     
-    output.Color = input.Color;
+    // 타일 외곽선은 항상 검은색으로 출력한다.
+    output.Color = float4(0.f, 0.f, 0.f, 1.f);
     
     return output;
 }

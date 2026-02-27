@@ -5,12 +5,13 @@
 #include "Asset/AssetManager.h"
 #include "Asset/Animation2D/Animation2DManager.h"
 #include "Component/ColliderBox2D.h"
-#include "Component/MeshComponent.h"
 #include "../UI/MainWidget.h"
 #include "World/WorldUIManager.h"
 #include "Render/RenderManager.h"
 #include "../PostProcess/PostProcessHit.h"
 #include "../Map/TileMapMain.h"
+#include "../Map/PlacementAreaObject.h"
+#include "../Map/BuildingMarkerOrb.h"
 #include "../Player/MainCamera.h"
 
 CMainWorld::CMainWorld()
@@ -38,40 +39,75 @@ bool CMainWorld::Init()
 	// 이동 가능한 카메라만 별도로 배치한다.
 	CreateGameObject<CMainCamera>("MainCamera");
 
-	// 카메라 이동/줌 테스트용 기능 없는 오브젝트를 배치한다.
-	auto CreateDummyObject = [&](const std::string& Name,
-		const FVector3& Pos, const FVector3& Scale)
+	// 카메라 이동/줌 확인용 더미 오브젝트는 비활성화한다.
+	//auto CreateDummyObject = [&](const std::string& Name,
+	//	const FVector3& Pos, const FVector3& Scale)
+	//{
+	//	auto Obj = CreateGameObject<CGameObject>(Name).lock();
+	//
+	//	if (!Obj)
+	//		return;
+	//
+	//	auto Mesh = Obj->CreateComponent<CMeshComponent>("Mesh").lock();
+	//
+	//	if (!Mesh)
+	//		return;
+	//
+	//	Mesh->SetShader("Color2D");
+	//	Mesh->SetMesh("CenterRectColor");
+	//	Mesh->SetWorldScale(Scale);
+	//	Mesh->SetWorldPos(Pos);
+	//};
+	//
+	//CreateDummyObject("Dummy_Origin", FVector3(0.f, 0.f, 0.f),
+	//	FVector3(220.f, 220.f, 1.f));
+	//CreateDummyObject("Dummy_East", FVector3(800.f, 0.f, 0.f),
+	//	FVector3(150.f, 150.f, 1.f));
+	//CreateDummyObject("Dummy_West", FVector3(-800.f, 0.f, 0.f),
+	//	FVector3(150.f, 150.f, 1.f));
+	//CreateDummyObject("Dummy_North", FVector3(0.f, 600.f, 0.f),
+	//	FVector3(150.f, 150.f, 1.f));
+	//CreateDummyObject("Dummy_South", FVector3(0.f, -600.f, 0.f),
+	//	FVector3(150.f, 150.f, 1.f));
+	//CreateDummyObject("Dummy_Far", FVector3(1800.f, 1200.f, 0.f),
+	//	FVector3(240.f, 240.f, 1.f));
+
+	auto TileMap = CreateGameObject<CTileMapMain>("TileMap");
+	auto TileMapObj = std::dynamic_pointer_cast<CTileMapObject>(
+		TileMap.lock());
+
+	auto BuildingA = CreateGameObject<CPlacementAreaObject>("BuildingA");
+	auto BuildingB = CreateGameObject<CPlacementAreaObject>("BuildingB");
+
+	auto BuildingAObj = BuildingA.lock();
+
+	if (BuildingAObj)
 	{
-		auto Obj = CreateGameObject<CGameObject>(Name).lock();
+		BuildingAObj->SetTileMapObject(TileMapObj);
+		BuildingAObj->SetInitialCenterOffset(-6, 0);
+		BuildingAObj->SetBuildingKind(
+			EPlacementBuildingKind::BuildingA);
+	}
 
-		if (!Obj)
-			return;
+	auto BuildingBObj = BuildingB.lock();
 
-		auto Mesh = Obj->CreateComponent<CMeshComponent>("Mesh").lock();
+	if (BuildingBObj)
+	{
+		BuildingBObj->SetTileMapObject(TileMapObj);
+		BuildingBObj->SetInitialCenterOffset(6, 0);
+		BuildingBObj->SetBuildingKind(
+			EPlacementBuildingKind::BuildingB);
+	}
 
-		if (!Mesh)
-			return;
+	auto MarkerOrb =
+		CreateGameObject<CBuildingMarkerOrb>("BuildingMarkerOrb");
+	auto MarkerOrbObj = MarkerOrb.lock();
 
-		Mesh->SetShader("Color2D");
-		Mesh->SetMesh("CenterRectColor");
-		Mesh->SetWorldScale(Scale);
-		Mesh->SetWorldPos(Pos);
-	};
-
-	CreateDummyObject("Dummy_Origin", FVector3(0.f, 0.f, 0.f),
-		FVector3(220.f, 220.f, 1.f));
-	CreateDummyObject("Dummy_East", FVector3(800.f, 0.f, 0.f),
-		FVector3(150.f, 150.f, 1.f));
-	CreateDummyObject("Dummy_West", FVector3(-800.f, 0.f, 0.f),
-		FVector3(150.f, 150.f, 1.f));
-	CreateDummyObject("Dummy_North", FVector3(0.f, 600.f, 0.f),
-		FVector3(150.f, 150.f, 1.f));
-	CreateDummyObject("Dummy_South", FVector3(0.f, -600.f, 0.f),
-		FVector3(150.f, 150.f, 1.f));
-	CreateDummyObject("Dummy_Far", FVector3(1800.f, 1200.f, 0.f),
-		FVector3(240.f, 240.f, 1.f));
-
-	// std::weak_ptr<CTileMapMain>	TileMap = CreateGameObject<CTileMapMain>("TileMap");
+	if (MarkerOrbObj)
+	{
+		MarkerOrbObj->SetBuildingNames("BuildingA", "BuildingB");
+		MarkerOrbObj->SetMoveSpeed(280.f);
+	}
 	// TileMap.lock()->LoadTileMap(TEXT("Map/MainMap.tlm"), "Asset");
 	// std::weak_ptr<CPlayer>	Player = CreateGameObject<CPlayer>("Player");
 

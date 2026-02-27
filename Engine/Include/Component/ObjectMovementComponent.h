@@ -21,6 +21,8 @@ protected:
 	FVector3		mMoveDir = FVector3::Zero;
 	float			mSpeed = 200.f;
 	FVector3		mVelocity;
+	float			mRepathAccumulator = 0.f;
+	float			mRepathInterval = 0.2f;
 
 public:
 	const FVector3& GetVelocity()	const
@@ -61,6 +63,7 @@ public:
 	void Move(const FVector2& Pos);
 	void MovePath(const FVector3& Pos);
 	void MovePath(const FVector2& Pos);
+	void MovePathToObject(const std::string& TargetObjectName);
 	virtual void StartPath();
 
 public:

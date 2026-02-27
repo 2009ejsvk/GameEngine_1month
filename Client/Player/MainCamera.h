@@ -19,6 +19,9 @@ public:
 private:
     std::weak_ptr<class CCameraComponent> mCameraComponent;
     std::weak_ptr<class CObjectMovementComponent> mMovement;
+    std::weak_ptr<class CPlacementAreaObject> mBuildingAObject;
+    std::weak_ptr<class CPlacementAreaObject> mBuildingBObject;
+    std::weak_ptr<class CPlacementAreaObject> mActivePlacementObject;
     float mViewDistance = 1000.f;
     float mZoomWidth = 0.f;
     float mZoomHeight = 0.f;
@@ -35,4 +38,9 @@ private:
     void MoveDown();
     void MoveLeft();
     void MoveRight();
+    void MoveCurrentArea();
+    void PlaceCurrentArea();
+    void RefreshPlacementObjects();
+    std::shared_ptr<class CPlacementAreaObject> PickPlacementObject(
+        const FVector2& MouseWorldPos);
 };

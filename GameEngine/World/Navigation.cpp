@@ -1,5 +1,37 @@
 #include "Navigation.h"
 #include "../Component/TileMapComponent.h"
+#include "../Object/GameObject.h"
+#include <cstdarg>
+#include <cstring>
+#include <cstdio>
+#include <limits>
+
+namespace
+{
+#ifdef _DEBUG
+	void DebugPathLog(const char* Format, ...)
+	{
+		char Text[512] = {};
+
+		va_list Args;
+		va_start(Args, Format);
+		vsprintf_s(Text, Format, Args);
+		va_end(Args);
+
+		OutputDebugStringA(Text);
+	}
+#endif
+
+	constexpr int DIR_DX[ESearchDir::End] =
+	{
+		0, 1, 1, 1, 0, -1, -1, -1
+	};
+
+	constexpr int DIR_DY[ESearchDir::End] =
+	{
+		1, 1, 0, -1, -1, -1, 0, 1
+	};
+}
 
 CNavigation::CNavigation()
 {
@@ -14,14 +46,16 @@ void CNavigation::SetTileMap(
 {
 	mTileMap = TileMap;
 
-	auto	OriginMap = TileMap.lock();
+	auto OriginMap = TileMap.lock();
+
+	if (!OriginMap)
+		return;
 
 	// 길찾기 정보를 생성한다.
 	mShape = OriginMap->GetTileShape();
 	mCountX = OriginMap->GetTileCountX();
 	mCountY = OriginMap->GetTileCountY();
 	mTileSize = OriginMap->GetTileSize();
-	mDiagonalCost = mTileSize.Length();
 
 	int	Count = mCountX * mCountY;
 
@@ -31,127 +65,218 @@ void CNavigation::SetTileMap(
 
 	for (int i = 0; i < Count; ++i)
 	{
-		auto	Tile = OriginMap->GetTile(i).lock();
+		auto Tile = OriginMap->GetTile(i).lock();
 
-		mNodeList[i].Pos = Tile->GetPos();
-		mNodeList[i].Size = mTileSize;
-		mNodeList[i].Center = Tile->GetCenter();
-		mNodeList[i].Index = i;
-		mNodeList[i].IndexX = i % mCountX;
-		mNodeList[i].IndexY = i / mCountX;
+		if (!Tile)
+			continue;
+
+		FNavNode& Node = mNodeList[i];
+		Node.Pos = Tile->GetPos();
+		Node.Size = mTileSize;
+		Node.Center = Tile->GetCenter();
+
+		auto Owner = OriginMap->GetOwner().lock();
+
+		if (Owner)
+		{
+			const FVector3 OwnerWorldPos = Owner->GetWorldPos();
+			Node.Center.x += OwnerWorldPos.x;
+			Node.Center.y += OwnerWorldPos.y;
+		}
+		Node.Index = i;
+		Node.IndexX = Tile->GetIndexX();
+		Node.IndexY = Tile->GetIndexY();
+
+		if (mShape == ETileShape::Rect)
+		{
+			Node.GridX = Node.IndexX;
+			Node.GridY = Node.IndexY;
+		}
+
+		else
+		{
+			// staggered isometric(odd-row shift) -> integer skew grid
+			Node.GridX = Node.IndexX +
+				((Node.IndexY + (Node.IndexY & 1)) / 2);
+			Node.GridY = Node.IndexX -
+				(Node.IndexY / 2);
+		}
 	}
 }
 
 bool CNavigation::FindPath(const FVector3& Start, const FVector3& End,
-	std::list<FVector3>& PathList)
+	std::list<FVector3>& PathList,
+	const unsigned char* BlockMask,
+	int BlockMaskByteCount,
+	const int* GoalIndices,
+	int GoalCount)
 {
-	auto	TileMap = mTileMap.lock();
+	auto TileMap = mTileMap.lock();
 
 	if (!TileMap)
 	{
 		PathList.clear();
-		PathList.emplace_back(End);
+#ifdef _DEBUG
+		DebugPathLog("[Path] Fail: tile map missing\n");
+#endif
 		return false;
 	}
 
-	// 인덱스를 구한다.
-	int	StartIndex = TileMap->GetTileIndex(Start);
-	if (StartIndex == -1)
-		return false;
+	const int TileCount = mCountX * mCountY;
 
-	int	EndIndex = TileMap->GetTileIndex(End);
-	if (EndIndex == -1)
-		return false;
-
-	// 만약 도착지점이 이동불가 타일이라면
-	// 1. 탐색을 멈춘다.
-	// 2. 주변 8방향을 검색하여 시작지점과 가까운 타일을 찾아서
-	// 도착지점으로 사용한다.
-	if (TileMap->GetTileType(EndIndex) == ETileType::UnableToMove)
+	if (TileCount <= 0)
 	{
-		// 멈출 경우
-		//PathList.clear();
-		//return false;
+		PathList.clear();
+#ifdef _DEBUG
+		DebugPathLog("[Path] Fail: invalid tile count=%d\n", TileCount);
+#endif
+		return false;
+	}
 
-		// 주변 타일 찾을 경우
-		int	StartX = StartIndex % mCountX;
-		int	StartY = StartIndex / mCountX;
+	const int MaskByteCount = (TileCount + 7) / 8;
 
-		int	EndX = EndIndex % mCountX;
-		int	EndY = EndIndex / mCountX;
+	mBlockedMask.assign((size_t)MaskByteCount, 0);
 
-		int	FindIndex[8] =
+	if (BlockMask && BlockMaskByteCount > 0)
+	{
+		const int CopySize = MaskByteCount < BlockMaskByteCount ?
+			MaskByteCount : BlockMaskByteCount;
+
+		if (CopySize > 0)
 		{
-			(EndY + 1) * mCountX + EndX,
-			(EndY + 1) * mCountX + (EndX + 1),
-			EndY * mCountX + (EndX + 1),
-			(EndY - 1) * mCountX + (EndX + 1),
-			(EndY - 1) * mCountX + EndX,
-			(EndY - 1) * mCountX + (EndX - 1),
-			EndY * mCountX + (EndX - 1),
-			(EndY + 1) * mCountX + (EndX - 1)
-		};
+			memcpy(&mBlockedMask[0], BlockMask, (size_t)CopySize);
+		}
+	}
 
-		std::vector<int>	CheckIndex;
-
-		for (int i = 0; i < 8; ++i)
+	else
+	{
+		for (int i = 0; i < TileCount; ++i)
 		{
-			if (TileMap->GetTileType(FindIndex[i]) ==
-				ETileType::Normal)
-			{
-				CheckIndex.push_back(FindIndex[i]);
-			}
+			if (TileMap->GetTileType(i) != ETileType::UnableToMove)
+				continue;
+
+			mBlockedMask[i / 8] |= (unsigned char)(1 << (i % 8));
+		}
+	}
+
+	// 인덱스를 구한다.
+	int StartIndex = TileMap->GetTileIndex(Start);
+
+	if (StartIndex < 0 || StartIndex >= TileCount)
+	{
+#ifdef _DEBUG
+		DebugPathLog("[Path] Fail: invalid start index=%d start=(%.1f, %.1f)\n",
+			StartIndex, Start.x, Start.y);
+#endif
+		return false;
+	}
+
+	int EndIndex = TileMap->GetTileIndex(End);
+
+	mStartIndex = StartIndex;
+	mGoalMask.assign((size_t)MaskByteCount, 0);
+	mGoalIndices.clear();
+
+	auto SetGoal = [&](int Index)
+	{
+		if (Index < 0 || Index >= TileCount)
+			return;
+
+		const unsigned char Bit = (unsigned char)(1 << (Index % 8));
+		unsigned char& Byte = mGoalMask[Index / 8];
+
+		if (Byte & Bit)
+			return;
+
+		Byte |= Bit;
+		mGoalIndices.emplace_back(Index);
+
+		// 목표 타일은 탐색 불가 마스크에서 제외한다.
+		mBlockedMask[Index / 8] &= (unsigned char)~Bit;
+	};
+
+	if (GoalIndices && GoalCount > 0)
+	{
+		for (int i = 0; i < GoalCount; ++i)
+		{
+			SetGoal(GoalIndices[i]);
+		}
+	}
+
+	else
+	{
+		EndIndex = FindFallbackGoalIndex(StartIndex, EndIndex);
+
+		if (EndIndex < 0)
+		{
+#ifdef _DEBUG
+			DebugPathLog(
+				"[Path] Fail: fallback goal missing start=%d end=%d\n",
+				StartIndex, TileMap->GetTileIndex(End));
+#endif
+			return false;
 		}
 
-		float	Dist = FLT_MAX;
+		SetGoal(EndIndex);
+	}
 
-		size_t	Size = CheckIndex.size();
-
-		for (size_t i = 0; i < Size; ++i)
-		{
-			float CheckDist = mNodeList[CheckIndex[i]].Center.Distance(mNodeList[StartIndex].Center);
-
-			if (CheckDist < Dist)
-			{
-				EndIndex = CheckIndex[i];
-				Dist = CheckDist;
-			}
-		}
+	if (mGoalIndices.empty())
+	{
+#ifdef _DEBUG
+		DebugPathLog(
+			"[Path] Fail: goal list empty start=%d end=%d inputGoalCount=%d blockMaskBytes=%d\n",
+			StartIndex,
+			TileMap->GetTileIndex(End),
+			GoalCount,
+			BlockMaskByteCount);
+#endif
+		return false;
 	}
 
 	PathList.clear();
 
-	// 이전에 사용했던 노드는 모드 초기화 시켜준다.
-	size_t	Size = mUseList.size();
+#ifdef _DEBUG
+	DebugPathLog(
+		"[Path] Start start=%d end=%d goals=%zu blockMaskBytes=%d\n",
+		StartIndex,
+		TileMap->GetTileIndex(End),
+		mGoalIndices.size(),
+		(int)mBlockedMask.size());
+#endif
 
-	for (size_t i = 0; i < Size; ++i)
+	// 이전에 사용했던 노드는 모두 초기화한다.
+	size_t	UseSize = mUseList.size();
+
+	for (size_t i = 0; i < UseSize; ++i)
 	{
-		mUseList[i]->NodeType = ENavNodeType::None;
-		mUseList[i]->Dist = FLT_MAX;
-		mUseList[i]->Huristic = FLT_MAX;
-		mUseList[i]->Total = FLT_MAX;
-		mUseList[i]->Parent = nullptr;
-		mUseList[i]->SearchDirList.clear();
+		FNavNode* Used = mUseList[i];
+		Used->NodeType = ENavNodeType::None;
+		Used->Dist = FLT_MAX;
+		Used->Huristic = FLT_MAX;
+		Used->Total = FLT_MAX;
+		Used->Parent = nullptr;
+		Used->SearchDirList.clear();
 	}
 
 	mUseList.clear();
+	mOpenList.clear();
 
-	// 시작 노드와 도착 노드를 얻어온다.
+	// 시작 노드 설정
 	FNavNode* StartNode = &mNodeList[StartIndex];
-	FNavNode* EndNode = &mNodeList[EndIndex];
 
-	if (StartNode == EndNode)
+	if (IsGoalIndex(StartIndex))
 	{
-		PathList.emplace_back(End);
+#ifdef _DEBUG
+		DebugPathLog("[Path] Start already goal index=%d\n", StartIndex);
+#endif
 		return true;
 	}
 
 	StartNode->NodeType = ENavNodeType::Open;
 	StartNode->Dist = 0.f;
-	StartNode->Huristic = EndNode->Center.Distance(StartNode->Center);
+	StartNode->Huristic = ComputeHeuristic(StartIndex);
 	StartNode->Total = StartNode->Huristic;
 
-	// 처음 시작 노드는 8방향을 모두 체크하며 시작한다.
 	for (int i = 0; i < ESearchDir::End; ++i)
 	{
 		StartNode->SearchDirList.emplace_back((ESearchDir::Type)i);
@@ -162,25 +287,29 @@ bool CNavigation::FindPath(const FVector3& Start, const FVector3& End,
 
 	while (!mOpenList.empty())
 	{
-		// 검사할 노드를 가져온다.
-		// 열린 목록은 비용이 제일 작은 노드가 가장 뒤에 갈 수 있게
-		// 정렬한다. 즉, 내림차순 정렬을 해놓을 것이다.
+		// 열린 목록은 비용이 제일 작은 노드가 가장 뒤에 오도록 정렬한다.
 		FNavNode* Node = mOpenList.back();
-		// 열린목록에서 제거한다.
 		mOpenList.pop_back();
 
-		// 이 노드는 이제 닫힌 목록이 되어야 한다.
+		if (Node->NodeType == ENavNodeType::Close)
+			continue;
+
 		Node->NodeType = ENavNodeType::Close;
 
-		// SearchDir을 이용해 탐색 방향으로 탐색하여 코너를 가진 노드를
-		// 찾아낸다. 이 함수에서는 도착점을 찾았다면 true를 반환한다.
-		if (FindNode(Node, EndNode, End, PathList))
+		if (IsGoalIndex(Node->Index))
 		{
 			mOpenList.clear();
-			return true;
+			const bool Built = BuildPath(Node, PathList);
+#ifdef _DEBUG
+			DebugPathLog(
+				"[Path] Goal reached index=%d built=%d pathPoints=%zu\n",
+				Node->Index, Built ? 1 : 0, PathList.size());
+#endif
+			return Built;
 		}
 
-		// 열린목록을 정렬한다.
+		FindNode(Node, PathList);
+
 		if (mOpenList.size() >= 2)
 		{
 			std::sort(mOpenList.begin(), mOpenList.end(),
@@ -189,53 +318,52 @@ bool CNavigation::FindPath(const FVector3& Start, const FVector3& End,
 	}
 
 	mOpenList.clear();
+#ifdef _DEBUG
+	DebugPathLog("[Path] Fail: open list exhausted start=%d goals=%zu\n",
+		StartIndex, mGoalIndices.size());
+#endif
+
+	if (FindPathFallbackAStar(StartIndex, PathList))
+	{
+#ifdef _DEBUG
+		DebugPathLog("[Path] Fallback A* success pathPoints=%zu\n",
+			PathList.size());
+#endif
+		return true;
+	}
+
+#ifdef _DEBUG
+	DebugPathLog("[Path] Fallback A* failed\n");
+#endif
 
 	return false;
 }
 
-bool CNavigation::FindNode(FNavNode* Node, FNavNode* EndNode,
-	const FVector3& End, std::list<FVector3>& PathList)
+bool CNavigation::FindNode(FNavNode* Node, std::list<FVector3>& PathList)
 {
-	auto	iter = Node->SearchDirList.begin();
-	auto	iterEnd = Node->SearchDirList.end();
+	const bool HasParent = Node->Parent != nullptr;
+	const ESearchDir::Type ParentDir = GetParentDir(Node);
+
+	AddDir(ParentDir, Node, HasParent);
+
+	auto iter = Node->SearchDirList.begin();
+	auto iterEnd = Node->SearchDirList.end();
 
 	for (; iter != iterEnd; ++iter)
 	{
-		// 현재 방향으로 탐색해나가며 코너를 찾아온다.
-		FNavNode* Corner = GetCorner(*iter, Node, EndNode);
+		const int CornerIndex = Jump(Node, *iter);
 
-		// 코너가 없을 경우 다음 방향을 검사하게 한다.
-		if (!Corner)
+		if (CornerIndex < 0)
 			continue;
 
-		else if (Corner == EndNode)
-		{
-			mUseList.emplace_back(Corner);
+		FNavNode* Corner = &mNodeList[CornerIndex];
 
-			// 도착점을 경로에 넣어준다.
-			PathList.emplace_back(End);
+		if (Corner->NodeType == ENavNodeType::Close)
+			continue;
 
-			FNavNode* PathNode = Node;
-
-			while (PathNode)
-			{
-				FVector3	Center;
-				Center = PathNode->Center;
-
-				PathList.emplace_front(Center);
-				PathNode = PathNode->Parent;
-			}
-
-			// 시작노드의 위치는 필요없기 때문에 제거한다.
-			PathList.pop_front();
-
-			return true;
-		}
-
-		float	Dist = Node->Dist +
+		const float Dist = Node->Dist +
 			Node->Center.Distance(Corner->Center);
 
-		// 구해준 코너가 열린목록에 이미 들어가 있는 노드일 경우
 		if (Corner->NodeType == ENavNodeType::Open)
 		{
 			if (Corner->Dist > Dist)
@@ -243,8 +371,6 @@ bool CNavigation::FindNode(FNavNode* Node, FNavNode* EndNode,
 				Corner->Dist = Dist;
 				Corner->Total = Dist + Corner->Huristic;
 				Corner->Parent = Node;
-
-				AddDir(*iter, Corner);
 			}
 		}
 
@@ -252,722 +378,615 @@ bool CNavigation::FindNode(FNavNode* Node, FNavNode* EndNode,
 		{
 			Corner->NodeType = ENavNodeType::Open;
 			Corner->Dist = Dist;
-			Corner->Huristic = EndNode->Center.Distance(Corner->Center);
+			Corner->Huristic = ComputeHeuristic(CornerIndex);
 			Corner->Total = Dist + Corner->Huristic;
 			Corner->Parent = Node;
 
 			mOpenList.emplace_back(Corner);
 			mUseList.emplace_back(Corner);
-
-			AddDir(*iter, Corner);
 		}
 	}
 
 	return false;
 }
 
-FNavNode* CNavigation::GetCorner(ESearchDir::Type Dir, 
-	FNavNode* Node, FNavNode* EndNode)
+int CNavigation::Jump(FNavNode* Node, ESearchDir::Type Dir)
 {
-	switch (mShape)
+	int NextIndex = -1;
+
+	if (!StepIndex(Node->Index, Dir, NextIndex, true))
+		return -1;
+
+	if (IsGoalIndex(NextIndex))
+		return NextIndex;
+
+	if (HasForcedNeighbor(NextIndex, Dir))
+		return NextIndex;
+
+	if (IsDiagonalDir(Dir))
 	{
-	case Rect:
-		switch (Dir)
+		int dx = 0;
+		int dy = 0;
+
+		if (!GetMoveDelta(Dir, dx, dy))
+			return -1;
+
+		const ESearchDir::Type Horizontal = GetDirFromDelta(dx, 0);
+		const ESearchDir::Type Vertical = GetDirFromDelta(0, dy);
+
+		if (Horizontal != ESearchDir::End &&
+			Jump(&mNodeList[NextIndex], Horizontal) != -1)
 		{
-		case ESearchDir::T:
-			return GetCornerRectT(Node, EndNode);
-		case ESearchDir::RT:
-			return GetCornerRectRT(Node, EndNode);
-		case ESearchDir::R:
-			return GetCornerRectR(Node, EndNode);
-		case ESearchDir::RB:
-			return GetCornerRectRB(Node, EndNode);
-		case ESearchDir::B:
-			return GetCornerRectB(Node, EndNode);
-		case ESearchDir::LB:
-			return GetCornerRectLB(Node, EndNode);
-		case ESearchDir::L:
-			return GetCornerRectL(Node, EndNode);
-		case ESearchDir::LT:
-			return GetCornerRectLT(Node, EndNode);
+			return NextIndex;
 		}
-		break;
-	case Isometric:
-		switch (Dir)
+
+		if (Vertical != ESearchDir::End &&
+			Jump(&mNodeList[NextIndex], Vertical) != -1)
 		{
-		case ESearchDir::T:
-			break;
-		case ESearchDir::RT:
-			break;
-		case ESearchDir::R:
-			break;
-		case ESearchDir::RB:
-			break;
-		case ESearchDir::B:
-			break;
-		case ESearchDir::LB:
-			break;
-		case ESearchDir::L:
-			break;
-		case ESearchDir::LT:
-			break;
+			return NextIndex;
 		}
-		break;
 	}
 
-	return nullptr;
+	return Jump(&mNodeList[NextIndex], Dir);
 }
 
-void CNavigation::AddDir(ESearchDir::Type Dir, FNavNode* Node)
+void CNavigation::AddDir(ESearchDir::Type ParentDir, FNavNode* Node,
+	bool HasParent)
 {
 	Node->SearchDirList.clear();
 
-	switch (mShape)
+	bool DirAdded[ESearchDir::End] = {};
+
+	auto AddUnique = [&](ESearchDir::Type Dir)
 	{
-	case Rect:
-		switch (Dir)
+		if (Dir == ESearchDir::End)
+			return;
+
+		if (DirAdded[Dir])
+			return;
+
+		DirAdded[Dir] = true;
+		Node->SearchDirList.emplace_back(Dir);
+	};
+
+	if (!HasParent)
+	{
+		for (int i = 0; i < ESearchDir::End; ++i)
 		{
-		case ESearchDir::T:
-			Node->SearchDirList.emplace_back(ESearchDir::T);
-			Node->SearchDirList.emplace_back(ESearchDir::RT);
-			Node->SearchDirList.emplace_back(ESearchDir::LT);
-			break;
-		case ESearchDir::RT:
-			Node->SearchDirList.emplace_back(ESearchDir::RT);
-			Node->SearchDirList.emplace_back(ESearchDir::T);
-			Node->SearchDirList.emplace_back(ESearchDir::R);
-			Node->SearchDirList.emplace_back(ESearchDir::LT);
-			Node->SearchDirList.emplace_back(ESearchDir::RB);
-			break;
-		case ESearchDir::R:
-			Node->SearchDirList.emplace_back(ESearchDir::R);
-			Node->SearchDirList.emplace_back(ESearchDir::RT);
-			Node->SearchDirList.emplace_back(ESearchDir::RB);
-			break;
-		case ESearchDir::RB:
-			Node->SearchDirList.emplace_back(ESearchDir::RB);
-			Node->SearchDirList.emplace_back(ESearchDir::B);
-			Node->SearchDirList.emplace_back(ESearchDir::R);
-			Node->SearchDirList.emplace_back(ESearchDir::RT);
-			Node->SearchDirList.emplace_back(ESearchDir::LB);
-			break;
-		case ESearchDir::B:
-			Node->SearchDirList.emplace_back(ESearchDir::B);
-			Node->SearchDirList.emplace_back(ESearchDir::RB);
-			Node->SearchDirList.emplace_back(ESearchDir::LB);
-			break;
-		case ESearchDir::LB:
-			Node->SearchDirList.emplace_back(ESearchDir::LB);
-			Node->SearchDirList.emplace_back(ESearchDir::B);
-			Node->SearchDirList.emplace_back(ESearchDir::L);
-			Node->SearchDirList.emplace_back(ESearchDir::LT);
-			Node->SearchDirList.emplace_back(ESearchDir::RB);
-			break;
-		case ESearchDir::L:
-			Node->SearchDirList.emplace_back(ESearchDir::L);
-			Node->SearchDirList.emplace_back(ESearchDir::LT);
-			Node->SearchDirList.emplace_back(ESearchDir::LB);
-			break;
-		case ESearchDir::LT:
-			Node->SearchDirList.emplace_back(ESearchDir::LT);
-			Node->SearchDirList.emplace_back(ESearchDir::T);
-			Node->SearchDirList.emplace_back(ESearchDir::L);
-			Node->SearchDirList.emplace_back(ESearchDir::LB);
-			Node->SearchDirList.emplace_back(ESearchDir::RT);
-			break;
+			AddUnique((ESearchDir::Type)i);
 		}
-		break;
-	case Isometric:
-		break;
+
+		return;
+	}
+
+	int dx = 0;
+	int dy = 0;
+
+	if (!GetMoveDelta(ParentDir, dx, dy))
+		return;
+
+	const int gx = Node->GridX;
+	const int gy = Node->GridY;
+
+	if (dx != 0 && dy != 0)
+	{
+		// natural neighbors
+		AddUnique(ParentDir);
+		AddUnique(GetDirFromDelta(dx, 0));
+		AddUnique(GetDirFromDelta(0, dy));
+
+		// forced neighbors
+		if (!IsWalkableGrid(gx - dx, gy) &&
+			IsWalkableGrid(gx - dx, gy + dy))
+		{
+			AddUnique(GetDirFromDelta(-dx, dy));
+		}
+
+		if (!IsWalkableGrid(gx, gy - dy) &&
+			IsWalkableGrid(gx + dx, gy - dy))
+		{
+			AddUnique(GetDirFromDelta(dx, -dy));
+		}
+	}
+
+	else if (dx != 0)
+	{
+		AddUnique(ParentDir);
+
+		if (!IsWalkableGrid(gx, gy + 1) &&
+			IsWalkableGrid(gx + dx, gy + 1))
+		{
+			AddUnique(GetDirFromDelta(dx, 1));
+		}
+
+		if (!IsWalkableGrid(gx, gy - 1) &&
+			IsWalkableGrid(gx + dx, gy - 1))
+		{
+			AddUnique(GetDirFromDelta(dx, -1));
+		}
+	}
+
+	else if (dy != 0)
+	{
+		AddUnique(ParentDir);
+
+		if (!IsWalkableGrid(gx + 1, gy) &&
+			IsWalkableGrid(gx + 1, gy + dy))
+		{
+			AddUnique(GetDirFromDelta(1, dy));
+		}
+
+		if (!IsWalkableGrid(gx - 1, gy) &&
+			IsWalkableGrid(gx - 1, gy + dy))
+		{
+			AddUnique(GetDirFromDelta(-1, dy));
+		}
 	}
 }
 
-FNavNode* CNavigation::GetCornerRectT(FNavNode* Node, 
-	FNavNode* EndNode)
+bool CNavigation::HasForcedNeighbor(int Index, ESearchDir::Type Dir) const
 {
-	auto	TileMap = mTileMap.lock();
+	int dx = 0;
+	int dy = 0;
 
-	int	IndexX = Node->IndexX;
-	int	IndexY = Node->IndexY;
+	if (!GetMoveDelta(Dir, dx, dy))
+		return false;
 
-	while (true)
+	const FNavNode& Node = mNodeList[Index];
+	const int gx = Node.GridX;
+	const int gy = Node.GridY;
+
+	if (dx != 0 && dy != 0)
 	{
-		++IndexY;
-
-		if (IndexY >= mCountY)
-			return nullptr;
-
-		int	Index = IndexY * mCountX + IndexX;
-
-		FNavNode* Corner = &mNodeList[Index];
-
-		// 도착했으면 도착 노드를 바로 리턴한다.
-		if (Corner == EndNode)
-			return Corner;
-
-		// 탐색하는 노드가 닫힌목록에 들어간 노드일 경우
-		else if (Corner->NodeType == ENavNodeType::Close)
-			return nullptr;
-
-		// 이동 불가를 만났다면
-		else if (TileMap->GetTileType(Index) == 
-			ETileType::UnableToMove)
-			return nullptr;
-
-		// 오른쪽이 막혀있고 오른쪽 위가 뚫려있을 경우
-		int	CornerX = IndexX + 1;
-		int	CornerY = IndexY;
-		int	CornerIndex = 0;
-
-		if (CornerX < mCountX && CornerY + 1 < mCountY)
+		if (!IsWalkableGrid(gx - dx, gy) &&
+			IsWalkableGrid(gx - dx, gy + dy))
 		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex + mCountX) ==
-				ETileType::Normal)
-				return Corner;
+			return true;
 		}
 
-		// 왼쪽이 막혀있고 왼쪽 위가 뚫려있을 경우
-		CornerX = IndexX - 1;
-		CornerY = IndexY;
-
-		if (CornerX >= 0 && CornerY + 1 < mCountY)
+		if (!IsWalkableGrid(gx, gy - dy) &&
+			IsWalkableGrid(gx + dx, gy - dy))
 		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex + mCountX) ==
-				ETileType::Normal)
-				return Corner;
+			return true;
 		}
 	}
 
-	return nullptr;
+	else if (dx != 0)
+	{
+		if (!IsWalkableGrid(gx, gy + 1) &&
+			IsWalkableGrid(gx + dx, gy + 1))
+		{
+			return true;
+		}
+
+		if (!IsWalkableGrid(gx, gy - 1) &&
+			IsWalkableGrid(gx + dx, gy - 1))
+		{
+			return true;
+		}
+	}
+
+	else if (dy != 0)
+	{
+		if (!IsWalkableGrid(gx + 1, gy) &&
+			IsWalkableGrid(gx + 1, gy + dy))
+		{
+			return true;
+		}
+
+		if (!IsWalkableGrid(gx - 1, gy) &&
+			IsWalkableGrid(gx - 1, gy + dy))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
-FNavNode* CNavigation::GetCornerRectRT(FNavNode* Node, 
-	FNavNode* EndNode)
+bool CNavigation::IsDiagonalDir(ESearchDir::Type Dir) const
 {
-	auto	TileMap = mTileMap.lock();
+	int dx = 0;
+	int dy = 0;
 
-	int	IndexX = Node->IndexX;
-	int	IndexY = Node->IndexY;
+	if (!GetMoveDelta(Dir, dx, dy))
+		return false;
 
-	while (true)
-	{
-		++IndexX;
-		++IndexY;
-
-		if (IndexX >= mCountX || IndexY >= mCountY)
-			return nullptr;
-
-		int	Index = IndexY * mCountX + IndexX;
-
-		FNavNode* Corner = &mNodeList[Index];
-
-		// 도착했으면 도착 노드를 바로 리턴한다.
-		if (Corner == EndNode)
-			return Corner;
-
-		// 탐색하는 노드가 닫힌목록에 들어간 노드일 경우
-		else if (Corner->NodeType == ENavNodeType::Close)
-			return nullptr;
-
-		// 이동 불가를 만났다면
-		else if (TileMap->GetTileType(Index) ==
-			ETileType::UnableToMove)
-			return nullptr;
-
-		// 왼쪽이 막혀있고 왼쪽 위가 뚫려있을 경우
-		int	CornerX = IndexX - 1;
-		int	CornerY = IndexY;
-		int	CornerIndex = 0;
-
-		if (CornerX >= 0 && CornerY + 1 < mCountY)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex + mCountX) ==
-				ETileType::Normal)
-				return Corner;
-		}
-
-		// 아래가 막혀있고 오른쪽 아래가 뚫려있을 경우
-		CornerX = IndexX;
-		CornerY = IndexY - 1;
-
-		if (CornerX + 1 < mCountX && CornerY >= 0)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex + 1) ==
-				ETileType::Normal)
-				return Corner;
-		}
-
-		// 위의 2가지 경우가 아니라면 오른쪽, 위 쪽으로 코너가 있는지
-		// 체크해야 한다.
-		FNavNode* FindNode = GetCornerRectR(Corner, EndNode);
-		
-		if (FindNode)
-			return Corner;
-
-		FindNode = GetCornerRectT(Corner, EndNode);
-
-		if (FindNode)
-			return Corner;
-	}
-
-	return nullptr;
+	return dx != 0 && dy != 0;
 }
 
-FNavNode* CNavigation::GetCornerRectR(FNavNode* Node, 
-	FNavNode* EndNode)
+bool CNavigation::GetMoveDelta(ESearchDir::Type Dir, int& OutDx, int& OutDy) const
 {
-	auto	TileMap = mTileMap.lock();
+	if (Dir < 0 || Dir >= ESearchDir::End)
+		return false;
 
-	int	IndexX = Node->IndexX;
-	int	IndexY = Node->IndexY;
-
-	while (true)
-	{
-		++IndexX;
-
-		if (IndexX >= mCountX)
-			return nullptr;
-
-		int	Index = IndexY * mCountX + IndexX;
-
-		FNavNode* Corner = &mNodeList[Index];
-
-		// 도착했으면 도착 노드를 바로 리턴한다.
-		if (Corner == EndNode)
-			return Corner;
-
-		// 탐색하는 노드가 닫힌목록에 들어간 노드일 경우
-		else if (Corner->NodeType == ENavNodeType::Close)
-			return nullptr;
-
-		// 이동 불가를 만났다면
-		else if (TileMap->GetTileType(Index) ==
-			ETileType::UnableToMove)
-			return nullptr;
-
-		// 위가 막혀있고 오른쪽 위가 뚫려있을 경우
-		int	CornerX = IndexX;
-		int	CornerY = IndexY + 1;
-		int	CornerIndex = 0;
-
-		if (CornerX + 1 < mCountX && CornerY < mCountY)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex + 1) ==
-				ETileType::Normal)
-				return Corner;
-		}
-
-		// 아래가 막혀있고 오른쪽 아래가 뚫려있을 경우
-		CornerX = IndexX;
-		CornerY = IndexY - 1;
-
-		if (CornerX + 1 < mCountX && CornerY >= 0)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex + 1) ==
-				ETileType::Normal)
-				return Corner;
-		}
-	}
-
-	return nullptr;
+	OutDx = DIR_DX[Dir];
+	OutDy = DIR_DY[Dir];
+	return true;
 }
 
-FNavNode* CNavigation::GetCornerRectRB(FNavNode* Node,
-	FNavNode* EndNode)
+ESearchDir::Type CNavigation::GetDirFromDelta(int dx, int dy) const
 {
-	auto	TileMap = mTileMap.lock();
+	dx = (dx > 0) - (dx < 0);
+	dy = (dy > 0) - (dy < 0);
 
-	int	IndexX = Node->IndexX;
-	int	IndexY = Node->IndexY;
-
-	while (true)
+	for (int i = 0; i < ESearchDir::End; ++i)
 	{
-		++IndexX;
-		--IndexY;
-
-		if (IndexX >= mCountX || IndexY < 0)
-			return nullptr;
-
-		int	Index = IndexY * mCountX + IndexX;
-
-		FNavNode* Corner = &mNodeList[Index];
-
-		// 도착했으면 도착 노드를 바로 리턴한다.
-		if (Corner == EndNode)
-			return Corner;
-
-		// 탐색하는 노드가 닫힌목록에 들어간 노드일 경우
-		else if (Corner->NodeType == ENavNodeType::Close)
-			return nullptr;
-
-		// 이동 불가를 만났다면
-		else if (TileMap->GetTileType(Index) ==
-			ETileType::UnableToMove)
-			return nullptr;
-
-		// 위가 막혀있고 오른쪽 위가 뚫려있을 경우
-		int	CornerX = IndexX;
-		int	CornerY = IndexY + 1;
-		int	CornerIndex = 0;
-
-		if (CornerX + 1 < mCountX && CornerY < mCountY)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex + 1) ==
-				ETileType::Normal)
-				return Corner;
-		}
-
-		// 왼쪽이 막혀있고 왼쪽 아래가 뚫려있을 경우
-		CornerX = IndexX - 1;
-		CornerY = IndexY;
-
-		if (CornerX >= 0 && CornerY - 1 >= 0)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex - mCountX) ==
-				ETileType::Normal)
-				return Corner;
-		}
-
-		// 위의 2가지 경우가 아니라면 오른쪽, 아래 쪽으로 코너가 있는지
-		// 체크해야 한다.
-		FNavNode* FindNode = GetCornerRectR(Corner, EndNode);
-
-		if (FindNode)
-			return Corner;
-
-		FindNode = GetCornerRectB(Corner, EndNode);
-
-		if (FindNode)
-			return Corner;
+		if (DIR_DX[i] == dx && DIR_DY[i] == dy)
+			return (ESearchDir::Type)i;
 	}
 
-	return nullptr;
+	return ESearchDir::End;
 }
 
-FNavNode* CNavigation::GetCornerRectB(FNavNode* Node,
-	FNavNode* EndNode)
+ESearchDir::Type CNavigation::GetParentDir(FNavNode* Node) const
 {
-	auto	TileMap = mTileMap.lock();
+	if (!Node || !Node->Parent)
+		return ESearchDir::End;
 
-	int	IndexX = Node->IndexX;
-	int	IndexY = Node->IndexY;
+	const int dx = Node->GridX - Node->Parent->GridX;
+	const int dy = Node->GridY - Node->Parent->GridY;
 
-	while (true)
-	{
-		--IndexY;
-
-		if (IndexY < 0)
-			return nullptr;
-
-		int	Index = IndexY * mCountX + IndexX;
-
-		FNavNode* Corner = &mNodeList[Index];
-
-		// 도착했으면 도착 노드를 바로 리턴한다.
-		if (Corner == EndNode)
-			return Corner;
-
-		// 탐색하는 노드가 닫힌목록에 들어간 노드일 경우
-		else if (Corner->NodeType == ENavNodeType::Close)
-			return nullptr;
-
-		// 이동 불가를 만났다면
-		else if (TileMap->GetTileType(Index) ==
-			ETileType::UnableToMove)
-			return nullptr;
-
-		// 오른쪽이 막혀있고 오른쪽 아래가 뚫려있을 경우
-		int	CornerX = IndexX + 1;
-		int	CornerY = IndexY;
-		int	CornerIndex = 0;
-
-		if (CornerX < mCountX && CornerY - 1 >= 0)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex - mCountX) ==
-				ETileType::Normal)
-				return Corner;
-		}
-
-		// 왼쪽이 막혀있고 왼쪽 아래가 뚫려있을 경우
-		CornerX = IndexX - 1;
-		CornerY = IndexY;
-
-		if (CornerX >= 0 && CornerY - 1 >= 0)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex - mCountX) ==
-				ETileType::Normal)
-				return Corner;
-		}
-	}
-
-	return nullptr;
+	return GetDirFromDelta(dx, dy);
 }
 
-FNavNode* CNavigation::GetCornerRectLB(FNavNode* Node,
-	FNavNode* EndNode)
+int CNavigation::GetIndexByGrid(int GridX, int GridY) const
 {
-	auto	TileMap = mTileMap.lock();
-
-	int	IndexX = Node->IndexX;
-	int	IndexY = Node->IndexY;
-
-	while (true)
+	if (mShape == ETileShape::Rect)
 	{
-		--IndexX;
-		--IndexY;
-
-		if (IndexX < 0 || IndexY < 0)
-			return nullptr;
-
-		int	Index = IndexY * mCountX + IndexX;
-
-		FNavNode* Corner = &mNodeList[Index];
-
-		// 도착했으면 도착 노드를 바로 리턴한다.
-		if (Corner == EndNode)
-			return Corner;
-
-		// 탐색하는 노드가 닫힌목록에 들어간 노드일 경우
-		else if (Corner->NodeType == ENavNodeType::Close)
-			return nullptr;
-
-		// 이동 불가를 만났다면
-		else if (TileMap->GetTileType(Index) ==
-			ETileType::UnableToMove)
-			return nullptr;
-
-		// 위가 막혀있고 왼쪽 위가 뚫려있을 경우
-		int	CornerX = IndexX;
-		int	CornerY = IndexY + 1;
-		int	CornerIndex = 0;
-
-		if (CornerX - 1 >= 0 && CornerY < mCountY)
+		if (GridX < 0 || GridX >= mCountX ||
+			GridY < 0 || GridY >= mCountY)
 		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex - 1) ==
-				ETileType::Normal)
-				return Corner;
+			return -1;
 		}
 
-		// 오른쪽이 막혀있고 오른쪽 아래가 뚫려있을 경우
-		CornerX = IndexX + 1;
-		CornerY = IndexY;
-
-		if (CornerX < mCountX && CornerY - 1 >= 0)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex - mCountX) ==
-				ETileType::Normal)
-				return Corner;
-		}
-
-		// 위의 2가지 경우가 아니라면 왼쪽, 아래 쪽으로 코너가 있는지
-		// 체크해야 한다.
-		FNavNode* FindNode = GetCornerRectL(Corner, EndNode);
-
-		if (FindNode)
-			return Corner;
-
-		FindNode = GetCornerRectB(Corner, EndNode);
-
-		if (FindNode)
-			return Corner;
+		return GridY * mCountX + GridX;
 	}
 
-	return nullptr;
+	// isometric skew grid -> tile index
+	const int y = GridX - GridY;
+
+	if (y < 0 || y >= mCountY)
+		return -1;
+
+	const int x = GridY + (y / 2);
+
+	if (x < 0 || x >= mCountX)
+		return -1;
+
+	return y * mCountX + x;
 }
 
-FNavNode* CNavigation::GetCornerRectL(FNavNode* Node,
-	FNavNode* EndNode)
+bool CNavigation::StepIndex(int FromIndex, ESearchDir::Type Dir,
+	int& OutIndex, bool CheckCollision) const
 {
-	auto	TileMap = mTileMap.lock();
+	int dx = 0;
+	int dy = 0;
 
-	int	IndexX = Node->IndexX;
-	int	IndexY = Node->IndexY;
+	if (!GetMoveDelta(Dir, dx, dy))
+		return false;
 
-	while (true)
+	const FNavNode& FromNode = mNodeList[FromIndex];
+
+	const int NextGridX = FromNode.GridX + dx;
+	const int NextGridY = FromNode.GridY + dy;
+
+	const int NextIndex = GetIndexByGrid(NextGridX, NextGridY);
+
+	if (NextIndex < 0)
+		return false;
+
+	if (CheckCollision)
 	{
-		--IndexX;
+		if (IsBlockedIndex(NextIndex))
+			return false;
 
-		if (IndexX < 0)
-			return nullptr;
-
-		int	Index = IndexY * mCountX + IndexX;
-
-		FNavNode* Corner = &mNodeList[Index];
-
-		// 도착했으면 도착 노드를 바로 리턴한다.
-		if (Corner == EndNode)
-			return Corner;
-
-		// 탐색하는 노드가 닫힌목록에 들어간 노드일 경우
-		else if (Corner->NodeType == ENavNodeType::Close)
-			return nullptr;
-
-		// 이동 불가를 만났다면
-		else if (TileMap->GetTileType(Index) ==
-			ETileType::UnableToMove)
-			return nullptr;
-
-		// 위가 막혀있고 왼쪽 위가 뚫려있을 경우
-		int	CornerX = IndexX;
-		int	CornerY = IndexY + 1;
-		int	CornerIndex = 0;
-
-		if (CornerX - 1 >= 0 && CornerY < mCountY)
+		// 대각 이동 시 코너 비집고 통과 금지.
+		if (dx != 0 && dy != 0)
 		{
-			CornerIndex = CornerY * mCountX + CornerX;
+			const int Side1 = GetIndexByGrid(FromNode.GridX + dx,
+				FromNode.GridY);
+			const int Side2 = GetIndexByGrid(FromNode.GridX,
+				FromNode.GridY + dy);
 
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex - 1) ==
-				ETileType::Normal)
-				return Corner;
-		}
+			if (Side1 < 0 || Side2 < 0)
+				return false;
 
-		// 아래가 막혀있고 왼쪽 아래가 뚫려있을 경우
-		CornerX = IndexX;
-		CornerY = IndexY - 1;
-
-		if (CornerX - 1 >= 0 && CornerY >= 0)
-		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex - 1) ==
-				ETileType::Normal)
-				return Corner;
+			if (IsBlockedIndex(Side1) || IsBlockedIndex(Side2))
+				return false;
 		}
 	}
 
-	return nullptr;
+	OutIndex = NextIndex;
+	return true;
 }
 
-FNavNode* CNavigation::GetCornerRectLT(FNavNode* Node,
-	FNavNode* EndNode)
+int CNavigation::StepIndexRaw(int FromIndex, ESearchDir::Type Dir) const
 {
-	auto	TileMap = mTileMap.lock();
+	int Index = -1;
 
-	int	IndexX = Node->IndexX;
-	int	IndexY = Node->IndexY;
+	if (!StepIndex(FromIndex, Dir, Index, false))
+		return -1;
+
+	return Index;
+}
+
+bool CNavigation::IsBlockedIndex(int Index) const
+{
+	if (Index < 0 || Index >= (int)mNodeList.size())
+		return true;
+
+	if (Index == mStartIndex)
+		return false;
+
+	if (!mBlockedMask.empty())
+	{
+		return (mBlockedMask[Index / 8] &
+			(unsigned char)(1 << (Index % 8))) != 0;
+	}
+
+	auto TileMap = mTileMap.lock();
+
+	if (!TileMap)
+		return true;
+
+	return TileMap->GetTileType(Index) == ETileType::UnableToMove;
+}
+
+bool CNavigation::IsWalkableGrid(int GridX, int GridY) const
+{
+	const int Index = GetIndexByGrid(GridX, GridY);
+
+	if (Index < 0)
+		return false;
+
+	return !IsBlockedIndex(Index);
+}
+
+bool CNavigation::IsGoalIndex(int Index) const
+{
+	if (Index < 0 || Index >= (int)mNodeList.size())
+		return false;
+
+	if (mGoalMask.empty())
+		return false;
+
+	return (mGoalMask[Index / 8] &
+		(unsigned char)(1 << (Index % 8))) != 0;
+}
+
+float CNavigation::ComputeHeuristic(int Index) const
+{
+	if (mGoalIndices.empty())
+		return 0.f;
+
+	float Best = FLT_MAX;
+
+	const FVector2& Center = mNodeList[Index].Center;
+
+	for (size_t i = 0; i < mGoalIndices.size(); ++i)
+	{
+		const int GoalIndex = mGoalIndices[i];
+		const float Dist = Center.Distance(mNodeList[GoalIndex].Center);
+
+		if (Dist < Best)
+			Best = Dist;
+	}
+
+	return Best;
+}
+
+int CNavigation::FindFallbackGoalIndex(int StartIndex, int EndIndex) const
+{
+	if (EndIndex < 0 || EndIndex >= (int)mNodeList.size())
+		return -1;
+
+	if (!IsBlockedIndex(EndIndex))
+		return EndIndex;
+
+	const FVector2& StartCenter = mNodeList[StartIndex].Center;
+
+	float BestDist = FLT_MAX;
+	int BestIndex = -1;
+
+	for (int i = 0; i < ESearchDir::End; ++i)
+	{
+		const int Neighbor = StepIndexRaw(EndIndex, (ESearchDir::Type)i);
+
+		if (Neighbor < 0)
+			continue;
+
+		if (IsBlockedIndex(Neighbor))
+			continue;
+
+		const float Dist =
+			StartCenter.Distance(mNodeList[Neighbor].Center);
+
+		if (Dist < BestDist)
+		{
+			BestDist = Dist;
+			BestIndex = Neighbor;
+		}
+	}
+
+	return BestIndex;
+}
+
+bool CNavigation::BuildPath(FNavNode* GoalNode,
+	std::list<FVector3>& PathList)
+{
+	PathList.clear();
+
+	if (!GoalNode)
+		return false;
+
+	std::vector<int> ChainIndices;
+
+	FNavNode* CurrentNode = GoalNode;
+
+	while (CurrentNode)
+	{
+		ChainIndices.emplace_back(CurrentNode->Index);
+		CurrentNode = CurrentNode->Parent;
+	}
+
+	if (ChainIndices.empty())
+		return false;
+
+	std::reverse(ChainIndices.begin(), ChainIndices.end());
+
+	if (ChainIndices.size() <= 1)
+		return true;
+
+	for (size_t i = 0; i + 1 < ChainIndices.size(); ++i)
+	{
+		const int FromIndex = ChainIndices[i];
+		const int ToIndex = ChainIndices[i + 1];
+
+		const int dx = mNodeList[ToIndex].GridX -
+			mNodeList[FromIndex].GridX;
+		const int dy = mNodeList[ToIndex].GridY -
+			mNodeList[FromIndex].GridY;
+
+		const ESearchDir::Type Dir = GetDirFromDelta(dx, dy);
+
+		if (Dir == ESearchDir::End)
+			return false;
+
+		int CurrentIndex = FromIndex;
+
+		while (CurrentIndex != ToIndex)
+		{
+			CurrentIndex = StepIndexRaw(CurrentIndex, Dir);
+
+			if (CurrentIndex < 0)
+				return false;
+
+			const FVector2& Center = mNodeList[CurrentIndex].Center;
+			PathList.emplace_back(Center.x, Center.y, 0.f);
+		}
+	}
+
+	return true;
+}
+
+bool CNavigation::FindPathFallbackAStar(int StartIndex,
+	std::list<FVector3>& PathList)
+{
+	const int NodeCount = (int)mNodeList.size();
+
+	if (StartIndex < 0 || StartIndex >= NodeCount)
+		return false;
+
+	if (mGoalIndices.empty())
+		return false;
+
+	const float Inf = (std::numeric_limits<float>::max)();
+
+	std::vector<float> GScore((size_t)NodeCount, Inf);
+	std::vector<float> FScore((size_t)NodeCount, Inf);
+	std::vector<int> Parent((size_t)NodeCount, -1);
+	std::vector<unsigned char> OpenMask((size_t)NodeCount, 0);
+	std::vector<unsigned char> ClosedMask((size_t)NodeCount, 0);
+
+	GScore[(size_t)StartIndex] = 0.f;
+	FScore[(size_t)StartIndex] = ComputeHeuristic(StartIndex);
+	OpenMask[(size_t)StartIndex] = 1;
+
+	int GoalIndex = -1;
 
 	while (true)
 	{
-		--IndexX;
-		++IndexY;
+		int Current = -1;
+		float BestF = Inf;
 
-		if (IndexX < 0 || IndexY >= mCountY)
-			return nullptr;
-
-		int	Index = IndexY * mCountX + IndexX;
-
-		FNavNode* Corner = &mNodeList[Index];
-
-		// 도착했으면 도착 노드를 바로 리턴한다.
-		if (Corner == EndNode)
-			return Corner;
-
-		// 탐색하는 노드가 닫힌목록에 들어간 노드일 경우
-		else if (Corner->NodeType == ENavNodeType::Close)
-			return nullptr;
-
-		// 이동 불가를 만났다면
-		else if (TileMap->GetTileType(Index) ==
-			ETileType::UnableToMove)
-			return nullptr;
-
-		// 아래가 막혀있고 왼쪽 아래가 뚫려있을 경우
-		int	CornerX = IndexX;
-		int	CornerY = IndexY - 1;
-		int	CornerIndex = 0;
-
-		if (CornerX - 1 >= 0 && CornerY >= 0)
+		for (int i = 0; i < NodeCount; ++i)
 		{
-			CornerIndex = CornerY * mCountX + CornerX;
+			if (!OpenMask[(size_t)i])
+				continue;
 
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex - 1) ==
-				ETileType::Normal)
-				return Corner;
+			if (FScore[(size_t)i] < BestF)
+			{
+				BestF = FScore[(size_t)i];
+				Current = i;
+			}
 		}
 
-		// 오른쪽이 막혀있고 오른쪽 위가 뚫려있을 경우
-		CornerX = IndexX + 1;
-		CornerY = IndexY;
+		if (Current < 0)
+			break;
 
-		if (CornerX < mCountX && CornerY + 1 < mCountY)
+		if (IsGoalIndex(Current))
 		{
-			CornerIndex = CornerY * mCountX + CornerX;
-
-			if (TileMap->GetTileType(CornerIndex) ==
-				ETileType::UnableToMove &&
-				TileMap->GetTileType(CornerIndex + mCountX) ==
-				ETileType::Normal)
-				return Corner;
+			GoalIndex = Current;
+			break;
 		}
 
-		// 위의 2가지 경우가 아니라면 왼쪽, 위 쪽으로 코너가 있는지
-		// 체크해야 한다.
-		FNavNode* FindNode = GetCornerRectL(Corner, EndNode);
+		OpenMask[(size_t)Current] = 0;
+		ClosedMask[(size_t)Current] = 1;
 
-		if (FindNode)
-			return Corner;
+		for (int Dir = 0; Dir < ESearchDir::End; ++Dir)
+		{
+			int Next = -1;
 
-		FindNode = GetCornerRectT(Corner, EndNode);
+			if (!StepIndex(Current, (ESearchDir::Type)Dir, Next, true))
+				continue;
 
-		if (FindNode)
-			return Corner;
+			if (Next < 0 || Next >= NodeCount)
+				continue;
+
+			if (ClosedMask[(size_t)Next])
+				continue;
+
+			const float StepCost = mNodeList[Current].Center.Distance(
+				mNodeList[Next].Center);
+			const float NewG = GScore[(size_t)Current] + StepCost;
+
+			if (!OpenMask[(size_t)Next] || NewG < GScore[(size_t)Next])
+			{
+				Parent[(size_t)Next] = Current;
+				GScore[(size_t)Next] = NewG;
+				FScore[(size_t)Next] = NewG + ComputeHeuristic(Next);
+				OpenMask[(size_t)Next] = 1;
+			}
+		}
 	}
 
-	return nullptr;
+	if (GoalIndex < 0)
+		return false;
+
+	std::vector<int> Chain;
+	Chain.reserve((size_t)NodeCount);
+
+	int Current = GoalIndex;
+
+	while (Current >= 0 && Current < NodeCount)
+	{
+		Chain.emplace_back(Current);
+
+		if (Current == StartIndex)
+			break;
+
+		Current = Parent[(size_t)Current];
+	}
+
+	if (Chain.empty() || Chain.back() != StartIndex)
+		return false;
+
+	std::reverse(Chain.begin(), Chain.end());
+
+	for (int i = 0; i < NodeCount; ++i)
+	{
+		mNodeList[(size_t)i].Parent = nullptr;
+	}
+
+	for (size_t i = 1; i < Chain.size(); ++i)
+	{
+		const int Child = Chain[i];
+		const int ParentIndex = Chain[i - 1];
+		mNodeList[(size_t)Child].Parent = &mNodeList[(size_t)ParentIndex];
+	}
+
+	return BuildPath(&mNodeList[(size_t)GoalIndex], PathList);
 }
 
 bool CNavigation::SortOpenList(FNavNode* Src, FNavNode* Dest)
