@@ -601,8 +601,9 @@ void CBuildingMarkerOrb::RequestMoveTo(
     const std::string& TargetBuildingName)
 {
     auto Movement = mMovement.lock();
+    auto World = mWorld.lock();
 
-    if (!Movement || TargetBuildingName.empty())
+    if (!Movement || !World || TargetBuildingName.empty())
         return;
 
 #ifdef _DEBUG
@@ -610,5 +611,21 @@ void CBuildingMarkerOrb::RequestMoveTo(
         TargetBuildingName.c_str());
 #endif
 
+    auto TargetBuilding =
+        World->FindObject<CPlacementAreaObject>(TargetBuildingName).lock();
+
+    if (TargetBuilding)
+    {
+        FVector3 MarkerPos;
+
+        if (TargetBuilding->GetClosestMarkerWorldPos(
+            GetWorldPos(), MarkerPos))
+        {
+            Movement->MovePath(MarkerPos);
+            return;
+        }
+    }
+
+    // Fallback: marker 좌표 확보에 실패했을 때만 기존 오브젝트 타겟 경로를 사용한다.
     Movement->MovePathToObject(TargetBuildingName);
 }
