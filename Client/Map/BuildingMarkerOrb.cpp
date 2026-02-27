@@ -5,9 +5,11 @@
 #include "Object/TileMapObject.h"
 #include "World/World.h"
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstdarg>
 #include <cstdio>
+#include <functional>
 #include <utility>
 
 namespace
@@ -93,6 +95,12 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     UpdateScaleFromTileSize();
 
     auto World = mWorld.lock();
+
+    if (World)
+    {
+        ApplySoftSeparation(DeltaTime);
+    }
+
     auto Movement = mMovement.lock();
 
     if (!World || !Movement)
@@ -273,6 +281,100 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 #endif
 }
 
+void CBuildingMarkerOrb::ApplySoftSeparation(float DeltaTime)
+{
+    auto World = mWorld.lock();
+
+    if (!World || DeltaTime <= 0.f)
+        return;
+
+    std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+    if (!World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+        return;
+
+    if (OrbList.size() <= 1)
+        return;
+
+    const float SafeSelfDiameter = mOrbDiameter > 0.f ?
+        mOrbDiameter : 1.f;
+    const float SelfRadius = SafeSelfDiameter * 0.5f;
+
+    // 30% 겹침 허용 -> 최소 분리 거리 비율은 70%
+    const float MinDistanceScale = Clamp<float>(
+        1.f - mAllowedOverlapRatio, 0.1f, 1.f);
+    const float Epsilon = 0.0001f;
+
+    const FVector3 SelfPos = GetWorldPos();
+    FVector3 AccumulatedPush = FVector3::Zero;
+    int OverlapCount = 0;
+
+    for (size_t i = 0; i < OrbList.size(); ++i)
+    {
+        auto Other = OrbList[i].lock();
+
+        if (!Other || Other.get() == this ||
+            !Other->GetAlive() || !Other->GetEnable())
+        {
+            continue;
+        }
+
+        FVector3 Delta = SelfPos - Other->GetWorldPos();
+        Delta.z = 0.f;
+
+        float Dist = Delta.Length();
+        const float SafeOtherDiameter = Other->mOrbDiameter > 0.f ?
+            Other->mOrbDiameter : 1.f;
+        const float OtherRadius = SafeOtherDiameter * 0.5f;
+        const float MinDist = (SelfRadius + OtherRadius) *
+            MinDistanceScale;
+
+        if (Dist >= MinDist)
+            continue;
+
+        FVector3 PushDir = FVector3::Zero;
+
+        if (Dist > Epsilon)
+        {
+            PushDir = Delta / Dist;
+        }
+
+        else
+        {
+            const size_t HashA =
+                std::hash<std::string>{}(GetName());
+            const size_t HashB =
+                std::hash<std::string>{}(Other->GetName());
+            const float Angle =
+                (float)((HashA ^ (HashB << 1)) % 6283) * 0.001f;
+            PushDir.x = cosf(Angle);
+            PushDir.y = sinf(Angle);
+            PushDir.z = 0.f;
+        }
+
+        const float Penetration = MinDist - Dist;
+        AccumulatedPush += PushDir * Penetration;
+        ++OverlapCount;
+    }
+
+    if (OverlapCount <= 0 || AccumulatedPush.IsZero())
+        return;
+
+    FVector3 PushDelta = AccumulatedPush *
+        (mSeparationStrength * DeltaTime / (float)OverlapCount);
+    PushDelta.z = 0.f;
+
+    const float MaxPushDist = mSeparationMaxSpeed * DeltaTime;
+    const float PushLen = PushDelta.Length();
+
+    if (PushLen > MaxPushDist && PushLen > Epsilon)
+    {
+        PushDelta *= (MaxPushDist / PushLen);
+    }
+
+    AddWorldPos(PushDelta);
+}
+
 void CBuildingMarkerOrb::RefreshBuildings()
 {
     auto World = mWorld.lock();
@@ -355,6 +457,8 @@ void CBuildingMarkerOrb::UpdateScaleFromTileSize()
 
     if (Diameter < 1.f)
         Diameter = 1.f;
+
+    mOrbDiameter = Diameter;
 
     mArrivalDistance = Diameter * 0.75f;
 

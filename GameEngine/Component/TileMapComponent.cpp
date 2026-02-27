@@ -1188,7 +1188,10 @@ void CTileMapComponent::SaveFullPath(const TCHAR* FullPath)
 
 	fwrite(&Size, sizeof(size_t), 1, File);
 
-	fwrite(&mTileFrame[0], sizeof(FTileFrame), Size, File);
+	if (Size > 0)
+	{
+		fwrite(&mTileFrame[0], sizeof(FTileFrame), Size, File);
+	}
 
 	fclose(File);
 }
@@ -1240,10 +1243,22 @@ void CTileMapComponent::LoadFullPath(const TCHAR* FullPath)
 		mTileList[i]->Load(File);
 	}
 
+	fread(&mShape, sizeof(ETileShape), 1, File);
+	fread(&mTileSize, sizeof(FVector2), 1, File);
+	fread(&mMapSize, sizeof(FVector2), 1, File);
+
+	fread(&mCountX, sizeof(int), 1, File);
+	fread(&mCountY, sizeof(int), 1, File);
+
+	fread(&mTileOutLineRender, sizeof(bool), 1, File);
+
 	FResolution	RS = CDevice::GetInst()->GetResolution();
 
-	int	ViewCountX = (int)(RS.Width / mTileSize.x + 3);
-	int	ViewCountY = (int)(RS.Height / mTileSize.y + 3);
+	const float SafeTileWidth = mTileSize.x > 0.f ? mTileSize.x : 1.f;
+	const float SafeTileHeight = mTileSize.y > 0.f ? mTileSize.y : 1.f;
+
+	int	ViewCountX = (int)(RS.Width / SafeTileWidth + 3);
+	int	ViewCountY = (int)(RS.Height / SafeTileHeight + 3);
 
 	if (mShape == Isometric)
 		ViewCountY = (ViewCountY * 2) + 2;
@@ -1261,15 +1276,6 @@ void CTileMapComponent::LoadFullPath(const TCHAR* FullPath)
 
 	mTileIstData.resize(ViewCountX * ViewCountY);
 	mTileLineIstData.resize(ViewCountX * ViewCountY);
-
-	fread(&mShape, sizeof(ETileShape), 1, File);
-	fread(&mTileSize, sizeof(FVector2), 1, File);
-	fread(&mMapSize, sizeof(FVector2), 1, File);
-
-	fread(&mCountX, sizeof(int), 1, File);
-	fread(&mCountY, sizeof(int), 1, File);
-
-	fread(&mTileOutLineRender, sizeof(bool), 1, File);
 
 	bool	Enable = false;
 
@@ -1348,7 +1354,10 @@ void CTileMapComponent::LoadFullPath(const TCHAR* FullPath)
 	mTileFrame.clear();
 	mTileFrame.resize(Size);
 
-	fread(&mTileFrame[0], sizeof(FTileFrame), Size, File);
+	if (Size > 0)
+	{
+		fread(&mTileFrame[0], sizeof(FTileFrame), Size, File);
+	}
 
 	fclose(File);
 

@@ -30,6 +30,10 @@ private:
     std::string mCurrentTargetName;
     float mMoveSpeed = 200.f;
     float mArrivalDistance = 16.f;
+    float mOrbDiameter = 20.f;
+    float mAllowedOverlapRatio = 0.1f;
+    float mSeparationStrength = 12.f;
+    float mSeparationMaxSpeed = 180.f;
     bool mScaleInitialized = false;
     bool mHasStartPos = false;
 #ifdef _DEBUG
@@ -105,6 +109,7 @@ public:
     virtual void Update(float DeltaTime);
 
 private:
+    void ApplySoftSeparation(float DeltaTime);
     void RefreshBuildings();
     void UpdateScaleFromTileSize();
     bool CollectTargetMarkers(

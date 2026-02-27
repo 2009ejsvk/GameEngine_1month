@@ -526,7 +526,10 @@ void CTileMapRender::Save(FILE* File)
 
 	fwrite(&Size, sizeof(size_t), 1, File);
 
-	fwrite(&mTileFrame[0], sizeof(FTileFrame), Size, File);
+	if (Size > 0)
+	{
+		fwrite(&mTileFrame[0], sizeof(FTileFrame), Size, File);
+	}
 
 	// 위치, 크기, 회전정보도 저장해둔다.
 	fwrite(&mWorldScale, sizeof(FVector3), 1, File);
@@ -659,7 +662,10 @@ void CTileMapRender::Load(FILE* File)
 
 	mTileFrame.resize(Size);
 
-	fread(&mTileFrame[0], sizeof(FTileFrame), Size, File);
+	if (Size > 0)
+	{
+		fread(&mTileFrame[0], sizeof(FTileFrame), Size, File);
+	}
 
 	// 위치, 크기, 회전정보도 저장해둔다.
 	fread(&mWorldScale, sizeof(FVector3), 1, File);
