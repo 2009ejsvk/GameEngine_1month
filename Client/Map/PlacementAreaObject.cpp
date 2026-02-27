@@ -3,13 +3,15 @@
 #include "Object/TileMapObject.h"
 #include "World/World.h"
 #include "World/Input.h"
+#include <algorithm>
 #include <cmath>
 #include <cfloat>
-#include <algorithm>
 
 CPlacementAreaObject::CPlacementAreaObject()
 {
     SetClassType<CPlacementAreaObject>();
+    mTemplate = CreateTemplateByType(
+        EPlacementTemplateType::Diamond3x3SingleMarker);
 }
 
 CPlacementAreaObject::CPlacementAreaObject(
@@ -74,6 +76,20 @@ bool CPlacementAreaObject::IsNavigationObstacle() const
     return true;
 }
 
+void CPlacementAreaObject::SetPlacementTemplateType(
+    EPlacementTemplateType Type)
+{
+    SetPlacementTemplate(CreateTemplateByType(Type));
+}
+
+void CPlacementAreaObject::SetPlacementTemplate(
+    const FPlacementTemplate& Template)
+{
+    mTemplate = Template;
+    EnsureTemplateValidity();
+    ResetPlacementState();
+}
+
 void CPlacementAreaObject::GetNavigationGoalTiles(
     std::vector<int>& OutIndices)
 {
@@ -87,18 +103,24 @@ void CPlacementAreaObject::GetNavigationGoalTiles(
     if (!AcquireTileMap(TileMap))
         return;
 
-    if (mMarkerTileIndex < 0)
+    if (mMarkerTileIndices.empty())
     {
         ApplyPlacedAreaColor(TileMap);
     }
 
-    if (mMarkerTileIndex < 0)
-        return;
+    for (size_t i = 0; i < mMarkerTileIndices.size(); ++i)
+    {
+        const int MarkerIndex = mMarkerTileIndices[i];
 
-    if (!IsPlacedIndex(mMarkerTileIndex))
-        return;
+        if (!IsPlacedIndex(MarkerIndex))
+            continue;
 
-    OutIndices.push_back(mMarkerTileIndex);
+        if (std::find(OutIndices.begin(), OutIndices.end(),
+            MarkerIndex) == OutIndices.end())
+        {
+            OutIndices.push_back(MarkerIndex);
+        }
+    }
 }
 
 void CPlacementAreaObject::GetNavigationBlockedTiles(
@@ -142,9 +164,12 @@ void CPlacementAreaObject::ConfirmPlacement()
 {
     EnsurePlacementObject();
 
+    const int ExpectedCount = mTemplate.GetExpectedTileCount();
+
     if (!mTileMapPrepared ||
         !mPreviewCanPlace ||
-        mPreviewIndices.size() != 9)
+        ExpectedCount <= 0 ||
+        (int)mPreviewIndices.size() != ExpectedCount)
     {
         return;
     }
@@ -154,7 +179,7 @@ void CPlacementAreaObject::ConfirmPlacement()
     if (!AcquireTileMap(TileMap))
         return;
 
-    mMarkerTileIndex = -1;
+    mMarkerTileIndices.clear();
 
     for (size_t i = 0; i < mPlacedIndices.size(); ++i)
     {
@@ -222,6 +247,24 @@ float CPlacementAreaObject::GetCenterDistanceSq(
 
 bool CPlacementAreaObject::GetMarkerWorldPos(FVector3& OutWorldPos)
 {
+    std::vector<FVector3> MarkerWorldPosList;
+
+    if (!GetMarkerWorldPositions(MarkerWorldPosList) ||
+        MarkerWorldPosList.empty())
+    {
+        return false;
+    }
+
+    OutWorldPos = MarkerWorldPosList[0];
+
+    return true;
+}
+
+bool CPlacementAreaObject::GetMarkerWorldPositions(
+    std::vector<FVector3>& OutWorldPosList)
+{
+    OutWorldPosList.clear();
+
     EnsurePlacementObject();
 
     if (!mTileMapPrepared)
@@ -232,17 +275,12 @@ bool CPlacementAreaObject::GetMarkerWorldPos(FVector3& OutWorldPos)
     if (!AcquireTileMap(TileMap))
         return false;
 
-    if (mMarkerTileIndex < 0)
+    if (mMarkerTileIndices.empty())
     {
         ApplyPlacedAreaColor(TileMap);
     }
 
-    if (mMarkerTileIndex < 0)
-        return false;
-
-    auto MarkerTile = TileMap->GetTile(mMarkerTileIndex).lock();
-
-    if (!MarkerTile)
+    if (mMarkerTileIndices.empty())
         return false;
 
     auto TileMapObj = mTileMapObject.lock();
@@ -250,13 +288,57 @@ bool CPlacementAreaObject::GetMarkerWorldPos(FVector3& OutWorldPos)
     if (!TileMapObj)
         return false;
 
-    const FVector2 MarkerCenter = MarkerTile->GetCenter();
     const FVector3 TileMapWorldPos = TileMapObj->GetWorldPos();
 
-    OutWorldPos = FVector3(
-        MarkerCenter.x + TileMapWorldPos.x,
-        MarkerCenter.y + TileMapWorldPos.y,
-        0.f);
+    for (size_t i = 0; i < mMarkerTileIndices.size(); ++i)
+    {
+        auto MarkerTile = TileMap->GetTile(mMarkerTileIndices[i]).lock();
+
+        if (!MarkerTile)
+            continue;
+
+        const FVector2 MarkerCenter = MarkerTile->GetCenter();
+        OutWorldPosList.push_back(FVector3(
+            MarkerCenter.x + TileMapWorldPos.x,
+            MarkerCenter.y + TileMapWorldPos.y,
+            0.f));
+    }
+
+    return !OutWorldPosList.empty();
+}
+
+bool CPlacementAreaObject::GetClosestMarkerWorldPos(
+    const FVector3& RefWorldPos, FVector3& OutWorldPos)
+{
+    std::vector<FVector3> MarkerWorldPosList;
+
+    if (!GetMarkerWorldPositions(MarkerWorldPosList) ||
+        MarkerWorldPosList.empty())
+    {
+        return false;
+    }
+
+    float BestDistSq = FLT_MAX;
+    int BestIndex = -1;
+
+    for (size_t i = 0; i < MarkerWorldPosList.size(); ++i)
+    {
+        const FVector3 Delta = MarkerWorldPosList[i] - RefWorldPos;
+        const float DistSq = Delta.x * Delta.x +
+            Delta.y * Delta.y +
+            Delta.z * Delta.z;
+
+        if (DistSq < BestDistSq)
+        {
+            BestDistSq = DistSq;
+            BestIndex = (int)i;
+        }
+    }
+
+    if (BestIndex < 0)
+        return false;
+
+    OutWorldPos = MarkerWorldPosList[BestIndex];
 
     return true;
 }
@@ -273,10 +355,75 @@ bool CPlacementAreaObject::GetTileSize(FVector2& OutTileSize)
     return true;
 }
 
+FPlacementTemplate CPlacementAreaObject::CreateTemplateByType(
+    EPlacementTemplateType Type)
+{
+    FPlacementTemplate Template;
+    Template.Type = Type;
+    Template.AreaColor = FVector4::Blue;
+
+    switch (Type)
+    {
+    case EPlacementTemplateType::Diamond5x5TwoMarker:
+        Template.DiamondRadius = 2;
+        Template.MarkerAnchors.push_back({ 1.f, 0.5f });
+        Template.MarkerAnchors.push_back({ -1.f, -0.5f });
+        break;
+
+    case EPlacementTemplateType::Diamond5x5FourMarker:
+        Template.DiamondRadius = 2;
+        Template.MarkerAnchors.push_back({ 1.f, 0.5f });
+        Template.MarkerAnchors.push_back({ -1.f, -0.5f });
+        Template.MarkerAnchors.push_back({ 0.5f, -1.f });
+        Template.MarkerAnchors.push_back({ -0.5f, 1.f });
+        break;
+
+    case EPlacementTemplateType::Diamond7x7ThreeMarker:
+        Template.DiamondRadius = 3;
+        Template.MarkerAnchors.push_back({ 1.5f, 1.f });
+        Template.MarkerAnchors.push_back({ -1.5f, -1.f });
+        Template.MarkerAnchors.push_back({ 0.f, 0.f });
+        break;
+
+    case EPlacementTemplateType::Diamond3x3SingleMarker:
+    default:
+        Template.DiamondRadius = 1;
+        Template.MarkerAnchors.push_back({ 0.5f, 0.5f });
+        break;
+    }
+
+    return Template;
+}
+
+void CPlacementAreaObject::EnsureTemplateValidity()
+{
+    if (mTemplate.DiamondRadius < 1)
+        mTemplate.DiamondRadius = 1;
+
+    if (mTemplate.MarkerAnchors.empty())
+    {
+        mTemplate.MarkerAnchors.push_back({ 0.5f, 0.5f });
+    }
+}
+
+void CPlacementAreaObject::ResetPlacementState()
+{
+    mPlacedIndices.clear();
+    mPreviewIndices.clear();
+    mPreviewCanPlace = false;
+    mTileMapPrepared = false;
+    mMovePreviewActive = false;
+    mPlacedCenterIndex = -1;
+    mPreviewCenterIndex = -1;
+    mMarkerTileIndices.clear();
+}
+
 void CPlacementAreaObject::EnsurePlacementObject()
 {
     if (mTileMapPrepared)
         return;
+
+    EnsureTemplateValidity();
 
     std::shared_ptr<CTileMapComponent> TileMap;
 
@@ -477,17 +624,19 @@ bool CPlacementAreaObject::BuildDiamondAreaIndices(
     const int CenterX = CenterTile->GetIndexX();
     const int CenterY = CenterTile->GetIndexY();
 
+    const int Radius = mTemplate.DiamondRadius;
+    const int SearchRange = Radius * 2;
     const float CenterLogicalX = CenterX +
         (CenterY % 2 == 0 ? 0.f : 0.5f);
     const float CenterLogicalY = CenterY * 0.5f;
-    const float DiamondRadius = 1.f;
+    const float DiamondRadius = (float)Radius;
 
-    for (int y = CenterY - 2; y <= CenterY + 2; ++y)
+    for (int y = CenterY - SearchRange; y <= CenterY + SearchRange; ++y)
     {
         if (y < 0 || y >= CountY)
             continue;
 
-        for (int x = CenterX - 2; x <= CenterX + 2; ++x)
+        for (int x = CenterX - SearchRange; x <= CenterX + SearchRange; ++x)
         {
             if (x < 0 || x >= CountX)
                 continue;
@@ -511,7 +660,7 @@ bool CPlacementAreaObject::IsAreaPlaceable(
     const std::shared_ptr<class CTileMapComponent>& TileMap,
     const std::vector<int>& Indices) const
 {
-    if (Indices.size() != 9)
+    if ((int)Indices.size() != mTemplate.GetExpectedTileCount())
         return false;
 
     for (size_t i = 0; i < Indices.size(); ++i)
@@ -557,9 +706,10 @@ bool CPlacementAreaObject::IsPlacedIndex(int Index) const
     return false;
 }
 
-int CPlacementAreaObject::FindLowerRightMiddleTileIndex(
+int CPlacementAreaObject::FindMarkerTileIndexByLogicalOffset(
     const std::shared_ptr<class CTileMapComponent>& TileMap,
-    int CenterIndex, const std::vector<int>& Indices) const
+    int CenterIndex, const std::vector<int>& Indices,
+    float TargetOffsetX, float TargetOffsetY) const
 {
     auto CenterTile = TileMap->GetTile(CenterIndex).lock();
 
@@ -569,12 +719,37 @@ int CPlacementAreaObject::FindLowerRightMiddleTileIndex(
     const float CenterLogicalX = CenterTile->GetIndexX() +
         (CenterTile->GetIndexY() % 2 == 0 ? 0.f : 0.5f);
     const float CenterLogicalY = CenterTile->GetIndexY() * 0.5f;
+    const float TargetLogicalX = CenterLogicalX + TargetOffsetX;
+    const float TargetLogicalY = CenterLogicalY + TargetOffsetY;
 
     int BestIndex = -1;
     float BestScore = FLT_MAX;
+    auto IsInArea = [&](int TileIndex)
+    {
+        return std::find(Indices.begin(), Indices.end(), TileIndex) !=
+            Indices.end();
+    };
 
     for (size_t i = 0; i < Indices.size(); ++i)
     {
+        const int CandidateIndex = Indices[i];
+        bool IsEdge = false;
+
+        for (int Dir = 0; Dir < 8; ++Dir)
+        {
+            const int Neighbor = GetIsoNeighborIndexByDir(
+                TileMap, CandidateIndex, Dir);
+
+            if (Neighbor < 0 || !IsInArea(Neighbor))
+            {
+                IsEdge = true;
+                break;
+            }
+        }
+
+        if (!IsEdge)
+            continue;
+
         auto Tile = TileMap->GetTile(Indices[i]).lock();
 
         if (!Tile)
@@ -583,14 +758,8 @@ int CPlacementAreaObject::FindLowerRightMiddleTileIndex(
         const float LogicalX = Tile->GetIndexX() +
             (Tile->GetIndexY() % 2 == 0 ? 0.f : 0.5f);
         const float LogicalY = Tile->GetIndexY() * 0.5f;
-        const float DiffX = LogicalX - CenterLogicalX;
-        const float DiffY = LogicalY - CenterLogicalY;
-
-        // 오른쪽 하단 방향의 내부 타일(약 +0.5, +0.5)을 찾는다.
-        if (DiffX <= 0.f || DiffY <= 0.f)
-            continue;
-
-        const float Score = fabs(DiffX - 0.5f) + fabs(DiffY - 0.5f);
+        const float Score = fabs(LogicalX - TargetLogicalX) +
+            fabs(LogicalY - TargetLogicalY);
 
         if (Score < BestScore)
         {
@@ -605,9 +774,9 @@ int CPlacementAreaObject::FindLowerRightMiddleTileIndex(
 void CPlacementAreaObject::ApplyPlacedAreaColor(
     const std::shared_ptr<class CTileMapComponent>& TileMap)
 {
-    SetAreaColor(TileMap, mPlacedIndices, FVector4::Blue);
+    SetAreaColor(TileMap, mPlacedIndices, mTemplate.AreaColor);
 
-    mMarkerTileIndex = -1;
+    mMarkerTileIndices.clear();
 
     if (mPlacedCenterIndex < 0 ||
         mPlacedIndices.empty())
@@ -615,18 +784,43 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
         return;
     }
 
-    mMarkerTileIndex = FindLowerRightMiddleTileIndex(
-        TileMap, mPlacedCenterIndex, mPlacedIndices);
+    for (size_t i = 0; i < mTemplate.MarkerAnchors.size(); ++i)
+    {
+        const FPlacementMarkerAnchor& Marker = mTemplate.MarkerAnchors[i];
+        const int MarkerIndex = FindMarkerTileIndexByLogicalOffset(
+            TileMap, mPlacedCenterIndex, mPlacedIndices,
+            Marker.LogicalOffsetX, Marker.LogicalOffsetY);
 
-    if (mMarkerTileIndex < 0)
-        return;
+        if (MarkerIndex < 0 || !IsPlacedIndex(MarkerIndex))
+            continue;
 
-    auto MarkerTile = TileMap->GetTile(mMarkerTileIndex).lock();
+        if (std::find(mMarkerTileIndices.begin(),
+            mMarkerTileIndices.end(), MarkerIndex) ==
+            mMarkerTileIndices.end())
+        {
+            mMarkerTileIndices.push_back(MarkerIndex);
+        }
+    }
 
-    if (!MarkerTile)
-        return;
+    if (mMarkerTileIndices.empty() &&
+        !mPlacedIndices.empty())
+    {
+        const int FallbackEdgeIndex = FindMarkerTileIndexByLogicalOffset(
+            TileMap, mPlacedCenterIndex, mPlacedIndices, 0.f, 0.f);
 
-    MarkerTile->SetOutLineColor(1.f, 1.f, 0.f, 1.f);
+        if (FallbackEdgeIndex >= 0)
+            mMarkerTileIndices.push_back(FallbackEdgeIndex);
+    }
+
+    for (size_t i = 0; i < mMarkerTileIndices.size(); ++i)
+    {
+        auto MarkerTile = TileMap->GetTile(mMarkerTileIndices[i]).lock();
+
+        if (!MarkerTile)
+            continue;
+
+        MarkerTile->SetOutLineColor(1.f, 1.f, 0.f, 1.f);
+    }
 }
 
 void CPlacementAreaObject::RestoreTileColor(
@@ -639,9 +833,15 @@ void CPlacementAreaObject::RestoreTileColor(
 
     if (Tile->GetType() == ETileType::UnableToMove)
     {
-        if (Index == mMarkerTileIndex)
+        if (std::find(mMarkerTileIndices.begin(),
+            mMarkerTileIndices.end(), Index) != mMarkerTileIndices.end())
         {
             Tile->SetOutLineColor(1.f, 1.f, 0.f, 1.f);
+        }
+
+        else if (IsPlacedIndex(Index))
+        {
+            Tile->SetOutLineColor(mTemplate.AreaColor);
         }
 
         else

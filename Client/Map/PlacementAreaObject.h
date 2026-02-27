@@ -1,12 +1,42 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include <string>
 #include <vector>
 
 enum class EPlacementBuildingKind
 {
     BuildingA,
     BuildingB
+};
+
+enum class EPlacementTemplateType
+{
+    Diamond3x3SingleMarker,
+    Diamond5x5TwoMarker,
+    Diamond5x5FourMarker,
+    Diamond7x7ThreeMarker
+};
+
+struct FPlacementMarkerAnchor
+{
+    float LogicalOffsetX = 0.f;
+    float LogicalOffsetY = 0.f;
+};
+
+struct FPlacementTemplate
+{
+    EPlacementTemplateType Type =
+        EPlacementTemplateType::Diamond3x3SingleMarker;
+    int DiamondRadius = 1;
+    std::vector<FPlacementMarkerAnchor> MarkerAnchors;
+    FVector4 AreaColor = FVector4::Blue;
+
+    int GetExpectedTileCount() const
+    {
+        const int Side = DiamondRadius * 2 + 1;
+        return Side * Side;
+    }
 };
 
 class CPlacementAreaObject :
@@ -35,7 +65,8 @@ private:
     int mInitialCenterOffsetX = 0;
     int mInitialCenterOffsetY = 0;
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
-    int mMarkerTileIndex = -1;
+    FPlacementTemplate mTemplate;
+    std::vector<int> mMarkerTileIndices;
 
 public:
     void SetTileMapObject(
@@ -55,6 +86,9 @@ public:
         mBuildingKind = Kind;
     }
 
+    void SetPlacementTemplateType(EPlacementTemplateType Type);
+    void SetPlacementTemplate(const FPlacementTemplate& Template);
+
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
@@ -71,9 +105,16 @@ public:
     bool ContainsPlacedTile(const FVector2& MouseWorldPos);
     float GetCenterDistanceSq(const FVector2& MouseWorldPos) const;
     bool GetMarkerWorldPos(FVector3& OutWorldPos);
+    bool GetMarkerWorldPositions(std::vector<FVector3>& OutWorldPosList);
+    bool GetClosestMarkerWorldPos(
+        const FVector3& RefWorldPos, FVector3& OutWorldPos);
     bool GetTileSize(FVector2& OutTileSize);
 
 private:
+    static FPlacementTemplate CreateTemplateByType(
+        EPlacementTemplateType Type);
+    void EnsureTemplateValidity();
+    void ResetPlacementState();
     void EnsurePlacementObject();
     void UpdatePlacementPreviewFromMouse(const FVector2& MouseWorldPos);
     void ClearPreview();
@@ -88,9 +129,10 @@ private:
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         const std::vector<int>& Indices, const FVector4& Color);
     bool IsPlacedIndex(int Index) const;
-    int FindLowerRightMiddleTileIndex(
+    int FindMarkerTileIndexByLogicalOffset(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
-        int CenterIndex, const std::vector<int>& Indices) const;
+        int CenterIndex, const std::vector<int>& Indices,
+        float TargetOffsetX, float TargetOffsetY) const;
     void ApplyPlacedAreaColor(
         const std::shared_ptr<class CTileMapComponent>& TileMap);
     void RestoreTileColor(

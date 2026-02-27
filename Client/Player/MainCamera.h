@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include <vector>
 
 class CMainCamera :
     public CGameObject
@@ -19,8 +20,8 @@ public:
 private:
     std::weak_ptr<class CCameraComponent> mCameraComponent;
     std::weak_ptr<class CObjectMovementComponent> mMovement;
-    std::weak_ptr<class CPlacementAreaObject> mBuildingAObject;
-    std::weak_ptr<class CPlacementAreaObject> mBuildingBObject;
+    std::vector<std::weak_ptr<class CPlacementAreaObject>>
+        mPlacementObjects;
     std::weak_ptr<class CPlacementAreaObject> mActivePlacementObject;
     float mViewDistance = 1000.f;
     float mZoomWidth = 0.f;

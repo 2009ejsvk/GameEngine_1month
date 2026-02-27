@@ -5,6 +5,7 @@
 #include "Device.h"
 #include "World/World.h"
 #include "World/Input.h"
+#include <cfloat>
 #include <cmath>
 
 CMainCamera::CMainCamera()
@@ -38,7 +39,7 @@ bool CMainCamera::Init()
     if (Movement)
     {
         Movement->SetUpdateComponent(mCameraComponent);
-        Movement->SetSpeed(400.f);
+        Movement->SetSpeed(800.f);
     }
 
     auto Camera = mCameraComponent.lock();
@@ -220,30 +221,35 @@ void CMainCamera::RefreshPlacementObjects()
     if (!World)
         return;
 
-    if (mBuildingAObject.expired())
-    {
-        mBuildingAObject = World->FindObject<CPlacementAreaObject>(
-            "BuildingA");
-    }
-
-    if (mBuildingBObject.expired())
-    {
-        mBuildingBObject = World->FindObject<CPlacementAreaObject>(
-            "BuildingB");
-    }
+    World->FindObjectListByType<CPlacementAreaObject>(
+        mPlacementObjects);
 }
 
 std::shared_ptr<CPlacementAreaObject> CMainCamera::PickPlacementObject(
     const FVector2& MouseWorldPos)
 {
-    auto BuildingA = mBuildingAObject.lock();
-    auto BuildingB = mBuildingBObject.lock();
+    std::shared_ptr<CPlacementAreaObject> BestObject;
+    float BestDistSq = FLT_MAX;
 
-    if (BuildingA && BuildingA->ContainsPlacedTile(MouseWorldPos))
-        return BuildingA;
+    for (size_t i = 0; i < mPlacementObjects.size(); ++i)
+    {
+        auto PlacementObject = mPlacementObjects[i].lock();
 
-    if (BuildingB && BuildingB->ContainsPlacedTile(MouseWorldPos))
-        return BuildingB;
+        if (!PlacementObject)
+            continue;
 
-    return nullptr;
+        if (!PlacementObject->ContainsPlacedTile(MouseWorldPos))
+            continue;
+
+        const float DistSq =
+            PlacementObject->GetCenterDistanceSq(MouseWorldPos);
+
+        if (!BestObject || DistSq < BestDistSq)
+        {
+            BestObject = PlacementObject;
+            BestDistSq = DistSq;
+        }
+    }
+
+    return BestObject;
 }

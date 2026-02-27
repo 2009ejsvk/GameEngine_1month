@@ -182,5 +182,27 @@ public:
 
 		return true;
 	}
+
+	template <typename T>
+	bool FindObjectListByType(
+		std::vector<std::weak_ptr<T>>& ObjList)
+	{
+		ObjList.clear();
+
+		auto iter = mObjList.begin();
+		auto iterEnd = mObjList.end();
+
+		for (; iter != iterEnd; ++iter)
+		{
+			auto Obj = std::dynamic_pointer_cast<T>(iter->second);
+
+			if (!Obj || !Obj->GetAlive() || !Obj->GetEnable())
+				continue;
+
+			ObjList.push_back(Obj);
+		}
+
+		return !ObjList.empty();
+	}
 };
 

@@ -2,8 +2,10 @@
 #include "PlacementAreaObject.h"
 #include "Component/MeshComponent.h"
 #include "Component/ObjectMovementComponent.h"
+#include "Object/TileMapObject.h"
 #include "World/World.h"
 #include <algorithm>
+#include <cstdlib>
 #include <cstdarg>
 #include <cstdio>
 #include <utility>
@@ -90,19 +92,17 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     RefreshBuildings();
     UpdateScaleFromTileSize();
 
-    auto BuildingA = mBuildingAObject.lock();
-    auto BuildingB = mBuildingBObject.lock();
+    auto World = mWorld.lock();
     auto Movement = mMovement.lock();
 
-    if (!BuildingA || !BuildingB || !Movement)
+    if (!World || !Movement)
     {
 #ifdef _DEBUG
         if (!mDebugMissingDependencyLogged)
         {
             DebugOrbLog(
-                "[Orb] Missing dependency A=%d B=%d Move=%d\n",
-                BuildingA ? 1 : 0,
-                BuildingB ? 1 : 0,
+                "[Orb] Missing dependency World=%d Move=%d\n",
+                World ? 1 : 0,
                 Movement ? 1 : 0);
             mDebugMissingDependencyLogged = true;
         }
@@ -114,19 +114,15 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     mDebugMissingDependencyLogged = false;
 #endif
 
-    FVector3 MarkerA;
-    FVector3 MarkerB;
+    std::vector<std::pair<std::string, FVector3>> MarkerList;
 
-    if (!BuildingA->GetMarkerWorldPos(MarkerA) ||
-        !BuildingB->GetMarkerWorldPos(MarkerB))
+    if (!CollectTargetMarkers(MarkerList))
     {
 #ifdef _DEBUG
         if (!mDebugMissingMarkerLogged)
         {
             DebugOrbLog(
-                "[Orb] Marker unavailable A=%s B=%s\n",
-                BuildingA->GetName().c_str(),
-                BuildingB->GetName().c_str());
+                "[Orb] Marker unavailable. no valid target marker\n");
             mDebugMissingMarkerLogged = true;
         }
 #endif
@@ -138,42 +134,33 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 #endif
 
     const float CurrentZ = GetWorldPos().z;
-    MarkerA.z = CurrentZ;
-    MarkerB.z = CurrentZ;
+
+    for (size_t i = 0; i < MarkerList.size(); ++i)
+    {
+        MarkerList[i].second.z = CurrentZ;
+    }
 
     Movement->SetSpeed(mMoveSpeed);
 
-    bool MarkerMoved = false;
-
-    if (mHasMarkerCache)
-    {
-        const float MarkerMoveEpsilonSq = 1.f;
-        const FVector3 DeltaA = MarkerA - mLastMarkerA;
-        const FVector3 DeltaB = MarkerB - mLastMarkerB;
-        const float DistSqA = DeltaA.x * DeltaA.x +
-            DeltaA.y * DeltaA.y + DeltaA.z * DeltaA.z;
-        const float DistSqB = DeltaB.x * DeltaB.x +
-            DeltaB.y * DeltaB.y + DeltaB.z * DeltaB.z;
-
-        MarkerMoved =
-            DistSqA > MarkerMoveEpsilonSq ||
-            DistSqB > MarkerMoveEpsilonSq;
-    }
-
-    mLastMarkerA = MarkerA;
-    mLastMarkerB = MarkerB;
-    mHasMarkerCache = true;
-
     if (!mHasStartPos)
     {
-        SetWorldPos(MarkerA);
-        mCurrentTargetName = mBuildingBName;
+        const int StartIndex = rand() % (int)MarkerList.size();
+        const std::string& StartName = MarkerList[StartIndex].first;
+        SetWorldPos(MarkerList[StartIndex].second);
+        mCurrentTargetName = PickRandomTargetName(StartName);
+
+        if (mCurrentTargetName.empty())
+            mCurrentTargetName = StartName;
+
         RequestMoveTo(mCurrentTargetName);
 
 #ifdef _DEBUG
         DebugOrbLog(
-            "[Orb] Start at A marker=(%.1f, %.1f) target=%s\n",
-            MarkerA.x, MarkerA.y, mCurrentTargetName.c_str());
+            "[Orb] Start at %s marker=(%.1f, %.1f) target=%s\n",
+            StartName.c_str(),
+            MarkerList[StartIndex].second.x,
+            MarkerList[StartIndex].second.y,
+            mCurrentTargetName.c_str());
 #endif
 
         mHasStartPos = true;
@@ -182,36 +169,78 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     if (mCurrentTargetName.empty())
     {
-        mCurrentTargetName = mBuildingBName;
+        mCurrentTargetName = PickRandomTargetName(std::string());
+
+        if (mCurrentTargetName.empty())
+            return;
+
         RequestMoveTo(mCurrentTargetName);
         return;
     }
 
-    if (MarkerMoved)
+    FVector3 TargetMarker = FVector3::Zero;
+    bool TargetFound = false;
+
+    for (size_t i = 0; i < MarkerList.size(); ++i)
     {
-        RequestMoveTo(mCurrentTargetName);
+        if (MarkerList[i].first == mCurrentTargetName)
+        {
+            TargetMarker = MarkerList[i].second;
+            TargetFound = true;
+            break;
+        }
     }
 
-    FVector3 TargetMarker =
-        mCurrentTargetName == mBuildingAName ? MarkerA : MarkerB;
-    TargetMarker.z = CurrentZ;
+    if (!TargetFound)
+    {
+        mCurrentTargetName = PickRandomTargetName(std::string());
+
+        if (mCurrentTargetName.empty())
+            return;
+
+        RequestMoveTo(mCurrentTargetName);
+        return;
+    }
 
     FVector3 Current = GetWorldPos();
     Current.z = CurrentZ;
 
     const float Dist = Current.Distance(TargetMarker);
+    bool ArrivedByTile = false;
 
-    if (Dist <= mArrivalDistance)
+    if (Dist > mArrivalDistance)
     {
-        if (mCurrentTargetName == mBuildingAName)
-            mCurrentTargetName = mBuildingBName;
-        else
-            mCurrentTargetName = mBuildingAName;
+        auto TileMapObj = mTileMapObject.lock();
+
+        if (TileMapObj)
+        {
+            auto TileMap = TileMapObj->GetTileMap().lock();
+
+            if (TileMap)
+            {
+                const int CurrentTileIndex = TileMap->GetTileIndex(Current);
+                const int TargetTileIndex = TileMap->GetTileIndex(TargetMarker);
+
+                ArrivedByTile =
+                    CurrentTileIndex >= 0 &&
+                    CurrentTileIndex == TargetTileIndex;
+            }
+        }
+    }
+
+    if (Dist <= mArrivalDistance || ArrivedByTile)
+    {
+        mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
+
+        if (mCurrentTargetName.empty())
+            return;
 
 #ifdef _DEBUG
         DebugOrbLog(
-            "[Orb] Arrived. switch target=%s dist=%.2f arrival=%.2f\n",
-            mCurrentTargetName.c_str(), Dist, mArrivalDistance);
+            "[Orb] Arrived. switch target=%s dist=%.2f arrival=%.2f byTile=%d\n",
+            mCurrentTargetName.c_str(),
+            Dist, mArrivalDistance,
+            ArrivedByTile ? 1 : 0);
 #endif
 
         RequestMoveTo(mCurrentTargetName);
@@ -234,13 +263,12 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         const std::string& PathTarget = Movement->GetPathTargetObjectName();
 
         DebugOrbLog(
-            "[Orb] Pos=(%.1f, %.1f) target=%s pathTarget=%s dist=%.1f markerA=(%.1f, %.1f) markerB=(%.1f, %.1f)\n",
+            "[Orb] Pos=(%.1f, %.1f) target=%s pathTarget=%s dist=%.1f markerCount=%d\n",
             Pos.x, Pos.y,
             mCurrentTargetName.c_str(),
             PathTarget.empty() ? "<none>" : PathTarget.c_str(),
             Dist,
-            MarkerA.x, MarkerA.y,
-            MarkerB.x, MarkerB.y);
+            (int)MarkerList.size());
     }
 #endif
 }
@@ -252,16 +280,9 @@ void CBuildingMarkerOrb::RefreshBuildings()
     if (!World)
         return;
 
-    if (mBuildingAObject.expired())
+    if (mTileMapObject.expired())
     {
-        mBuildingAObject =
-            World->FindObject<CPlacementAreaObject>(mBuildingAName);
-    }
-
-    if (mBuildingBObject.expired())
-    {
-        mBuildingBObject =
-            World->FindObject<CPlacementAreaObject>(mBuildingBName);
+        mTileMapObject = World->FindObject<CTileMapObject>("TileMap");
     }
 }
 
@@ -270,20 +291,61 @@ void CBuildingMarkerOrb::UpdateScaleFromTileSize()
     if (mScaleInitialized)
         return;
 
-    auto BuildingA = mBuildingAObject.lock();
-    auto BuildingB = mBuildingBObject.lock();
-
+    auto World = mWorld.lock();
     FVector2 TileSize;
     bool SizeFound = false;
 
-    if (BuildingA)
+    if (!World)
+        return;
+
+    std::vector<std::string> TargetNames;
+
+    if (!mRandomTargetNames.empty())
     {
-        SizeFound = BuildingA->GetTileSize(TileSize);
+        TargetNames = mRandomTargetNames;
     }
 
-    if (!SizeFound && BuildingB)
+    else
     {
-        SizeFound = BuildingB->GetTileSize(TileSize);
+        if (!mBuildingAName.empty())
+            TargetNames.push_back(mBuildingAName);
+
+        if (!mBuildingBName.empty() &&
+            mBuildingBName != mBuildingAName)
+        {
+            TargetNames.push_back(mBuildingBName);
+        }
+    }
+
+    std::vector<std::string> UniqueNames;
+
+    for (size_t i = 0; i < TargetNames.size(); ++i)
+    {
+        const std::string& Name = TargetNames[i];
+
+        if (Name.empty())
+            continue;
+
+        if (std::find(UniqueNames.begin(), UniqueNames.end(), Name) ==
+            UniqueNames.end())
+        {
+            UniqueNames.push_back(Name);
+        }
+    }
+
+    for (size_t i = 0; i < UniqueNames.size(); ++i)
+    {
+        auto Building = World->FindObject<CPlacementAreaObject>(
+            UniqueNames[i]).lock();
+
+        if (!Building)
+            continue;
+
+        if (Building->GetTileSize(TileSize))
+        {
+            SizeFound = true;
+            break;
+        }
     }
 
     if (!SizeFound)
@@ -307,6 +369,128 @@ void CBuildingMarkerOrb::UpdateScaleFromTileSize()
     }
 
     mScaleInitialized = true;
+}
+
+bool CBuildingMarkerOrb::CollectTargetMarkers(
+    std::vector<std::pair<std::string, FVector3>>& OutMarkers)
+{
+    OutMarkers.clear();
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    std::vector<std::string> TargetNames;
+
+    if (!mRandomTargetNames.empty())
+    {
+        TargetNames = mRandomTargetNames;
+    }
+
+    else
+    {
+        if (!mBuildingAName.empty())
+            TargetNames.push_back(mBuildingAName);
+
+        if (!mBuildingBName.empty() &&
+            mBuildingBName != mBuildingAName)
+        {
+            TargetNames.push_back(mBuildingBName);
+        }
+    }
+
+    std::vector<std::string> UniqueNames;
+
+    for (size_t i = 0; i < TargetNames.size(); ++i)
+    {
+        const std::string& Name = TargetNames[i];
+
+        if (Name.empty())
+            continue;
+
+        if (std::find(UniqueNames.begin(), UniqueNames.end(), Name) ==
+            UniqueNames.end())
+        {
+            UniqueNames.push_back(Name);
+        }
+    }
+
+    for (size_t i = 0; i < UniqueNames.size(); ++i)
+    {
+        auto Building = World->FindObject<CPlacementAreaObject>(
+            UniqueNames[i]).lock();
+
+        if (!Building)
+            continue;
+
+        FVector3 MarkerPos;
+
+        if (!Building->GetClosestMarkerWorldPos(
+            GetWorldPos(), MarkerPos))
+            continue;
+
+        OutMarkers.emplace_back(UniqueNames[i], MarkerPos);
+    }
+
+    return !OutMarkers.empty();
+}
+
+std::string CBuildingMarkerOrb::PickRandomTargetName(
+    const std::string& ExcludeName) const
+{
+    std::vector<std::string> TargetNames;
+
+    if (!mRandomTargetNames.empty())
+    {
+        TargetNames = mRandomTargetNames;
+    }
+
+    else
+    {
+        if (!mBuildingAName.empty())
+            TargetNames.push_back(mBuildingAName);
+
+        if (!mBuildingBName.empty() &&
+            mBuildingBName != mBuildingAName)
+        {
+            TargetNames.push_back(mBuildingBName);
+        }
+    }
+
+    std::vector<std::string> UniqueNames;
+
+    for (size_t i = 0; i < TargetNames.size(); ++i)
+    {
+        const std::string& Name = TargetNames[i];
+
+        if (Name.empty())
+            continue;
+
+        if (std::find(UniqueNames.begin(), UniqueNames.end(), Name) ==
+            UniqueNames.end())
+        {
+            UniqueNames.push_back(Name);
+        }
+    }
+
+    if (UniqueNames.empty())
+        return std::string();
+
+    std::vector<std::string> CandidateNames;
+
+    for (size_t i = 0; i < UniqueNames.size(); ++i)
+    {
+        if (UniqueNames[i] != ExcludeName)
+            CandidateNames.push_back(UniqueNames[i]);
+    }
+
+    if (CandidateNames.empty())
+        CandidateNames = UniqueNames;
+
+    const int PickIndex = rand() % (int)CandidateNames.size();
+
+    return CandidateNames[PickIndex];
 }
 
 void CBuildingMarkerOrb::RequestMoveTo(

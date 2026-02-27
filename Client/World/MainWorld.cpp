@@ -13,6 +13,9 @@
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Player/MainCamera.h"
+#include <string>
+#include <utility>
+#include <vector>
 
 CMainWorld::CMainWorld()
 {
@@ -37,7 +40,7 @@ bool CMainWorld::Init()
 
 	// MainWorld 화면 출력 요소는 우선 모두 주석 처리하고
 	// 이동 가능한 카메라만 별도로 배치한다.
-	CreateGameObject<CMainCamera>("MainCamera");
+	auto MainCamera = CreateGameObject<CMainCamera>("MainCamera");
 
 	// 카메라 이동/줌 확인용 더미 오브젝트는 비활성화한다.
 	//auto CreateDummyObject = [&](const std::string& Name,
@@ -75,37 +78,119 @@ bool CMainWorld::Init()
 	auto TileMap = CreateGameObject<CTileMapMain>("TileMap");
 	auto TileMapObj = std::dynamic_pointer_cast<CTileMapObject>(
 		TileMap.lock());
+	auto MainCameraObj = MainCamera.lock();
 
-	auto BuildingA = CreateGameObject<CPlacementAreaObject>("BuildingA");
-	auto BuildingB = CreateGameObject<CPlacementAreaObject>("BuildingB");
-
-	auto BuildingAObj = BuildingA.lock();
-
-	if (BuildingAObj)
+	if (MainCameraObj && TileMapObj)
 	{
-		BuildingAObj->SetTileMapObject(TileMapObj);
-		BuildingAObj->SetInitialCenterOffset(-6, 0);
-		BuildingAObj->SetBuildingKind(
-			EPlacementBuildingKind::BuildingA);
+		auto TileMapComp = TileMapObj->GetTileMap().lock();
+
+		if (TileMapComp)
+		{
+			const int CountX = TileMapComp->GetTileCountX();
+			const int CountY = TileMapComp->GetTileCountY();
+
+			if (CountX > 0 && CountY > 0)
+			{
+				const int CenterX = CountX / 2;
+				const int CenterY = CountY / 2;
+				const int CenterIndex = CenterY * CountX + CenterX;
+				auto CenterTile = TileMapComp->GetTile(CenterIndex).lock();
+
+				if (CenterTile)
+				{
+					const FVector2 Center = CenterTile->GetCenter();
+					const FVector3 TileMapWorldPos = TileMapObj->GetWorldPos();
+					const float CameraZ = MainCameraObj->GetWorldPos().z;
+
+					MainCameraObj->SetWorldPos(
+						Center.x + TileMapWorldPos.x,
+						Center.y + TileMapWorldPos.y,
+						CameraZ);
+				}
+			}
+		}
 	}
 
-	auto BuildingBObj = BuildingB.lock();
+	std::vector<std::string> BuildingNames;
+	BuildingNames.reserve(12);
 
-	if (BuildingBObj)
+	auto CreatePlacementBuilding =
+		[&](const std::string& Name, int OffsetX, int OffsetY,
+			EPlacementBuildingKind Kind,
+			EPlacementTemplateType TemplateType)
 	{
-		BuildingBObj->SetTileMapObject(TileMapObj);
-		BuildingBObj->SetInitialCenterOffset(6, 0);
-		BuildingBObj->SetBuildingKind(
-			EPlacementBuildingKind::BuildingB);
+		auto Building = CreateGameObject<CPlacementAreaObject>(Name);
+		auto BuildingObj = Building.lock();
+
+		if (!BuildingObj)
+			return;
+
+		BuildingObj->SetTileMapObject(TileMapObj);
+		BuildingObj->SetInitialCenterOffset(OffsetX, OffsetY);
+		BuildingObj->SetBuildingKind(Kind);
+		BuildingObj->SetPlacementTemplateType(TemplateType);
+		BuildingNames.push_back(Name);
+	};
+
+	CreatePlacementBuilding("BuildingA", -6, 0,
+		EPlacementBuildingKind::BuildingA,
+		EPlacementTemplateType::Diamond3x3SingleMarker);
+	CreatePlacementBuilding("BuildingB", 6, 0,
+		EPlacementBuildingKind::BuildingB,
+		EPlacementTemplateType::Diamond5x5TwoMarker);
+
+	const std::pair<int, int> ExtraOffsets[10] =
+	{
+		{ -18, 0 },
+		{ -12, -8 },
+		{ -12, 8 },
+		{ -6, -14 },
+		{ -6, 14 },
+		{ 0, -18 },
+		{ 0, 18 },
+		{ 6, -14 },
+		{ 6, 14 },
+		{ 12, 0 }
+	};
+
+	const EPlacementTemplateType TemplateCycle[4] =
+	{
+		EPlacementTemplateType::Diamond3x3SingleMarker,
+		EPlacementTemplateType::Diamond5x5TwoMarker,
+		EPlacementTemplateType::Diamond5x5FourMarker,
+		EPlacementTemplateType::Diamond7x7ThreeMarker
+	};
+
+	for (int i = 0; i < 10; ++i)
+	{
+		const std::string Name =
+			"BuildingExtra" + std::to_string(i + 1);
+		const auto& Offset = ExtraOffsets[i];
+		const EPlacementBuildingKind Kind = (i % 2 == 0) ?
+			EPlacementBuildingKind::BuildingA :
+			EPlacementBuildingKind::BuildingB;
+		const EPlacementTemplateType TemplateType =
+			TemplateCycle[i % 4];
+
+		CreatePlacementBuilding(
+			Name, Offset.first, Offset.second, Kind, TemplateType);
 	}
 
-	auto MarkerOrb =
-		CreateGameObject<CBuildingMarkerOrb>("BuildingMarkerOrb");
-	auto MarkerOrbObj = MarkerOrb.lock();
+	const int MarkerOrbCount = 200;
 
-	if (MarkerOrbObj)
+	for (int i = 0; i < MarkerOrbCount; ++i)
 	{
-		MarkerOrbObj->SetBuildingNames("BuildingA", "BuildingB");
+		const std::string OrbName = i == 0 ?
+			"BuildingMarkerOrb" :
+			"BuildingMarkerOrb" + std::to_string(i + 1);
+
+		auto MarkerOrb = CreateGameObject<CBuildingMarkerOrb>(OrbName);
+		auto MarkerOrbObj = MarkerOrb.lock();
+
+		if (!MarkerOrbObj)
+			continue;
+
+		MarkerOrbObj->SetRandomTargetNames(BuildingNames);
 		MarkerOrbObj->SetMoveSpeed(280.f);
 	}
 	// TileMap.lock()->LoadTileMap(TEXT("Map/MainMap.tlm"), "Asset");

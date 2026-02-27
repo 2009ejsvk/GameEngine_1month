@@ -45,8 +45,8 @@ bool CTileMapMain::Init()
 
 	if (TileMap)
 	{
-		const int CountX = 25;
-		const int CountY = 25;
+		const int CountX = 50;
+		const int CountY = 100;
 
 		TileMap->CreateTile(ETileShape::Isometric, CountX, CountY,
 			FVector2(160.f, 80.f));
