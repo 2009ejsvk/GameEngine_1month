@@ -290,8 +290,8 @@ public:
 
         Widget.reset(new T);
 
-        Widget->mWorld = World;
-        Widget->mSelf = Widget;
+        Widget->SetWorld(World);
+        Widget->SetSelf(Widget);
         Widget->SetName(Name);
         Widget->SetZOrder(ZOrder);
 

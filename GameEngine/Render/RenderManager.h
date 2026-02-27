@@ -138,7 +138,7 @@ public:
 
 		mMouseWidget[State].reset(new T);
 
-		mMouseWidget[State]->mSelf = mMouseWidget[State];
+		mMouseWidget[State]->SetSelf(mMouseWidget[State]);
 		mMouseWidget[State]->SetName(Name);
 
 		if (!mMouseWidget[State]->Init())

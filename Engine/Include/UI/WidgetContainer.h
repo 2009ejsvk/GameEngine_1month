@@ -21,9 +21,9 @@ protected:
 public:
     void AddWidget(const std::shared_ptr<CWidget>& Widget)
     {
-        Widget->mParent = mSelf;
-		Widget->mUIManager = mUIManager;
-		Widget->mWorld = mWorld;
+        Widget->SetParent(mSelf);
+		Widget->SetUIManager(mUIManager);
+		Widget->SetWorld(mWorld);
         mChildList.push_back(Widget);
     }
 
@@ -54,11 +54,11 @@ public:
 
 		Widget.reset(new T);
 		
-		Widget->mWorld = mWorld;
-		Widget->mSelf = Widget;
-		Widget->mUIManager = mUIManager;
+		Widget->SetWorld(mWorld);
+		Widget->SetSelf(Widget);
+		Widget->SetUIManager(mUIManager);
 		Widget->SetName(Name);
-		Widget->mParent = mSelf;
+		Widget->SetParent(mSelf);
 		Widget->SetZOrder(ZOrder);
 
 		if (!Widget->Init())

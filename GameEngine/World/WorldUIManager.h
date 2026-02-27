@@ -41,9 +41,9 @@ public:
 
 		Widget.reset(new T);
 
-		Widget->mWorld = mWorld;
-		Widget->mSelf = Widget;
-		Widget->mUIManager = mSelf;
+		Widget->SetWorld(mWorld);
+		Widget->SetSelf(Widget);
+		Widget->SetUIManager(mSelf);
 		Widget->SetName(Name);
 		Widget->SetZOrder(ZOrder);
 
