@@ -245,16 +245,5 @@ std::shared_ptr<CPlacementAreaObject> CMainCamera::PickPlacementObject(
     if (BuildingB && BuildingB->ContainsPlacedTile(MouseWorldPos))
         return BuildingB;
 
-    if (BuildingA && BuildingB)
-    {
-        const float DistA = BuildingA->GetCenterDistanceSq(MouseWorldPos);
-        const float DistB = BuildingB->GetCenterDistanceSq(MouseWorldPos);
-
-        return DistA <= DistB ? BuildingA : BuildingB;
-    }
-
-    if (BuildingA)
-        return BuildingA;
-
-    return BuildingB;
+    return nullptr;
 }
