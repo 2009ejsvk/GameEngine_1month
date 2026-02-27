@@ -45,6 +45,11 @@ private:
 #endif
 
 public:
+    float GetOrbDiameter() const
+    {
+        return mOrbDiameter;
+    }
+
     void SetBuildingNames(
         const std::string& BuildingAName,
         const std::string& BuildingBName)
