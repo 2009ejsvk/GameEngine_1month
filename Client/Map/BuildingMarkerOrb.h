@@ -34,6 +34,8 @@ private:
     float mAllowedOverlapRatio = 0.1f;
     float mSeparationStrength = 12.f;
     float mSeparationMaxSpeed = 180.f;
+    float mPathRetryInterval = 1.f;
+    float mPathRetryAccum = 0.f;
     bool mScaleInitialized = false;
     bool mHasStartPos = false;
 #ifdef _DEBUG

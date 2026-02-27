@@ -149,6 +149,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     }
 
     Movement->SetSpeed(mMoveSpeed);
+    mPathRetryAccum += DeltaTime;
 
     if (!mHasStartPos)
     {
@@ -161,6 +162,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             mCurrentTargetName = StartName;
 
         RequestMoveTo(mCurrentTargetName);
+        mPathRetryAccum = 0.f;
 
 #ifdef _DEBUG
         DebugOrbLog(
@@ -183,6 +185,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             return;
 
         RequestMoveTo(mCurrentTargetName);
+        mPathRetryAccum = 0.f;
         return;
     }
 
@@ -207,6 +210,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             return;
 
         RequestMoveTo(mCurrentTargetName);
+        mPathRetryAccum = 0.f;
         return;
     }
 
@@ -252,12 +256,15 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 #endif
 
         RequestMoveTo(mCurrentTargetName);
+        mPathRetryAccum = 0.f;
         return;
     }
 
-    if (Movement->GetPathTargetObjectName().empty())
+    if (mPathRetryAccum >= mPathRetryInterval &&
+        Movement->GetVelocity().IsZero())
     {
         RequestMoveTo(mCurrentTargetName);
+        mPathRetryAccum = 0.f;
     }
 
 #ifdef _DEBUG
