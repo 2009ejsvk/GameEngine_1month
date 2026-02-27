@@ -45,9 +45,9 @@ public:
 	{
 		mWidget.reset(new T);
 
-		mWidget->mWorld = mWorld;
-		mWidget->mSelf = mWidget;
-		mWidget->mUIManager = mWorld.lock()->GetUIManager();
+		mWidget->SetWorld(mWorld);
+		mWidget->SetSelf(mWidget);
+		mWidget->SetUIManager(mWorld.lock()->GetUIManager());
 		mWidget->SetName(Name);
 
 		if (!mWidget->Init())
