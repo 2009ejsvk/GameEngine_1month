@@ -405,12 +405,12 @@ void CPlayer::Destroy()
 
 float CPlayer::TakeDamage(float Damage)
 {
-	mHP -= Damage;
+	mHP -= static_cast<int>(Damage);
 
 	CRenderManager::GetInst()->EnablePostProcess("Hit");
 
-	if (mHP < 0.f)
-		mHP = 0.f;
+	if (mHP < 0)
+		mHP = 0;
 
 	auto	iter = mHPWidgetFunc.begin();
 	auto	iterEnd = mHPWidgetFunc.end();

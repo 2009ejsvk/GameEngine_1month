@@ -211,10 +211,10 @@ void CMonster::Update(float DeltaTime)
 
 float CMonster::TakeDamage(float Damage)
 {
-	mHP -= Damage;
+	mHP -= static_cast<int>(Damage);
 
-	if (mHP < 0.f)
-		mHP = 0.f;
+	if (mHP < 0)
+		mHP = 0;
 	char	Test[256] = {};
 	sprintf_s(Test, "HP : %d\n", mHP);
 	OutputDebugStringA(Test);

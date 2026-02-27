@@ -22,7 +22,10 @@ const std::string& CAnimation2DSequence::GetName()	const
 	auto	Anim = mAnimation.lock();
 
 	if (!Anim)
-		return std::string();
+	{
+		static const std::string EmptyName;
+		return EmptyName;
+	}
 
 	return Anim->GetName();
 }

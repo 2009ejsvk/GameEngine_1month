@@ -27,6 +27,12 @@ out/                   # CMake 등 빌드 출력
 *.tlog
 *.lastbuildstate
 
+# --- 필수 서드파티 라이브러리(빌드/실행에 필요) ---
+!Engine/Binary/DirectXTex.lib
+!Engine/Binary/DirectXTex_Debug.lib
+!Engine/Binary/fmod_vc.lib
+!Engine/Binary/fmod.dll
+
 # --- 게임 엔진 특화 (Shader 컴파일 등) ---
 *.gmcache
 *.aps

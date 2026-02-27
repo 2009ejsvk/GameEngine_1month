@@ -85,7 +85,7 @@ bool CMesh::CreateMesh(void* VertexData, int VertexSize, int VertexCount, D3D11_
 
 void CMesh::Render()
 {
-	UINT	Stride = mVB.Size;
+	UINT	Stride = static_cast<UINT>(mVB.Size);
 	UINT	Offset = 0;
 
 	// 출력할 도형 타입을 지정한다.
@@ -141,7 +141,11 @@ void CMesh::RenderInstancing(
 		InstancingBuffer.Buffer
 	};
 
-	UINT	Stride[2] = { mVB.Size, InstancingBuffer.Size };
+	UINT	Stride[2] =
+	{
+		static_cast<UINT>(mVB.Size),
+		static_cast<UINT>(InstancingBuffer.Size)
+	};
 	UINT	Offset[2] = {};
 
 	Context->IASetVertexBuffers(0, 2,
@@ -183,7 +187,7 @@ void CMesh::RenderInstancing(
 
 void CMesh::Render(int SlotIndex)
 {
-	UINT	Stride = mVB.Size;
+	UINT	Stride = static_cast<UINT>(mVB.Size);
 	UINT	Offset = 0;
 
 	// 출력할 도형 타입을 지정한다.
@@ -230,7 +234,11 @@ void CMesh::RenderInstancing(int SlotIndex,
 		InstancingBuffer.Buffer
 	};
 
-	UINT	Stride[2] = { mVB.Size, InstancingBuffer.Size };
+	UINT	Stride[2] =
+	{
+		static_cast<UINT>(mVB.Size),
+		static_cast<UINT>(InstancingBuffer.Size)
+	};
 	UINT	Offset[2] = {};
 
 	Context->IASetVertexBuffers(0, 2,

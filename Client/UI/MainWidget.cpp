@@ -107,7 +107,7 @@ bool CMainWidget::Init()
 
 	Number->SetPos(600.f, 50.f);
 	Number->SetSize(15.f, 25.f);
-	Number->SetNumber(325163246);
+	Number->SetNumber(static_cast<float>(325163246));
 	Number->SetNumberSize(46.f, 68.f);
 	Number->SetTexture("Number", TEXT("Number.png"));
 

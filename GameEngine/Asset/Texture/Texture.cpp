@@ -375,9 +375,9 @@ bool CTexture::CreateResourceViewArray()
 	Desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
 	Desc.Texture2DArray.MostDetailedMip = 0;
 	Desc.Texture2DArray.MipLevels =
-		mTextureList[0]->Image->GetMetadata().mipLevels;
+		static_cast<UINT>(mTextureList[0]->Image->GetMetadata().mipLevels);
 	Desc.Texture2DArray.FirstArraySlice = 0;
-	Desc.Texture2DArray.ArraySize = (UINT)Count;
+	Desc.Texture2DArray.ArraySize = static_cast<UINT>(Count);
 
 	if (FAILED(Device->CreateShaderResourceView(Texture, &Desc,
 		&mArraySRV)))
