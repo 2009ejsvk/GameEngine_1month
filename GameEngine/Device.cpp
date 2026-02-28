@@ -264,6 +264,28 @@ void CDevice::BeginRender()
 
 void CDevice::EndRender()
 {
+	LARGE_INTEGER StartCount = {};
+	LARGE_INTEGER EndCount = {};
+	static LARGE_INTEGER Frequency = {};
+	static bool FrequencyInitialized = false;
+
+	if (!FrequencyInitialized)
+	{
+		QueryPerformanceFrequency(&Frequency);
+		FrequencyInitialized = true;
+	}
+
+	QueryPerformanceCounter(&StartCount);
+
 	// 백버퍼를 화면에 보여준다.
 	mSwapChain->Present(0, 0);
+
+	QueryPerformanceCounter(&EndCount);
+
+	if (Frequency.QuadPart > 0)
+	{
+		mLastPresentTimeMs =
+			(float)(EndCount.QuadPart - StartCount.QuadPart) *
+			1000.f / (float)Frequency.QuadPart;
+	}
 }

@@ -12,6 +12,11 @@ private:
 	static float	mFPS;
 	static float	mFPSTime;
 	static int		mFPSTick;
+	static float	mFrameMsAccum;
+	static float	mPresentMsAccum;
+	static float	mCPUFPS;
+	static float	mCPUFrameMs;
+	static float	mPresentMs;
 
 public:
 	static float GetDeltaTime()
@@ -22,6 +27,21 @@ public:
 	static float GetFPS()
 	{
 		return mFPS;
+	}
+
+	static float GetCPUFPS()
+	{
+		return mCPUFPS;
+	}
+
+	static float GetCPUFrameMs()
+	{
+		return mCPUFrameMs;
+	}
+
+	static float GetPresentMs()
+	{
+		return mPresentMs;
 	}
 
 public:

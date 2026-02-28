@@ -28,6 +28,7 @@ private:
 	FVector2		mTexelSize;
 
 	bool		mWindowMode = false;
+	float		mLastPresentTimeMs = 0.f;
 
 	HWND		mhWnd;
 
@@ -64,6 +65,11 @@ public:
 	bool GetWindowMode()	const
 	{
 		return mWindowMode;
+	}
+
+	float GetLastPresentTimeMs() const
+	{
+		return mLastPresentTimeMs;
 	}
 
 	FVector2 GetResolutionRatio()	const

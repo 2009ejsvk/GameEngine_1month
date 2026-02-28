@@ -4,6 +4,7 @@
 #include "../World/WorldAssetManager.h"
 #include "../World/CameraManager.h"
 #include "../World/WorldManager.h"
+#include "CameraComponent.h"
 #include "../Asset/AssetManager.h"
 #include "../Asset/Shader/Shader.h"
 #include "../Asset/Shader/ShaderManager.h"
@@ -545,31 +546,47 @@ void CTileMapComponent::PostUpdate(float DeltaTime)
 	Center -= mOwner.lock()->GetWorldPos();
 
 	FResolution	RS = CDevice::GetInst()->GetResolution();
+	float ViewWidth = (float)RS.Width;
+	float ViewHeight = (float)RS.Height;
+	auto CameraMgr = World->GetCameraManager().lock();
+
+	if (CameraMgr)
+	{
+		auto MainCamera = CameraMgr->GetMainCamera().lock();
+
+		if (MainCamera &&
+			MainCamera->GetProjectionType() ==
+			ECameraProjectionType::Ortho)
+		{
+			ViewWidth = MainCamera->GetViewWidth();
+			ViewHeight = MainCamera->GetViewHeight();
+		}
+	}
 
 	if (mUseViewCulling)
 	{
 		switch (mShape)
 		{
 		case Rect:
-			mViewStartX = (int)((Center.x - RS.Width * 0.5f) /
+			mViewStartX = (int)((Center.x - ViewWidth * 0.5f) /
 				mTileSize.x);
-			mViewStartY = (int)((Center.y - RS.Height * 0.5f) /
+			mViewStartY = (int)((Center.y - ViewHeight * 0.5f) /
 				mTileSize.y);
 
-			mViewEndX = (int)((Center.x + RS.Width * 0.5f) /
+			mViewEndX = (int)((Center.x + ViewWidth * 0.5f) /
 				mTileSize.x);
-			mViewEndY = (int)((Center.y + RS.Height * 0.5f) /
+			mViewEndY = (int)((Center.y + ViewHeight * 0.5f) /
 				mTileSize.y);
 			break;
 		case Isometric:
 		{
 			FVector2	LB, RT;
 
-			LB.x = Center.x - RS.Width * 0.5f;
-			LB.y = Center.y - RS.Height * 0.5f;
+			LB.x = Center.x - ViewWidth * 0.5f;
+			LB.y = Center.y - ViewHeight * 0.5f;
 
-			RT.x = Center.x + RS.Width * 0.5f;
-			RT.y = Center.y + RS.Height * 0.5f;
+			RT.x = Center.x + ViewWidth * 0.5f;
+			RT.y = Center.y + ViewHeight * 0.5f;
 
 			mViewStartX = GetTileRenderIndexX(LB);
 			mViewStartY = GetTileRenderIndexY(LB);
@@ -619,7 +636,6 @@ void CTileMapComponent::PostUpdate(float DeltaTime)
 	}
 
 	auto	Owner = mOwner.lock();
-	auto	CameraMgr = World->GetCameraManager().lock();
 
 	mInstancingCount = 0;
 	mLineInstancingCount = 0;

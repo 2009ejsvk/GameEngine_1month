@@ -1,4 +1,5 @@
 #include "Timer.h"
+#include "Device.h"
 
 LARGE_INTEGER CTimer::mFrequency;
 LARGE_INTEGER CTimer::mPrevCount;
@@ -6,6 +7,11 @@ float CTimer::mDeltaTime = 0.f;
 float CTimer::mFPS = 0.f;
 float CTimer::mFPSTime = 0.f;
 int CTimer::mFPSTick = 0;
+float CTimer::mFrameMsAccum = 0.f;
+float CTimer::mPresentMsAccum = 0.f;
+float CTimer::mCPUFPS = 0.f;
+float CTimer::mCPUFrameMs = 0.f;
+float CTimer::mPresentMs = 0.f;
 
 void CTimer::Init()
 {
@@ -32,23 +38,56 @@ float CTimer::Update(HWND hWnd)
 	mPrevCount = Count;
 
 	mFPSTime += mDeltaTime;
+	mFrameMsAccum += mDeltaTime * 1000.f;
+	mPresentMsAccum += CDevice::GetInst()->GetLastPresentTimeMs();
 
 	++mFPSTick;
 
 	if (mFPSTick == 60)
 	{
-		mFPS = mFPSTick / mFPSTime;
+		const float AvgFrameMs = mFrameMsAccum / (float)mFPSTick;
+		const float AvgPresentMs = mPresentMsAccum / (float)mFPSTick;
+		float AvgCPUFrameMs = AvgFrameMs - AvgPresentMs;
+
+		if (AvgCPUFrameMs < 0.f)
+		{
+			AvgCPUFrameMs = 0.f;
+		}
+
+		mFPS = AvgFrameMs > 0.f ? (1000.f / AvgFrameMs) : 0.f;
+		mCPUFPS = AvgCPUFrameMs > 0.0001f ?
+			(1000.f / AvgCPUFrameMs) : 0.f;
+		mCPUFrameMs = AvgCPUFrameMs;
+		mPresentMs = AvgPresentMs;
 		mFPSTime = 0.f;
 		mFPSTick = 0;
+		mFrameMsAccum = 0.f;
+		mPresentMsAccum = 0.f;
 
-		char	FPSText[64] = {};
+		char	FPSText[160] = {};
 
-		sprintf_s(FPSText, "FPS : %.5f\n", mFPS);
+		if (mCPUFPS > 0.f)
+		{
+			sprintf_s(FPSText,
+				"FPS: %.2f | CPU FPS: %.2f | CPU: %.2fms | Present: %.2fms",
+				mFPS, mCPUFPS, mCPUFrameMs, mPresentMs);
+		}
+
+		else
+		{
+			sprintf_s(FPSText,
+				"FPS: %.2f | CPU: %.2fms | Present: %.2fms",
+				mFPS, mCPUFrameMs, mPresentMs);
+		}
+
+		if (hWnd)
+		{
+			SetWindowTextA(hWnd, FPSText);
+		}
 
 #ifdef _DEBUG
 		OutputDebugStringA(FPSText);
-#else
-		SetWindowTextA(hWnd, FPSText);
+		OutputDebugStringA("\n");
 #endif // _DEBUG
 	}
 

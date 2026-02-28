@@ -50,7 +50,7 @@ bool CTileMapMain::Init()
 
 		TileMap->CreateTile(ETileShape::Isometric, CountX, CountY,
 			FVector2(160.f, 80.f));
-		TileMap->SetViewCulling(false);
+		TileMap->SetViewCulling(true);
 		TileMap->SetTileTextureSize(1.f, 1.f);
 
 		TileMap->SetTileFrameAll(0);
