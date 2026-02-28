@@ -14,6 +14,8 @@
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Player/MainCamera.h"
 #include <algorithm>
+#include <numeric>
+#include <random>
 #include <string>
 #include <utility>
 #include <vector>
@@ -57,41 +59,37 @@ namespace
 	std::vector<FBuildingDefinition> BuildMainWorldBuildingDefinitions()
 	{
 		std::vector<FBuildingDefinition> Definitions;
-		Definitions.reserve(4);
+		const int DefinitionCount = 30;
+		Definitions.reserve(DefinitionCount);
 
-		Definitions.push_back({
-			"building_a",
-			EPlacementBuildingKind::BuildingA,
-			EPlacementTemplateType::Diamond3x3SingleMarker
-			});
-		Definitions.push_back({
-			"building_b",
-			EPlacementBuildingKind::BuildingB,
-			EPlacementTemplateType::Diamond5x5TwoMarker
-			});
-		Definitions.push_back({
-			"building_c",
-			EPlacementBuildingKind::BuildingA,
-			EPlacementTemplateType::Diamond5x5FourMarker
-			});
-		Definitions.push_back({
-			"building_d",
-			EPlacementBuildingKind::BuildingB,
+		const EPlacementTemplateType TemplateCycle[4] =
+		{
+			EPlacementTemplateType::Diamond3x3SingleMarker,
+			EPlacementTemplateType::Diamond5x5TwoMarker,
+			EPlacementTemplateType::Diamond5x5FourMarker,
 			EPlacementTemplateType::Diamond7x7ThreeMarker
-			});
+		};
+
+		for (int i = 0; i < DefinitionCount; ++i)
+		{
+			Definitions.push_back({
+				"building_" + std::to_string(i + 1),
+				(i % 2 == 0) ?
+					EPlacementBuildingKind::BuildingA :
+					EPlacementBuildingKind::BuildingB,
+				TemplateCycle[i % 4]
+				});
+		}
 
 		return Definitions;
 	}
 
-	std::vector<FBuildingSpawnData> BuildMainWorldBuildingSpawns()
+	std::vector<FBuildingSpawnData> BuildMainWorldBuildingSpawns(
+		const std::vector<FBuildingDefinition>& Definitions)
 	{
 		std::vector<FBuildingSpawnData> Spawns;
-		Spawns.reserve(12);
 
-		Spawns.push_back({ "BuildingA", "building_a", -6, 0 });
-		Spawns.push_back({ "BuildingB", "building_b", 6, 0 });
-
-		const std::pair<int, int> ExtraOffsets[10] =
+		const std::pair<int, int> SpawnOffsets[10] =
 		{
 			{ -18, 0 },
 			{ -12, -8 },
@@ -105,21 +103,35 @@ namespace
 			{ 12, 0 }
 		};
 
-		const char* DefinitionCycle[4] =
-		{
-			"building_a",
-			"building_b",
-			"building_c",
-			"building_d"
-		};
+		if (Definitions.empty())
+			return Spawns;
 
-		for (int i = 0; i < 10; ++i)
+		std::vector<size_t> DefinitionIndices(Definitions.size());
+		std::iota(
+			DefinitionIndices.begin(), DefinitionIndices.end(), 0);
+
+		std::random_device RandomDevice;
+		std::mt19937 RandomEngine(RandomDevice());
+		std::shuffle(
+			DefinitionIndices.begin(),
+			DefinitionIndices.end(),
+			RandomEngine);
+
+		const size_t SpawnCount = (std::min)(
+			static_cast<size_t>(10),
+			Definitions.size());
+		Spawns.reserve(SpawnCount);
+
+		for (size_t i = 0; i < SpawnCount; ++i)
 		{
+			const FBuildingDefinition& Definition =
+				Definitions[DefinitionIndices[i]];
+
 			Spawns.push_back({
-				"BuildingExtra" + std::to_string(i + 1),
-				DefinitionCycle[i % 4],
-				ExtraOffsets[i].first,
-				ExtraOffsets[i].second
+				"Building" + std::to_string(i + 1),
+				Definition.Id,
+				SpawnOffsets[i].first,
+				SpawnOffsets[i].second
 				});
 		}
 
@@ -224,7 +236,7 @@ bool CMainWorld::Init()
 	const std::vector<FBuildingDefinition> BuildingDefinitions =
 		BuildMainWorldBuildingDefinitions();
 	const std::vector<FBuildingSpawnData> BuildingSpawns =
-		BuildMainWorldBuildingSpawns();
+		BuildMainWorldBuildingSpawns(BuildingDefinitions);
 
 	std::vector<std::string> BuildingNames;
 	BuildingNames.reserve(BuildingSpawns.size());
