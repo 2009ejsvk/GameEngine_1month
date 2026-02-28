@@ -13,9 +13,119 @@
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Player/MainCamera.h"
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
+
+namespace
+{
+	struct FBuildingDefinition
+	{
+		std::string Id;
+		EPlacementBuildingKind Kind =
+			EPlacementBuildingKind::BuildingB;
+		EPlacementTemplateType TemplateType =
+			EPlacementTemplateType::Diamond3x3SingleMarker;
+	};
+
+	struct FBuildingSpawnData
+	{
+		std::string Name;
+		std::string DefinitionId;
+		int OffsetX = 0;
+		int OffsetY = 0;
+	};
+
+	const FBuildingDefinition* FindBuildingDefinition(
+		const std::vector<FBuildingDefinition>& Definitions,
+		const std::string& Id)
+	{
+		const auto It = std::find_if(
+			Definitions.begin(), Definitions.end(),
+			[&](const FBuildingDefinition& Definition)
+			{
+				return Definition.Id == Id;
+			});
+
+		if (It == Definitions.end())
+			return nullptr;
+
+		return &(*It);
+	}
+
+	std::vector<FBuildingDefinition> BuildMainWorldBuildingDefinitions()
+	{
+		std::vector<FBuildingDefinition> Definitions;
+		Definitions.reserve(4);
+
+		Definitions.push_back({
+			"building_a",
+			EPlacementBuildingKind::BuildingA,
+			EPlacementTemplateType::Diamond3x3SingleMarker
+			});
+		Definitions.push_back({
+			"building_b",
+			EPlacementBuildingKind::BuildingB,
+			EPlacementTemplateType::Diamond5x5TwoMarker
+			});
+		Definitions.push_back({
+			"building_c",
+			EPlacementBuildingKind::BuildingA,
+			EPlacementTemplateType::Diamond5x5FourMarker
+			});
+		Definitions.push_back({
+			"building_d",
+			EPlacementBuildingKind::BuildingB,
+			EPlacementTemplateType::Diamond7x7ThreeMarker
+			});
+
+		return Definitions;
+	}
+
+	std::vector<FBuildingSpawnData> BuildMainWorldBuildingSpawns()
+	{
+		std::vector<FBuildingSpawnData> Spawns;
+		Spawns.reserve(12);
+
+		Spawns.push_back({ "BuildingA", "building_a", -6, 0 });
+		Spawns.push_back({ "BuildingB", "building_b", 6, 0 });
+
+		const std::pair<int, int> ExtraOffsets[10] =
+		{
+			{ -18, 0 },
+			{ -12, -8 },
+			{ -12, 8 },
+			{ -6, -14 },
+			{ -6, 14 },
+			{ 0, -18 },
+			{ 0, 18 },
+			{ 6, -14 },
+			{ 6, 14 },
+			{ 12, 0 }
+		};
+
+		const char* DefinitionCycle[4] =
+		{
+			"building_a",
+			"building_b",
+			"building_c",
+			"building_d"
+		};
+
+		for (int i = 0; i < 10; ++i)
+		{
+			Spawns.push_back({
+				"BuildingExtra" + std::to_string(i + 1),
+				DefinitionCycle[i % 4],
+				ExtraOffsets[i].first,
+				ExtraOffsets[i].second
+				});
+		}
+
+		return Spawns;
+	}
+}
 
 CMainWorld::CMainWorld()
 {
@@ -111,69 +221,39 @@ bool CMainWorld::Init()
 		}
 	}
 
-	std::vector<std::string> BuildingNames;
-	BuildingNames.reserve(12);
+	const std::vector<FBuildingDefinition> BuildingDefinitions =
+		BuildMainWorldBuildingDefinitions();
+	const std::vector<FBuildingSpawnData> BuildingSpawns =
+		BuildMainWorldBuildingSpawns();
 
-	auto CreatePlacementBuilding =
-		[&](const std::string& Name, int OffsetX, int OffsetY,
-			EPlacementBuildingKind Kind,
-			EPlacementTemplateType TemplateType)
+	std::vector<std::string> BuildingNames;
+	BuildingNames.reserve(BuildingSpawns.size());
+
+	auto CreatePlacementBuilding = [&](const FBuildingSpawnData& Spawn)
 	{
-		auto Building = CreateGameObject<CPlacementAreaObject>(Name);
+		const FBuildingDefinition* Definition = FindBuildingDefinition(
+			BuildingDefinitions, Spawn.DefinitionId);
+
+		if (!Definition)
+			return;
+
+		auto Building = CreateGameObject<CPlacementAreaObject>(Spawn.Name);
 		auto BuildingObj = Building.lock();
 
 		if (!BuildingObj)
 			return;
 
 		BuildingObj->SetTileMapObject(TileMapObj);
-		BuildingObj->SetInitialCenterOffset(OffsetX, OffsetY);
-		BuildingObj->SetBuildingKind(Kind);
-		BuildingObj->SetPlacementTemplateType(TemplateType);
-		BuildingNames.push_back(Name);
+		BuildingObj->SetInitialCenterOffset(Spawn.OffsetX, Spawn.OffsetY);
+		BuildingObj->SetBuildingId(Definition->Id);
+		BuildingObj->SetBuildingKind(Definition->Kind);
+		BuildingObj->SetPlacementTemplateType(Definition->TemplateType);
+		BuildingNames.push_back(Spawn.Name);
 	};
 
-	CreatePlacementBuilding("BuildingA", -6, 0,
-		EPlacementBuildingKind::BuildingA,
-		EPlacementTemplateType::Diamond3x3SingleMarker);
-	CreatePlacementBuilding("BuildingB", 6, 0,
-		EPlacementBuildingKind::BuildingB,
-		EPlacementTemplateType::Diamond5x5TwoMarker);
-
-	const std::pair<int, int> ExtraOffsets[10] =
+	for (size_t i = 0; i < BuildingSpawns.size(); ++i)
 	{
-		{ -18, 0 },
-		{ -12, -8 },
-		{ -12, 8 },
-		{ -6, -14 },
-		{ -6, 14 },
-		{ 0, -18 },
-		{ 0, 18 },
-		{ 6, -14 },
-		{ 6, 14 },
-		{ 12, 0 }
-	};
-
-	const EPlacementTemplateType TemplateCycle[4] =
-	{
-		EPlacementTemplateType::Diamond3x3SingleMarker,
-		EPlacementTemplateType::Diamond5x5TwoMarker,
-		EPlacementTemplateType::Diamond5x5FourMarker,
-		EPlacementTemplateType::Diamond7x7ThreeMarker
-	};
-
-	for (int i = 0; i < 10; ++i)
-	{
-		const std::string Name =
-			"BuildingExtra" + std::to_string(i + 1);
-		const auto& Offset = ExtraOffsets[i];
-		const EPlacementBuildingKind Kind = (i % 2 == 0) ?
-			EPlacementBuildingKind::BuildingA :
-			EPlacementBuildingKind::BuildingB;
-		const EPlacementTemplateType TemplateType =
-			TemplateCycle[i % 4];
-
-		CreatePlacementBuilding(
-			Name, Offset.first, Offset.second, Kind, TemplateType);
+		CreatePlacementBuilding(BuildingSpawns[i]);
 	}
 
 	const int MarkerOrbCount = 200;

@@ -64,6 +64,7 @@ private:
     int mPreviewCenterIndex = -1;
     int mInitialCenterOffsetX = 0;
     int mInitialCenterOffsetY = 0;
+    std::string mBuildingId;
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
@@ -84,6 +85,16 @@ public:
     void SetBuildingKind(EPlacementBuildingKind Kind)
     {
         mBuildingKind = Kind;
+    }
+
+    void SetBuildingId(const std::string& Id)
+    {
+        mBuildingId = Id;
+    }
+
+    const std::string& GetBuildingId() const
+    {
+        return mBuildingId;
     }
 
     void SetPlacementTemplateType(EPlacementTemplateType Type);
