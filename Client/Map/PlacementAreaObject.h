@@ -57,12 +57,17 @@ private:
     std::weak_ptr<class CTileMapObject> mTileMapObject;
     std::weak_ptr<class CTileMapObject> mBlueOverlayTileMapObject;
     std::weak_ptr<class CTileMapObject> mYellowOverlayTileMapObject;
+    std::weak_ptr<class CTileMapObject> mWallTileMapObject;
     std::weak_ptr<class CTileMapObject> mCeilingTileMapObject;
+    std::weak_ptr<class CMeshComponent> mWallMeshComponent;
+    std::string mWallMeshName;
+    int mWallMeshVersion = 0;
     std::vector<int> mPlacedIndices;
     std::vector<int> mPrimaryPlacedIndices;
     std::vector<int> mExtendedPlacedIndices;
     std::vector<int> mAppliedPrimaryOverlayIndices;
     std::vector<int> mAppliedMarkerOverlayIndices;
+    std::vector<int> mAppliedWallOverlayIndices;
     std::vector<int> mAppliedCeilingOverlayIndices;
     std::vector<int> mPreviewIndices;
     bool mPreviewCanPlace = false;
@@ -144,11 +149,24 @@ private:
         std::shared_ptr<class CTileMapComponent>& OutTileMap);
     bool AcquireYellowOverlayTileMap(
         std::shared_ptr<class CTileMapComponent>& OutTileMap);
+    bool AcquireWallTileMap(
+        std::shared_ptr<class CTileMapComponent>& OutTileMap);
     bool AcquireCeilingTileMap(
         std::shared_ptr<class CTileMapComponent>& OutTileMap);
     void UpdatePrimaryOverlayTiles(const std::vector<int>& NextIndices);
     void UpdateMarkerOverlayTiles(const std::vector<int>& NextIndices);
+    void UpdateWallOverlayTiles(const std::vector<int>& NextIndices);
     void UpdateCeilingOverlayTiles(const std::vector<int>& NextIndices);
+    void BuildWallIndices(
+        const std::shared_ptr<class CTileMapComponent>& TileMap,
+        std::vector<int>& OutIndices) const;
+    bool BuildWallMeshGeometry(
+        const std::shared_ptr<class CTileMapComponent>& TileMap,
+        std::vector<FVertexColor>& OutVertices,
+        std::vector<unsigned int>& OutIndices) const;
+    void RefreshWallMeshAnchor();
+    void RebuildWallMesh(const std::shared_ptr<class CTileMapComponent>& TileMap);
+    void ClearWallMesh();
     bool BuildPlacementAreaIndices(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, std::vector<int>& OutIndices) const;
