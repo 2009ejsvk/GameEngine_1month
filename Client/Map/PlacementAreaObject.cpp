@@ -281,7 +281,9 @@ void CPlacementAreaObject::GetNavigationBlockedTiles(
 {
     EnsurePlacementObject();
 
-    if (!mTileMapPrepared || mPrimaryPlacedIndices.empty())
+    if (!mTileMapPrepared ||
+        (mPrimaryPlacedIndices.empty() &&
+            mExtendedPlacedIndices.empty()))
         return;
 
     std::vector<int> GoalTiles;
@@ -290,6 +292,19 @@ void CPlacementAreaObject::GetNavigationBlockedTiles(
     for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
     {
         const int Index = mPrimaryPlacedIndices[i];
+
+        if (std::find(GoalTiles.begin(), GoalTiles.end(), Index) !=
+            GoalTiles.end())
+        {
+            continue;
+        }
+
+        OutIndices.push_back(Index);
+    }
+
+    for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
+    {
+        const int Index = mExtendedPlacedIndices[i];
 
         if (std::find(GoalTiles.begin(), GoalTiles.end(), Index) !=
             GoalTiles.end())
@@ -425,6 +440,65 @@ bool CPlacementAreaObject::ContainsExtendedPlacedTileIndex(int TileIndex)
 {
     EnsurePlacementObject();
     return IsExtendedPlacedIndex(TileIndex);
+}
+
+bool CPlacementAreaObject::ContainsBackOcclusionTileIndex(int TileIndex)
+{
+    EnsurePlacementObject();
+
+    if (!mTileMapPrepared || TileIndex < 0)
+        return false;
+
+    if (IsExtendedPlacedIndex(TileIndex))
+        return true;
+
+    // 벽 구간(Primary 에지 ~ Extended 사이) 타일 체크
+    if (IsWallZoneIndex(TileIndex))
+        return true;
+
+    if (!IsPrimaryPlacedIndex(TileIndex))
+        return false;
+
+    std::shared_ptr<CTileMapComponent> TileMap;
+
+    if (!AcquireTileMap(TileMap))
+        return true;
+
+    if (mPlacedCenterIndex < 0)
+        return true;
+
+    auto CenterTile = TileMap->GetTile(mPlacedCenterIndex).lock();
+    auto Tile = TileMap->GetTile(TileIndex).lock();
+
+    if (!CenterTile || !Tile)
+        return true;
+
+    const int CountX = TileMap->GetTileCountX();
+    const int CountY = TileMap->GetTileCountY();
+    const int PrimaryCenterX = CenterTile->GetIndexX();
+    const int PrimaryCenterY = CenterTile->GetIndexY();
+
+    if (PrimaryCenterX < 0 || PrimaryCenterX >= CountX ||
+        PrimaryCenterY < 0 || PrimaryCenterY >= CountY)
+    {
+        return true;
+    }
+
+    const float CenterLogicalX = PrimaryCenterX +
+        ((PrimaryCenterY % 2 == 0) ? 0.f : 0.5f);
+    const float CenterLogicalY = PrimaryCenterY * 0.5f;
+    const float TileLogicalX = Tile->GetIndexX() +
+        ((Tile->GetIndexY() % 2 == 0) ? 0.f : 0.5f);
+    const float TileLogicalY = Tile->GetIndexY() * 0.5f;
+    const float DistX = fabs(TileLogicalX - CenterLogicalX);
+    const float DistY = fabs(TileLogicalY - CenterLogicalY);
+    const float DiamondRadius = static_cast<float>(mTemplate.DiamondRadius);
+    const float BoundaryError = fabs((DistX + DistY) - DiamondRadius);
+    const bool IsBoundaryTile = BoundaryError <= 0.001f;
+    const bool IsLowerDiagonalEdge =
+        IsBoundaryTile && TileLogicalY >= CenterLogicalY;
+
+    return !IsLowerDiagonalEdge;
 }
 
 float CPlacementAreaObject::GetCenterDistanceSq(
@@ -618,6 +692,7 @@ void CPlacementAreaObject::ResetPlacementState()
     mPlacedCenterIndex = -1;
     mPreviewCenterIndex = -1;
     mMarkerTileIndices.clear();
+    mWallZoneIndices.clear();
 }
 
 void CPlacementAreaObject::EnsurePlacementObject()
@@ -1484,6 +1559,9 @@ void CPlacementAreaObject::RebuildWallMesh(
     BuildWallMeshSection(
         BackWallMesh, true,
         mBackWallMeshName, mBackWallMeshVersion, "MapWallBack");
+
+    // 벽 구간 타일 인덱스를 캐시 (가림 판정용)
+    BuildWallIndices(TileMap, mWallZoneIndices);
 }
 
 void CPlacementAreaObject::ClearWallMesh()
@@ -1499,6 +1577,7 @@ void CPlacementAreaObject::ClearWallMesh()
 
     mWallMeshName.clear();
     mBackWallMeshName.clear();
+    mWallZoneIndices.clear();
 }
 
 bool CPlacementAreaObject::BuildPlacementAreaIndices(
@@ -1694,6 +1773,17 @@ bool CPlacementAreaObject::IsExtendedPlacedIndex(int Index) const
     for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
     {
         if (mExtendedPlacedIndices[i] == Index)
+            return true;
+    }
+
+    return false;
+}
+
+bool CPlacementAreaObject::IsWallZoneIndex(int Index) const
+{
+    for (size_t i = 0; i < mWallZoneIndices.size(); ++i)
+    {
+        if (mWallZoneIndices[i] == Index)
             return true;
     }
 

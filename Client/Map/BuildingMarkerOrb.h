@@ -36,6 +36,8 @@ private:
     float mSeparationMaxSpeed = 180.f;
     float mPathRetryInterval = 1.f;
     float mPathRetryAccum = 0.f;
+    float mOcclusionAlpha = 1.f;
+    float mOcclusionFadeSpeed = 5.f;
     bool mScaleInitialized = false;
     bool mHasStartPos = false;
 #ifdef _DEBUG
@@ -119,6 +121,7 @@ private:
     void ApplySoftSeparation(float DeltaTime);
     void RefreshBuildings();
     void UpdateScaleFromTileSize();
+    void UpdateVisibilityByBuildingOcclusion(float DeltaTime);
     bool CollectTargetMarkers(
         std::vector<std::pair<std::string, FVector3>>& OutMarkers);
     std::string PickRandomTargetName(

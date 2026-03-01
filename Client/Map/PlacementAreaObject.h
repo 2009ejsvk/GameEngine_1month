@@ -84,6 +84,7 @@ private:
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
+    std::vector<int> mWallZoneIndices;
 
 public:
     void SetTileMapObject(
@@ -132,6 +133,7 @@ public:
     void CancelMovePreview();
     bool ContainsPlacedTile(const FVector2& MouseWorldPos);
     bool ContainsExtendedPlacedTileIndex(int TileIndex);
+    bool ContainsBackOcclusionTileIndex(int TileIndex);
     float GetCenterDistanceSq(const FVector2& MouseWorldPos) const;
     bool GetMarkerWorldPos(FVector3& OutWorldPos);
     bool GetMarkerWorldPositions(std::vector<FVector3>& OutWorldPosList);
@@ -192,6 +194,7 @@ private:
     bool IsPlacedIndex(int Index) const;
     bool IsPrimaryPlacedIndex(int Index) const;
     bool IsExtendedPlacedIndex(int Index) const;
+    bool IsWallZoneIndex(int Index) const;
     int FindMarkerTileIndexByLogicalOffset(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, const std::vector<int>& Indices,

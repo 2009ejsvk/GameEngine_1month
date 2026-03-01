@@ -297,10 +297,9 @@ bool CMainWorld::Init()
 		if (BaseTileMap)
 		{
 			ResolveLayerOrder("MapFloorBlue", 2, ERenderListSort::None);
-			ResolveLayerOrder("MapFloorYellow", 3, ERenderListSort::None);
-			ResolveLayerOrder("MapWallFront", 4, ERenderListSort::None);
-			ResolveLayerOrder("MarkerOrb", 5, ERenderListSort::Y);
-			ResolveLayerOrder("MapWallBack", 6, ERenderListSort::None);
+			ResolveLayerOrder("MapWallBack", 3, ERenderListSort::None);
+			ResolveLayerOrder("MarkerOrb", 4, ERenderListSort::Y);
+			ResolveLayerOrder("MapWallFront", 6, ERenderListSort::None);
 			ResolveLayerOrder("MapCeiling", 7, ERenderListSort::None);
 
 			ConfigureOverlayTileMap(FloorBlueTileMapObj,
@@ -308,8 +307,8 @@ bool CMainWorld::Init()
 				2, ERenderListSort::None,
 				FVector4::Blue);
 			ConfigureOverlayTileMap(FloorYellowTileMapObj,
-				"MapFloorYellow",
-				3, ERenderListSort::None,
+				"MapFloorBlue",
+				2, ERenderListSort::None,
 				FVector4(1.f, 1.f, 0.f, 1.f));
 			ConfigureOverlayTileMap(CeilingTileMapObj,
 				"MapCeiling",
