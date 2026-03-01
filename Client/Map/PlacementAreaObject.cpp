@@ -282,32 +282,25 @@ void CPlacementAreaObject::GetNavigationBlockedTiles(
     EnsurePlacementObject();
 
     if (!mTileMapPrepared ||
-        (mPrimaryPlacedIndices.empty() &&
-            mExtendedPlacedIndices.empty()))
+        mPrimaryPlacedIndices.empty())
         return;
 
     std::vector<int> GoalTiles;
     GetNavigationGoalTiles(GoalTiles);
 
+    auto IsGoalTile = [&](int TileIndex)
+    {
+        return std::find(GoalTiles.begin(), GoalTiles.end(), TileIndex) !=
+            GoalTiles.end();
+    };
+
+    // 경로 막힘은 바닥(Primary)만 반영하고,
+    // 천장/가림 용도인 Extended는 장애물로 취급하지 않는다.
     for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
     {
         const int Index = mPrimaryPlacedIndices[i];
 
-        if (std::find(GoalTiles.begin(), GoalTiles.end(), Index) !=
-            GoalTiles.end())
-        {
-            continue;
-        }
-
-        OutIndices.push_back(Index);
-    }
-
-    for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
-    {
-        const int Index = mExtendedPlacedIndices[i];
-
-        if (std::find(GoalTiles.begin(), GoalTiles.end(), Index) !=
-            GoalTiles.end())
+        if (IsGoalTile(Index))
         {
             continue;
         }
