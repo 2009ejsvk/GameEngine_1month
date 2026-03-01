@@ -200,79 +200,119 @@ bool CMainWorld::Init()
 	auto TileMap = CreateGameObject<CTileMapMain>("TileMap");
 	auto TileMapObj = std::dynamic_pointer_cast<CTileMapObject>(
 		TileMap.lock());
+	auto FloorBlueTileMap =
+		CreateGameObject<CTileMapObject>("TileMapFloorBlue");
+	auto FloorBlueTileMapObj = FloorBlueTileMap.lock();
+	auto FloorYellowTileMap =
+		CreateGameObject<CTileMapObject>("TileMapFloorYellow");
+	auto FloorYellowTileMapObj = FloorYellowTileMap.lock();
 	auto CeilingTileMap =
 		CreateGameObject<CTileMapObject>("TileMapCeiling");
 	auto CeilingTileMapObj = CeilingTileMap.lock();
 	auto MainCameraObj = MainCamera.lock();
 
-	if (TileMapObj && CeilingTileMapObj)
+	if (TileMapObj &&
+		FloorBlueTileMapObj &&
+		FloorYellowTileMapObj &&
+		CeilingTileMapObj)
 	{
 		auto BaseTileMap = TileMapObj->GetTileMap().lock();
-		auto CeilingRender =
-			CeilingTileMapObj->FindComponent<CTileMapRender>().lock();
-		auto CeilingMap = CeilingTileMapObj->GetTileMap().lock();
 
-		if (BaseTileMap && CeilingRender && CeilingMap)
+		auto ResolveLayerOrder = [](
+			const std::string& LayerName,
+			int PreferredOrder,
+			ERenderListSort SortType)
 		{
 			auto RenderMgr = CRenderManager::GetInst();
-			int CeilingLayerOrder =
-				RenderMgr->GetLayerOrder("MapCeiling");
+			int LayerOrder = RenderMgr->GetLayerOrder(LayerName);
 
-			if (CeilingLayerOrder < 0)
+			if (LayerOrder >= 0)
+				return LayerOrder;
+
+			for (int Order = PreferredOrder; Order <= 100; ++Order)
 			{
-				RenderMgr->CreateLayer(
-					"MapCeiling", 2, ERenderListSort::None);
-				CeilingLayerOrder =
-					RenderMgr->GetLayerOrder("MapCeiling");
+				RenderMgr->CreateLayer(LayerName, Order, SortType);
+				LayerOrder = RenderMgr->GetLayerOrder(LayerName);
+
+				if (LayerOrder >= 0)
+					return LayerOrder;
 			}
 
-			if (CeilingLayerOrder < 0)
-			{
-				for (int FallbackOrder = 10;
-					FallbackOrder <= 100;
-					++FallbackOrder)
-				{
-					RenderMgr->CreateLayer(
-						"MapCeiling", FallbackOrder, ERenderListSort::None);
-					CeilingLayerOrder =
-						RenderMgr->GetLayerOrder("MapCeiling");
+			return -1;
+		};
 
-					if (CeilingLayerOrder >= 0)
-						break;
-				}
-			}
+		auto ConfigureOverlayTileMap = [&](const std::shared_ptr<CTileMapObject>& OverlayObj,
+			const std::string& LayerName,
+			int PreferredOrder,
+			ERenderListSort SortType,
+			const FVector4& InitialColor)
+		{
+			if (!BaseTileMap || !OverlayObj)
+				return;
 
-			if (CeilingLayerOrder >= 0)
-				CeilingRender->SetRenderLayer("MapCeiling");
+			auto OverlayRender =
+				OverlayObj->FindComponent<CTileMapRender>().lock();
+			auto OverlayMap = OverlayObj->GetTileMap().lock();
 
-			CeilingRender->EnableTileAlphaBlend();
-			CeilingRender->AddTileFrame(0.f, 0.f, 1.f, 1.f);
+			if (!OverlayRender || !OverlayMap)
+				return;
 
-			CeilingMap->CreateTile(
+			const int OverlayLayerOrder = ResolveLayerOrder(
+				LayerName, PreferredOrder, SortType);
+
+			if (OverlayLayerOrder >= 0)
+				OverlayRender->SetRenderLayer(LayerName);
+
+			OverlayRender->EnableTileAlphaBlend();
+			OverlayRender->AddTileFrame(0.f, 0.f, 1.f, 1.f);
+
+			OverlayMap->CreateTile(
 				BaseTileMap->GetTileShape(),
 				BaseTileMap->GetTileCountX(),
 				BaseTileMap->GetTileCountY(),
 				BaseTileMap->GetTileSize());
-			CeilingMap->SetViewCulling(true);
-			CeilingMap->SetTileTextureSize(1.f, 1.f);
-			CeilingMap->SetTileFrameAll(0);
-			CeilingMap->SetTileOutLineRender(false);
+			OverlayMap->SetViewCulling(true);
+			OverlayMap->SetTileTextureSize(1.f, 1.f);
+			OverlayMap->SetTileFrameAll(0);
+			OverlayMap->SetTileOutLineRender(false);
 
-			const int TileCount = CeilingMap->GetTileCountX() *
-				CeilingMap->GetTileCountY();
+			const int TileCount = OverlayMap->GetTileCountX() *
+				OverlayMap->GetTileCountY();
 
 			for (int i = 0; i < TileCount; ++i)
 			{
-				auto Tile = CeilingMap->GetTile(i).lock();
+				auto Tile = OverlayMap->GetTile(i).lock();
 
 				if (!Tile)
 					continue;
 
 				Tile->SetTileType(ETileType::Normal);
-				Tile->SetOutLineColor(0.f, 1.f, 0.f, 0.f);
+				Tile->SetOutLineColor(
+					InitialColor.x, InitialColor.y, InitialColor.z, 0.f);
 			}
 
-			CeilingTileMapObj->SetWorldPos(TileMapObj->GetWorldPos());
+			OverlayObj->SetWorldPos(TileMapObj->GetWorldPos());
+		};
+
+		if (BaseTileMap)
+		{
+			ResolveLayerOrder("MapFloorBlue", 2, ERenderListSort::None);
+			ResolveLayerOrder("MapFloorYellow", 3, ERenderListSort::None);
+			ResolveLayerOrder("MarkerOrb", 4, ERenderListSort::Y);
+			ResolveLayerOrder("MapCeiling", 5, ERenderListSort::None);
+
+			ConfigureOverlayTileMap(FloorBlueTileMapObj,
+				"MapFloorBlue",
+				2, ERenderListSort::None,
+				FVector4::Blue);
+			ConfigureOverlayTileMap(FloorYellowTileMapObj,
+				"MapFloorYellow",
+				3, ERenderListSort::None,
+				FVector4(1.f, 1.f, 0.f, 1.f));
+			ConfigureOverlayTileMap(CeilingTileMapObj,
+				"MapCeiling",
+				5, ERenderListSort::None,
+				FVector4::Green);
 		}
 	}
 

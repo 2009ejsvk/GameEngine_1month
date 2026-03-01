@@ -55,10 +55,14 @@ public:
 
 private:
     std::weak_ptr<class CTileMapObject> mTileMapObject;
+    std::weak_ptr<class CTileMapObject> mBlueOverlayTileMapObject;
+    std::weak_ptr<class CTileMapObject> mYellowOverlayTileMapObject;
     std::weak_ptr<class CTileMapObject> mCeilingTileMapObject;
     std::vector<int> mPlacedIndices;
     std::vector<int> mPrimaryPlacedIndices;
     std::vector<int> mExtendedPlacedIndices;
+    std::vector<int> mAppliedPrimaryOverlayIndices;
+    std::vector<int> mAppliedMarkerOverlayIndices;
     std::vector<int> mAppliedCeilingOverlayIndices;
     std::vector<int> mPreviewIndices;
     bool mPreviewCanPlace = false;
@@ -136,8 +140,14 @@ private:
     void UpdatePlacementPreviewFromMouse(const FVector2& MouseWorldPos);
     void ClearPreview();
     bool AcquireTileMap(std::shared_ptr<class CTileMapComponent>& OutTileMap);
+    bool AcquireBlueOverlayTileMap(
+        std::shared_ptr<class CTileMapComponent>& OutTileMap);
+    bool AcquireYellowOverlayTileMap(
+        std::shared_ptr<class CTileMapComponent>& OutTileMap);
     bool AcquireCeilingTileMap(
         std::shared_ptr<class CTileMapComponent>& OutTileMap);
+    void UpdatePrimaryOverlayTiles(const std::vector<int>& NextIndices);
+    void UpdateMarkerOverlayTiles(const std::vector<int>& NextIndices);
     void UpdateCeilingOverlayTiles(const std::vector<int>& NextIndices);
     bool BuildPlacementAreaIndices(
         const std::shared_ptr<class CTileMapComponent>& TileMap,

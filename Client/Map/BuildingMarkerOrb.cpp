@@ -3,6 +3,7 @@
 #include "Component/MeshComponent.h"
 #include "Component/ObjectMovementComponent.h"
 #include "Object/TileMapObject.h"
+#include "Render/RenderManager.h"
 #include "World/World.h"
 #include <algorithm>
 #include <cmath>
@@ -150,6 +151,21 @@ bool CBuildingMarkerOrb::Init()
 
     if (Mesh)
     {
+        auto RenderMgr = CRenderManager::GetInst();
+        int MarkerOrbLayer = RenderMgr->GetLayerOrder("MarkerOrb");
+
+        if (MarkerOrbLayer < 0)
+        {
+            for (int Order = 4; Order <= 100; ++Order)
+            {
+                RenderMgr->CreateLayer("MarkerOrb", Order, ERenderListSort::Y);
+                MarkerOrbLayer = RenderMgr->GetLayerOrder("MarkerOrb");
+
+                if (MarkerOrbLayer >= 0)
+                    break;
+            }
+        }
+
         Mesh->SetShader("MaterialColor2D");
         Mesh->SetMesh("FrameSphere2DColor");
         Mesh->SetBlendState(0, "AlphaBlend");
@@ -157,6 +173,9 @@ bool CBuildingMarkerOrb::Init()
         Mesh->SetMaterialBaseColor(0, 1.f, 0.f, 0.f, 1.f);
         Mesh->SetEnable(true);
         Mesh->SetMaterialOpacity(0, 1.f);
+
+        if (MarkerOrbLayer >= 0)
+            Mesh->SetRenderLayer("MarkerOrb");
     }
 
     auto Movement = mMovement.lock();

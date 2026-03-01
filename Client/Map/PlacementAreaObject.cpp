@@ -11,15 +11,18 @@ namespace
 {
     constexpr int PlacementDuplicateOffsetY = 4;
 
-    struct FCeilingOverlayState
+    struct FOverlayTileState
     {
         CTileMapComponent* TileMap = nullptr;
         std::vector<int> RefCounts;
     };
 
-    FCeilingOverlayState GCeilingOverlayState;
+    FOverlayTileState GPrimaryOverlayState;
+    FOverlayTileState GMarkerOverlayState;
+    FOverlayTileState GCeilingOverlayState;
 
-    void EnsureCeilingOverlayState(
+    void EnsureOverlayState(
+        FOverlayTileState& State,
         const std::shared_ptr<CTileMapComponent>& TileMap)
     {
         if (!TileMap)
@@ -31,12 +34,93 @@ namespace
         if (TileCount <= 0)
             return;
 
-        if (GCeilingOverlayState.TileMap != TileMap.get() ||
-            (int)GCeilingOverlayState.RefCounts.size() != TileCount)
+        if (State.TileMap != TileMap.get() ||
+            (int)State.RefCounts.size() != TileCount)
         {
-            GCeilingOverlayState.TileMap = TileMap.get();
-            GCeilingOverlayState.RefCounts.clear();
-            GCeilingOverlayState.RefCounts.resize(TileCount, 0);
+            State.TileMap = TileMap.get();
+            State.RefCounts.clear();
+            State.RefCounts.resize(TileCount, 0);
+        }
+    }
+
+    bool HasOverlayRef(
+        const FOverlayTileState& State, int TileIndex)
+    {
+        if (TileIndex < 0 || TileIndex >= (int)State.RefCounts.size())
+            return false;
+
+        return State.RefCounts[TileIndex] > 0;
+    }
+
+    void UpdateOverlayTileRefs(
+        FOverlayTileState& State,
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        std::vector<int>& InOutAppliedIndices,
+        const std::vector<int>& NextIndices,
+        const FVector4& VisibleColor)
+    {
+        if (InOutAppliedIndices == NextIndices)
+            return;
+
+        EnsureOverlayState(State, TileMap);
+
+        if (State.TileMap != TileMap.get() ||
+            State.RefCounts.empty())
+        {
+            InOutAppliedIndices.clear();
+            return;
+        }
+
+        const int TileCount = static_cast<int>(State.RefCounts.size());
+
+        for (size_t i = 0; i < InOutAppliedIndices.size(); ++i)
+        {
+            const int Index = InOutAppliedIndices[i];
+
+            if (Index < 0 || Index >= TileCount)
+                continue;
+
+            int& RefCount = State.RefCounts[Index];
+
+            if (RefCount <= 0)
+                continue;
+
+            --RefCount;
+
+            if (RefCount > 0)
+                continue;
+
+            RefCount = 0;
+            auto Tile = TileMap->GetTile(Index).lock();
+
+            if (!Tile)
+                continue;
+
+            Tile->SetOutLineColor(VisibleColor.x, VisibleColor.y,
+                VisibleColor.z, 0.f);
+        }
+
+        InOutAppliedIndices = NextIndices;
+
+        for (size_t i = 0; i < InOutAppliedIndices.size(); ++i)
+        {
+            const int Index = InOutAppliedIndices[i];
+
+            if (Index < 0 || Index >= TileCount)
+                continue;
+
+            int& RefCount = State.RefCounts[Index];
+            ++RefCount;
+
+            if (RefCount != 1)
+                continue;
+
+            auto Tile = TileMap->GetTile(Index).lock();
+
+            if (!Tile)
+                continue;
+
+            Tile->SetOutLineColor(VisibleColor);
         }
     }
 }
@@ -107,6 +191,8 @@ void CPlacementAreaObject::Update(float DeltaTime)
 
 void CPlacementAreaObject::Destroy()
 {
+    UpdatePrimaryOverlayTiles(std::vector<int>());
+    UpdateMarkerOverlayTiles(std::vector<int>());
     UpdateCeilingOverlayTiles(std::vector<int>());
     CGameObject::Destroy();
 }
@@ -486,10 +572,14 @@ void CPlacementAreaObject::EnsureTemplateValidity()
 
 void CPlacementAreaObject::ResetPlacementState()
 {
+    UpdatePrimaryOverlayTiles(std::vector<int>());
+    UpdateMarkerOverlayTiles(std::vector<int>());
     UpdateCeilingOverlayTiles(std::vector<int>());
     mPlacedIndices.clear();
     mPrimaryPlacedIndices.clear();
     mExtendedPlacedIndices.clear();
+    mAppliedPrimaryOverlayIndices.clear();
+    mAppliedMarkerOverlayIndices.clear();
     mAppliedCeilingOverlayIndices.clear();
     mPreviewIndices.clear();
     mPreviewCanPlace = false;
@@ -709,6 +799,54 @@ bool CPlacementAreaObject::AcquireTileMap(
     return OutTileMap != nullptr;
 }
 
+bool CPlacementAreaObject::AcquireBlueOverlayTileMap(
+    std::shared_ptr<class CTileMapComponent>& OutTileMap)
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    if (mBlueOverlayTileMapObject.expired())
+    {
+        mBlueOverlayTileMapObject =
+            World->FindObject<CTileMapObject>("TileMapFloorBlue");
+    }
+
+    auto BlueOverlayObj = mBlueOverlayTileMapObject.lock();
+
+    if (!BlueOverlayObj)
+        return false;
+
+    OutTileMap = BlueOverlayObj->GetTileMap().lock();
+
+    return OutTileMap != nullptr;
+}
+
+bool CPlacementAreaObject::AcquireYellowOverlayTileMap(
+    std::shared_ptr<class CTileMapComponent>& OutTileMap)
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    if (mYellowOverlayTileMapObject.expired())
+    {
+        mYellowOverlayTileMapObject =
+            World->FindObject<CTileMapObject>("TileMapFloorYellow");
+    }
+
+    auto YellowOverlayObj = mYellowOverlayTileMapObject.lock();
+
+    if (!YellowOverlayObj)
+        return false;
+
+    OutTileMap = YellowOverlayObj->GetTileMap().lock();
+
+    return OutTileMap != nullptr;
+}
+
 bool CPlacementAreaObject::AcquireCeilingTileMap(
     std::shared_ptr<class CTileMapComponent>& OutTileMap)
 {
@@ -733,6 +871,44 @@ bool CPlacementAreaObject::AcquireCeilingTileMap(
     return OutTileMap != nullptr;
 }
 
+void CPlacementAreaObject::UpdatePrimaryOverlayTiles(
+    const std::vector<int>& NextIndices)
+{
+    std::shared_ptr<CTileMapComponent> BlueOverlayTileMap;
+
+    if (!AcquireBlueOverlayTileMap(BlueOverlayTileMap))
+    {
+        mAppliedPrimaryOverlayIndices.clear();
+        return;
+    }
+
+    UpdateOverlayTileRefs(
+        GPrimaryOverlayState,
+        BlueOverlayTileMap,
+        mAppliedPrimaryOverlayIndices,
+        NextIndices,
+        FVector4::Blue);
+}
+
+void CPlacementAreaObject::UpdateMarkerOverlayTiles(
+    const std::vector<int>& NextIndices)
+{
+    std::shared_ptr<CTileMapComponent> YellowOverlayTileMap;
+
+    if (!AcquireYellowOverlayTileMap(YellowOverlayTileMap))
+    {
+        mAppliedMarkerOverlayIndices.clear();
+        return;
+    }
+
+    UpdateOverlayTileRefs(
+        GMarkerOverlayState,
+        YellowOverlayTileMap,
+        mAppliedMarkerOverlayIndices,
+        NextIndices,
+        FVector4(1.f, 1.f, 0.f, 1.f));
+}
+
 void CPlacementAreaObject::UpdateCeilingOverlayTiles(
     const std::vector<int>& NextIndices)
 {
@@ -744,66 +920,12 @@ void CPlacementAreaObject::UpdateCeilingOverlayTiles(
         return;
     }
 
-    EnsureCeilingOverlayState(CeilingTileMap);
-
-    if (GCeilingOverlayState.TileMap != CeilingTileMap.get() ||
-        GCeilingOverlayState.RefCounts.empty())
-    {
-        mAppliedCeilingOverlayIndices.clear();
-        return;
-    }
-
-    const int TileCount = static_cast<int>(
-        GCeilingOverlayState.RefCounts.size());
-
-    for (size_t i = 0; i < mAppliedCeilingOverlayIndices.size(); ++i)
-    {
-        const int Index = mAppliedCeilingOverlayIndices[i];
-
-        if (Index < 0 || Index >= TileCount)
-            continue;
-
-        int& RefCount = GCeilingOverlayState.RefCounts[Index];
-
-        if (RefCount <= 0)
-            continue;
-
-        --RefCount;
-
-        if (RefCount > 0)
-            continue;
-
-        RefCount = 0;
-        auto Tile = CeilingTileMap->GetTile(Index).lock();
-
-        if (!Tile)
-            continue;
-
-        Tile->SetOutLineColor(0.f, 1.f, 0.f, 0.f);
-    }
-
-    mAppliedCeilingOverlayIndices = NextIndices;
-
-    for (size_t i = 0; i < mAppliedCeilingOverlayIndices.size(); ++i)
-    {
-        const int Index = mAppliedCeilingOverlayIndices[i];
-
-        if (Index < 0 || Index >= TileCount)
-            continue;
-
-        int& RefCount = GCeilingOverlayState.RefCounts[Index];
-        ++RefCount;
-
-        if (RefCount != 1)
-            continue;
-
-        auto Tile = CeilingTileMap->GetTile(Index).lock();
-
-        if (!Tile)
-            continue;
-
-        Tile->SetOutLineColor(0.f, 1.f, 0.f, 1.f);
-    }
+    UpdateOverlayTileRefs(
+        GCeilingOverlayState,
+        CeilingTileMap,
+        mAppliedCeilingOverlayIndices,
+        NextIndices,
+        FVector4::Green);
 }
 
 bool CPlacementAreaObject::BuildPlacementAreaIndices(
@@ -1073,14 +1195,16 @@ int CPlacementAreaObject::FindMarkerTileIndexByLogicalOffset(
 void CPlacementAreaObject::ApplyPlacedAreaColor(
     const std::shared_ptr<class CTileMapComponent>& TileMap)
 {
-    SetAreaColor(TileMap, mPrimaryPlacedIndices, mTemplate.AreaColor);
-    SetAreaColor(TileMap, mExtendedPlacedIndices, FVector4::Green);
+    SetAreaColor(TileMap, mPrimaryPlacedIndices, FVector4::White);
+    SetAreaColor(TileMap, mExtendedPlacedIndices, FVector4::White);
+    UpdatePrimaryOverlayTiles(mPrimaryPlacedIndices);
 
     mMarkerTileIndices.clear();
 
     if (mPlacedCenterIndex < 0 ||
         mPlacedIndices.empty())
     {
+        UpdateMarkerOverlayTiles(std::vector<int>());
         return;
     }
 
@@ -1119,6 +1243,8 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
             mMarkerTileIndices.push_back(FallbackEdgeIndex);
     }
 
+    std::vector<int> VisibleMarkerTileIndices;
+
     for (size_t i = 0; i < mMarkerTileIndices.size(); ++i)
     {
         const int MarkerIndex = mMarkerTileIndices[i];
@@ -1127,13 +1253,10 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
         if (IsExtendedPlacedIndex(MarkerIndex))
             continue;
 
-        auto MarkerTile = TileMap->GetTile(MarkerIndex).lock();
-
-        if (!MarkerTile)
-            continue;
-
-        MarkerTile->SetOutLineColor(1.f, 1.f, 0.f, 1.f);
+        VisibleMarkerTileIndices.push_back(MarkerIndex);
     }
+
+    UpdateMarkerOverlayTiles(VisibleMarkerTileIndices);
 }
 
 void CPlacementAreaObject::RestoreTileColor(
@@ -1144,39 +1267,18 @@ void CPlacementAreaObject::RestoreTileColor(
     if (!Tile)
         return;
 
-    if (Tile->GetType() == ETileType::UnableToMove)
+    if (HasOverlayRef(GPrimaryOverlayState, Index) ||
+        HasOverlayRef(GMarkerOverlayState, Index) ||
+        HasOverlayRef(GCeilingOverlayState, Index))
     {
-        if (IsExtendedPlacedIndex(Index))
-        {
-            Tile->SetOutLineColor(FVector4::Green);
-        }
-
-        else if (std::find(mMarkerTileIndices.begin(),
-            mMarkerTileIndices.end(), Index) != mMarkerTileIndices.end())
-        {
-            Tile->SetOutLineColor(1.f, 1.f, 0.f, 1.f);
-        }
-
-        else if (IsPrimaryPlacedIndex(Index))
-        {
-            Tile->SetOutLineColor(mTemplate.AreaColor);
-        }
-
-        else
-            Tile->SetOutLineColor(FVector4::Blue);
+        Tile->SetOutLineColor(FVector4::White);
     }
+
+    else if (Tile->GetType() == ETileType::UnableToMove)
+        Tile->SetOutLineColor(FVector4::Blue);
 
     else
-    {
-        if (IsExtendedPlacedIndex(Index))
-            Tile->SetOutLineColor(FVector4::Green);
-
-        else if (IsPrimaryPlacedIndex(Index))
-            Tile->SetOutLineColor(mTemplate.AreaColor);
-
-        else
-            Tile->SetOutLineColor(FVector4::White);
-    }
+        Tile->SetOutLineColor(FVector4::White);
 }
 
 void CPlacementAreaObject::SyncWorldPosFromCenter(
