@@ -430,6 +430,42 @@ void CRenderManager::Update(float DeltaTime)
 
 			auto	_Com = (*Com).lock();
 
+			// 런타임에 레이어가 바뀌면 실제 레이어 리스트도 이동시킨다.
+			const int CurrentLayer = _Com->GetRenderLayer();
+
+			if (CurrentLayer != iterLayer->first)
+			{
+				auto MoveCom = *Com;
+				Com = iterLayer->second.RenderList.erase(Com);
+				ComEnd = iterLayer->second.RenderList.end();
+
+				auto DestLayer = mRenderLayerMap.find(CurrentLayer);
+
+				if (DestLayer != mRenderLayerMap.end())
+				{
+					bool ExistsInDest = false;
+
+					auto DestCom = DestLayer->second.RenderList.begin();
+					auto DestComEnd = DestLayer->second.RenderList.end();
+
+					for (; DestCom != DestComEnd; ++DestCom)
+					{
+						auto DestObj = DestCom->lock();
+
+						if (DestObj && DestObj == _Com)
+						{
+							ExistsInDest = true;
+							break;
+						}
+					}
+
+					if (!ExistsInDest)
+						DestLayer->second.RenderList.push_back(MoveCom);
+				}
+
+				continue;
+			}
+
 			if (!_Com->GetEnable())
 			{
 				++Com;

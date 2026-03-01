@@ -55,7 +55,11 @@ public:
 
 private:
     std::weak_ptr<class CTileMapObject> mTileMapObject;
+    std::weak_ptr<class CTileMapObject> mCeilingTileMapObject;
     std::vector<int> mPlacedIndices;
+    std::vector<int> mPrimaryPlacedIndices;
+    std::vector<int> mExtendedPlacedIndices;
+    std::vector<int> mAppliedCeilingOverlayIndices;
     std::vector<int> mPreviewIndices;
     bool mPreviewCanPlace = false;
     bool mTileMapPrepared = false;
@@ -103,6 +107,7 @@ public:
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
+    virtual void Destroy() override;
     virtual bool IsNavigationObstacle() const override;
     virtual void GetNavigationBlockedTiles(
         std::vector<int>& OutIndices) override;
@@ -114,6 +119,7 @@ public:
     void ConfirmPlacement();
     void CancelMovePreview();
     bool ContainsPlacedTile(const FVector2& MouseWorldPos);
+    bool ContainsExtendedPlacedTileIndex(int TileIndex);
     float GetCenterDistanceSq(const FVector2& MouseWorldPos) const;
     bool GetMarkerWorldPos(FVector3& OutWorldPos);
     bool GetMarkerWorldPositions(std::vector<FVector3>& OutWorldPosList);
@@ -130,6 +136,18 @@ private:
     void UpdatePlacementPreviewFromMouse(const FVector2& MouseWorldPos);
     void ClearPreview();
     bool AcquireTileMap(std::shared_ptr<class CTileMapComponent>& OutTileMap);
+    bool AcquireCeilingTileMap(
+        std::shared_ptr<class CTileMapComponent>& OutTileMap);
+    void UpdateCeilingOverlayTiles(const std::vector<int>& NextIndices);
+    bool BuildPlacementAreaIndices(
+        const std::shared_ptr<class CTileMapComponent>& TileMap,
+        int CenterIndex, std::vector<int>& OutIndices) const;
+    bool BuildPlacementAreaGroups(
+        const std::shared_ptr<class CTileMapComponent>& TileMap,
+        int CenterIndex,
+        std::vector<int>& OutPrimaryIndices,
+        std::vector<int>& OutExtendedIndices,
+        std::vector<int>& OutMergedIndices) const;
     bool BuildDiamondAreaIndices(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, std::vector<int>& OutIndices) const;
@@ -140,6 +158,8 @@ private:
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         const std::vector<int>& Indices, const FVector4& Color);
     bool IsPlacedIndex(int Index) const;
+    bool IsPrimaryPlacedIndex(int Index) const;
+    bool IsExtendedPlacedIndex(int Index) const;
     int FindMarkerTileIndexByLogicalOffset(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, const std::vector<int>& Indices,

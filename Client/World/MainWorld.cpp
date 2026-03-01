@@ -200,7 +200,81 @@ bool CMainWorld::Init()
 	auto TileMap = CreateGameObject<CTileMapMain>("TileMap");
 	auto TileMapObj = std::dynamic_pointer_cast<CTileMapObject>(
 		TileMap.lock());
+	auto CeilingTileMap =
+		CreateGameObject<CTileMapObject>("TileMapCeiling");
+	auto CeilingTileMapObj = CeilingTileMap.lock();
 	auto MainCameraObj = MainCamera.lock();
+
+	if (TileMapObj && CeilingTileMapObj)
+	{
+		auto BaseTileMap = TileMapObj->GetTileMap().lock();
+		auto CeilingRender =
+			CeilingTileMapObj->FindComponent<CTileMapRender>().lock();
+		auto CeilingMap = CeilingTileMapObj->GetTileMap().lock();
+
+		if (BaseTileMap && CeilingRender && CeilingMap)
+		{
+			auto RenderMgr = CRenderManager::GetInst();
+			int CeilingLayerOrder =
+				RenderMgr->GetLayerOrder("MapCeiling");
+
+			if (CeilingLayerOrder < 0)
+			{
+				RenderMgr->CreateLayer(
+					"MapCeiling", 2, ERenderListSort::None);
+				CeilingLayerOrder =
+					RenderMgr->GetLayerOrder("MapCeiling");
+			}
+
+			if (CeilingLayerOrder < 0)
+			{
+				for (int FallbackOrder = 10;
+					FallbackOrder <= 100;
+					++FallbackOrder)
+				{
+					RenderMgr->CreateLayer(
+						"MapCeiling", FallbackOrder, ERenderListSort::None);
+					CeilingLayerOrder =
+						RenderMgr->GetLayerOrder("MapCeiling");
+
+					if (CeilingLayerOrder >= 0)
+						break;
+				}
+			}
+
+			if (CeilingLayerOrder >= 0)
+				CeilingRender->SetRenderLayer("MapCeiling");
+
+			CeilingRender->EnableTileAlphaBlend();
+			CeilingRender->AddTileFrame(0.f, 0.f, 1.f, 1.f);
+
+			CeilingMap->CreateTile(
+				BaseTileMap->GetTileShape(),
+				BaseTileMap->GetTileCountX(),
+				BaseTileMap->GetTileCountY(),
+				BaseTileMap->GetTileSize());
+			CeilingMap->SetViewCulling(true);
+			CeilingMap->SetTileTextureSize(1.f, 1.f);
+			CeilingMap->SetTileFrameAll(0);
+			CeilingMap->SetTileOutLineRender(false);
+
+			const int TileCount = CeilingMap->GetTileCountX() *
+				CeilingMap->GetTileCountY();
+
+			for (int i = 0; i < TileCount; ++i)
+			{
+				auto Tile = CeilingMap->GetTile(i).lock();
+
+				if (!Tile)
+					continue;
+
+				Tile->SetTileType(ETileType::Normal);
+				Tile->SetOutLineColor(0.f, 1.f, 0.f, 0.f);
+			}
+
+			CeilingTileMapObj->SetWorldPos(TileMapObj->GetWorldPos());
+		}
+	}
 
 	if (MainCameraObj && TileMapObj)
 	{

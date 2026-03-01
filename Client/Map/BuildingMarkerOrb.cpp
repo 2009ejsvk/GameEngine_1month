@@ -152,8 +152,11 @@ bool CBuildingMarkerOrb::Init()
     {
         Mesh->SetShader("MaterialColor2D");
         Mesh->SetMesh("FrameSphere2DColor");
+        Mesh->SetBlendState(0, "AlphaBlend");
         Mesh->SetRelativeScale(20.f, 20.f);
         Mesh->SetMaterialBaseColor(0, 1.f, 0.f, 0.f, 1.f);
+        Mesh->SetEnable(true);
+        Mesh->SetMaterialOpacity(0, 1.f);
     }
 
     auto Movement = mMovement.lock();

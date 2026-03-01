@@ -7,6 +7,40 @@
 #include <cmath>
 #include <cfloat>
 
+namespace
+{
+    constexpr int PlacementDuplicateOffsetY = 4;
+
+    struct FCeilingOverlayState
+    {
+        CTileMapComponent* TileMap = nullptr;
+        std::vector<int> RefCounts;
+    };
+
+    FCeilingOverlayState GCeilingOverlayState;
+
+    void EnsureCeilingOverlayState(
+        const std::shared_ptr<CTileMapComponent>& TileMap)
+    {
+        if (!TileMap)
+            return;
+
+        const int TileCount =
+            TileMap->GetTileCountX() * TileMap->GetTileCountY();
+
+        if (TileCount <= 0)
+            return;
+
+        if (GCeilingOverlayState.TileMap != TileMap.get() ||
+            (int)GCeilingOverlayState.RefCounts.size() != TileCount)
+        {
+            GCeilingOverlayState.TileMap = TileMap.get();
+            GCeilingOverlayState.RefCounts.clear();
+            GCeilingOverlayState.RefCounts.resize(TileCount, 0);
+        }
+    }
+}
+
 CPlacementAreaObject::CPlacementAreaObject()
 {
     SetClassType<CPlacementAreaObject>();
@@ -71,6 +105,12 @@ void CPlacementAreaObject::Update(float DeltaTime)
     UpdatePlacementPreviewFromMouse(Input->GetMouseWorldPos());
 }
 
+void CPlacementAreaObject::Destroy()
+{
+    UpdateCeilingOverlayTiles(std::vector<int>());
+    CGameObject::Destroy();
+}
+
 bool CPlacementAreaObject::IsNavigationObstacle() const
 {
     return true;
@@ -128,15 +168,15 @@ void CPlacementAreaObject::GetNavigationBlockedTiles(
 {
     EnsurePlacementObject();
 
-    if (!mTileMapPrepared || mPlacedIndices.empty())
+    if (!mTileMapPrepared || mPrimaryPlacedIndices.empty())
         return;
 
     std::vector<int> GoalTiles;
     GetNavigationGoalTiles(GoalTiles);
 
-    for (size_t i = 0; i < mPlacedIndices.size(); ++i)
+    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
     {
-        const int Index = mPlacedIndices[i];
+        const int Index = mPrimaryPlacedIndices[i];
 
         if (std::find(GoalTiles.begin(), GoalTiles.end(), Index) !=
             GoalTiles.end())
@@ -164,12 +204,9 @@ void CPlacementAreaObject::ConfirmPlacement()
 {
     EnsurePlacementObject();
 
-    const int ExpectedCount = mTemplate.GetExpectedTileCount();
-
     if (!mTileMapPrepared ||
         !mPreviewCanPlace ||
-        ExpectedCount <= 0 ||
-        (int)mPreviewIndices.size() != ExpectedCount)
+        mPreviewIndices.empty())
     {
         return;
     }
@@ -181,9 +218,9 @@ void CPlacementAreaObject::ConfirmPlacement()
 
     mMarkerTileIndices.clear();
 
-    for (size_t i = 0; i < mPlacedIndices.size(); ++i)
+    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
     {
-        auto Tile = TileMap->GetTile(mPlacedIndices[i]).lock();
+        auto Tile = TileMap->GetTile(mPrimaryPlacedIndices[i]).lock();
 
         if (!Tile)
             continue;
@@ -192,9 +229,31 @@ void CPlacementAreaObject::ConfirmPlacement()
         Tile->SetOutLineColor(FVector4::White);
     }
 
-    for (size_t i = 0; i < mPreviewIndices.size(); ++i)
+    for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
     {
-        auto Tile = TileMap->GetTile(mPreviewIndices[i]).lock();
+        auto Tile = TileMap->GetTile(mExtendedPlacedIndices[i]).lock();
+
+        if (!Tile)
+            continue;
+
+        Tile->SetTileType(ETileType::Normal);
+        Tile->SetOutLineColor(FVector4::White);
+    }
+
+    std::vector<int> NextPrimaryIndices;
+    std::vector<int> NextExtendedIndices;
+    std::vector<int> NextPlacedIndices;
+
+    if (!BuildPlacementAreaGroups(
+        TileMap, mPreviewCenterIndex,
+        NextPrimaryIndices, NextExtendedIndices, NextPlacedIndices))
+    {
+        return;
+    }
+
+    for (size_t i = 0; i < NextPrimaryIndices.size(); ++i)
+    {
+        auto Tile = TileMap->GetTile(NextPrimaryIndices[i]).lock();
 
         if (!Tile)
             continue;
@@ -202,7 +261,20 @@ void CPlacementAreaObject::ConfirmPlacement()
         Tile->SetTileType(ETileType::UnableToMove);
     }
 
-    mPlacedIndices = mPreviewIndices;
+    for (size_t i = 0; i < NextExtendedIndices.size(); ++i)
+    {
+        auto Tile = TileMap->GetTile(NextExtendedIndices[i]).lock();
+
+        if (!Tile)
+            continue;
+
+        Tile->SetTileType(ETileType::Normal);
+    }
+
+    mPlacedIndices = NextPlacedIndices;
+    mPrimaryPlacedIndices = NextPrimaryIndices;
+    mExtendedPlacedIndices = NextExtendedIndices;
+    UpdateCeilingOverlayTiles(mExtendedPlacedIndices);
     mPlacedCenterIndex = mPreviewCenterIndex;
     mPreviewIndices.clear();
     mPreviewCenterIndex = -1;
@@ -233,6 +305,12 @@ bool CPlacementAreaObject::ContainsPlacedTile(
         return false;
 
     return IsPlacedIndex(TileIndex);
+}
+
+bool CPlacementAreaObject::ContainsExtendedPlacedTileIndex(int TileIndex)
+{
+    EnsurePlacementObject();
+    return IsExtendedPlacedIndex(TileIndex);
 }
 
 float CPlacementAreaObject::GetCenterDistanceSq(
@@ -408,7 +486,11 @@ void CPlacementAreaObject::EnsureTemplateValidity()
 
 void CPlacementAreaObject::ResetPlacementState()
 {
+    UpdateCeilingOverlayTiles(std::vector<int>());
     mPlacedIndices.clear();
+    mPrimaryPlacedIndices.clear();
+    mExtendedPlacedIndices.clear();
+    mAppliedCeilingOverlayIndices.clear();
     mPreviewIndices.clear();
     mPreviewCanPlace = false;
     mTileMapPrepared = false;
@@ -461,6 +543,8 @@ void CPlacementAreaObject::EnsurePlacementObject()
     }
 
     std::vector<int> StartIndices;
+    std::vector<int> StartPrimaryIndices;
+    std::vector<int> StartExtendedIndices;
     int StartCenterIndex = -1;
 
     const int CenterX = Clamp<int>(
@@ -469,8 +553,9 @@ void CPlacementAreaObject::EnsurePlacementObject()
         CountY / 2 + mInitialCenterOffsetY, 0, CountY - 1);
     const int CenterIndex = CenterY * CountX + CenterX;
 
-    bool Found = BuildDiamondAreaIndices(TileMap,
-        CenterIndex, StartIndices) &&
+    bool Found = BuildPlacementAreaGroups(TileMap,
+        CenterIndex,
+        StartPrimaryIndices, StartExtendedIndices, StartIndices) &&
         IsAreaPlaceable(TileMap, StartIndices);
 
     if (Found)
@@ -486,8 +571,11 @@ void CPlacementAreaObject::EnsurePlacementObject()
             {
                 const int Index = y * CountX + x;
 
-                if (!BuildDiamondAreaIndices(TileMap,
-                    Index, StartIndices))
+                if (!BuildPlacementAreaGroups(TileMap,
+                    Index,
+                    StartPrimaryIndices,
+                    StartExtendedIndices,
+                    StartIndices))
                 {
                     continue;
                 }
@@ -504,9 +592,9 @@ void CPlacementAreaObject::EnsurePlacementObject()
 
     if (Found)
     {
-        for (size_t i = 0; i < StartIndices.size(); ++i)
+        for (size_t i = 0; i < StartPrimaryIndices.size(); ++i)
         {
-            auto Tile = TileMap->GetTile(StartIndices[i]).lock();
+            auto Tile = TileMap->GetTile(StartPrimaryIndices[i]).lock();
 
             if (!Tile)
                 continue;
@@ -514,7 +602,20 @@ void CPlacementAreaObject::EnsurePlacementObject()
             Tile->SetTileType(ETileType::UnableToMove);
         }
 
+        for (size_t i = 0; i < StartExtendedIndices.size(); ++i)
+        {
+            auto Tile = TileMap->GetTile(StartExtendedIndices[i]).lock();
+
+            if (!Tile)
+                continue;
+
+            Tile->SetTileType(ETileType::Normal);
+        }
+
         mPlacedIndices = StartIndices;
+        mPrimaryPlacedIndices = StartPrimaryIndices;
+        mExtendedPlacedIndices = StartExtendedIndices;
+        UpdateCeilingOverlayTiles(mExtendedPlacedIndices);
         mPlacedCenterIndex = StartCenterIndex;
         ApplyPlacedAreaColor(TileMap);
         SyncWorldPosFromCenter(TileMap, mPlacedCenterIndex);
@@ -541,7 +642,7 @@ void CPlacementAreaObject::UpdatePlacementPreviewFromMouse(
     if (CenterIndex < 0)
         return;
 
-    if (!BuildDiamondAreaIndices(TileMap,
+    if (!BuildPlacementAreaIndices(TileMap,
         CenterIndex, mPreviewIndices))
     {
         return;
@@ -608,6 +709,182 @@ bool CPlacementAreaObject::AcquireTileMap(
     return OutTileMap != nullptr;
 }
 
+bool CPlacementAreaObject::AcquireCeilingTileMap(
+    std::shared_ptr<class CTileMapComponent>& OutTileMap)
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    if (mCeilingTileMapObject.expired())
+    {
+        mCeilingTileMapObject =
+            World->FindObject<CTileMapObject>("TileMapCeiling");
+    }
+
+    auto CeilingTileMapObj = mCeilingTileMapObject.lock();
+
+    if (!CeilingTileMapObj)
+        return false;
+
+    OutTileMap = CeilingTileMapObj->GetTileMap().lock();
+
+    return OutTileMap != nullptr;
+}
+
+void CPlacementAreaObject::UpdateCeilingOverlayTiles(
+    const std::vector<int>& NextIndices)
+{
+    std::shared_ptr<CTileMapComponent> CeilingTileMap;
+
+    if (!AcquireCeilingTileMap(CeilingTileMap))
+    {
+        mAppliedCeilingOverlayIndices.clear();
+        return;
+    }
+
+    EnsureCeilingOverlayState(CeilingTileMap);
+
+    if (GCeilingOverlayState.TileMap != CeilingTileMap.get() ||
+        GCeilingOverlayState.RefCounts.empty())
+    {
+        mAppliedCeilingOverlayIndices.clear();
+        return;
+    }
+
+    const int TileCount = static_cast<int>(
+        GCeilingOverlayState.RefCounts.size());
+
+    for (size_t i = 0; i < mAppliedCeilingOverlayIndices.size(); ++i)
+    {
+        const int Index = mAppliedCeilingOverlayIndices[i];
+
+        if (Index < 0 || Index >= TileCount)
+            continue;
+
+        int& RefCount = GCeilingOverlayState.RefCounts[Index];
+
+        if (RefCount <= 0)
+            continue;
+
+        --RefCount;
+
+        if (RefCount > 0)
+            continue;
+
+        RefCount = 0;
+        auto Tile = CeilingTileMap->GetTile(Index).lock();
+
+        if (!Tile)
+            continue;
+
+        Tile->SetOutLineColor(0.f, 1.f, 0.f, 0.f);
+    }
+
+    mAppliedCeilingOverlayIndices = NextIndices;
+
+    for (size_t i = 0; i < mAppliedCeilingOverlayIndices.size(); ++i)
+    {
+        const int Index = mAppliedCeilingOverlayIndices[i];
+
+        if (Index < 0 || Index >= TileCount)
+            continue;
+
+        int& RefCount = GCeilingOverlayState.RefCounts[Index];
+        ++RefCount;
+
+        if (RefCount != 1)
+            continue;
+
+        auto Tile = CeilingTileMap->GetTile(Index).lock();
+
+        if (!Tile)
+            continue;
+
+        Tile->SetOutLineColor(0.f, 1.f, 0.f, 1.f);
+    }
+}
+
+bool CPlacementAreaObject::BuildPlacementAreaIndices(
+    const std::shared_ptr<class CTileMapComponent>& TileMap,
+    int CenterIndex, std::vector<int>& OutIndices) const
+{
+    std::vector<int> PrimaryIndices;
+    std::vector<int> ExtendedIndices;
+
+    return BuildPlacementAreaGroups(
+        TileMap, CenterIndex,
+        PrimaryIndices, ExtendedIndices, OutIndices);
+}
+
+bool CPlacementAreaObject::BuildPlacementAreaGroups(
+    const std::shared_ptr<class CTileMapComponent>& TileMap,
+    int CenterIndex,
+    std::vector<int>& OutPrimaryIndices,
+    std::vector<int>& OutExtendedIndices,
+    std::vector<int>& OutMergedIndices) const
+{
+    OutPrimaryIndices.clear();
+    OutExtendedIndices.clear();
+    OutMergedIndices.clear();
+
+    const int ExpectedCount = mTemplate.GetExpectedTileCount();
+
+    if (ExpectedCount <= 0)
+        return false;
+
+    if (!BuildDiamondAreaIndices(TileMap, CenterIndex, OutPrimaryIndices) ||
+        (int)OutPrimaryIndices.size() != ExpectedCount)
+    {
+        return false;
+    }
+
+    auto CenterTile = TileMap->GetTile(CenterIndex).lock();
+
+    if (!CenterTile)
+        return false;
+
+    const int CountX = TileMap->GetTileCountX();
+    const int CountY = TileMap->GetTileCountY();
+    const int ExtendedCenterX = CenterTile->GetIndexX();
+    const int ExtendedCenterY = CenterTile->GetIndexY() +
+        PlacementDuplicateOffsetY;
+
+    if (ExtendedCenterX < 0 || ExtendedCenterX >= CountX ||
+        ExtendedCenterY < 0 || ExtendedCenterY >= CountY)
+    {
+        return false;
+    }
+
+    const int ExtendedCenterIndex = ExtendedCenterY * CountX +
+        ExtendedCenterX;
+
+    if (!BuildDiamondAreaIndices(TileMap,
+        ExtendedCenterIndex, OutExtendedIndices) ||
+        (int)OutExtendedIndices.size() != ExpectedCount)
+    {
+        return false;
+    }
+
+    OutMergedIndices = OutPrimaryIndices;
+    OutMergedIndices.reserve(
+        OutPrimaryIndices.size() + OutExtendedIndices.size());
+
+    for (size_t i = 0; i < OutExtendedIndices.size(); ++i)
+    {
+        const int Index = OutExtendedIndices[i];
+
+        if (std::find(OutMergedIndices.begin(),
+            OutMergedIndices.end(), Index) == OutMergedIndices.end())
+        {
+            OutMergedIndices.push_back(Index);
+        }
+    }
+
+    return !OutMergedIndices.empty();
+}
+
 bool CPlacementAreaObject::BuildDiamondAreaIndices(
     const std::shared_ptr<class CTileMapComponent>& TileMap,
     int CenterIndex, std::vector<int>& OutIndices) const
@@ -660,7 +937,7 @@ bool CPlacementAreaObject::IsAreaPlaceable(
     const std::shared_ptr<class CTileMapComponent>& TileMap,
     const std::vector<int>& Indices) const
 {
-    if ((int)Indices.size() != mTemplate.GetExpectedTileCount())
+    if (Indices.empty())
         return false;
 
     for (size_t i = 0; i < Indices.size(); ++i)
@@ -700,6 +977,28 @@ bool CPlacementAreaObject::IsPlacedIndex(int Index) const
     for (size_t i = 0; i < mPlacedIndices.size(); ++i)
     {
         if (mPlacedIndices[i] == Index)
+            return true;
+    }
+
+    return false;
+}
+
+bool CPlacementAreaObject::IsPrimaryPlacedIndex(int Index) const
+{
+    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
+    {
+        if (mPrimaryPlacedIndices[i] == Index)
+            return true;
+    }
+
+    return false;
+}
+
+bool CPlacementAreaObject::IsExtendedPlacedIndex(int Index) const
+{
+    for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
+    {
+        if (mExtendedPlacedIndices[i] == Index)
             return true;
     }
 
@@ -774,7 +1073,8 @@ int CPlacementAreaObject::FindMarkerTileIndexByLogicalOffset(
 void CPlacementAreaObject::ApplyPlacedAreaColor(
     const std::shared_ptr<class CTileMapComponent>& TileMap)
 {
-    SetAreaColor(TileMap, mPlacedIndices, mTemplate.AreaColor);
+    SetAreaColor(TileMap, mPrimaryPlacedIndices, mTemplate.AreaColor);
+    SetAreaColor(TileMap, mExtendedPlacedIndices, FVector4::Green);
 
     mMarkerTileIndices.clear();
 
@@ -784,11 +1084,18 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
         return;
     }
 
+    std::vector<int> MarkerSourceIndices = mPrimaryPlacedIndices;
+
+    if (MarkerSourceIndices.empty())
+    {
+        MarkerSourceIndices = mPlacedIndices;
+    }
+
     for (size_t i = 0; i < mTemplate.MarkerAnchors.size(); ++i)
     {
         const FPlacementMarkerAnchor& Marker = mTemplate.MarkerAnchors[i];
         const int MarkerIndex = FindMarkerTileIndexByLogicalOffset(
-            TileMap, mPlacedCenterIndex, mPlacedIndices,
+            TileMap, mPlacedCenterIndex, MarkerSourceIndices,
             Marker.LogicalOffsetX, Marker.LogicalOffsetY);
 
         if (MarkerIndex < 0 || !IsPlacedIndex(MarkerIndex))
@@ -806,7 +1113,7 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
         !mPlacedIndices.empty())
     {
         const int FallbackEdgeIndex = FindMarkerTileIndexByLogicalOffset(
-            TileMap, mPlacedCenterIndex, mPlacedIndices, 0.f, 0.f);
+            TileMap, mPlacedCenterIndex, MarkerSourceIndices, 0.f, 0.f);
 
         if (FallbackEdgeIndex >= 0)
             mMarkerTileIndices.push_back(FallbackEdgeIndex);
@@ -814,7 +1121,13 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
 
     for (size_t i = 0; i < mMarkerTileIndices.size(); ++i)
     {
-        auto MarkerTile = TileMap->GetTile(mMarkerTileIndices[i]).lock();
+        const int MarkerIndex = mMarkerTileIndices[i];
+
+        // 겹침 구간은 초록(확장 타일) 표시를 우선한다.
+        if (IsExtendedPlacedIndex(MarkerIndex))
+            continue;
+
+        auto MarkerTile = TileMap->GetTile(MarkerIndex).lock();
 
         if (!MarkerTile)
             continue;
@@ -833,13 +1146,18 @@ void CPlacementAreaObject::RestoreTileColor(
 
     if (Tile->GetType() == ETileType::UnableToMove)
     {
-        if (std::find(mMarkerTileIndices.begin(),
+        if (IsExtendedPlacedIndex(Index))
+        {
+            Tile->SetOutLineColor(FVector4::Green);
+        }
+
+        else if (std::find(mMarkerTileIndices.begin(),
             mMarkerTileIndices.end(), Index) != mMarkerTileIndices.end())
         {
             Tile->SetOutLineColor(1.f, 1.f, 0.f, 1.f);
         }
 
-        else if (IsPlacedIndex(Index))
+        else if (IsPrimaryPlacedIndex(Index))
         {
             Tile->SetOutLineColor(mTemplate.AreaColor);
         }
@@ -849,7 +1167,16 @@ void CPlacementAreaObject::RestoreTileColor(
     }
 
     else
-        Tile->SetOutLineColor(FVector4::White);
+    {
+        if (IsExtendedPlacedIndex(Index))
+            Tile->SetOutLineColor(FVector4::Green);
+
+        else if (IsPrimaryPlacedIndex(Index))
+            Tile->SetOutLineColor(mTemplate.AreaColor);
+
+        else
+            Tile->SetOutLineColor(FVector4::White);
+    }
 }
 
 void CPlacementAreaObject::SyncWorldPosFromCenter(
