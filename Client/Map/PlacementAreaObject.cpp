@@ -158,14 +158,24 @@ bool CPlacementAreaObject::Init()
 
     CreateComponent<CSceneComponent>("Root");
     mWallMeshComponent = CreateComponent<CMeshComponent>("WallMesh");
+    mBackWallMeshComponent =
+        CreateComponent<CMeshComponent>("BackWallMesh");
 
     auto WallMesh = mWallMeshComponent.lock();
+    auto BackWallMesh = mBackWallMeshComponent.lock();
 
     if (WallMesh)
     {
         WallMesh->SetShader("MaterialColor2D");
-        WallMesh->SetRenderLayer("MapWall");
+        WallMesh->SetRenderLayer("MapWallFront");
         WallMesh->SetEnable(false);
+    }
+
+    if (BackWallMesh)
+    {
+        BackWallMesh->SetShader("MaterialColor2D");
+        BackWallMesh->SetRenderLayer("MapWallBack");
+        BackWallMesh->SetEnable(false);
     }
 
     return true;
@@ -1101,7 +1111,8 @@ void CPlacementAreaObject::BuildWallIndices(
 bool CPlacementAreaObject::BuildWallMeshGeometry(
     const std::shared_ptr<class CTileMapComponent>& TileMap,
     std::vector<FVertexColor>& OutVertices,
-    std::vector<unsigned int>& OutIndices) const
+    std::vector<unsigned int>& OutIndices,
+    bool BackSideOnly) const
 {
     OutVertices.clear();
     OutIndices.clear();
@@ -1182,6 +1193,18 @@ bool CPlacementAreaObject::BuildWallMeshGeometry(
 
     if (!HasExtrudeVector)
         return false;
+
+    FVector2 MeshLocalOffset(0.f, 0.f);
+    auto TileMapObj = mTileMapObject.lock();
+
+    if (TileMapObj)
+    {
+        const FVector3 Offset =
+            TileMapObj->GetWorldPos() - GetWorldPos();
+        MeshLocalOffset = FVector2(Offset.x, Offset.y);
+    }
+
+    const float BackSideReferenceY = GetWorldPos().y;
 
     struct FEdgeKey
     {
@@ -1307,24 +1330,37 @@ bool CPlacementAreaObject::BuildWallMeshGeometry(
         if (Edge.Count != 1)
             continue;
 
+        const float MidY = (Edge.Start.y + Edge.End.y) * 0.5f;
+        const bool IsBackSideEdge = MidY < BackSideReferenceY;
+
+        if (BackSideOnly && !IsBackSideEdge)
+            continue;
+
+        if (!BackSideOnly && IsBackSideEdge)
+            continue;
+
         const FVector2 V0 = Edge.Start;
         const FVector2 V1 = Edge.End;
         const FVector2 V2 = Edge.End + ExtrudeVector;
         const FVector2 V3 = Edge.Start + ExtrudeVector;
+        const FVector2 L0 = V0 + MeshLocalOffset;
+        const FVector2 L1 = V1 + MeshLocalOffset;
+        const FVector2 L2 = V2 + MeshLocalOffset;
+        const FVector2 L3 = V3 + MeshLocalOffset;
 
         const int BaseIndex = static_cast<int>(OutVertices.size());
 
         OutVertices.push_back(FVertexColor(
-            V0.x, V0.y, 0.f,
+            L0.x, L0.y, 0.f,
             BottomColor.x, BottomColor.y, BottomColor.z, BottomColor.w));
         OutVertices.push_back(FVertexColor(
-            V1.x, V1.y, 0.f,
+            L1.x, L1.y, 0.f,
             BottomColor.x, BottomColor.y, BottomColor.z, BottomColor.w));
         OutVertices.push_back(FVertexColor(
-            V2.x, V2.y, 0.f,
+            L2.x, L2.y, 0.f,
             TopColor.x, TopColor.y, TopColor.z, TopColor.w));
         OutVertices.push_back(FVertexColor(
-            V3.x, V3.y, 0.f,
+            L3.x, L3.y, 0.f,
             TopColor.x, TopColor.y, TopColor.z, TopColor.w));
 
         // 양면 렌더링 보장을 위해 양쪽 winding을 모두 넣는다.
@@ -1348,39 +1384,36 @@ bool CPlacementAreaObject::BuildWallMeshGeometry(
 void CPlacementAreaObject::RefreshWallMeshAnchor()
 {
     auto WallMesh = mWallMeshComponent.lock();
-    auto TileMapObj = mTileMapObject.lock();
+    auto BackWallMesh = mBackWallMeshComponent.lock();
 
-    if (!WallMesh || !TileMapObj)
-        return;
+    if (WallMesh)
+        WallMesh->SetRelativePos(FVector3::Zero);
 
-    const FVector3 RelativePos = TileMapObj->GetWorldPos() - GetWorldPos();
-    WallMesh->SetRelativePos(RelativePos);
+    if (BackWallMesh)
+        BackWallMesh->SetRelativePos(FVector3::Zero);
 }
 
 void CPlacementAreaObject::RebuildWallMesh(
     const std::shared_ptr<class CTileMapComponent>& TileMap)
 {
     auto WallMesh = mWallMeshComponent.lock();
+    auto BackWallMesh = mBackWallMeshComponent.lock();
 
-    if (!WallMesh)
+    if (!WallMesh && !BackWallMesh)
         return;
 
     RefreshWallMeshAnchor();
-
-    std::vector<FVertexColor> Vertices;
-    std::vector<unsigned int> Indices;
-
-    if (!BuildWallMeshGeometry(TileMap, Vertices, Indices))
-    {
-        WallMesh->SetEnable(false);
-        return;
-    }
 
     auto World = mWorld.lock();
 
     if (!World)
     {
-        WallMesh->SetEnable(false);
+        if (WallMesh)
+            WallMesh->SetEnable(false);
+
+        if (BackWallMesh)
+            BackWallMesh->SetEnable(false);
+
         return;
     }
 
@@ -1388,46 +1421,84 @@ void CPlacementAreaObject::RebuildWallMesh(
 
     if (!AssetManager)
     {
-        WallMesh->SetEnable(false);
+        if (WallMesh)
+            WallMesh->SetEnable(false);
+
+        if (BackWallMesh)
+            BackWallMesh->SetEnable(false);
+
         return;
     }
 
-    ++mWallMeshVersion;
-    mWallMeshName = mName + "_WallMesh_" +
-        std::to_string(mWallMeshVersion);
-
-    if (!AssetManager->CreateMesh(
-        mWallMeshName,
-        false,
-        Vertices.data(),
-        sizeof(FVertexColor),
-        static_cast<int>(Vertices.size()),
-        D3D11_USAGE_IMMUTABLE,
-        D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
-        Indices.data(),
-        sizeof(unsigned int),
-        static_cast<int>(Indices.size()),
-        DXGI_FORMAT_R32_UINT,
-        D3D11_USAGE_IMMUTABLE))
+    auto BuildWallMeshSection = [&](
+        const std::shared_ptr<CMeshComponent>& MeshComponent,
+        bool BackSideOnly,
+        std::string& InOutMeshName,
+        int& InOutMeshVersion,
+        const std::string& LayerName)
     {
-        WallMesh->SetEnable(false);
-        return;
-    }
+        if (!MeshComponent)
+            return;
 
-    WallMesh->SetShader("MaterialColor2D");
-    WallMesh->SetMesh(mWallMeshName);
-    WallMesh->SetRenderLayer("MapWall");
-    WallMesh->SetEnable(true);
+        std::vector<FVertexColor> Vertices;
+        std::vector<unsigned int> Indices;
+
+        if (!BuildWallMeshGeometry(TileMap,
+            Vertices, Indices, BackSideOnly))
+        {
+            MeshComponent->SetEnable(false);
+            return;
+        }
+
+        ++InOutMeshVersion;
+        InOutMeshName = mName +
+            (BackSideOnly ? "_BackWallMesh_" : "_WallMesh_") +
+            std::to_string(InOutMeshVersion);
+
+        if (!AssetManager->CreateMesh(
+            InOutMeshName,
+            false,
+            Vertices.data(),
+            sizeof(FVertexColor),
+            static_cast<int>(Vertices.size()),
+            D3D11_USAGE_IMMUTABLE,
+            D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+            Indices.data(),
+            sizeof(unsigned int),
+            static_cast<int>(Indices.size()),
+            DXGI_FORMAT_R32_UINT,
+            D3D11_USAGE_IMMUTABLE))
+        {
+            MeshComponent->SetEnable(false);
+            return;
+        }
+
+        MeshComponent->SetShader("MaterialColor2D");
+        MeshComponent->SetMesh(InOutMeshName);
+        MeshComponent->SetRenderLayer(LayerName);
+        MeshComponent->SetEnable(true);
+    };
+
+    BuildWallMeshSection(
+        WallMesh, false, mWallMeshName, mWallMeshVersion, "MapWallFront");
+    BuildWallMeshSection(
+        BackWallMesh, true,
+        mBackWallMeshName, mBackWallMeshVersion, "MapWallBack");
 }
 
 void CPlacementAreaObject::ClearWallMesh()
 {
     auto WallMesh = mWallMeshComponent.lock();
+    auto BackWallMesh = mBackWallMeshComponent.lock();
 
     if (WallMesh)
         WallMesh->SetEnable(false);
 
+    if (BackWallMesh)
+        BackWallMesh->SetEnable(false);
+
     mWallMeshName.clear();
+    mBackWallMeshName.clear();
 }
 
 bool CPlacementAreaObject::BuildPlacementAreaIndices(

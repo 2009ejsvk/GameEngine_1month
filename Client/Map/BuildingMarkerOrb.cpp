@@ -156,7 +156,7 @@ bool CBuildingMarkerOrb::Init()
 
         if (MarkerOrbLayer < 0)
         {
-            for (int Order = 4; Order <= 100; ++Order)
+            for (int Order = 5; Order <= 100; ++Order)
             {
                 RenderMgr->CreateLayer("MarkerOrb", Order, ERenderListSort::Y);
                 MarkerOrbLayer = RenderMgr->GetLayerOrder("MarkerOrb");

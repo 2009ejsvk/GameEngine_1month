@@ -60,8 +60,11 @@ private:
     std::weak_ptr<class CTileMapObject> mWallTileMapObject;
     std::weak_ptr<class CTileMapObject> mCeilingTileMapObject;
     std::weak_ptr<class CMeshComponent> mWallMeshComponent;
+    std::weak_ptr<class CMeshComponent> mBackWallMeshComponent;
     std::string mWallMeshName;
+    std::string mBackWallMeshName;
     int mWallMeshVersion = 0;
+    int mBackWallMeshVersion = 0;
     std::vector<int> mPlacedIndices;
     std::vector<int> mPrimaryPlacedIndices;
     std::vector<int> mExtendedPlacedIndices;
@@ -163,7 +166,8 @@ private:
     bool BuildWallMeshGeometry(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         std::vector<FVertexColor>& OutVertices,
-        std::vector<unsigned int>& OutIndices) const;
+        std::vector<unsigned int>& OutIndices,
+        bool BackSideOnly) const;
     void RefreshWallMeshAnchor();
     void RebuildWallMesh(const std::shared_ptr<class CTileMapComponent>& TileMap);
     void ClearWallMesh();
