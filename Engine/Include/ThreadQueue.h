@@ -3,6 +3,7 @@
 #include "Sync.h"
 
 constexpr int THREAD_QUEUE_DATA_SIZE = 8192;
+constexpr int THREAD_QUEUE_CAPACITY = 512;
 
 struct FThreadQueueData
 {
@@ -20,14 +21,14 @@ public:
 	~CThreadQueue();
 
 private:
-	FThreadQueueData	mData[200];
+	FThreadQueueData	mData[THREAD_QUEUE_CAPACITY];
 	int		mPush = 0;
 	int		mPop = 0;
 	int		mSize = 0;
 	CRITICAL_SECTION	mCrt;
 
 public:
-	void push(int Header, int Size, unsigned char* Data);
+	bool push(int Header, int Size, unsigned char* Data);
 	void pop(int& Header, int& Size, unsigned char* Data);
 	int size();
 	bool full();

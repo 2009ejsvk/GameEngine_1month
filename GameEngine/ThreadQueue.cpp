@@ -10,17 +10,17 @@ CThreadQueue::~CThreadQueue()
 	DeleteCriticalSection(&mCrt);
 }
 
-void CThreadQueue::push(int Header, int Size, unsigned char* Data)
+bool CThreadQueue::push(int Header, int Size, unsigned char* Data)
 {
 	CSync	sync(&mCrt);
 
-	if (mSize == 200)
-		return;
+	if (mSize >= THREAD_QUEUE_CAPACITY)
+		return false;
 
 	if (Size < 0 || Size > THREAD_QUEUE_DATA_SIZE)
-		return;
+		return false;
 
-	mPush = (mPush + 1) % 200;
+	mPush = (mPush + 1) % THREAD_QUEUE_CAPACITY;
 
 	mData[mPush].Header = Header;
 	mData[mPush].Size = Size;
@@ -29,6 +29,7 @@ void CThreadQueue::push(int Header, int Size, unsigned char* Data)
 		memcpy(mData[mPush].Data, Data, Size);
 
 	++mSize;
+	return true;
 }
 
 void CThreadQueue::pop(int& Header, int& Size, unsigned char* Data)
@@ -38,7 +39,7 @@ void CThreadQueue::pop(int& Header, int& Size, unsigned char* Data)
 	if (mSize == 0)
 		return;
 
-	mPop = (mPop + 1) % 200;
+	mPop = (mPop + 1) % THREAD_QUEUE_CAPACITY;
 
 	Header = mData[mPop].Header;
 	Size = mData[mPop].Size;
@@ -60,7 +61,7 @@ bool CThreadQueue::full()
 {
 	CSync	sync(&mCrt);
 
-	return mSize == 200;
+	return mSize >= THREAD_QUEUE_CAPACITY;
 }
 
 bool CThreadQueue::empty()

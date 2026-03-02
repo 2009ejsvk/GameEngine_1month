@@ -59,46 +59,46 @@ void CObjectMovementComponent::Move(const FVector2& Pos)
 	Move(FVector3(Pos.x, Pos.y, 0.f));
 }
 
-void CObjectMovementComponent::MovePath(const FVector3& Pos)
+bool CObjectMovementComponent::MovePath(const FVector3& Pos)
 {
 	auto	World = mWorld.lock();
 
 	if (!World)
-		return;
+		return false;
 
 	auto	Nav = World->GetNavigation().lock();
 
 	auto	UpdateComponent = mUpdateComponent.lock();
 
 	if (!Nav || !UpdateComponent)
-		return;
+		return false;
 
 	const unsigned int RequestId = AdvancePathRequestId();
 
 	mPathTargetObjectName.clear();
 	mRepathAccumulator = 0.f;
-	Nav->FindPath(UpdateComponent->GetWorldPos(), Pos, &mSelf, "",
+	return Nav->FindPath(UpdateComponent->GetWorldPos(), Pos, &mSelf, "",
 		RequestId);
 }
 
-void CObjectMovementComponent::MovePath(const FVector2& Pos)
+bool CObjectMovementComponent::MovePath(const FVector2& Pos)
 {
-	MovePath(FVector3(Pos.x, Pos.y, 0.f));
+	return MovePath(FVector3(Pos.x, Pos.y, 0.f));
 }
 
-void CObjectMovementComponent::MovePathToObject(
+bool CObjectMovementComponent::MovePathToObject(
 	const std::string& TargetObjectName)
 {
 	auto World = mWorld.lock();
 
 	if (!World)
-		return;
+		return false;
 
 	auto Nav = World->GetNavigation().lock();
 	auto UpdateComponent = mUpdateComponent.lock();
 
 	if (!Nav || !UpdateComponent)
-		return;
+		return false;
 
 	const unsigned int RequestId = AdvancePathRequestId();
 
@@ -119,7 +119,7 @@ void CObjectMovementComponent::MovePathToObject(
 		StartPos.x, StartPos.y);
 #endif
 
-	Nav->FindPath(UpdateComponent->GetWorldPos(),
+	return Nav->FindPath(UpdateComponent->GetWorldPos(),
 		UpdateComponent->GetWorldPos(), &mSelf,
 		TargetObjectName, RequestId);
 }

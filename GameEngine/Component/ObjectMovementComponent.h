@@ -61,9 +61,9 @@ public:
 
 	void Move(const FVector3& Pos);
 	void Move(const FVector2& Pos);
-	void MovePath(const FVector3& Pos);
-	void MovePath(const FVector2& Pos);
-	void MovePathToObject(const std::string& TargetObjectName);
+	bool MovePath(const FVector3& Pos);
+	bool MovePath(const FVector2& Pos);
+	bool MovePathToObject(const std::string& TargetObjectName);
 	virtual void StartPath();
 
 public:

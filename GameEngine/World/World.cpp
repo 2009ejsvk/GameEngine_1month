@@ -303,6 +303,75 @@ bool CWorld::BuildNavigationSnapshot(
 		GoalList.emplace_back(Index);
 	};
 
+	auto CollectNeighborIndices = [&](int Index, std::vector<int>& OutNeighbors)
+	{
+		OutNeighbors.clear();
+
+		if (Index < 0 || Index >= TileCount)
+			return;
+
+		auto Tile = TileMap->GetTile(Index).lock();
+
+		if (!Tile)
+			return;
+
+		const int CountX = TileMap->GetTileCountX();
+		const int CountY = TileMap->GetTileCountY();
+
+		if (TileMap->GetTileShape() == ETileShape::Rect)
+		{
+			const int BaseX = Tile->GetIndexX();
+			const int BaseY = Tile->GetIndexY();
+
+			for (int dy = -1; dy <= 1; ++dy)
+			{
+				for (int dx = -1; dx <= 1; ++dx)
+				{
+					if (dx == 0 && dy == 0)
+						continue;
+
+					const int nx = BaseX + dx;
+					const int ny = BaseY + dy;
+
+					if (nx < 0 || nx >= CountX ||
+						ny < 0 || ny >= CountY)
+					{
+						continue;
+					}
+
+					OutNeighbors.emplace_back(ny * CountX + nx);
+				}
+			}
+		}
+		else
+		{
+			// staggered isometric <-> skew grid 변환 기반 8방향 이웃.
+			const int x = Tile->GetIndexX();
+			const int y = Tile->GetIndexY();
+			const int GridX = x + ((y + (y & 1)) / 2);
+			const int GridY = x - (y / 2);
+			const int DirX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+			const int DirY[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+
+			for (int d = 0; d < 8; ++d)
+			{
+				const int NextGridX = GridX + DirX[d];
+				const int NextGridY = GridY + DirY[d];
+				const int NextY = NextGridX - NextGridY;
+
+				if (NextY < 0 || NextY >= CountY)
+					continue;
+
+				const int NextX = NextGridY + (NextY / 2);
+
+				if (NextX < 0 || NextX >= CountX)
+					continue;
+
+				OutNeighbors.emplace_back(NextY * CountX + NextX);
+			}
+		}
+	};
+
 	// 기본 이동 불가 타일을 먼저 반영한다.
 	for (int i = 0; i < TileCount; ++i)
 	{
@@ -399,6 +468,36 @@ bool CWorld::BuildNavigationSnapshot(
 	for (size_t i = 0; i < GlobalGoalIndices.size(); ++i)
 	{
 		ClearBlocked(GlobalGoalIndices[i]);
+	}
+
+	// [핵심] goal 타일이 사방이 막혀 고립되면
+	// orb가 goal에는 도착해도 다음 타겟으로 출발하지 못한다.
+	// 각 goal에 최소 1개 탈출 이웃을 보장한다.
+	std::vector<int> NeighborIndices;
+
+	for (size_t i = 0; i < GlobalGoalIndices.size(); ++i)
+	{
+		const int GoalIndex = GlobalGoalIndices[i];
+
+		CollectNeighborIndices(GoalIndex, NeighborIndices);
+
+		bool HasOpenNeighbor = false;
+
+		for (size_t n = 0; n < NeighborIndices.size(); ++n)
+		{
+			if (!IsBlocked(NeighborIndices[n]))
+			{
+				HasOpenNeighbor = true;
+				break;
+			}
+		}
+
+		if (HasOpenNeighbor)
+			continue;
+
+		// 인접 타일 중 하나를 열어 탈출 경로를 만든다.
+		if (!NeighborIndices.empty())
+			ClearBlocked(NeighborIndices[0]);
 	}
 
 	SeenGoalMask.assign((size_t)MaskByteCount, 0);

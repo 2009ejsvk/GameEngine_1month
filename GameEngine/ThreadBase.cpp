@@ -49,9 +49,9 @@ void CThreadBase::Exit()
     TerminateThread(mThread, 0);
 }
 
-void CThreadBase::AddData(int Header, int Size, unsigned char* Data)
+bool CThreadBase::AddData(int Header, int Size, unsigned char* Data)
 {
-    mQueue->push(Header, Size, Data);
+    return mQueue->push(Header, Size, Data);
 }
 
 void CThreadBase::GetData(int& Header, int& Size, unsigned char* Data)

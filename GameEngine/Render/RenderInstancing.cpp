@@ -89,21 +89,6 @@ void CRenderInstancing::AddRenderList(
 
 	mRenderList.push_back(Obj);
 
-	auto	iter = mRenderList.begin();
-	auto	iterEnd = mRenderList.end();
-
-	for (; iter != iterEnd;)
-	{
-		if ((*iter).expired())
-		{
-			iter = mRenderList.erase(iter);
-			iterEnd = mRenderList.end();
-			continue;
-		}
-
-		++iter;
-	}
-
 	if (!mRender)
 	{
 		if (mRenderList.size() >= INSTANCING_START_COUNT)
@@ -117,8 +102,8 @@ void CRenderInstancing::AddRenderList(
 					INSTANCING_START_COUNT);
 			}
 
-			iter = mRenderList.begin();
-			iterEnd = mRenderList.end();
+			auto iter = mRenderList.begin();
+			auto iterEnd = mRenderList.end();
 
 			for (; iter != iterEnd; ++iter)
 			{
@@ -134,8 +119,8 @@ void CRenderInstancing::AddRenderList(
 	{
 		mRender = false;
 
-		iter = mRenderList.begin();
-		iterEnd = mRenderList.end();
+		auto iter = mRenderList.begin();
+		auto iterEnd = mRenderList.end();
 
 		for (; iter != iterEnd; ++iter)
 		{

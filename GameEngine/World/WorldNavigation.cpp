@@ -98,10 +98,10 @@ CWorldNavigation::~CWorldNavigation()
 	}
 }
 
-void CWorldNavigation::AddData(int Header, int Size,
+bool CWorldNavigation::AddData(int Header, int Size,
 	unsigned char* Data)
 {
-	mNavQueue->push(Header, Size, Data);
+	return mNavQueue->push(Header, Size, Data);
 }
 
 void CWorldNavigation::Begin()
@@ -154,9 +154,33 @@ void CWorldNavigation::Update(float DeltaTime)
 void CWorldNavigation::CreateNavigationThread(int Count,
 	const std::weak_ptr<CTileMapComponent>& TileMap)
 {
-	mTileMap = TileMap;
+	// 네비게이션 타일맵은 최초 등록된 맵을 기준으로 고정한다.
+	// (오버레이 타일맵 생성 시 재등록되면 스냅샷 기준이 흔들린다.)
+	if (mTileMap.expired())
+	{
+		mTileMap = TileMap;
+	}
+
+	// 스레드는 월드당 1회만 생성한다.
+	if (!mThreadList.empty())
+	{
+#ifdef _DEBUG
+		DebugNavLog(
+			"[Nav] CreateNavigationThread skipped requested=%d existing=%zu\n",
+			Count, mThreadList.size());
+#endif
+		return;
+	}
+
+	if (Count <= 0)
+	{
+		Count = 1;
+	}
 
 	auto	World = mWorld.lock();
+
+	if (!World)
+		return;
 
 	unsigned __int64	Addr = (unsigned __int64)World.get();
 
@@ -175,7 +199,7 @@ void CWorldNavigation::CreateNavigationThread(int Count,
 			CThreadManager::GetInst()->Create<CThreadNavigation>(ThreadName, true);
 
 		Thread->SetWorldNavigation(mSelf);
-		Thread->SetTileMap(TileMap);
+		Thread->SetTileMap(mTileMap);
 
 		mThreadList.push_back(Thread);
 	}
@@ -186,7 +210,7 @@ void CWorldNavigation::CreateNavigationThread(int Count,
 #endif
 }
 
-void CWorldNavigation::FindPath(const FVector3& Start,
+bool CWorldNavigation::FindPath(const FVector3& Start,
 	const FVector3& End, std::weak_ptr<CComponent>* Agent,
 	const std::string& TargetObjectName, unsigned int RequestId)
 {
@@ -195,7 +219,7 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 #ifdef _DEBUG
 		DebugNavLog("[Nav] FindPath ignored: null agent\n");
 #endif
-		return;
+		return false;
 	}
 
 	if (mThreadList.empty())
@@ -204,7 +228,7 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 		DebugNavLog("[Nav] FindPath ignored: thread list empty target=%s req=%u\n",
 			TargetObjectName.c_str(), RequestId);
 #endif
-		return;
+		return false;
 	}
 
 	int	QueueCount = INT_MAX;
@@ -233,7 +257,7 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 		DebugNavLog("[Nav] FindPath ignored: no thread selected target=%s req=%u\n",
 			TargetObjectName.c_str(), RequestId);
 #endif
-		return;
+		return false;
 	}
 
 	std::vector<unsigned char>	BlockedMask;
@@ -299,7 +323,7 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 			NavAgent->SetPathTargetObjectName("");
 		}
 
-		return;
+		return false;
 	}
 
 	int	Header = ENavigationHeader::FindPath;
@@ -312,7 +336,7 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 		!WriteValue(Data, THREAD_QUEUE_DATA_SIZE, DataSize, Agent) ||
 		!WriteValue(Data, THREAD_QUEUE_DATA_SIZE, DataSize, RequestId))
 	{
-		return;
+		return false;
 	}
 
 	const int BlockMaskByteCount = (int)BlockedMask.size();
@@ -320,26 +344,26 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 	if (!WriteValue(Data, THREAD_QUEUE_DATA_SIZE, DataSize,
 		BlockMaskByteCount))
 	{
-		return;
+		return false;
 	}
 
 	if (!WriteRaw(Data, THREAD_QUEUE_DATA_SIZE, DataSize,
 		BlockedMask.data(), BlockMaskByteCount))
 	{
-		return;
+		return false;
 	}
 
 	const int GoalCount = (int)GoalIndices.size();
 
 	if (!WriteValue(Data, THREAD_QUEUE_DATA_SIZE, DataSize, GoalCount))
 	{
-		return;
+		return false;
 	}
 
 	if (!WriteRaw(Data, THREAD_QUEUE_DATA_SIZE, DataSize,
 		GoalIndices.data(), GoalCount * (int)sizeof(int)))
 	{
-		return;
+		return false;
 	}
 
 	const int TargetNameLength = (int)ResolvedTargetObjectName.size();
@@ -347,16 +371,33 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 	if (!WriteValue(Data, THREAD_QUEUE_DATA_SIZE, DataSize,
 		TargetNameLength))
 	{
-		return;
+		return false;
 	}
 
 	if (!WriteRaw(Data, THREAD_QUEUE_DATA_SIZE, DataSize,
 		ResolvedTargetObjectName.data(), TargetNameLength))
 	{
-		return;
+		return false;
 	}
 
-	mThreadList[Index]->AddData(Header, DataSize, Data);
+	const bool Enqueued =
+		mThreadList[Index]->AddData(Header, DataSize, Data);
+
+	if (!Enqueued)
+	{
+#ifdef _DEBUG
+		DebugNavLog(
+			"[Nav] Enqueue failed req=%u target=%s resolved=%s goals=%d blockedBytes=%d thread=%d q=%d\n",
+			RequestId,
+			TargetObjectName.c_str(),
+			ResolvedTargetObjectName.c_str(),
+			GoalCount,
+			BlockMaskByteCount,
+			Index,
+			mThreadList[Index]->GetQueueSize());
+#endif
+		return false;
+	}
 
 #ifdef _DEBUG
 	DebugNavLog(
@@ -368,6 +409,8 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 		BlockMaskByteCount,
 		Index);
 #endif
+
+	return true;
 }
 
 void CWorldNavigation::NavigationComplete(int Size,

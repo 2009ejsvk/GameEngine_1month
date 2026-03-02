@@ -29,7 +29,7 @@ private:
 	std::unordered_map<std::string, FNavCacheEntry>	mFrameCache;
 
 public:
-	void AddData(int Header, int Size, unsigned char* Data);
+	bool AddData(int Header, int Size, unsigned char* Data);
 
 private:
 	void Begin();
@@ -39,7 +39,7 @@ public:
 	void Update(float DeltaTime);
 	void CreateNavigationThread(int Count,
 		const std::weak_ptr<class CTileMapComponent>& TileMap);
-	void FindPath(const FVector3& Start, const FVector3& End,
+	bool FindPath(const FVector3& Start, const FVector3& End,
 		std::weak_ptr<class CComponent>* Agent,
 		const std::string& TargetObjectName = "",
 		unsigned int RequestId = 0);

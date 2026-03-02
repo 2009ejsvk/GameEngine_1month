@@ -36,7 +36,10 @@ private:
     float mSeparationMaxSpeed = 180.f;
     float mPathRetryInterval = 1.f;
     float mPathRetryAccum = 0.f;
+    float mWaitingPathAccum = 0.f;
+    float mStallAccum = 0.f;
     FVector3 mLockedTargetPos = FVector3::Zero;
+    FVector3 mLastProgressPos = FVector3::Zero;
     bool mHasLockedTarget = false;
     bool mWaitingForPath = false;
     bool mScaleInitialized = false;
@@ -72,6 +75,10 @@ public:
 
         mCurrentTargetName.clear();
         mHasStartPos = false;
+        mHasLockedTarget = false;
+        mWaitingForPath = false;
+        mWaitingPathAccum = 0.f;
+        mStallAccum = 0.f;
     }
 
     void SetRandomTargetNames(
@@ -107,6 +114,10 @@ public:
 
         mCurrentTargetName.clear();
         mHasStartPos = false;
+        mHasLockedTarget = false;
+        mWaitingForPath = false;
+        mWaitingPathAccum = 0.f;
+        mStallAccum = 0.f;
     }
 
     void SetMoveSpeed(float Speed)

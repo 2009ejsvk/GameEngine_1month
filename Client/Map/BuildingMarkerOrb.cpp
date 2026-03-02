@@ -188,6 +188,10 @@ bool CBuildingMarkerOrb::Init()
     }
 
     SetWorldPos(0.f, 0.f, 10.f);
+    mLastProgressPos = GetWorldPos();
+
+    // 개별 orb마다 retry 위상을 조금씩 다르게 해 요청 버스트를 완화한다.
+    mPathRetryInterval = 0.9f + ((float)(rand() % 61) / 100.f);
 
 #ifdef _DEBUG
     DebugOrbLog("[Orb] Init name=%s speed=%.1f\n",
@@ -227,31 +231,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     mDebugMissingDependencyLogged = false;
 #endif
 
-    std::vector<std::pair<std::string, FVector3>> MarkerList;
-
-    if (!CollectTargetMarkers(MarkerList))
-    {
-#ifdef _DEBUG
-        if (!mDebugMissingMarkerLogged)
-        {
-            DebugOrbLog(
-                "[Orb] Marker unavailable. no valid target marker\n");
-            mDebugMissingMarkerLogged = true;
-        }
-#endif
-        return;
-    }
-
-#ifdef _DEBUG
-    mDebugMissingMarkerLogged = false;
-#endif
-
     const float CurrentZ = GetWorldPos().z;
-
-    for (size_t i = 0; i < MarkerList.size(); ++i)
-    {
-        MarkerList[i].second.z = CurrentZ;
-    }
 
     Movement->SetSpeed(mMoveSpeed);
     mPathRetryAccum += DeltaTime;
@@ -264,10 +244,35 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         Movement->StartPathPoint();
         Movement->SetPathTargetObjectName("");
         mWaitingForPath = false;
+        mWaitingPathAccum = 0.f;
     };
 
     if (!mHasStartPos)
     {
+        std::vector<std::pair<std::string, FVector3>> MarkerList;
+
+        if (!CollectTargetMarkers(MarkerList))
+        {
+#ifdef _DEBUG
+            if (!mDebugMissingMarkerLogged)
+            {
+                DebugOrbLog(
+                    "[Orb] Marker unavailable. no valid target marker\n");
+                mDebugMissingMarkerLogged = true;
+            }
+#endif
+            return;
+        }
+
+#ifdef _DEBUG
+        mDebugMissingMarkerLogged = false;
+#endif
+
+        for (size_t i = 0; i < MarkerList.size(); ++i)
+        {
+            MarkerList[i].second.z = CurrentZ;
+        }
+
         const int StartIndex = rand() % (int)MarkerList.size();
         const std::string& StartName = MarkerList[StartIndex].first;
         SetWorldPos(MarkerList[StartIndex].second);
@@ -278,8 +283,8 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
         // 즉시 경로를 요청하지 않는다.
         // mPathRetryAccum을 음수로 설정해 orb마다 다른 시점에 첫 요청이 발생하게 한다.
-        // retry 로직(+mPathRetryInterval)이 더해지므로 실제 출발은 1~5초 사이에 분산된다.
-        mPathRetryAccum = -((float)(rand() % 400) / 100.f);
+        // retry 로직(+mPathRetryInterval)이 더해지므로 실제 출발은 약 1초 내외로 분산된다.
+        mPathRetryAccum = -((float)(rand() % 20) / 100.f);
 
 #ifdef _DEBUG
         DebugOrbLog(
@@ -309,20 +314,11 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         return;
     }
 
-    FVector3 TargetMarker = FVector3::Zero;
-    bool TargetFound = false;
+    // TargetBuilding 포인터를 한 번 취득해 이동 감지 / 도착 판정 양쪽에 재사용한다.
+    auto TargetBuilding =
+        World->FindObject<CPlacementAreaObject>(mCurrentTargetName).lock();
 
-    for (size_t i = 0; i < MarkerList.size(); ++i)
-    {
-        if (MarkerList[i].first == mCurrentTargetName)
-        {
-            TargetMarker = MarkerList[i].second;
-            TargetFound = true;
-            break;
-        }
-    }
-
-    if (!TargetFound)
+    if (!TargetBuilding)
     {
         CancelCurrentPath();
         mHasLockedTarget = false;
@@ -336,9 +332,37 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         return;
     }
 
-    // TargetBuilding 포인터를 한 번 취득해 이동 감지 / 도착 판정 양쪽에 재사용한다.
-    auto TargetBuilding =
-        World->FindObject<CPlacementAreaObject>(mCurrentTargetName).lock();
+    FVector3 TargetMarker = FVector3::Zero;
+
+    if (!TargetBuilding->GetClosestMarkerWorldPos(
+        GetWorldPos(), TargetMarker))
+    {
+#ifdef _DEBUG
+        if (!mDebugMissingMarkerLogged)
+        {
+            DebugOrbLog(
+                "[Orb] Marker unavailable. target=%s\n",
+                mCurrentTargetName.c_str());
+            mDebugMissingMarkerLogged = true;
+        }
+#endif
+        CancelCurrentPath();
+        mHasLockedTarget = false;
+        mCurrentTargetName = PickRandomTargetName(std::string());
+
+        if (mCurrentTargetName.empty())
+            return;
+
+        RequestMoveTo(mCurrentTargetName);
+        mPathRetryAccum = 0.f;
+        return;
+    }
+
+#ifdef _DEBUG
+    mDebugMissingMarkerLogged = false;
+#endif
+
+    TargetMarker.z = CurrentZ;
 
     // 건물 이동 감지: mLockedTargetPos와 건물의 현재 closest 마커가 멀어졌으면
     // 경로를 즉시 취소하고 retry를 분산 스케줄해 nav 큐 폭주를 방지한다.
@@ -358,12 +382,13 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
                     mHasLockedTarget = false;
                     // 기존 경로(구 건물 위치로 향하는)를 즉시 취소한다.
                     CancelCurrentPath();
-                    // 재시도 시점을 0.5~1.0 × interval 범위에 분산한다.
+                    // 재시도 시점을 0.75~0.95 × interval 범위에 분산한다.
+                    // (실제 재요청 대기: 약 0.05~0.25 × interval)
                     const float Jitter =
                         (float)(rand() % 100) / 100.f *
-                        mPathRetryInterval * 0.5f;
+                        mPathRetryInterval * 0.2f;
                     mPathRetryAccum =
-                        mPathRetryInterval * 0.5f + Jitter;
+                        mPathRetryInterval * 0.75f + Jitter;
                 }
             }
             else
@@ -388,46 +413,15 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     const float Dist = Current.Distance(ArrivalRef);
 
-    // 도착 판정:
-    // ArrivalRef 거리 이내이거나, 목표 건물의 어느 마커 타일이든 현재 타일과
-    // 일치하면 도착으로 처리한다.
-    //
-    // [핵심] BuildNavigationSnapshot은 MovePath(mLockedTargetPos) 호출 시
-    // 해당 건물의 모든 goal tile을 OutGoalIndices로 반환하며,
-    // A*는 그 중 가장 가까운 타일로 경로를 계획한다.
-    // 따라서 orb가 mLockedTargetPos가 아닌 다른 마커 타일에 도착해도
-    // 도착으로 인정하지 않으면 도착 판정이 영원히 발동하지 않는다.
     bool ArrivedAtBuilding = (Dist <= mArrivalDistance);
 
-    if (!ArrivedAtBuilding && TargetBuilding)
+    // 잠금 좌표와 다른 마커(goal tile)에 도착하는 경우를 허용한다.
+    // 현재 위치 기준의 최근접 마커(TargetMarker)에 충분히 가까우면
+    // 동일 건물 도착으로 처리한다.
+    if (!ArrivedAtBuilding && mHasLockedTarget)
     {
-        auto TileMapObj = mTileMapObject.lock();
-
-        if (TileMapObj)
-        {
-            auto TileMap = TileMapObj->GetTileMap().lock();
-
-            if (TileMap)
-            {
-                const int CurrentTileIndex =
-                    TileMap->GetTileIndex(Current);
-
-                if (CurrentTileIndex >= 0)
-                {
-                    std::vector<int> GoalTiles;
-                    TargetBuilding->GetNavigationGoalTiles(GoalTiles);
-
-                    for (size_t g = 0; g < GoalTiles.size(); ++g)
-                    {
-                        if (GoalTiles[g] == CurrentTileIndex)
-                        {
-                            ArrivedAtBuilding = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        ArrivedAtBuilding =
+            Current.Distance(TargetMarker) <= mArrivalDistance;
     }
 
     if (ArrivedAtBuilding)
@@ -448,21 +442,79 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 #endif
 
         // 즉시 경로를 요청하지 않는다.
-        // 매 도착마다 랜덤 대기를 주입해 사이클이 반복될수록
-        // orb들이 phase-lock되는 것을 방지한다.
-        mPathRetryAccum = -((float)(rand() % 200) / 100.f);
+        // 도착 후 대기는 짧게 유지해 정지 체감을 줄인다.
+        mPathRetryAccum = -((float)(rand() % 10) / 100.f);
         return;
     }
 
     // 경로 대기 상태 관리:
     // 경로 요청 후 velocity가 한 번이라도 non-zero가 되면 경로가 수신됐다고 판단한다.
     if (mWaitingForPath && !Movement->GetVelocity().IsZero())
+    {
         mWaitingForPath = false;
+        mWaitingPathAccum = 0.f;
+    }
 
-    // 대기 중이면 retry 간격을 3배로 늘려 nav 스레드 큐 폭주를 방지한다.
+    if (mWaitingForPath)
+    {
+        mWaitingPathAccum += DeltaTime;
+
+        // 응답이 너무 늦으면 대기를 강제로 해제해 즉시 재요청한다.
+        if (mWaitingPathAccum >= 0.35f)
+        {
+            mWaitingForPath = false;
+            mWaitingPathAccum = 0.f;
+            mPathRetryAccum = mPathRetryInterval;
+        }
+    }
+    else
+    {
+        mWaitingPathAccum = 0.f;
+    }
+
+    const FVector3 Velocity = Movement->GetVelocity();
+
+    if (!Velocity.IsZero())
+    {
+        mStallAccum = 0.f;
+        mLastProgressPos = Current;
+    }
+    else
+    {
+        if (Current.Distance(mLastProgressPos) > 2.f)
+        {
+            mStallAccum = 0.f;
+            mLastProgressPos = Current;
+        }
+        else
+        {
+            mStallAccum += DeltaTime;
+        }
+    }
+
+    // 일정 시간 정체되면 타겟을 바꿔 고착 상태를 해소한다.
+    if (mStallAccum >= 1.5f)
+    {
+        const std::string PrevTarget = mCurrentTargetName;
+
+        CancelCurrentPath();
+        mHasLockedTarget = false;
+        mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
+
+        if (mCurrentTargetName.empty())
+            mCurrentTargetName = PrevTarget;
+
+        RequestMoveTo(mCurrentTargetName);
+        mPathRetryAccum = 0.f;
+        mStallAccum = 0.f;
+        mLastProgressPos = Current;
+        return;
+    }
+
+    // 대기 중이면 retry 간격을 약간만 늘려 큐 폭주를 방지한다.
     // 대기 중이 아니면 표준 간격으로 retry한다.
     const float EffectiveRetryInterval = mWaitingForPath
-        ? mPathRetryInterval * 3.f
+        ? mPathRetryInterval * 1.2f
         : mPathRetryInterval;
 
     if (mPathRetryAccum >= EffectiveRetryInterval &&
@@ -484,12 +536,11 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         const std::string& PathTarget = Movement->GetPathTargetObjectName();
 
         DebugOrbLog(
-            "[Orb] Pos=(%.1f, %.1f) target=%s pathTarget=%s dist=%.1f markerCount=%d\n",
+            "[Orb] Pos=(%.1f, %.1f) target=%s pathTarget=%s dist=%.1f\n",
             Pos.x, Pos.y,
             mCurrentTargetName.c_str(),
             PathTarget.empty() ? "<none>" : PathTarget.c_str(),
-            Dist,
-            (int)MarkerList.size());
+            Dist);
     }
 #endif
 }
@@ -919,8 +970,20 @@ void CBuildingMarkerOrb::RequestMoveTo(
                 TargetBuildingName.c_str(), NavTarget.x, NavTarget.y,
                 mHasLockedTarget ? 1 : 0);
 #endif
-            mWaitingForPath = true;
-            Movement->MovePath(NavTarget);
+            const bool Requested = Movement->MovePath(NavTarget);
+            mWaitingForPath = Requested;
+            mWaitingPathAccum = 0.f;
+
+            if (!Requested)
+            {
+                // 큐 포화로 요청이 반려되면 빠르게 재시도한다.
+                mPathRetryAccum = mPathRetryInterval * 0.9f;
+#ifdef _DEBUG
+                DebugOrbLog(
+                    "[Orb] RequestMoveTo enqueue failed target=%s\n",
+                    TargetBuildingName.c_str());
+#endif
+            }
             return;
         }
     }
@@ -930,6 +993,18 @@ void CBuildingMarkerOrb::RequestMoveTo(
     DebugOrbLog("[Orb] RequestMoveTo fallback target=%s\n",
         TargetBuildingName.c_str());
 #endif
-    mWaitingForPath = true;
-    Movement->MovePathToObject(TargetBuildingName);
+    const bool Requested =
+        Movement->MovePathToObject(TargetBuildingName);
+    mWaitingForPath = Requested;
+    mWaitingPathAccum = 0.f;
+
+    if (!Requested)
+    {
+        mPathRetryAccum = mPathRetryInterval * 0.9f;
+#ifdef _DEBUG
+        DebugOrbLog(
+            "[Orb] RequestMoveTo fallback enqueue failed target=%s\n",
+            TargetBuildingName.c_str());
+#endif
+    }
 }

@@ -48,7 +48,7 @@ public:
 	virtual void Run() = 0;
 
 public:
-	void AddData(int Header, int Size, unsigned char* Data);
+	bool AddData(int Header, int Size, unsigned char* Data);
 	void GetData(int& Header, int& Size, unsigned char* Data);
 	int GetQueueSize();
 	bool EmptyQueue();

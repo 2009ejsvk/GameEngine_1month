@@ -285,8 +285,34 @@ void CThreadNavigation::Run()
 
 					auto	WorldNav = mWorldNavigation.lock();
 
-					WorldNav->AddData(ENavigationHeader::FindComplete,
-						DataSize, Data);
+					if (WorldNav)
+					{
+						bool Submitted = false;
+
+						for (int Retry = 0; Retry < 8; ++Retry)
+						{
+							if (WorldNav->AddData(
+								ENavigationHeader::FindComplete,
+								DataSize, Data))
+							{
+								Submitted = true;
+								break;
+							}
+
+							std::this_thread::sleep_for(
+								std::chrono::milliseconds(1));
+						}
+
+#ifdef _DEBUG
+						if (!Submitted)
+						{
+							DebugThreadNavLog(
+								"[ThreadNav] Drop completion req=%u target=%s (world queue full)\n",
+								RequestId,
+								TargetObjectName.empty() ? "<none>" : TargetObjectName.c_str());
+						}
+#endif
+					}
 				}
 
 #ifdef _DEBUG
