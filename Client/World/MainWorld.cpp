@@ -1,4 +1,4 @@
-#include "MainWorld.h"
+﻿#include "MainWorld.h"
 #include "../Player/Player.h"
 #include "../Monster/Monster.h"
 #include "../Monster/MonsterSpawnPoint.h"
@@ -383,7 +383,7 @@ bool CMainWorld::Init()
 		CreatePlacementBuilding(BuildingSpawns[i]);
 	}
 
-	const int MarkerOrbCount = 200;
+	const int MarkerOrbCount = 1200;
 
 	for (int i = 0; i < MarkerOrbCount; ++i)
 	{
@@ -398,7 +398,12 @@ bool CMainWorld::Init()
 			continue;
 
 		MarkerOrbObj->SetRandomTargetNames(BuildingNames);
-		MarkerOrbObj->SetMoveSpeed(280.f);
+
+		const float SpeedBase = 280.f;
+		const float SpeedVariance = 42.f;
+		const float Speed = SpeedBase +
+			((float)(rand() % 1001) / 500.f - 1.f) * SpeedVariance;
+		MarkerOrbObj->SetMoveSpeed(Speed);
 	}
 	// TileMap.lock()->LoadTileMap(TEXT("Map/MainMap.tlm"), "Asset");
 	// std::weak_ptr<CPlayer>	Player = CreateGameObject<CPlayer>("Player");

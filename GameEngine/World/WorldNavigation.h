@@ -20,6 +20,14 @@ private:
 	std::shared_ptr<CThreadQueue>	mNavQueue;
 	std::weak_ptr<class CTileMapComponent>	mTileMap;
 
+	struct FNavCacheEntry
+	{
+		std::vector<unsigned char>	BlockedMask;
+		std::vector<int>			GoalIndices;
+		std::string					ResolvedTargetObjectName;
+	};
+	std::unordered_map<std::string, FNavCacheEntry>	mFrameCache;
+
 public:
 	void AddData(int Header, int Size, unsigned char* Data);
 

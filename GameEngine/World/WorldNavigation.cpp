@@ -106,6 +106,8 @@ void CWorldNavigation::AddData(int Header, int Size,
 
 void CWorldNavigation::Begin()
 {
+	mFrameCache.clear();
+
 	size_t	Size = mThreadList.size();
 
 #ifdef _DEBUG
@@ -241,13 +243,35 @@ void CWorldNavigation::FindPath(const FVector3& Start,
 	{
 		const int EndTileIndex = TileMap->GetTileIndex(End);
 
-		World->BuildNavigationSnapshot(
-			TileMap,
-			EndTileIndex,
-			TargetObjectName,
-			BlockedMask,
-			GoalIndices,
-			ResolvedTargetObjectName);
+		// 같은 목적지에 대한 스냅샷은 프레임당 한 번만 계산한다.
+		// 키: 이름이 있으면 건물 이름(최대 10개), 없으면 타일 인덱스(마커 위치 수).
+		const std::string CacheKey = TargetObjectName.empty()
+			? std::to_string(EndTileIndex)
+			: TargetObjectName;
+
+		auto CacheIt = mFrameCache.find(CacheKey);
+
+		if (CacheIt != mFrameCache.end())
+		{
+			BlockedMask              = CacheIt->second.BlockedMask;
+			GoalIndices              = CacheIt->second.GoalIndices;
+			ResolvedTargetObjectName = CacheIt->second.ResolvedTargetObjectName;
+		}
+		else
+		{
+			World->BuildNavigationSnapshot(
+				TileMap,
+				EndTileIndex,
+				TargetObjectName,
+				BlockedMask,
+				GoalIndices,
+				ResolvedTargetObjectName);
+
+			FNavCacheEntry& Entry        = mFrameCache[CacheKey];
+			Entry.BlockedMask            = BlockedMask;
+			Entry.GoalIndices            = GoalIndices;
+			Entry.ResolvedTargetObjectName = ResolvedTargetObjectName;
+		}
 	}
 
 	if (!ResolvedTargetObjectName.empty() && GoalIndices.empty())

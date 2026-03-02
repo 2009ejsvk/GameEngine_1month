@@ -77,9 +77,6 @@ void CObjectMovementComponent::MovePath(const FVector3& Pos)
 
 	mPathTargetObjectName.clear();
 	mRepathAccumulator = 0.f;
-	mPathList.clear();
-	mPathIndex = 0;
-	mMoveDist = 0.f;
 	Nav->FindPath(UpdateComponent->GetWorldPos(), Pos, &mSelf, "",
 		RequestId);
 }
