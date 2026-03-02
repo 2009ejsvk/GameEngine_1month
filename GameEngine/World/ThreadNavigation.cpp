@@ -309,7 +309,10 @@ void CThreadNavigation::Run()
 				return;
 			}
 		}
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		else
+		{
+			// 큐가 빌 때만 sleep — 아이템이 있을 땐 즉시 다음 처리
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		}
 	}
 }

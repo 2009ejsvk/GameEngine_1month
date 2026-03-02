@@ -272,16 +272,19 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         if (mCurrentTargetName.empty())
             mCurrentTargetName = StartName;
 
-        RequestMoveTo(mCurrentTargetName);
-        mPathRetryAccum = 0.f;
+        // 즉시 경로를 요청하지 않는다.
+        // mPathRetryAccum을 음수로 설정해 orb마다 다른 시점에 첫 요청이 발생하게 한다.
+        // retry 로직(+mPathRetryInterval)이 더해지므로 실제 출발은 1~5초 사이에 분산된다.
+        mPathRetryAccum = -((float)(rand() % 400) / 100.f);
 
 #ifdef _DEBUG
         DebugOrbLog(
-            "[Orb] Start at %s marker=(%.1f, %.1f) target=%s\n",
+            "[Orb] Start at %s marker=(%.1f, %.1f) target=%s delay=%.2f\n",
             StartName.c_str(),
             MarkerList[StartIndex].second.x,
             MarkerList[StartIndex].second.y,
-            mCurrentTargetName.c_str());
+            mCurrentTargetName.c_str(),
+            -mPathRetryAccum);
 #endif
 
         mHasStartPos = true;
@@ -366,8 +369,10 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             ArrivedByTile ? 1 : 0);
 #endif
 
-        RequestMoveTo(mCurrentTargetName);
-        mPathRetryAccum = 0.f;
+        // 즉시 경로를 요청하지 않는다.
+        // 매 도착마다 랜덤 대기를 주입해 사이클이 반복될수록
+        // orb들이 phase-lock되는 것을 방지한다.
+        mPathRetryAccum = -((float)(rand() % 200) / 100.f);
         return;
     }
 
