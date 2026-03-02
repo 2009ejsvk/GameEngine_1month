@@ -57,21 +57,9 @@ private:
     std::weak_ptr<class CTileMapObject> mTileMapObject;
     std::weak_ptr<class CTileMapObject> mBlueOverlayTileMapObject;
     std::weak_ptr<class CTileMapObject> mYellowOverlayTileMapObject;
-    std::weak_ptr<class CTileMapObject> mWallTileMapObject;
-    std::weak_ptr<class CTileMapObject> mCeilingTileMapObject;
-    std::weak_ptr<class CMeshComponent> mWallMeshComponent;
-    std::weak_ptr<class CMeshComponent> mBackWallMeshComponent;
-    std::string mWallMeshName;
-    std::string mBackWallMeshName;
-    int mWallMeshVersion = 0;
-    int mBackWallMeshVersion = 0;
-    std::vector<int> mPlacedIndices;
     std::vector<int> mPrimaryPlacedIndices;
-    std::vector<int> mExtendedPlacedIndices;
     std::vector<int> mAppliedPrimaryOverlayIndices;
     std::vector<int> mAppliedMarkerOverlayIndices;
-    std::vector<int> mAppliedWallOverlayIndices;
-    std::vector<int> mAppliedCeilingOverlayIndices;
     std::vector<int> mPreviewIndices;
     bool mPreviewCanPlace = false;
     bool mTileMapPrepared = false;
@@ -84,7 +72,6 @@ private:
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
-    std::vector<int> mWallZoneIndices;
 
 public:
     void SetTileMapObject(
@@ -132,8 +119,6 @@ public:
     void ConfirmPlacement();
     void CancelMovePreview();
     bool ContainsPlacedTile(const FVector2& MouseWorldPos);
-    bool ContainsExtendedPlacedTileIndex(int TileIndex);
-    bool ContainsBackOcclusionTileIndex(int TileIndex);
     float GetCenterDistanceSq(const FVector2& MouseWorldPos) const;
     bool GetMarkerWorldPos(FVector3& OutWorldPos);
     bool GetMarkerWorldPositions(std::vector<FVector3>& OutWorldPosList);
@@ -154,34 +139,8 @@ private:
         std::shared_ptr<class CTileMapComponent>& OutTileMap);
     bool AcquireYellowOverlayTileMap(
         std::shared_ptr<class CTileMapComponent>& OutTileMap);
-    bool AcquireWallTileMap(
-        std::shared_ptr<class CTileMapComponent>& OutTileMap);
-    bool AcquireCeilingTileMap(
-        std::shared_ptr<class CTileMapComponent>& OutTileMap);
     void UpdatePrimaryOverlayTiles(const std::vector<int>& NextIndices);
     void UpdateMarkerOverlayTiles(const std::vector<int>& NextIndices);
-    void UpdateWallOverlayTiles(const std::vector<int>& NextIndices);
-    void UpdateCeilingOverlayTiles(const std::vector<int>& NextIndices);
-    void BuildWallIndices(
-        const std::shared_ptr<class CTileMapComponent>& TileMap,
-        std::vector<int>& OutIndices) const;
-    bool BuildWallMeshGeometry(
-        const std::shared_ptr<class CTileMapComponent>& TileMap,
-        std::vector<FVertexColor>& OutVertices,
-        std::vector<unsigned int>& OutIndices,
-        bool BackSideOnly) const;
-    void RefreshWallMeshAnchor();
-    void RebuildWallMesh(const std::shared_ptr<class CTileMapComponent>& TileMap);
-    void ClearWallMesh();
-    bool BuildPlacementAreaIndices(
-        const std::shared_ptr<class CTileMapComponent>& TileMap,
-        int CenterIndex, std::vector<int>& OutIndices) const;
-    bool BuildPlacementAreaGroups(
-        const std::shared_ptr<class CTileMapComponent>& TileMap,
-        int CenterIndex,
-        std::vector<int>& OutPrimaryIndices,
-        std::vector<int>& OutExtendedIndices,
-        std::vector<int>& OutMergedIndices) const;
     bool BuildDiamondAreaIndices(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, std::vector<int>& OutIndices) const;
@@ -192,9 +151,6 @@ private:
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         const std::vector<int>& Indices, const FVector4& Color);
     bool IsPlacedIndex(int Index) const;
-    bool IsPrimaryPlacedIndex(int Index) const;
-    bool IsExtendedPlacedIndex(int Index) const;
-    bool IsWallZoneIndex(int Index) const;
     int FindMarkerTileIndexByLogicalOffset(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, const std::vector<int>& Indices,
@@ -206,9 +162,6 @@ private:
     void SyncWorldPosFromCenter(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex);
-    bool IsPlacedEdgeTile(
-        const std::shared_ptr<class CTileMapComponent>& TileMap,
-        int TileIndex) const;
     int GetIsoNeighborIndexByDir(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int TileIndex, int DirIndex) const;

@@ -1,19 +1,14 @@
 #include "PlacementAreaObject.h"
 #include "Component/SceneComponent.h"
-#include "Component/MeshComponent.h"
 #include "Object/TileMapObject.h"
 #include "World/World.h"
-#include "World/WorldAssetManager.h"
 #include "World/Input.h"
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
-#include <unordered_map>
 
 namespace
 {
-    constexpr int PlacementDuplicateOffsetY = 4;
-
     struct FOverlayTileState
     {
         CTileMapComponent* TileMap = nullptr;
@@ -22,8 +17,6 @@ namespace
 
     FOverlayTileState GPrimaryOverlayState;
     FOverlayTileState GMarkerOverlayState;
-    FOverlayTileState GWallOverlayState;
-    FOverlayTileState GCeilingOverlayState;
 
     void EnsureOverlayState(
         FOverlayTileState& State,
@@ -157,26 +150,6 @@ bool CPlacementAreaObject::Init()
     CGameObject::Init();
 
     CreateComponent<CSceneComponent>("Root");
-    mWallMeshComponent = CreateComponent<CMeshComponent>("WallMesh");
-    mBackWallMeshComponent =
-        CreateComponent<CMeshComponent>("BackWallMesh");
-
-    auto WallMesh = mWallMeshComponent.lock();
-    auto BackWallMesh = mBackWallMeshComponent.lock();
-
-    if (WallMesh)
-    {
-        WallMesh->SetShader("MaterialColor2D");
-        WallMesh->SetRenderLayer("MapWallFront");
-        WallMesh->SetEnable(false);
-    }
-
-    if (BackWallMesh)
-    {
-        BackWallMesh->SetShader("MaterialColor2D");
-        BackWallMesh->SetRenderLayer("MapWallBack");
-        BackWallMesh->SetEnable(false);
-    }
 
     return true;
 }
@@ -196,8 +169,6 @@ void CPlacementAreaObject::Update(float DeltaTime)
             ApplyPlacedAreaColor(TileMap);
         }
     }
-
-    RefreshWallMeshAnchor();
 
     if (!mMovePreviewActive)
         return;
@@ -219,8 +190,6 @@ void CPlacementAreaObject::Destroy()
 {
     UpdatePrimaryOverlayTiles(std::vector<int>());
     UpdateMarkerOverlayTiles(std::vector<int>());
-    UpdateCeilingOverlayTiles(std::vector<int>());
-    ClearWallMesh();
     CGameObject::Destroy();
 }
 
@@ -294,8 +263,6 @@ void CPlacementAreaObject::GetNavigationBlockedTiles(
             GoalTiles.end();
     };
 
-    // 경로 막힘은 바닥(Primary)만 반영하고,
-    // 천장/가림 용도인 Extended는 장애물로 취급하지 않는다.
     for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
     {
         const int Index = mPrimaryPlacedIndices[i];
@@ -350,24 +317,10 @@ void CPlacementAreaObject::ConfirmPlacement()
         Tile->SetOutLineColor(FVector4::White);
     }
 
-    for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
-    {
-        auto Tile = TileMap->GetTile(mExtendedPlacedIndices[i]).lock();
-
-        if (!Tile)
-            continue;
-
-        Tile->SetTileType(ETileType::Normal);
-        Tile->SetOutLineColor(FVector4::White);
-    }
-
     std::vector<int> NextPrimaryIndices;
-    std::vector<int> NextExtendedIndices;
-    std::vector<int> NextPlacedIndices;
 
-    if (!BuildPlacementAreaGroups(
-        TileMap, mPreviewCenterIndex,
-        NextPrimaryIndices, NextExtendedIndices, NextPlacedIndices))
+    if (!BuildDiamondAreaIndices(TileMap, mPreviewCenterIndex, NextPrimaryIndices) ||
+        (int)NextPrimaryIndices.size() != mTemplate.GetExpectedTileCount())
     {
         return;
     }
@@ -382,20 +335,7 @@ void CPlacementAreaObject::ConfirmPlacement()
         Tile->SetTileType(ETileType::UnableToMove);
     }
 
-    for (size_t i = 0; i < NextExtendedIndices.size(); ++i)
-    {
-        auto Tile = TileMap->GetTile(NextExtendedIndices[i]).lock();
-
-        if (!Tile)
-            continue;
-
-        Tile->SetTileType(ETileType::Normal);
-    }
-
-    mPlacedIndices = NextPlacedIndices;
     mPrimaryPlacedIndices = NextPrimaryIndices;
-    mExtendedPlacedIndices = NextExtendedIndices;
-    UpdateCeilingOverlayTiles(mExtendedPlacedIndices);
     mPlacedCenterIndex = mPreviewCenterIndex;
     mPreviewIndices.clear();
     mPreviewCenterIndex = -1;
@@ -404,7 +344,6 @@ void CPlacementAreaObject::ConfirmPlacement()
 
     ApplyPlacedAreaColor(TileMap);
     SyncWorldPosFromCenter(TileMap, mPlacedCenterIndex);
-    RebuildWallMesh(TileMap);
 }
 
 void CPlacementAreaObject::CancelMovePreview()
@@ -427,71 +366,6 @@ bool CPlacementAreaObject::ContainsPlacedTile(
         return false;
 
     return IsPlacedIndex(TileIndex);
-}
-
-bool CPlacementAreaObject::ContainsExtendedPlacedTileIndex(int TileIndex)
-{
-    EnsurePlacementObject();
-    return IsExtendedPlacedIndex(TileIndex);
-}
-
-bool CPlacementAreaObject::ContainsBackOcclusionTileIndex(int TileIndex)
-{
-    EnsurePlacementObject();
-
-    if (!mTileMapPrepared || TileIndex < 0)
-        return false;
-
-    if (IsExtendedPlacedIndex(TileIndex))
-        return true;
-
-    // 벽 구간(Primary 에지 ~ Extended 사이) 타일 체크
-    if (IsWallZoneIndex(TileIndex))
-        return true;
-
-    if (!IsPrimaryPlacedIndex(TileIndex))
-        return false;
-
-    std::shared_ptr<CTileMapComponent> TileMap;
-
-    if (!AcquireTileMap(TileMap))
-        return true;
-
-    if (mPlacedCenterIndex < 0)
-        return true;
-
-    auto CenterTile = TileMap->GetTile(mPlacedCenterIndex).lock();
-    auto Tile = TileMap->GetTile(TileIndex).lock();
-
-    if (!CenterTile || !Tile)
-        return true;
-
-    const int CountX = TileMap->GetTileCountX();
-    const int CountY = TileMap->GetTileCountY();
-    const int PrimaryCenterX = CenterTile->GetIndexX();
-    const int PrimaryCenterY = CenterTile->GetIndexY();
-
-    if (PrimaryCenterX < 0 || PrimaryCenterX >= CountX ||
-        PrimaryCenterY < 0 || PrimaryCenterY >= CountY)
-    {
-        return true;
-    }
-
-    const float CenterLogicalX = PrimaryCenterX +
-        ((PrimaryCenterY % 2 == 0) ? 0.f : 0.5f);
-    const float CenterLogicalY = PrimaryCenterY * 0.5f;
-    const float TileLogicalX = Tile->GetIndexX() +
-        ((Tile->GetIndexY() % 2 == 0) ? 0.f : 0.5f);
-    const float TileLogicalY = Tile->GetIndexY() * 0.5f;
-    const float DistX = fabs(TileLogicalX - CenterLogicalX);
-    const float DistY = fabs(TileLogicalY - CenterLogicalY);
-    const float DiamondRadius = static_cast<float>(mTemplate.DiamondRadius);
-    const float BoundaryError = fabs((DistX + DistY) - DiamondRadius);
-    const bool IsBoundaryTile = BoundaryError <= 0.001f;
-    const bool IsLowerDiagonalEdge =
-        IsBoundaryTile && TileLogicalY >= CenterLogicalY;
-
-    return !IsLowerDiagonalEdge;
 }
 
 float CPlacementAreaObject::GetCenterDistanceSq(
@@ -669,15 +543,9 @@ void CPlacementAreaObject::ResetPlacementState()
 {
     UpdatePrimaryOverlayTiles(std::vector<int>());
     UpdateMarkerOverlayTiles(std::vector<int>());
-    UpdateCeilingOverlayTiles(std::vector<int>());
-    ClearWallMesh();
-    mPlacedIndices.clear();
     mPrimaryPlacedIndices.clear();
-    mExtendedPlacedIndices.clear();
     mAppliedPrimaryOverlayIndices.clear();
     mAppliedMarkerOverlayIndices.clear();
-    mAppliedWallOverlayIndices.clear();
-    mAppliedCeilingOverlayIndices.clear();
     mPreviewIndices.clear();
     mPreviewCanPlace = false;
     mTileMapPrepared = false;
@@ -685,7 +553,6 @@ void CPlacementAreaObject::ResetPlacementState()
     mPlacedCenterIndex = -1;
     mPreviewCenterIndex = -1;
     mMarkerTileIndices.clear();
-    mWallZoneIndices.clear();
 }
 
 void CPlacementAreaObject::EnsurePlacementObject()
@@ -730,9 +597,7 @@ void CPlacementAreaObject::EnsurePlacementObject()
         sInitializedTileMap = TileMap.get();
     }
 
-    std::vector<int> StartIndices;
     std::vector<int> StartPrimaryIndices;
-    std::vector<int> StartExtendedIndices;
     int StartCenterIndex = -1;
 
     const int CenterX = Clamp<int>(
@@ -741,10 +606,10 @@ void CPlacementAreaObject::EnsurePlacementObject()
         CountY / 2 + mInitialCenterOffsetY, 0, CountY - 1);
     const int CenterIndex = CenterY * CountX + CenterX;
 
-    bool Found = BuildPlacementAreaGroups(TileMap,
-        CenterIndex,
-        StartPrimaryIndices, StartExtendedIndices, StartIndices) &&
-        IsAreaPlaceable(TileMap, StartIndices);
+    bool Found = BuildDiamondAreaIndices(TileMap,
+        CenterIndex, StartPrimaryIndices) &&
+        (int)StartPrimaryIndices.size() == mTemplate.GetExpectedTileCount() &&
+        IsAreaPlaceable(TileMap, StartPrimaryIndices);
 
     if (Found)
     {
@@ -759,16 +624,13 @@ void CPlacementAreaObject::EnsurePlacementObject()
             {
                 const int Index = y * CountX + x;
 
-                if (!BuildPlacementAreaGroups(TileMap,
-                    Index,
-                    StartPrimaryIndices,
-                    StartExtendedIndices,
-                    StartIndices))
+                if (!BuildDiamondAreaIndices(TileMap, Index, StartPrimaryIndices) ||
+                    (int)StartPrimaryIndices.size() != mTemplate.GetExpectedTileCount())
                 {
                     continue;
                 }
 
-                if (IsAreaPlaceable(TileMap, StartIndices))
+                if (IsAreaPlaceable(TileMap, StartPrimaryIndices))
                 {
                     Found = true;
                     StartCenterIndex = Index;
@@ -790,29 +652,10 @@ void CPlacementAreaObject::EnsurePlacementObject()
             Tile->SetTileType(ETileType::UnableToMove);
         }
 
-        for (size_t i = 0; i < StartExtendedIndices.size(); ++i)
-        {
-            auto Tile = TileMap->GetTile(StartExtendedIndices[i]).lock();
-
-            if (!Tile)
-                continue;
-
-            Tile->SetTileType(ETileType::Normal);
-        }
-
-        mPlacedIndices = StartIndices;
         mPrimaryPlacedIndices = StartPrimaryIndices;
-        mExtendedPlacedIndices = StartExtendedIndices;
-        UpdateCeilingOverlayTiles(mExtendedPlacedIndices);
         mPlacedCenterIndex = StartCenterIndex;
         ApplyPlacedAreaColor(TileMap);
         SyncWorldPosFromCenter(TileMap, mPlacedCenterIndex);
-        RebuildWallMesh(TileMap);
-    }
-
-    else
-    {
-        ClearWallMesh();
     }
 
     mPreviewIndices.clear();
@@ -836,22 +679,20 @@ void CPlacementAreaObject::UpdatePlacementPreviewFromMouse(
     if (CenterIndex < 0)
         return;
 
-    std::vector<int> PrimaryIndices;
-    std::vector<int> ExtendedIndices;
-
-    if (!BuildPlacementAreaGroups(TileMap, CenterIndex,
-        PrimaryIndices, ExtendedIndices, mPreviewIndices))
+    if (!BuildDiamondAreaIndices(TileMap, CenterIndex, mPreviewIndices) ||
+        (int)mPreviewIndices.size() != mTemplate.GetExpectedTileCount())
     {
+        mPreviewIndices.clear();
         return;
     }
 
     mPreviewCenterIndex = CenterIndex;
-    mPreviewCanPlace = IsAreaPlaceable(TileMap, PrimaryIndices);
+    mPreviewCanPlace = IsAreaPlaceable(TileMap, mPreviewIndices);
 
     const FVector4 PreviewColor = mPreviewCanPlace ?
         FVector4::Green : FVector4::Red;
 
-    SetAreaColor(TileMap, PrimaryIndices, PreviewColor);
+    SetAreaColor(TileMap, mPreviewIndices, PreviewColor);
 }
 
 void CPlacementAreaObject::ClearPreview()
@@ -954,54 +795,6 @@ bool CPlacementAreaObject::AcquireYellowOverlayTileMap(
     return OutTileMap != nullptr;
 }
 
-bool CPlacementAreaObject::AcquireWallTileMap(
-    std::shared_ptr<class CTileMapComponent>& OutTileMap)
-{
-    auto World = mWorld.lock();
-
-    if (!World)
-        return false;
-
-    if (mWallTileMapObject.expired())
-    {
-        mWallTileMapObject =
-            World->FindObject<CTileMapObject>("TileMapWall");
-    }
-
-    auto WallTileMapObj = mWallTileMapObject.lock();
-
-    if (!WallTileMapObj)
-        return false;
-
-    OutTileMap = WallTileMapObj->GetTileMap().lock();
-
-    return OutTileMap != nullptr;
-}
-
-bool CPlacementAreaObject::AcquireCeilingTileMap(
-    std::shared_ptr<class CTileMapComponent>& OutTileMap)
-{
-    auto World = mWorld.lock();
-
-    if (!World)
-        return false;
-
-    if (mCeilingTileMapObject.expired())
-    {
-        mCeilingTileMapObject =
-            World->FindObject<CTileMapObject>("TileMapCeiling");
-    }
-
-    auto CeilingTileMapObj = mCeilingTileMapObject.lock();
-
-    if (!CeilingTileMapObj)
-        return false;
-
-    OutTileMap = CeilingTileMapObj->GetTileMap().lock();
-
-    return OutTileMap != nullptr;
-}
-
 void CPlacementAreaObject::UpdatePrimaryOverlayTiles(
     const std::vector<int>& NextIndices)
 {
@@ -1038,621 +831,6 @@ void CPlacementAreaObject::UpdateMarkerOverlayTiles(
         mAppliedMarkerOverlayIndices,
         NextIndices,
         FVector4(1.f, 1.f, 0.f, 1.f));
-}
-
-void CPlacementAreaObject::UpdateWallOverlayTiles(
-    const std::vector<int>& NextIndices)
-{
-    std::shared_ptr<CTileMapComponent> WallTileMap;
-
-    if (!AcquireWallTileMap(WallTileMap))
-    {
-        mAppliedWallOverlayIndices.clear();
-        return;
-    }
-
-    UpdateOverlayTileRefs(
-        GWallOverlayState,
-        WallTileMap,
-        mAppliedWallOverlayIndices,
-        NextIndices,
-        FVector4(0.42f, 0.57f, 0.86f, 1.f));
-}
-
-void CPlacementAreaObject::UpdateCeilingOverlayTiles(
-    const std::vector<int>& NextIndices)
-{
-    std::shared_ptr<CTileMapComponent> CeilingTileMap;
-
-    if (!AcquireCeilingTileMap(CeilingTileMap))
-    {
-        mAppliedCeilingOverlayIndices.clear();
-        return;
-    }
-
-    UpdateOverlayTileRefs(
-        GCeilingOverlayState,
-        CeilingTileMap,
-        mAppliedCeilingOverlayIndices,
-        NextIndices,
-        FVector4::Green);
-}
-
-void CPlacementAreaObject::BuildWallIndices(
-    const std::shared_ptr<class CTileMapComponent>& TileMap,
-    std::vector<int>& OutIndices) const
-{
-    OutIndices.clear();
-
-    if (!TileMap ||
-        mPrimaryPlacedIndices.empty() ||
-        mExtendedPlacedIndices.empty())
-    {
-        return;
-    }
-
-    const int CountX = TileMap->GetTileCountX();
-    const int CountY = TileMap->GetTileCountY();
-    const int TileCount = CountX * CountY;
-    const int WallHeight = std::abs(PlacementDuplicateOffsetY);
-
-    if (CountX <= 0 ||
-        CountY <= 0 ||
-        TileCount <= 0 ||
-        WallHeight <= 1)
-    {
-        return;
-    }
-
-    const int VerticalStep = PlacementDuplicateOffsetY > 0 ? 1 : -1;
-    std::vector<unsigned char> PrimaryMask(TileCount, 0);
-    std::vector<unsigned char> ExtendedMask(TileCount, 0);
-    std::vector<unsigned char> AddedMask(TileCount, 0);
-
-    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
-    {
-        const int Index = mPrimaryPlacedIndices[i];
-
-        if (Index < 0 || Index >= TileCount)
-            continue;
-
-        PrimaryMask[Index] = 1;
-    }
-
-    for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
-    {
-        const int Index = mExtendedPlacedIndices[i];
-
-        if (Index < 0 || Index >= TileCount)
-            continue;
-
-        ExtendedMask[Index] = 1;
-    }
-
-    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
-    {
-        const int PrimaryIndex = mPrimaryPlacedIndices[i];
-
-        if (PrimaryIndex < 0 || PrimaryIndex >= TileCount)
-            continue;
-
-        if (!IsPlacedEdgeTile(TileMap, PrimaryIndex))
-            continue;
-
-        auto PrimaryTile = TileMap->GetTile(PrimaryIndex).lock();
-
-        if (!PrimaryTile)
-            continue;
-
-        const int PrimaryY = PrimaryTile->GetIndexY();
-        const float PrimaryLogicalX = PrimaryTile->GetIndexX() +
-            ((PrimaryY % 2 == 0) ? 0.f : 0.5f);
-
-        for (int Layer = 1; Layer < WallHeight; ++Layer)
-        {
-            const int WallY = PrimaryY + VerticalStep * Layer;
-
-            if (WallY < 0 || WallY >= CountY)
-                break;
-
-            const float WallOffsetX = (WallY % 2 == 0) ? 0.f : 0.5f;
-            const float WallXFloat = PrimaryLogicalX - WallOffsetX;
-            const int WallX = static_cast<int>(std::round(WallXFloat));
-
-            if (WallX < 0 || WallX >= CountX)
-                continue;
-
-            const int WallIndex = WallY * CountX + WallX;
-
-            if (WallIndex < 0 || WallIndex >= TileCount)
-                continue;
-
-            if (PrimaryMask[WallIndex] || ExtendedMask[WallIndex])
-                continue;
-
-            if (AddedMask[WallIndex])
-                continue;
-
-            AddedMask[WallIndex] = 1;
-            OutIndices.push_back(WallIndex);
-        }
-    }
-}
-
-bool CPlacementAreaObject::BuildWallMeshGeometry(
-    const std::shared_ptr<class CTileMapComponent>& TileMap,
-    std::vector<FVertexColor>& OutVertices,
-    std::vector<unsigned int>& OutIndices,
-    bool BackSideOnly) const
-{
-    OutVertices.clear();
-    OutIndices.clear();
-
-    if (!TileMap ||
-        mPrimaryPlacedIndices.empty() ||
-        mExtendedPlacedIndices.empty())
-    {
-        return false;
-    }
-
-    const int CountX = TileMap->GetTileCountX();
-    const int CountY = TileMap->GetTileCountY();
-    const int TileCount = CountX * CountY;
-
-    if (CountX <= 0 || CountY <= 0 || TileCount <= 0)
-        return false;
-
-    std::vector<unsigned char> ExtendedMask(TileCount, 0);
-
-    for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
-    {
-        const int Index = mExtendedPlacedIndices[i];
-
-        if (Index < 0 || Index >= TileCount)
-            continue;
-
-        ExtendedMask[Index] = 1;
-    }
-
-    FVector2 ExtrudeVector;
-    bool HasExtrudeVector = false;
-
-    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
-    {
-        const int FloorIndex = mPrimaryPlacedIndices[i];
-
-        if (FloorIndex < 0 || FloorIndex >= TileCount)
-            continue;
-
-        auto FloorTile = TileMap->GetTile(FloorIndex).lock();
-
-        if (!FloorTile)
-            continue;
-
-        const int PairX = FloorTile->GetIndexX();
-        const int PairY = FloorTile->GetIndexY() +
-            PlacementDuplicateOffsetY;
-
-        if (PairX < 0 || PairX >= CountX ||
-            PairY < 0 || PairY >= CountY)
-        {
-            continue;
-        }
-
-        const int PairIndex = PairY * CountX + PairX;
-
-        if (PairIndex < 0 || PairIndex >= TileCount ||
-            !ExtendedMask[PairIndex])
-        {
-            continue;
-        }
-
-        auto CeilingTile = TileMap->GetTile(PairIndex).lock();
-
-        if (!CeilingTile)
-            continue;
-
-        ExtrudeVector = CeilingTile->GetCenter() -
-            FloorTile->GetCenter();
-
-        if (ExtrudeVector.Length() <= 0.001f)
-            continue;
-
-        HasExtrudeVector = true;
-        break;
-    }
-
-    if (!HasExtrudeVector)
-        return false;
-
-    FVector2 MeshLocalOffset(0.f, 0.f);
-    auto TileMapObj = mTileMapObject.lock();
-
-    if (TileMapObj)
-    {
-        const FVector3 Offset =
-            TileMapObj->GetWorldPos() - GetWorldPos();
-        MeshLocalOffset = FVector2(Offset.x, Offset.y);
-    }
-
-    const float BackSideReferenceY = GetWorldPos().y;
-
-    struct FEdgeKey
-    {
-        int x0 = 0;
-        int y0 = 0;
-        int x1 = 0;
-        int y1 = 0;
-
-        bool operator==(const FEdgeKey& Other) const
-        {
-            return x0 == Other.x0 &&
-                y0 == Other.y0 &&
-                x1 == Other.x1 &&
-                y1 == Other.y1;
-        }
-    };
-
-    struct FEdgeKeyHasher
-    {
-        size_t operator()(const FEdgeKey& Key) const
-        {
-            size_t Hash = std::hash<int>()(Key.x0);
-            Hash ^= std::hash<int>()(Key.y0) + 0x9e3779b9 +
-                (Hash << 6) + (Hash >> 2);
-            Hash ^= std::hash<int>()(Key.x1) + 0x9e3779b9 +
-                (Hash << 6) + (Hash >> 2);
-            Hash ^= std::hash<int>()(Key.y1) + 0x9e3779b9 +
-                (Hash << 6) + (Hash >> 2);
-            return Hash;
-        }
-    };
-
-    struct FEdgeData
-    {
-        FVector2 Start;
-        FVector2 End;
-        int Count = 0;
-    };
-
-    auto QuantizePoint = [](const FVector2& Point)
-    {
-        return std::pair<int, int>(
-            static_cast<int>(std::round(Point.x * 1000.f)),
-            static_cast<int>(std::round(Point.y * 1000.f)));
-    };
-
-    auto MakeEdgeKey = [&](const FVector2& Start, const FVector2& End)
-    {
-        auto A = QuantizePoint(Start);
-        auto B = QuantizePoint(End);
-
-        FEdgeKey Key;
-
-        if (A < B)
-        {
-            Key.x0 = A.first;
-            Key.y0 = A.second;
-            Key.x1 = B.first;
-            Key.y1 = B.second;
-        }
-
-        else
-        {
-            Key.x0 = B.first;
-            Key.y0 = B.second;
-            Key.x1 = A.first;
-            Key.y1 = A.second;
-        }
-
-        return Key;
-    };
-
-    std::unordered_map<FEdgeKey, FEdgeData, FEdgeKeyHasher> EdgeMap;
-
-    auto AddEdge = [&](const FVector2& Start, const FVector2& End)
-    {
-        const FEdgeKey Key = MakeEdgeKey(Start, End);
-        auto& Edge = EdgeMap[Key];
-
-        if (Edge.Count == 0)
-        {
-            Edge.Start = Start;
-            Edge.End = End;
-        }
-
-        ++Edge.Count;
-    };
-
-    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
-    {
-        const int Index = mPrimaryPlacedIndices[i];
-        auto Tile = TileMap->GetTile(Index).lock();
-
-        if (!Tile)
-            continue;
-
-        const FVector2 Center = Tile->GetCenter();
-        const FVector2 TileSize = Tile->GetSize();
-        const float HalfWidth = TileSize.x * 0.5f;
-        const float HalfHeight = TileSize.y * 0.5f;
-
-        if (HalfWidth <= 0.f || HalfHeight <= 0.f)
-            continue;
-
-        const FVector2 Top(Center.x, Center.y - HalfHeight);
-        const FVector2 Right(Center.x + HalfWidth, Center.y);
-        const FVector2 Bottom(Center.x, Center.y + HalfHeight);
-        const FVector2 Left(Center.x - HalfWidth, Center.y);
-
-        AddEdge(Top, Right);
-        AddEdge(Right, Bottom);
-        AddEdge(Bottom, Left);
-        AddEdge(Left, Top);
-    }
-
-    const FVector4 BottomColor(0.34f, 0.47f, 0.71f, 1.f);
-    const FVector4 TopColor(0.48f, 0.62f, 0.88f, 1.f);
-
-    for (auto Iter = EdgeMap.begin(); Iter != EdgeMap.end(); ++Iter)
-    {
-        const FEdgeData& Edge = Iter->second;
-
-        if (Edge.Count != 1)
-            continue;
-
-        const float MidY = (Edge.Start.y + Edge.End.y) * 0.5f;
-        const bool IsBackSideEdge = MidY < BackSideReferenceY;
-
-        if (BackSideOnly && !IsBackSideEdge)
-            continue;
-
-        if (!BackSideOnly && IsBackSideEdge)
-            continue;
-
-        const FVector2 V0 = Edge.Start;
-        const FVector2 V1 = Edge.End;
-        const FVector2 V2 = Edge.End + ExtrudeVector;
-        const FVector2 V3 = Edge.Start + ExtrudeVector;
-        const FVector2 L0 = V0 + MeshLocalOffset;
-        const FVector2 L1 = V1 + MeshLocalOffset;
-        const FVector2 L2 = V2 + MeshLocalOffset;
-        const FVector2 L3 = V3 + MeshLocalOffset;
-
-        const int BaseIndex = static_cast<int>(OutVertices.size());
-
-        OutVertices.push_back(FVertexColor(
-            L0.x, L0.y, 0.f,
-            BottomColor.x, BottomColor.y, BottomColor.z, BottomColor.w));
-        OutVertices.push_back(FVertexColor(
-            L1.x, L1.y, 0.f,
-            BottomColor.x, BottomColor.y, BottomColor.z, BottomColor.w));
-        OutVertices.push_back(FVertexColor(
-            L2.x, L2.y, 0.f,
-            TopColor.x, TopColor.y, TopColor.z, TopColor.w));
-        OutVertices.push_back(FVertexColor(
-            L3.x, L3.y, 0.f,
-            TopColor.x, TopColor.y, TopColor.z, TopColor.w));
-
-        // 양면 렌더링 보장을 위해 양쪽 winding을 모두 넣는다.
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 0));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 1));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 2));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 0));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 2));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 3));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 0));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 2));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 1));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 0));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 3));
-        OutIndices.push_back(static_cast<unsigned int>(BaseIndex + 2));
-    }
-
-    return !OutVertices.empty() && !OutIndices.empty();
-}
-
-void CPlacementAreaObject::RefreshWallMeshAnchor()
-{
-    auto WallMesh = mWallMeshComponent.lock();
-    auto BackWallMesh = mBackWallMeshComponent.lock();
-
-    if (WallMesh)
-        WallMesh->SetRelativePos(FVector3::Zero);
-
-    if (BackWallMesh)
-        BackWallMesh->SetRelativePos(FVector3::Zero);
-}
-
-void CPlacementAreaObject::RebuildWallMesh(
-    const std::shared_ptr<class CTileMapComponent>& TileMap)
-{
-    auto WallMesh = mWallMeshComponent.lock();
-    auto BackWallMesh = mBackWallMeshComponent.lock();
-
-    if (!WallMesh && !BackWallMesh)
-        return;
-
-    RefreshWallMeshAnchor();
-
-    auto World = mWorld.lock();
-
-    if (!World)
-    {
-        if (WallMesh)
-            WallMesh->SetEnable(false);
-
-        if (BackWallMesh)
-            BackWallMesh->SetEnable(false);
-
-        return;
-    }
-
-    auto AssetManager = World->GetWorldAssetManager().lock();
-
-    if (!AssetManager)
-    {
-        if (WallMesh)
-            WallMesh->SetEnable(false);
-
-        if (BackWallMesh)
-            BackWallMesh->SetEnable(false);
-
-        return;
-    }
-
-    auto BuildWallMeshSection = [&](
-        const std::shared_ptr<CMeshComponent>& MeshComponent,
-        bool BackSideOnly,
-        std::string& InOutMeshName,
-        int& InOutMeshVersion,
-        const std::string& LayerName)
-    {
-        if (!MeshComponent)
-            return;
-
-        std::vector<FVertexColor> Vertices;
-        std::vector<unsigned int> Indices;
-
-        if (!BuildWallMeshGeometry(TileMap,
-            Vertices, Indices, BackSideOnly))
-        {
-            MeshComponent->SetEnable(false);
-            return;
-        }
-
-        ++InOutMeshVersion;
-        InOutMeshName = mName +
-            (BackSideOnly ? "_BackWallMesh_" : "_WallMesh_") +
-            std::to_string(InOutMeshVersion);
-
-        if (!AssetManager->CreateMesh(
-            InOutMeshName,
-            false,
-            Vertices.data(),
-            sizeof(FVertexColor),
-            static_cast<int>(Vertices.size()),
-            D3D11_USAGE_IMMUTABLE,
-            D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
-            Indices.data(),
-            sizeof(unsigned int),
-            static_cast<int>(Indices.size()),
-            DXGI_FORMAT_R32_UINT,
-            D3D11_USAGE_IMMUTABLE))
-        {
-            MeshComponent->SetEnable(false);
-            return;
-        }
-
-        MeshComponent->SetShader("MaterialColor2D");
-        MeshComponent->SetMesh(InOutMeshName);
-        MeshComponent->SetRenderLayer(LayerName);
-        MeshComponent->SetEnable(true);
-    };
-
-    BuildWallMeshSection(
-        WallMesh, false, mWallMeshName, mWallMeshVersion, "MapWallFront");
-    BuildWallMeshSection(
-        BackWallMesh, true,
-        mBackWallMeshName, mBackWallMeshVersion, "MapWallBack");
-
-    // 벽 구간 타일 인덱스를 캐시 (가림 판정용)
-    BuildWallIndices(TileMap, mWallZoneIndices);
-}
-
-void CPlacementAreaObject::ClearWallMesh()
-{
-    auto WallMesh = mWallMeshComponent.lock();
-    auto BackWallMesh = mBackWallMeshComponent.lock();
-
-    if (WallMesh)
-        WallMesh->SetEnable(false);
-
-    if (BackWallMesh)
-        BackWallMesh->SetEnable(false);
-
-    mWallMeshName.clear();
-    mBackWallMeshName.clear();
-    mWallZoneIndices.clear();
-}
-
-bool CPlacementAreaObject::BuildPlacementAreaIndices(
-    const std::shared_ptr<class CTileMapComponent>& TileMap,
-    int CenterIndex, std::vector<int>& OutIndices) const
-{
-    std::vector<int> PrimaryIndices;
-    std::vector<int> ExtendedIndices;
-
-    return BuildPlacementAreaGroups(
-        TileMap, CenterIndex,
-        PrimaryIndices, ExtendedIndices, OutIndices);
-}
-
-bool CPlacementAreaObject::BuildPlacementAreaGroups(
-    const std::shared_ptr<class CTileMapComponent>& TileMap,
-    int CenterIndex,
-    std::vector<int>& OutPrimaryIndices,
-    std::vector<int>& OutExtendedIndices,
-    std::vector<int>& OutMergedIndices) const
-{
-    OutPrimaryIndices.clear();
-    OutExtendedIndices.clear();
-    OutMergedIndices.clear();
-
-    const int ExpectedCount = mTemplate.GetExpectedTileCount();
-
-    if (ExpectedCount <= 0)
-        return false;
-
-    if (!BuildDiamondAreaIndices(TileMap, CenterIndex, OutPrimaryIndices) ||
-        (int)OutPrimaryIndices.size() != ExpectedCount)
-    {
-        return false;
-    }
-
-    auto CenterTile = TileMap->GetTile(CenterIndex).lock();
-
-    if (!CenterTile)
-        return false;
-
-    const int CountX = TileMap->GetTileCountX();
-    const int CountY = TileMap->GetTileCountY();
-    const int ExtendedCenterX = CenterTile->GetIndexX();
-    const int ExtendedCenterY = CenterTile->GetIndexY() +
-        PlacementDuplicateOffsetY;
-
-    if (ExtendedCenterX < 0 || ExtendedCenterX >= CountX ||
-        ExtendedCenterY < 0 || ExtendedCenterY >= CountY)
-    {
-        return false;
-    }
-
-    const int ExtendedCenterIndex = ExtendedCenterY * CountX +
-        ExtendedCenterX;
-
-    if (!BuildDiamondAreaIndices(TileMap,
-        ExtendedCenterIndex, OutExtendedIndices) ||
-        (int)OutExtendedIndices.size() != ExpectedCount)
-    {
-        return false;
-    }
-
-    OutMergedIndices = OutPrimaryIndices;
-    OutMergedIndices.reserve(
-        OutPrimaryIndices.size() + OutExtendedIndices.size());
-
-    for (size_t i = 0; i < OutExtendedIndices.size(); ++i)
-    {
-        const int Index = OutExtendedIndices[i];
-
-        if (std::find(OutMergedIndices.begin(),
-            OutMergedIndices.end(), Index) == OutMergedIndices.end())
-        {
-            OutMergedIndices.push_back(Index);
-        }
-    }
-
-    return !OutMergedIndices.empty();
 }
 
 bool CPlacementAreaObject::BuildDiamondAreaIndices(
@@ -1744,42 +922,9 @@ void CPlacementAreaObject::SetAreaColor(
 
 bool CPlacementAreaObject::IsPlacedIndex(int Index) const
 {
-    for (size_t i = 0; i < mPlacedIndices.size(); ++i)
-    {
-        if (mPlacedIndices[i] == Index)
-            return true;
-    }
-
-    return false;
-}
-
-bool CPlacementAreaObject::IsPrimaryPlacedIndex(int Index) const
-{
     for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
     {
         if (mPrimaryPlacedIndices[i] == Index)
-            return true;
-    }
-
-    return false;
-}
-
-bool CPlacementAreaObject::IsExtendedPlacedIndex(int Index) const
-{
-    for (size_t i = 0; i < mExtendedPlacedIndices.size(); ++i)
-    {
-        if (mExtendedPlacedIndices[i] == Index)
-            return true;
-    }
-
-    return false;
-}
-
-bool CPlacementAreaObject::IsWallZoneIndex(int Index) const
-{
-    for (size_t i = 0; i < mWallZoneIndices.size(); ++i)
-    {
-        if (mWallZoneIndices[i] == Index)
             return true;
     }
 
@@ -1855,30 +1000,22 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
     const std::shared_ptr<class CTileMapComponent>& TileMap)
 {
     SetAreaColor(TileMap, mPrimaryPlacedIndices, FVector4::White);
-    SetAreaColor(TileMap, mExtendedPlacedIndices, FVector4::White);
     UpdatePrimaryOverlayTiles(mPrimaryPlacedIndices);
 
     mMarkerTileIndices.clear();
 
     if (mPlacedCenterIndex < 0 ||
-        mPlacedIndices.empty())
+        mPrimaryPlacedIndices.empty())
     {
         UpdateMarkerOverlayTiles(std::vector<int>());
         return;
-    }
-
-    std::vector<int> MarkerSourceIndices = mPrimaryPlacedIndices;
-
-    if (MarkerSourceIndices.empty())
-    {
-        MarkerSourceIndices = mPlacedIndices;
     }
 
     for (size_t i = 0; i < mTemplate.MarkerAnchors.size(); ++i)
     {
         const FPlacementMarkerAnchor& Marker = mTemplate.MarkerAnchors[i];
         const int MarkerIndex = FindMarkerTileIndexByLogicalOffset(
-            TileMap, mPlacedCenterIndex, MarkerSourceIndices,
+            TileMap, mPlacedCenterIndex, mPrimaryPlacedIndices,
             Marker.LogicalOffsetX, Marker.LogicalOffsetY);
 
         if (MarkerIndex < 0 || !IsPlacedIndex(MarkerIndex))
@@ -1893,29 +1030,16 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
     }
 
     if (mMarkerTileIndices.empty() &&
-        !mPlacedIndices.empty())
+        !mPrimaryPlacedIndices.empty())
     {
         const int FallbackEdgeIndex = FindMarkerTileIndexByLogicalOffset(
-            TileMap, mPlacedCenterIndex, MarkerSourceIndices, 0.f, 0.f);
+            TileMap, mPlacedCenterIndex, mPrimaryPlacedIndices, 0.f, 0.f);
 
         if (FallbackEdgeIndex >= 0)
             mMarkerTileIndices.push_back(FallbackEdgeIndex);
     }
 
-    std::vector<int> VisibleMarkerTileIndices;
-
-    for (size_t i = 0; i < mMarkerTileIndices.size(); ++i)
-    {
-        const int MarkerIndex = mMarkerTileIndices[i];
-
-        // 겹침 구간은 초록(확장 타일) 표시를 우선한다.
-        if (IsExtendedPlacedIndex(MarkerIndex))
-            continue;
-
-        VisibleMarkerTileIndices.push_back(MarkerIndex);
-    }
-
-    UpdateMarkerOverlayTiles(VisibleMarkerTileIndices);
+    UpdateMarkerOverlayTiles(mMarkerTileIndices);
 }
 
 void CPlacementAreaObject::RestoreTileColor(
@@ -1927,9 +1051,7 @@ void CPlacementAreaObject::RestoreTileColor(
         return;
 
     if (HasOverlayRef(GPrimaryOverlayState, Index) ||
-        HasOverlayRef(GMarkerOverlayState, Index) ||
-        HasOverlayRef(GWallOverlayState, Index) ||
-        HasOverlayRef(GCeilingOverlayState, Index))
+        HasOverlayRef(GMarkerOverlayState, Index))
     {
         Tile->SetOutLineColor(FVector4::White);
     }
@@ -1960,25 +1082,6 @@ void CPlacementAreaObject::SyncWorldPosFromCenter(
 
     SetWorldPos(Center.x + TileMapWorldPos.x,
         Center.y + TileMapWorldPos.y, GetWorldPos().z);
-}
-
-bool CPlacementAreaObject::IsPlacedEdgeTile(
-    const std::shared_ptr<class CTileMapComponent>& TileMap,
-    int TileIndex) const
-{
-    if (!IsPlacedIndex(TileIndex))
-        return false;
-
-    for (int i = 0; i < 8; ++i)
-    {
-        const int Neighbor = GetIsoNeighborIndexByDir(
-            TileMap, TileIndex, i);
-
-        if (Neighbor < 0 || !IsPlacedIndex(Neighbor))
-            return true;
-    }
-
-    return false;
 }
 
 int CPlacementAreaObject::GetIsoNeighborIndexByDir(

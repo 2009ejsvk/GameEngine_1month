@@ -203,7 +203,6 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     RefreshBuildings();
     UpdateScaleFromTileSize();
-    UpdateVisibilityByBuildingOcclusion(DeltaTime);
 
     auto World = mWorld.lock();
 
@@ -293,6 +292,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     if (mCurrentTargetName.empty())
     {
+        mHasLockedTarget = false;
         mCurrentTargetName = PickRandomTargetName(std::string());
 
         if (mCurrentTargetName.empty())
@@ -318,6 +318,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     if (!TargetFound)
     {
+        mHasLockedTarget = false;
         mCurrentTargetName = PickRandomTargetName(std::string());
 
         if (mCurrentTargetName.empty())
@@ -356,6 +357,9 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     if (Dist <= mArrivalDistance || ArrivedByTile)
     {
+        // 구 경로를 즉시 클리어해 velocity가 다음 프레임에 0이 되도록 보장한다.
+        Movement->StartPathPoint();
+        mHasLockedTarget = false;
         mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
 
         if (mCurrentTargetName.empty())
@@ -376,8 +380,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         return;
     }
 
-    if (mPathRetryAccum >= mPathRetryInterval &&
-        Movement->GetVelocity().IsZero())
+    if (mPathRetryAccum >= mPathRetryInterval)
     {
         RequestMoveTo(mCurrentTargetName);
         mPathRetryAccum = 0.f;
@@ -672,20 +675,6 @@ void CBuildingMarkerOrb::UpdateScaleFromTileSize()
     mScaleInitialized = true;
 }
 
-void CBuildingMarkerOrb::UpdateVisibilityByBuildingOcclusion(
-    float DeltaTime)
-{
-    auto Mesh = mMeshComponent.lock();
-
-    if (!Mesh)
-        return;
-
-    mOcclusionAlpha = 1.f;
-    Mesh->SetMaterialOpacity(0, 1.f);
-    Mesh->SetRenderLayer("MarkerOrb");
-    Mesh->SetEnable(true);
-}
-
 bool CBuildingMarkerOrb::CollectTargetMarkers(
     std::vector<std::pair<std::string, FVector3>>& OutMarkers)
 {
@@ -817,24 +806,39 @@ void CBuildingMarkerOrb::RequestMoveTo(
     if (!Movement || !World || TargetBuildingName.empty())
         return;
 
+    // 목적지가 결정된 첫 번째 요청에서만 마커 위치를 확정한다.
+    // 이후 retry에서는 동일 좌표를 재사용하여 separation에 의한
+    // 위치 변동이 목표점에 영향을 주지 않도록 한다.
+    if (!mHasLockedTarget)
+    {
+        auto TargetBuilding =
+            World->FindObject<CPlacementAreaObject>(TargetBuildingName).lock();
+
+        if (TargetBuilding)
+        {
+            FVector3 MarkerPos;
+
+            if (TargetBuilding->GetClosestMarkerWorldPos(
+                GetWorldPos(), MarkerPos))
+            {
+                mLockedTargetPos = MarkerPos;
+                mHasLockedTarget = true;
+            }
+        }
+    }
+
 #ifdef _DEBUG
-    DebugOrbLog("[Orb] RequestMoveTo target=%s\n",
-        TargetBuildingName.c_str());
+    DebugOrbLog("[Orb] RequestMoveTo target=%s locked=%d pos=(%.1f,%.1f)\n",
+        TargetBuildingName.c_str(),
+        mHasLockedTarget ? 1 : 0,
+        mLockedTargetPos.x,
+        mLockedTargetPos.y);
 #endif
 
-    auto TargetBuilding =
-        World->FindObject<CPlacementAreaObject>(TargetBuildingName).lock();
-
-    if (TargetBuilding)
+    if (mHasLockedTarget)
     {
-        FVector3 MarkerPos;
-
-        if (TargetBuilding->GetClosestMarkerWorldPos(
-            GetWorldPos(), MarkerPos))
-        {
-            Movement->MovePath(MarkerPos);
-            return;
-        }
+        Movement->MovePath(mLockedTargetPos);
+        return;
     }
 
     // Fallback: marker 좌표 확보에 실패했을 때만 기존 오브젝트 타겟 경로를 사용한다.
