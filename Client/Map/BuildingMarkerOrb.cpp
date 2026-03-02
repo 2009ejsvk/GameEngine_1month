@@ -1,4 +1,4 @@
-#include "BuildingMarkerOrb.h"
+﻿#include "BuildingMarkerOrb.h"
 #include "PlacementAreaObject.h"
 #include "Component/MeshComponent.h"
 #include "Component/ObjectMovementComponent.h"
@@ -206,11 +206,6 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     auto World = mWorld.lock();
 
-    if (World)
-    {
-        ApplySoftSeparation(DeltaTime);
-    }
-
     auto Movement = mMovement.lock();
 
     if (!World || !Movement)
@@ -261,6 +256,16 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     Movement->SetSpeed(mMoveSpeed);
     mPathRetryAccum += DeltaTime;
 
+    // 즉시 경로 취소 시에는 request id도 함께 갱신해야
+    // 큐에 남아 있던 구 FindPath 완료 패킷이 적용되지 않는다.
+    auto CancelCurrentPath = [&]()
+    {
+        Movement->AdvancePathRequestId();
+        Movement->StartPathPoint();
+        Movement->SetPathTargetObjectName("");
+        mWaitingForPath = false;
+    };
+
     if (!mHasStartPos)
     {
         const int StartIndex = rand() % (int)MarkerList.size();
@@ -292,6 +297,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     if (mCurrentTargetName.empty())
     {
+        CancelCurrentPath();
         mHasLockedTarget = false;
         mCurrentTargetName = PickRandomTargetName(std::string());
 
@@ -318,6 +324,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     if (!TargetFound)
     {
+        CancelCurrentPath();
         mHasLockedTarget = false;
         mCurrentTargetName = PickRandomTargetName(std::string());
 
@@ -329,13 +336,70 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         return;
     }
 
+    // TargetBuilding 포인터를 한 번 취득해 이동 감지 / 도착 판정 양쪽에 재사용한다.
+    auto TargetBuilding =
+        World->FindObject<CPlacementAreaObject>(mCurrentTargetName).lock();
+
+    // 건물 이동 감지: mLockedTargetPos와 건물의 현재 closest 마커가 멀어졌으면
+    // 경로를 즉시 취소하고 retry를 분산 스케줄해 nav 큐 폭주를 방지한다.
+    if (mHasLockedTarget)
+    {
+        if (TargetBuilding)
+        {
+            FVector3 ClosestToLocked;
+
+            if (TargetBuilding->GetClosestMarkerWorldPos(
+                mLockedTargetPos, ClosestToLocked))
+            {
+                ClosestToLocked.z = mLockedTargetPos.z;
+
+                if (mLockedTargetPos.Distance(ClosestToLocked) > 1.f)
+                {
+                    mHasLockedTarget = false;
+                    // 기존 경로(구 건물 위치로 향하는)를 즉시 취소한다.
+                    CancelCurrentPath();
+                    // 재시도 시점을 0.5~1.0 × interval 범위에 분산한다.
+                    const float Jitter =
+                        (float)(rand() % 100) / 100.f *
+                        mPathRetryInterval * 0.5f;
+                    mPathRetryAccum =
+                        mPathRetryInterval * 0.5f + Jitter;
+                }
+            }
+            else
+            {
+                mHasLockedTarget = false;
+                CancelCurrentPath();
+                mPathRetryAccum = mPathRetryInterval;
+            }
+        }
+        else
+        {
+            mHasLockedTarget = false;
+            CancelCurrentPath();
+        }
+    }
+
+    FVector3 ArrivalRef = mHasLockedTarget ? mLockedTargetPos : TargetMarker;
+    ArrivalRef.z = CurrentZ;
+
     FVector3 Current = GetWorldPos();
     Current.z = CurrentZ;
 
-    const float Dist = Current.Distance(TargetMarker);
-    bool ArrivedByTile = false;
+    const float Dist = Current.Distance(ArrivalRef);
 
-    if (Dist > mArrivalDistance)
+    // 도착 판정:
+    // ArrivalRef 거리 이내이거나, 목표 건물의 어느 마커 타일이든 현재 타일과
+    // 일치하면 도착으로 처리한다.
+    //
+    // [핵심] BuildNavigationSnapshot은 MovePath(mLockedTargetPos) 호출 시
+    // 해당 건물의 모든 goal tile을 OutGoalIndices로 반환하며,
+    // A*는 그 중 가장 가까운 타일로 경로를 계획한다.
+    // 따라서 orb가 mLockedTargetPos가 아닌 다른 마커 타일에 도착해도
+    // 도착으로 인정하지 않으면 도착 판정이 영원히 발동하지 않는다.
+    bool ArrivedAtBuilding = (Dist <= mArrivalDistance);
+
+    if (!ArrivedAtBuilding && TargetBuilding)
     {
         auto TileMapObj = mTileMapObject.lock();
 
@@ -345,20 +409,31 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
             if (TileMap)
             {
-                const int CurrentTileIndex = TileMap->GetTileIndex(Current);
-                const int TargetTileIndex = TileMap->GetTileIndex(TargetMarker);
+                const int CurrentTileIndex =
+                    TileMap->GetTileIndex(Current);
 
-                ArrivedByTile =
-                    CurrentTileIndex >= 0 &&
-                    CurrentTileIndex == TargetTileIndex;
+                if (CurrentTileIndex >= 0)
+                {
+                    std::vector<int> GoalTiles;
+                    TargetBuilding->GetNavigationGoalTiles(GoalTiles);
+
+                    for (size_t g = 0; g < GoalTiles.size(); ++g)
+                    {
+                        if (GoalTiles[g] == CurrentTileIndex)
+                        {
+                            ArrivedAtBuilding = true;
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
 
-    if (Dist <= mArrivalDistance || ArrivedByTile)
+    if (ArrivedAtBuilding)
     {
         // 구 경로를 즉시 클리어해 velocity가 다음 프레임에 0이 되도록 보장한다.
-        Movement->StartPathPoint();
+        CancelCurrentPath();
         mHasLockedTarget = false;
         mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
 
@@ -367,10 +442,9 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
 #ifdef _DEBUG
         DebugOrbLog(
-            "[Orb] Arrived. switch target=%s dist=%.2f arrival=%.2f byTile=%d\n",
+            "[Orb] Arrived. switch target=%s dist=%.2f arrival=%.2f\n",
             mCurrentTargetName.c_str(),
-            Dist, mArrivalDistance,
-            ArrivedByTile ? 1 : 0);
+            Dist, mArrivalDistance);
 #endif
 
         // 즉시 경로를 요청하지 않는다.
@@ -380,8 +454,21 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         return;
     }
 
-    if (mPathRetryAccum >= mPathRetryInterval)
+    // 경로 대기 상태 관리:
+    // 경로 요청 후 velocity가 한 번이라도 non-zero가 되면 경로가 수신됐다고 판단한다.
+    if (mWaitingForPath && !Movement->GetVelocity().IsZero())
+        mWaitingForPath = false;
+
+    // 대기 중이면 retry 간격을 3배로 늘려 nav 스레드 큐 폭주를 방지한다.
+    // 대기 중이 아니면 표준 간격으로 retry한다.
+    const float EffectiveRetryInterval = mWaitingForPath
+        ? mPathRetryInterval * 3.f
+        : mPathRetryInterval;
+
+    if (mPathRetryAccum >= EffectiveRetryInterval &&
+        Movement->GetVelocity().IsZero())
     {
+        mWaitingForPath = false;
         RequestMoveTo(mCurrentTargetName);
         mPathRetryAccum = 0.f;
     }
@@ -806,41 +893,43 @@ void CBuildingMarkerOrb::RequestMoveTo(
     if (!Movement || !World || TargetBuildingName.empty())
         return;
 
-    // 목적지가 결정된 첫 번째 요청에서만 마커 위치를 확정한다.
-    // 이후 retry에서는 동일 좌표를 재사용하여 separation에 의한
-    // 위치 변동이 목표점에 영향을 주지 않도록 한다.
-    if (!mHasLockedTarget)
+    auto TargetBuilding =
+        World->FindObject<CPlacementAreaObject>(TargetBuildingName).lock();
+
+    if (TargetBuilding)
     {
-        auto TargetBuilding =
-            World->FindObject<CPlacementAreaObject>(TargetBuildingName).lock();
+        FVector3 MarkerPos;
 
-        if (TargetBuilding)
+        if (TargetBuilding->GetClosestMarkerWorldPos(
+            GetWorldPos(), MarkerPos))
         {
-            FVector3 MarkerPos;
-
-            if (TargetBuilding->GetClosestMarkerWorldPos(
-                GetWorldPos(), MarkerPos))
+            // 첫 요청에만 목표 위치를 잠근다.
+            // 잠금이 살아있으면 기존 좌표를 재사용해 매 retry마다
+            // 가장 가까운 마커가 바뀌는 것(circling 원인)을 방지한다.
+            if (!mHasLockedTarget)
             {
                 mLockedTargetPos = MarkerPos;
                 mHasLockedTarget = true;
             }
+
+            const FVector3& NavTarget = mLockedTargetPos;
+
+#ifdef _DEBUG
+            DebugOrbLog("[Orb] RequestMoveTo target=%s pos=(%.1f,%.1f) locked=%d\n",
+                TargetBuildingName.c_str(), NavTarget.x, NavTarget.y,
+                mHasLockedTarget ? 1 : 0);
+#endif
+            mWaitingForPath = true;
+            Movement->MovePath(NavTarget);
+            return;
         }
     }
 
-#ifdef _DEBUG
-    DebugOrbLog("[Orb] RequestMoveTo target=%s locked=%d pos=(%.1f,%.1f)\n",
-        TargetBuildingName.c_str(),
-        mHasLockedTarget ? 1 : 0,
-        mLockedTargetPos.x,
-        mLockedTargetPos.y);
-#endif
-
-    if (mHasLockedTarget)
-    {
-        Movement->MovePath(mLockedTargetPos);
-        return;
-    }
-
     // Fallback: marker 좌표 확보에 실패했을 때만 기존 오브젝트 타겟 경로를 사용한다.
+#ifdef _DEBUG
+    DebugOrbLog("[Orb] RequestMoveTo fallback target=%s\n",
+        TargetBuildingName.c_str());
+#endif
+    mWaitingForPath = true;
     Movement->MovePathToObject(TargetBuildingName);
 }

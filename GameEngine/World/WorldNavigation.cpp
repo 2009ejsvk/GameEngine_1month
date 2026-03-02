@@ -145,6 +145,10 @@ void CWorldNavigation::Update(float DeltaTime)
 			break;
 		}
 	}
+
+	// FindPath에서 사용하는 스냅샷 캐시는 프레임 단위 캐시다.
+	// 다음 프레임에서 건물 이동/배치 변경을 반영하려면 매 프레임 비워야 한다.
+	mFrameCache.clear();
 }
 
 void CWorldNavigation::CreateNavigationThread(int Count,

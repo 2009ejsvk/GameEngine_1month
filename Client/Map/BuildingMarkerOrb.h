@@ -38,6 +38,7 @@ private:
     float mPathRetryAccum = 0.f;
     FVector3 mLockedTargetPos = FVector3::Zero;
     bool mHasLockedTarget = false;
+    bool mWaitingForPath = false;
     bool mScaleInitialized = false;
     bool mHasStartPos = false;
 #ifdef _DEBUG
