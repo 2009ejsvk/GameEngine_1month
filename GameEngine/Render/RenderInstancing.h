@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../EngineInfo.h"
+#include <unordered_set>
 
 class CRenderInstancing
 {
@@ -23,6 +24,9 @@ private:
 	std::weak_ptr<class CWorld>		mWorld;
 	FVertexBuffer	mInstancingBuffer;
 	int				mInstancingCount = 0;
+	std::unordered_set<const class CSceneComponent*>	mRenderSet;
+	std::unordered_set<const class CSceneComponent*>	mSeenThisFrame;
+	unsigned int	mBuildFrameToken = 0;
 
 public:
 	size_t GetRenderCount()	const
@@ -30,8 +34,15 @@ public:
 		return mRenderList.size();
 	}
 
+	bool IsEmpty() const
+	{
+		return mRenderList.empty();
+	}
+
 	bool CheckMesh(const std::weak_ptr<class CMesh>& Mesh)	const;
 	bool CheckTexture(const std::weak_ptr<class CTexture>& Texture)	const;
+	void BeginFrameBuild(unsigned int FrameToken);
+	void FinalizeFrame(unsigned int FrameToken);
 
 public:
 	bool ComparisonAsset(const std::weak_ptr<class CMesh>& Mesh, const std::weak_ptr<class CTexture>& Texture);

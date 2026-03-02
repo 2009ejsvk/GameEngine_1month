@@ -53,6 +53,7 @@ private:
 	std::shared_ptr<class CCBufferTransform>	mTargetTR;
 
 	bool		mDebugTarget = true;
+	unsigned int	mInstancingFrameToken = 0;
 
 	CRITICAL_SECTION	mCrt;
 
@@ -127,7 +128,8 @@ public:
 
 private:
 	void RenderFullScreenQuad();
-	void CheckInstancing(std::shared_ptr<class CSceneComponent> Com, FRenderLayer& Layer);
+	void CheckInstancing(std::shared_ptr<class CSceneComponent> Com,
+		FRenderLayer& Layer, unsigned int FrameToken);
 
 public:
 	template <typename T>

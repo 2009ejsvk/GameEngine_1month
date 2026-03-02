@@ -409,13 +409,20 @@ void CRenderManager::Update(float DeltaTime)
 	if (mMouseWidget[mMouseState])
 		mMouseWidget[mMouseState]->Update(DeltaTime);
 
+	++mInstancingFrameToken;
+
+	if (mInstancingFrameToken == 0)
+	{
+		mInstancingFrameToken = 1;
+	}
+
 	// 가지고 있는 렌더 목록을 이용해서 인스턴싱 객체인지 판단한다.
 	auto	iterLayer = mRenderLayerMap.begin();
 	auto	iterLayerEnd = mRenderLayerMap.end();
 
 	for (; iterLayer != iterLayerEnd; ++iterLayer)
 	{
-		// 렌더링할 목록을 정렬한다.
+		// 1-pass: 목록 유효성 정리 + 런타임 레이어 이동 반영
 		auto	Com = iterLayer->second.RenderList.begin();
 		auto	ComEnd = iterLayer->second.RenderList.end();
 
@@ -429,6 +436,13 @@ void CRenderManager::Update(float DeltaTime)
 			}
 
 			auto	_Com = (*Com).lock();
+
+			if (!_Com)
+			{
+				Com = iterLayer->second.RenderList.erase(Com);
+				ComEnd = iterLayer->second.RenderList.end();
+				continue;
+			}
 
 			// 런타임에 레이어가 바뀌면 실제 레이어 리스트도 이동시킨다.
 			const int CurrentLayer = _Com->GetRenderLayer();
@@ -466,23 +480,63 @@ void CRenderManager::Update(float DeltaTime)
 				continue;
 			}
 
-			if (!_Com->GetEnable())
-			{
-				++Com;
-				continue;
-			}
-
-			CheckInstancing(_Com, iterLayer->second);
-
 			++Com;
 		}
 
+		// 2-pass: 레이어 정렬을 프레임당 1회만 수행한다.
+		switch (iterLayer->second.SortType)
+		{
+		case ERenderListSort::None:
+			break;
+		case ERenderListSort::Y:
+			if (iterLayer->second.RenderList.size() > 1)
+				iterLayer->second.RenderList.sort(SortYRenderList);
+			break;
+		case ERenderListSort::Alpha:
+			break;
+		}
+
+		// 기존 인스턴싱 그룹의 프레임 빌드 시작
 		auto	iterIst = iterLayer->second.InstancingMap.begin();
 		auto	iterIstEnd = iterLayer->second.InstancingMap.end();
 
 		for (; iterIst != iterIstEnd; ++iterIst)
 		{
-			iterIst->second->Update(DeltaTime);
+			iterIst->second->BeginFrameBuild(mInstancingFrameToken);
+		}
+
+		// 3-pass: 정렬된 리스트 기준으로 인스턴싱 그룹 구성
+		Com = iterLayer->second.RenderList.begin();
+		ComEnd = iterLayer->second.RenderList.end();
+
+		for (; Com != ComEnd; ++Com)
+		{
+			auto	_Com = (*Com).lock();
+
+			if (!_Com || !_Com->GetEnable())
+				continue;
+
+			CheckInstancing(_Com, iterLayer->second, mInstancingFrameToken);
+		}
+
+		// 4-pass: 미참조 컴포넌트 정리 후 인스턴싱 업데이트
+		iterIst = iterLayer->second.InstancingMap.begin();
+		iterIstEnd = iterLayer->second.InstancingMap.end();
+
+		for (; iterIst != iterIstEnd;)
+		{
+			auto Instancing = iterIst->second;
+			Instancing->FinalizeFrame(mInstancingFrameToken);
+
+			if (Instancing->IsEmpty())
+			{
+				iterIst = iterLayer->second.InstancingMap.erase(iterIst);
+				iterIstEnd = iterLayer->second.InstancingMap.end();
+				continue;
+			}
+
+			Instancing->Update(DeltaTime);
+			++iterIst;
 		}
 	}
 
@@ -523,7 +577,7 @@ void CRenderManager::Render()
 
 	for (; iter != iterEnd; ++iter)
 	{
-		// 렌더링할 목록을 정렬한다.
+		// 목록 유효성 정리만 수행한다.
 		auto	Com = iter->second.RenderList.begin();
 		auto	ComEnd = iter->second.RenderList.end();
 
@@ -539,25 +593,15 @@ void CRenderManager::Render()
 			++Com;
 		}
 
-		// 출력할 물체를 정렬한다.
-		switch (iter->second.SortType)
-		{
-		case ERenderListSort::None:
-			break;
-		case ERenderListSort::Y:
-			if (iter->second.RenderList.size() > 1)
-				iter->second.RenderList.sort(SortYRenderList);
-			break;
-		case ERenderListSort::Alpha:
-			break;
-		}
-
 		Com = iter->second.RenderList.begin();
 		ComEnd = iter->second.RenderList.end();
 
 		for (; Com != ComEnd; ++Com)
 		{
 			auto	_Com = (*Com).lock();
+
+			if (!_Com)
+				continue;
 
 			if (!_Com->GetEnable())
 				continue;
@@ -746,7 +790,7 @@ void CRenderManager::RenderFullScreenQuad()
 
 void CRenderManager::CheckInstancing(
 	std::shared_ptr<class CSceneComponent> Com,
-	FRenderLayer& Layer)
+	FRenderLayer& Layer, unsigned int FrameToken)
 {
 	auto Mesh = Com->GetMesh().lock();
 	auto Texture = Com->GetTexture().lock();
@@ -792,5 +836,14 @@ void CRenderManager::CheckInstancing(
 		}
 	}
 
+	if (!Instancing)
+	{
+		Instancing.reset(new CRenderInstancing);
+		Instancing->SetMesh(Com->GetMesh());
+		Instancing->SetTexture(Com->GetTexture());
+		Layer.InstancingMap.insert(std::make_pair(Key, Instancing));
+	}
+
+	Instancing->BeginFrameBuild(FrameToken);
 	Instancing->AddRenderList(Com);
 }

@@ -59,6 +59,135 @@ void CRenderInstancing::SetTexture(
 	mTexture = Texture;
 }
 
+void CRenderInstancing::BeginFrameBuild(unsigned int FrameToken)
+{
+	if (mBuildFrameToken == FrameToken)
+		return;
+
+	mBuildFrameToken = FrameToken;
+	mSeenThisFrame.clear();
+
+	const size_t ReserveCount = mRenderList.size();
+
+	if (ReserveCount > 0)
+	{
+		mSeenThisFrame.reserve(ReserveCount);
+	}
+}
+
+void CRenderInstancing::FinalizeFrame(unsigned int FrameToken)
+{
+	BeginFrameBuild(FrameToken);
+
+	auto Iter = mRenderList.begin();
+	auto IterEnd = mRenderList.end();
+
+	for (; Iter != IterEnd;)
+	{
+		auto Com = Iter->lock();
+		bool Remove = false;
+		const CSceneComponent* Ptr = nullptr;
+
+		if (!Com || !Com->GetEnable())
+		{
+			Remove = true;
+		}
+		else
+		{
+			Ptr = Com.get();
+
+			if (mSeenThisFrame.find(Ptr) == mSeenThisFrame.end())
+			{
+				Remove = true;
+			}
+		}
+
+		if (Remove)
+		{
+			if (Com)
+				Com->SetRenderOption(EComponentRenderOption::Normal);
+
+			if (Ptr)
+				mRenderSet.erase(Ptr);
+
+			Iter = mRenderList.erase(Iter);
+			IterEnd = mRenderList.end();
+			continue;
+		}
+
+		++Iter;
+	}
+
+	if (mRenderList.empty())
+	{
+		mRender = false;
+		mRenderSet.clear();
+		return;
+	}
+
+	mRenderSet.clear();
+
+	auto RebuildIter = mRenderList.begin();
+	auto RebuildIterEnd = mRenderList.end();
+
+	for (; RebuildIter != RebuildIterEnd; ++RebuildIter)
+	{
+		auto RenderCom = RebuildIter->lock();
+
+		if (RenderCom)
+		{
+			mRenderSet.insert(RenderCom.get());
+		}
+	}
+
+	if (!mRender &&
+		mRenderList.size() >= INSTANCING_START_COUNT)
+	{
+		mRender = true;
+
+		if (!mInstancingBuffer.Buffer)
+		{
+			CreateInstancingBuffer(
+				sizeof(FInstancingData),
+				INSTANCING_START_COUNT);
+		}
+
+		auto RenderIter = mRenderList.begin();
+		auto RenderIterEnd = mRenderList.end();
+
+		for (; RenderIter != RenderIterEnd; ++RenderIter)
+		{
+			auto RenderCom = RenderIter->lock();
+
+			if (RenderCom)
+			{
+				RenderCom->SetRenderOption(
+					EComponentRenderOption::Instancing);
+			}
+		}
+	}
+
+	else if (mRender &&
+		mRenderList.size() < INSTANCING_START_COUNT)
+	{
+		mRender = false;
+
+		auto RenderIter = mRenderList.begin();
+		auto RenderIterEnd = mRenderList.end();
+
+		for (; RenderIter != RenderIterEnd; ++RenderIter)
+		{
+			auto RenderCom = RenderIter->lock();
+
+			if (RenderCom)
+			{
+				RenderCom->SetRenderOption(
+					EComponentRenderOption::Normal);
+			}
+		}
+	}
+}
+
 void CRenderInstancing::AddRenderList(
 	const std::weak_ptr<class CSceneComponent>& Obj)
 {
@@ -66,7 +195,7 @@ void CRenderInstancing::AddRenderList(
 
 	if (!_Obj || !_Obj->GetEnable())
 		return;
-	
+
 	if (mRenderList.empty())
 	{
 		mWorld = _Obj->GetWorld();
@@ -84,9 +213,28 @@ void CRenderInstancing::AddRenderList(
 		// 원본 셰이더에 대응되는 Instancing 셰이더가 없으면
 		// 인스턴싱 경로를 사용하지 않는다.
 		if (mShader.expired())
+		{
+			_Obj->SetRenderOption(
+				EComponentRenderOption::Normal);
 			return;
+		}
 	}
 
+	const CSceneComponent* ObjPtr = _Obj.get();
+	mSeenThisFrame.insert(ObjPtr);
+
+	if (mRenderSet.find(ObjPtr) != mRenderSet.end())
+	{
+		if (mRender)
+		{
+			_Obj->SetRenderOption(
+				EComponentRenderOption::Instancing);
+		}
+
+		return;
+	}
+
+	mRenderSet.insert(ObjPtr);
 	mRenderList.push_back(Obj);
 
 	if (!mRender)
@@ -109,9 +257,18 @@ void CRenderInstancing::AddRenderList(
 			{
 				auto	_Com = (*iter).lock();
 
-				_Com->SetRenderOption(
-					EComponentRenderOption::Instancing);
+				if (_Com)
+				{
+					_Com->SetRenderOption(
+						EComponentRenderOption::Instancing);
+				}
 			}
+		}
+
+		else
+		{
+			_Obj->SetRenderOption(
+				EComponentRenderOption::Normal);
 		}
 	}
 
@@ -126,16 +283,17 @@ void CRenderInstancing::AddRenderList(
 		{
 			auto	_Com = (*iter).lock();
 
-			_Com->SetRenderOption(
-				EComponentRenderOption::Normal);
+			if (_Com)
+			{
+				_Com->SetRenderOption(
+					EComponentRenderOption::Normal);
+			}
 		}
 	}
 
 	else
 	{
-		auto	_Com = Obj.lock();
-
-		_Com->SetRenderOption(
+		_Obj->SetRenderOption(
 			EComponentRenderOption::Instancing);
 	}
 }
@@ -155,9 +313,6 @@ void CRenderInstancing::Update(float DeltaTime)
 	if (!Mesh)
 		return;
 
-	if (mRenderList.size() > 1)
-		mRenderList.sort(CRenderManager::SortYRenderList);
-
 	mInstancingData.resize(mRenderList.size());
 
 	mInstancingCount = 0;
@@ -174,6 +329,9 @@ void CRenderInstancing::Update(float DeltaTime)
 	for (; iter != iterEnd; ++iter)
 	{
 		auto	Com = (*iter).lock();
+
+		if (!Com || !Com->GetEnable())
+			continue;
 
 		// 인스턴싱용 버퍼를 채워준다.
 		FMatrix	ScaleMat, RotMat, TranslateMat, WorldMat;
@@ -245,8 +403,11 @@ void CRenderInstancing::Update(float DeltaTime)
 		++mInstancingCount;
 	}
 
-	SetInstancingData(&mInstancingData[0],
-		mInstancingCount);
+	if (mInstancingCount > 0)
+	{
+		SetInstancingData(&mInstancingData[0],
+			mInstancingCount);
+	}
 }
 
 void CRenderInstancing::Render()
@@ -264,17 +425,6 @@ void CRenderInstancing::Render()
 	auto	Mesh = mMesh.lock();
 	auto	Shader = mShader.lock();
 	auto	Texture = mTexture.lock();
-
-	auto	iter = mRenderList.begin();
-	auto	iterEnd = mRenderList.end();
-
-	for (; iter != iterEnd; ++iter)
-	{
-		auto	Com = (*iter).lock();
-
-		if (Com)
-			Com->SetRenderOption(EComponentRenderOption::Normal);
-	}
 
 	if (!Mesh || !Shader)
 	{
@@ -308,8 +458,8 @@ void CRenderInstancing::Render()
 
 void CRenderInstancing::RenderClear()
 {
-	mRenderList.clear();
 	mInstancingData.clear();
+	mInstancingCount = 0;
 }
 
 bool CRenderInstancing::CreateInstancingBuffer(int Size,
