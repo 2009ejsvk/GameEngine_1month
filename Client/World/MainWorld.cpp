@@ -372,7 +372,7 @@ bool CMainWorld::Init()
 		CreatePlacementBuilding(BuildingSpawns[i]);
 	}
 
-	const int MarkerOrbCount = 8000;
+	const int MarkerOrbCount = 2000;
 
 	for (int i = 0; i < MarkerOrbCount; ++i)
 	{
