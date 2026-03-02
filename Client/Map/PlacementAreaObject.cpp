@@ -836,19 +836,22 @@ void CPlacementAreaObject::UpdatePlacementPreviewFromMouse(
     if (CenterIndex < 0)
         return;
 
-    if (!BuildPlacementAreaIndices(TileMap,
-        CenterIndex, mPreviewIndices))
+    std::vector<int> PrimaryIndices;
+    std::vector<int> ExtendedIndices;
+
+    if (!BuildPlacementAreaGroups(TileMap, CenterIndex,
+        PrimaryIndices, ExtendedIndices, mPreviewIndices))
     {
         return;
     }
 
     mPreviewCenterIndex = CenterIndex;
-    mPreviewCanPlace = IsAreaPlaceable(TileMap, mPreviewIndices);
+    mPreviewCanPlace = IsAreaPlaceable(TileMap, PrimaryIndices);
 
     const FVector4 PreviewColor = mPreviewCanPlace ?
         FVector4::Green : FVector4::Red;
 
-    SetAreaColor(TileMap, mPreviewIndices, PreviewColor);
+    SetAreaColor(TileMap, PrimaryIndices, PreviewColor);
 }
 
 void CPlacementAreaObject::ClearPreview()

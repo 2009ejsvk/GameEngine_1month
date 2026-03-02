@@ -206,15 +206,11 @@ bool CMainWorld::Init()
 	auto FloorYellowTileMap =
 		CreateGameObject<CTileMapObject>("TileMapFloorYellow");
 	auto FloorYellowTileMapObj = FloorYellowTileMap.lock();
-	auto CeilingTileMap =
-		CreateGameObject<CTileMapObject>("TileMapCeiling");
-	auto CeilingTileMapObj = CeilingTileMap.lock();
 	auto MainCameraObj = MainCamera.lock();
 
 	if (TileMapObj &&
 		FloorBlueTileMapObj &&
-		FloorYellowTileMapObj &&
-		CeilingTileMapObj)
+		FloorYellowTileMapObj)
 	{
 		auto BaseTileMap = TileMapObj->GetTileMap().lock();
 
@@ -297,10 +293,7 @@ bool CMainWorld::Init()
 		if (BaseTileMap)
 		{
 			ResolveLayerOrder("MapFloorBlue", 2, ERenderListSort::None);
-			ResolveLayerOrder("MapWallBack", 3, ERenderListSort::None);
 			ResolveLayerOrder("MarkerOrb", 4, ERenderListSort::Y);
-			ResolveLayerOrder("MapWallFront", 6, ERenderListSort::None);
-			ResolveLayerOrder("MapCeiling", 7, ERenderListSort::None);
 
 			ConfigureOverlayTileMap(FloorBlueTileMapObj,
 				"MapFloorBlue",
@@ -310,10 +303,6 @@ bool CMainWorld::Init()
 				"MapFloorBlue",
 				2, ERenderListSort::None,
 				FVector4(1.f, 1.f, 0.f, 1.f));
-			ConfigureOverlayTileMap(CeilingTileMapObj,
-				"MapCeiling",
-				7, ERenderListSort::None,
-				FVector4::Green);
 		}
 	}
 
@@ -383,7 +372,7 @@ bool CMainWorld::Init()
 		CreatePlacementBuilding(BuildingSpawns[i]);
 	}
 
-	const int MarkerOrbCount = 1200;
+	const int MarkerOrbCount = 200;
 
 	for (int i = 0; i < MarkerOrbCount; ++i)
 	{
