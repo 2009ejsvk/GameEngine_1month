@@ -123,6 +123,10 @@ public:
     void StartMovePreview(const FVector2& MouseWorldPos);
     void ConfirmPlacement();
     void CancelMovePreview();
+    bool IsMovePreviewActive() const
+    {
+        return mMovePreviewActive;
+    }
     bool ContainsPlacedTile(const FVector2& MouseWorldPos);
     float GetCenterDistanceSq(const FVector2& MouseWorldPos) const;
     bool GetMarkerWorldPos(FVector3& OutWorldPos);

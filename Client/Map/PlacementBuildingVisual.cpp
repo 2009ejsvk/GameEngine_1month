@@ -3,6 +3,8 @@
 #include "Component/MeshComponent.h"
 #include "Component/SceneComponent.h"
 #include "Render/RenderManager.h"
+#include "World/World.h"
+#include <vector>
 
 CBuildingVisual::CBuildingVisual()
 {
@@ -98,6 +100,32 @@ void CBuildingVisual::SyncVisuals()
 	if (!Building->GetTileSize(TileSize))
 		return;
 
+	bool IsAnyMovePreviewActive = false;
+	auto World = mWorld.lock();
+
+	if (World)
+	{
+		std::vector<std::weak_ptr<CPlacementAreaObject>> PlacementObjects;
+		World->FindObjectListByType<CPlacementAreaObject>(PlacementObjects);
+
+		for (size_t i = 0; i < PlacementObjects.size(); ++i)
+		{
+			auto PlacementObject = PlacementObjects[i].lock();
+
+			if (!PlacementObject)
+				continue;
+
+			if (PlacementObject->IsMovePreviewActive())
+			{
+				IsAnyMovePreviewActive = true;
+				break;
+			}
+		}
+	}
+
+	const float BuildingFaceOpacity =
+		IsAnyMovePreviewActive ? 0.35f : 1.f;
+
 	const FVector3 Center = Building->GetWorldPos();
 	const int      Radius = Building->GetDiamondRadius();
 
@@ -120,6 +148,7 @@ void CBuildingVisual::SyncVisuals()
 		// 아이소 기준 깊이 앵커를 중심이 아닌 footprint 하단점으로 맞춘다.
 		LeftWall->SetRenderSortYBias(-ScaleY * 0.5f);
 		LeftWall->SetRenderSortPriority(0);
+		LeftWall->SetMaterialOpacity(0, BuildingFaceOpacity);
 
 		if (!mVisible)
 			LeftWall->SetEnable(true);
@@ -134,6 +163,7 @@ void CBuildingVisual::SyncVisuals()
 		RightWall->SetRelativeScale(ScaleX, ScaleY);
 		RightWall->SetRenderSortYBias(-ScaleY * 0.5f);
 		RightWall->SetRenderSortPriority(1);
+		RightWall->SetMaterialOpacity(0, BuildingFaceOpacity);
 
 		if (!mVisible)
 			RightWall->SetEnable(true);
@@ -149,6 +179,7 @@ void CBuildingVisual::SyncVisuals()
 		// 지붕은 실제 위치를 올리되, 정렬 키는 벽과 동일한 footprint 하단점에 고정한다.
 		Roof->SetRenderSortYBias(-ScaleY * 1.5f);
 		Roof->SetRenderSortPriority(2);
+		Roof->SetMaterialOpacity(0, BuildingFaceOpacity);
 
 		if (!mVisible)
 			Roof->SetEnable(true);

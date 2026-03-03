@@ -156,6 +156,15 @@ void CMainCamera::MoveRight()
 
 void CMainCamera::MoveCurrentArea()
 {
+    auto ActiveObject = mActivePlacementObject.lock();
+
+    if (ActiveObject && ActiveObject->IsMovePreviewActive())
+    {
+        ActiveObject->CancelMovePreview();
+        mActivePlacementObject.reset();
+        return;
+    }
+
     auto World = mWorld.lock();
 
     if (!World)
@@ -175,7 +184,7 @@ void CMainCamera::MoveCurrentArea()
     if (!PlacementObject)
         return;
 
-    auto ActiveObject = mActivePlacementObject.lock();
+    ActiveObject = mActivePlacementObject.lock();
 
     if (ActiveObject && ActiveObject != PlacementObject)
     {
