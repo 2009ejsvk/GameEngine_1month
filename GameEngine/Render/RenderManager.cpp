@@ -11,6 +11,7 @@
 #include "../Asset/Shader/CBufferUIDefault.h"
 #include "../UI/Widget.h"
 #include "../Asset/Shader/CBufferTransform.h"
+#include <cmath>
 
 CRenderManager* CRenderManager::mInst = nullptr;
 
@@ -20,10 +21,32 @@ bool CRenderManager::SortYRenderList(const std::weak_ptr<class CSceneComponent>&
 	auto	_Src = Src.lock();
 	auto	_Dest = Dest.lock();
 
-	float	SrcY = _Src->GetWorldPos().y;
-	float	DestY = _Dest->GetWorldPos().y;
+	if (!_Src)
+		return false;
 
-	return SrcY > DestY;
+	if (!_Dest)
+		return true;
+
+	const float SrcY = _Src->GetRenderSortY();
+	const float DestY = _Dest->GetRenderSortY();
+	const float Epsilon = 0.001f;
+
+	if (fabsf(SrcY - DestY) > Epsilon)
+		return SrcY > DestY;
+
+	const float SrcX = _Src->GetWorldPos().x;
+	const float DestX = _Dest->GetWorldPos().x;
+
+	if (fabsf(SrcX - DestX) > Epsilon)
+		return SrcX > DestX;
+
+	const int SrcPriority = _Src->GetRenderSortPriority();
+	const int DestPriority = _Dest->GetRenderSortPriority();
+
+	if (SrcPriority != DestPriority)
+		return SrcPriority < DestPriority;
+
+	return _Src.get() < _Dest.get();
 }
 
 CRenderManager::CRenderManager()
@@ -515,6 +538,15 @@ void CRenderManager::Update(float DeltaTime)
 
 			if (!_Com || !_Com->GetEnable())
 				continue;
+
+			// Y/Alpha 정렬 레이어는 드로우 순서 자체가 결과를 결정한다.
+			// 인스턴싱 그룹으로 재배치하면 정렬 순서가 깨질 수 있으므로
+			// 이 레이어에서는 일반 렌더 경로를 유지한다.
+			if (iterLayer->second.SortType != ERenderListSort::None)
+			{
+				_Com->SetRenderOption(EComponentRenderOption::Normal);
+				continue;
+			}
 
 			CheckInstancing(_Com, iterLayer->second, mInstancingFrameToken);
 		}

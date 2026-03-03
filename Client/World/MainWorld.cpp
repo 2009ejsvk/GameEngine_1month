@@ -362,6 +362,7 @@ bool CMainWorld::Init()
 			return;
 
 		BuildingObj->SetTileMapObject(TileMapObj);
+		BuildingObj->SetTileMapObject(TileMapObj);
 		BuildingObj->SetInitialCenterOffset(Spawn.OffsetX, Spawn.OffsetY);
 		BuildingObj->SetBuildingId(Definition->Id);
 		BuildingObj->SetBuildingKind(Definition->Kind);

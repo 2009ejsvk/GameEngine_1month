@@ -291,6 +291,55 @@ bool CMeshManager::Init()
 		D3D11_USAGE_IMMUTABLE))
 		return false;
 
+	// 텍스처용 아이소메트릭 메시 (POSITION + TEXCOORD)
+	FVertexTex IsoWallLeftTex[4] =
+	{
+		FVertexTex(-0.5f,  1.0f, 0.f, 0.0f, 0.0f),	// V0 Left_roof
+		FVertexTex( 0.0f,  0.5f, 0.f, 1.0f, 0.0f),	// V1 Bottom_roof
+		FVertexTex(-0.5f,  0.0f, 0.f, 0.0f, 1.0f),	// V2 Left_floor
+		FVertexTex( 0.0f, -0.5f, 0.f, 1.0f, 1.0f),	// V3 Bottom_floor
+	};
+
+	if (!CreateMesh("Mesh_IsoWallLeftTex",
+		true, IsoWallLeftTex, sizeof(FVertexTex),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+		IsoQuadIdx, 2, 6, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
+	FVertexTex IsoWallRightTex[4] =
+	{
+		FVertexTex( 0.0f,  0.5f, 0.f, 0.0f, 0.0f),	// V0 Bottom_roof
+		FVertexTex( 0.5f,  1.0f, 0.f, 1.0f, 0.0f),	// V1 Right_roof
+		FVertexTex( 0.0f, -0.5f, 0.f, 0.0f, 1.0f),	// V2 Bottom_floor
+		FVertexTex( 0.5f,  0.0f, 0.f, 1.0f, 1.0f),	// V3 Right_floor
+	};
+
+	if (!CreateMesh("Mesh_IsoWallRightTex",
+		true, IsoWallRightTex, sizeof(FVertexTex),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+		IsoQuadIdx, 2, 6, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
+	// 지붕은 네모 텍스처 전체(0..1)를 옥상 다이아몬드에 투영한다.
+	// 정점 순서(V0 Top, V1 Right, V3 Bottom, V2 Left)에 맞춰
+	// 텍스처 코너를 배치해 사각형 이미지를 그대로 사용할 수 있게 한다.
+	FVertexTex IsoDiamondTex[4] =
+	{
+		FVertexTex( 0.0f,  0.5f, 0.f, 0.0f, 0.0f),	// V0 Top    -> UV TopLeft
+		FVertexTex( 0.5f,  0.0f, 0.f, 1.0f, 0.0f),	// V1 Right  -> UV TopRight
+		FVertexTex(-0.5f,  0.0f, 0.f, 0.0f, 1.0f),	// V2 Left   -> UV BottomLeft
+		FVertexTex( 0.0f, -0.5f, 0.f, 1.0f, 1.0f),	// V3 Bottom -> UV BottomRight
+	};
+
+	if (!CreateMesh("Mesh_IsoDiamondTex",
+		true, IsoDiamondTex, sizeof(FVertexTex),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+		IsoQuadIdx, 2, 6, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
 	return true;
 }
 

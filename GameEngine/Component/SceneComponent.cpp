@@ -14,6 +14,8 @@ CSceneComponent::CSceneComponent(const CSceneComponent& ref)	:
 	CComponent(ref)
 {
 	mRenderLayer = ref.mRenderLayer;
+	mRenderSortYBias = ref.mRenderSortYBias;
+	mRenderSortPriority = ref.mRenderSortPriority;
 	mComponentType = EComponentType::Scene;
 	mRenderType = ref.mRenderType;
 	mInheritScale = ref.mInheritScale;
@@ -37,6 +39,8 @@ CSceneComponent::CSceneComponent(CSceneComponent&& ref)	noexcept :
 	CComponent(std::move(ref))
 {
 	mRenderLayer = ref.mRenderLayer;
+	mRenderSortYBias = ref.mRenderSortYBias;
+	mRenderSortPriority = ref.mRenderSortPriority;
 	mComponentType = EComponentType::Scene;
 	mRenderType = ref.mRenderType;
 	mInheritScale = ref.mInheritScale;
@@ -64,6 +68,11 @@ void CSceneComponent::SetRenderLayer(const std::string& Name)
 {
 	mRenderLayer =
 		CRenderManager::GetInst()->GetLayerOrder(Name);
+}
+
+float CSceneComponent::GetRenderSortY() const
+{
+	return mWorldPos.y + mRenderSortYBias;
 }
 
 std::weak_ptr<CMesh> CSceneComponent::GetMesh()	const

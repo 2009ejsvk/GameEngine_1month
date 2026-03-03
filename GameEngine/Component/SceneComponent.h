@@ -35,6 +35,8 @@ protected:
 		EComponentRenderOption::Normal;
 	std::vector<std::weak_ptr<CSceneComponent>>	mChildList;
 	int	mRenderLayer = 0;
+	float	mRenderSortYBias = 0.f;
+	int		mRenderSortPriority = 0;
 
 public:
 	EComponentRenderOption GetRenderOption()	const
@@ -52,7 +54,18 @@ public:
 		mRenderLayer = Layer;
 	}
 
+	void SetRenderSortYBias(float Bias)
+	{
+		mRenderSortYBias = Bias;
+	}
+
+	void SetRenderSortPriority(int Priority)
+	{
+		mRenderSortPriority = Priority;
+	}
+
 	void SetRenderLayer(const std::string& Name);
+	float GetRenderSortY() const;
 
 public:
 	EComponentRender GetRenderType()	const
@@ -63,6 +76,16 @@ public:
 	int GetRenderLayer()	const
 	{
 		return mRenderLayer;
+	}
+
+	float GetRenderSortYBias() const
+	{
+		return mRenderSortYBias;
+	}
+
+	int GetRenderSortPriority() const
+	{
+		return mRenderSortPriority;
 	}
 
 public:

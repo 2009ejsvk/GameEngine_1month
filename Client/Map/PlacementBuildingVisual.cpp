@@ -1,4 +1,4 @@
-#include "PlacementBuildingVisual.h"
+﻿#include "PlacementBuildingVisual.h"
 #include "PlacementAreaObject.h"
 #include "Component/MeshComponent.h"
 #include "Component/SceneComponent.h"
@@ -48,7 +48,8 @@ bool CBuildingVisual::Init()
 		std::weak_ptr<CMeshComponent>& Out,
 		const char* Name,
 		const char* MeshName,
-		float R, float G, float B)
+		const char* TextureName,
+		const TCHAR* TextureFileName)
 	{
 		Out = CreateComponent<CMeshComponent>(Name);
 		auto Face = Out.lock();
@@ -56,21 +57,24 @@ bool CBuildingVisual::Init()
 		if (!Face)
 			return;
 
-		Face->SetShader("MaterialColor2D");
+		Face->SetShader("DefaultTexture2D");
 		Face->SetMesh(MeshName);
+		Face->AddTexture(0, TextureName, TextureFileName, "Texture");
 		Face->SetBlendState(0, "AlphaBlend");
-		Face->SetMaterialBaseColor(0, R, G, B, 1.f);
-		Face->SetMaterialOpacity(0, 0.85f);
+		Face->SetMaterialBaseColor(0, 1.f, 1.f, 1.f, 1.f);
+		Face->SetMaterialOpacity(0, 1.f);
 		Face->SetRenderLayer("BuildingVisual");
 		Face->SetEnable(false);
 	};
 
-	// 좌측 벽 — 밝은 파란 계열
-	MakeFace(mLeftWall,  "LeftWall",  "IsoWallLeft",      0.20f, 0.45f, 0.90f);
-	// 우측 벽 — 약간 어두운 파란 계열 (면 구분)
-	MakeFace(mRightWall, "RightWall", "IsoWallRight",     0.10f, 0.30f, 0.70f);
-	// 옥상 — 회색
-	MakeFace(mRoof,      "Roof",      "IsoDiamondColor",  0.55f, 0.55f, 0.55f);
+	// 면별 텍스처를 개별 바인딩한다.
+	MakeFace(mLeftWall,  "LeftWall",  "IsoWallLeftTex",
+		"BuildingWallLeftTex",  TEXT("wall.png"));
+	MakeFace(mRightWall, "RightWall", "IsoWallRightTex",
+		"BuildingWallRightTex", TEXT("wall.png"));
+	// 지붕은 전용 텍스처를 사용한다.
+	MakeFace(mRoof,      "Roof",      "IsoDiamondTex",
+		"BuildingRoofTex",      TEXT("Floors.png"));
 
 	return true;
 }
@@ -113,6 +117,9 @@ void CBuildingVisual::SyncVisuals()
 	{
 		LeftWall->SetRelativePos(0.f, 0.f, 0.f);
 		LeftWall->SetRelativeScale(ScaleX, ScaleY);
+		// 아이소 기준 깊이 앵커를 중심이 아닌 footprint 하단점으로 맞춘다.
+		LeftWall->SetRenderSortYBias(-ScaleY * 0.5f);
+		LeftWall->SetRenderSortPriority(0);
 
 		if (!mVisible)
 			LeftWall->SetEnable(true);
@@ -125,6 +132,8 @@ void CBuildingVisual::SyncVisuals()
 	{
 		RightWall->SetRelativePos(0.f, 0.f, 0.f);
 		RightWall->SetRelativeScale(ScaleX, ScaleY);
+		RightWall->SetRenderSortYBias(-ScaleY * 0.5f);
+		RightWall->SetRenderSortPriority(1);
 
 		if (!mVisible)
 			RightWall->SetEnable(true);
@@ -137,6 +146,9 @@ void CBuildingVisual::SyncVisuals()
 	{
 		Roof->SetRelativePos(0.f, ScaleY, 0.f);
 		Roof->SetRelativeScale(ScaleX, ScaleY);
+		// 지붕은 실제 위치를 올리되, 정렬 키는 벽과 동일한 footprint 하단점에 고정한다.
+		Roof->SetRenderSortYBias(-ScaleY * 1.5f);
+		Roof->SetRenderSortPriority(2);
 
 		if (!mVisible)
 			Roof->SetEnable(true);
@@ -144,3 +156,4 @@ void CBuildingVisual::SyncVisuals()
 
 	mVisible = true;
 }
+
