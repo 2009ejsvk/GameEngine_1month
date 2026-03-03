@@ -159,6 +159,9 @@
     <ClCompile Include="Map\PlacementAreaObject.cpp">
       <Filter>11. Map</Filter>
     </ClCompile>
+    <ClCompile Include="Map\PlacementBuildingVisual.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
     <ClCompile Include="World\EditorWorld.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
@@ -258,6 +261,9 @@
       <Filter>11. Map</Filter>
     </ClInclude>
     <ClInclude Include="Map\PlacementAreaObject.h">
+      <Filter>11. Map</Filter>
+    </ClInclude>
+    <ClInclude Include="Map\PlacementBuildingVisual.h">
       <Filter>11. Map</Filter>
     </ClInclude>
     <ClInclude Include="World\EditorWorld.h">

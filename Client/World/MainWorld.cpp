@@ -12,6 +12,7 @@
 #include "../Map/TileMapMain.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
+#include "../Map/PlacementBuildingVisual.h"
 #include "../Player/MainCamera.h"
 #include <algorithm>
 #include <numeric>
@@ -292,8 +293,9 @@ bool CMainWorld::Init()
 
 		if (BaseTileMap)
 		{
-			ResolveLayerOrder("MapFloorBlue", 2, ERenderListSort::None);
-			ResolveLayerOrder("MarkerOrb", 4, ERenderListSort::Y);
+			ResolveLayerOrder("MapFloorBlue",    2, ERenderListSort::None);
+			ResolveLayerOrder("BuildingVisual",  3, ERenderListSort::Y);
+			ResolveLayerOrder("MarkerOrb",       4, ERenderListSort::Y);
 
 			ConfigureOverlayTileMap(FloorBlueTileMapObj,
 				"MapFloorBlue",
@@ -365,6 +367,12 @@ bool CMainWorld::Init()
 		BuildingObj->SetBuildingKind(Definition->Kind);
 		BuildingObj->SetPlacementTemplateType(Definition->TemplateType);
 		BuildingNames.push_back(Spawn.Name);
+
+		auto Visual = CreateGameObject<CBuildingVisual>(Spawn.Name + "_Visual");
+		auto VisualObj = Visual.lock();
+
+		if (VisualObj)
+			VisualObj->SetBuilding(Building);
 	};
 
 	for (size_t i = 0; i < BuildingSpawns.size(); ++i)

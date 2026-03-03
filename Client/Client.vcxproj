@@ -175,6 +175,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Map\BuildingMarkerOrb.cpp" />
     <ClCompile Include="Map\PlacementAreaObject.cpp" />
+    <ClCompile Include="Map\PlacementBuildingVisual.cpp" />
     <ClCompile Include="Map\TileMapMain.cpp" />
     <ClCompile Include="Monster\Monster.cpp" />
     <ClCompile Include="Monster\MonsterSpawnPoint.cpp" />
@@ -209,6 +210,7 @@
     <ClInclude Include="Interface\StateInterface.h" />
     <ClInclude Include="Map\BuildingMarkerOrb.h" />
     <ClInclude Include="Map\PlacementAreaObject.h" />
+    <ClInclude Include="Map\PlacementBuildingVisual.h" />
     <ClInclude Include="Map\TileMapMain.h" />
     <ClInclude Include="Monster\Monster.h" />
     <ClInclude Include="Monster\MonsterSpawnPoint.h" />

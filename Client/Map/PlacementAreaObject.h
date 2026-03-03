@@ -101,6 +101,11 @@ public:
         return mBuildingId;
     }
 
+    int GetDiamondRadius() const
+    {
+        return mTemplate.DiamondRadius;
+    }
+
     void SetPlacementTemplateType(EPlacementTemplateType Type);
     void SetPlacementTemplate(const FPlacementTemplate& Template);
 

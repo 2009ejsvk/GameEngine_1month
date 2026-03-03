@@ -235,6 +235,62 @@ bool CMeshManager::Init()
 		2, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP))
 		return false;
 
+	// ── 아이소메트릭 건물 비주얼 메시 ──────────────────────────────
+	// 공용 인덱스 (CW × 2 삼각형)
+	unsigned short IsoQuadIdx[6] = { 0, 1, 3, 0, 3, 2 };
+
+	// Mesh_IsoWallLeft — 좌측 평행사변형 (Left-Bottom 엣지)
+	// Scale(TileW, TileH) 적용 시: V2→Left_floor, V3→Bottom_floor
+	//                               V0→Left_roof,  V1→Bottom_roof
+	FVertexColor IsoWallLeft[4] =
+	{
+		FVertexColor(-0.5f,  1.0f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V0 Left_roof
+		FVertexColor( 0.0f,  0.5f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V1 Bottom_roof
+		FVertexColor(-0.5f,  0.0f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V2 Left_floor
+		FVertexColor( 0.0f, -0.5f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V3 Bottom_floor
+	};
+
+	if (!CreateMesh("Mesh_IsoWallLeft",
+		true, IsoWallLeft, sizeof(FVertexColor),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+		IsoQuadIdx, 2, 6, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
+	// Mesh_IsoWallRight — 우측 평행사변형 (Bottom-Right 엣지)
+	// V0→Bottom_roof, V1→Right_roof, V2→Bottom_floor, V3→Right_floor
+	FVertexColor IsoWallRight[4] =
+	{
+		FVertexColor( 0.0f,  0.5f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V0 Bottom_roof
+		FVertexColor( 0.5f,  1.0f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V1 Right_roof
+		FVertexColor( 0.0f, -0.5f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V2 Bottom_floor
+		FVertexColor( 0.5f,  0.0f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V3 Right_floor
+	};
+
+	if (!CreateMesh("Mesh_IsoWallRight",
+		true, IsoWallRight, sizeof(FVertexColor),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+		IsoQuadIdx, 2, 6, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
+	// Mesh_IsoDiamondColor — 채워진 다이아몬드 (옥상)
+	// V0→Top, V1→Right, V2→Left, V3→Bottom
+	FVertexColor IsoDiamond[4] =
+	{
+		FVertexColor( 0.0f,  0.5f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V0 Top
+		FVertexColor( 0.5f,  0.0f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V1 Right
+		FVertexColor(-0.5f,  0.0f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V2 Left
+		FVertexColor( 0.0f, -0.5f, 0.f, 1.f, 1.f, 1.f, 1.f),	// V3 Bottom
+	};
+
+	if (!CreateMesh("Mesh_IsoDiamondColor",
+		true, IsoDiamond, sizeof(FVertexColor),
+		4, D3D11_USAGE_IMMUTABLE, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+		IsoQuadIdx, 2, 6, DXGI_FORMAT_R16_UINT,
+		D3D11_USAGE_IMMUTABLE))
+		return false;
+
 	return true;
 }
 
