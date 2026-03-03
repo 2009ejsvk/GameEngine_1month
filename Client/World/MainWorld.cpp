@@ -295,7 +295,6 @@ bool CMainWorld::Init()
 		{
 			ResolveLayerOrder("MapFloorBlue",    2, ERenderListSort::None);
 			ResolveLayerOrder("BuildingVisual",  3, ERenderListSort::Y);
-			ResolveLayerOrder("MarkerOrb",       4, ERenderListSort::Y);
 
 			ConfigureOverlayTileMap(FloorBlueTileMapObj,
 				"MapFloorBlue",

@@ -5,6 +5,9 @@
 #include "Object/TileMapObject.h"
 #include "Render/RenderManager.h"
 #include "World/World.h"
+#include "World/CameraManager.h"
+#include "Component/CameraComponent.h"
+#include "Device.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -152,14 +155,14 @@ bool CBuildingMarkerOrb::Init()
     if (Mesh)
     {
         auto RenderMgr = CRenderManager::GetInst();
-        int MarkerOrbLayer = RenderMgr->GetLayerOrder("MarkerOrb");
+        int MarkerOrbLayer = RenderMgr->GetLayerOrder("BuildingVisual");
 
         if (MarkerOrbLayer < 0)
         {
-            for (int Order = 5; Order <= 100; ++Order)
+            for (int Order = 3; Order <= 100; ++Order)
             {
-                RenderMgr->CreateLayer("MarkerOrb", Order, ERenderListSort::Y);
-                MarkerOrbLayer = RenderMgr->GetLayerOrder("MarkerOrb");
+                RenderMgr->CreateLayer("BuildingVisual", Order, ERenderListSort::Y);
+                MarkerOrbLayer = RenderMgr->GetLayerOrder("BuildingVisual");
 
                 if (MarkerOrbLayer >= 0)
                     break;
@@ -173,9 +176,11 @@ bool CBuildingMarkerOrb::Init()
         Mesh->SetMaterialBaseColor(0, 1.f, 0.f, 0.f, 1.f);
         Mesh->SetEnable(true);
         Mesh->SetMaterialOpacity(0, 1.f);
+        Mesh->SetRenderSortYBias(-mOrbDiameter * 0.5f);
+        Mesh->SetRenderSortPriority(1);
 
         if (MarkerOrbLayer >= 0)
-            Mesh->SetRenderLayer("MarkerOrb");
+            Mesh->SetRenderLayer("BuildingVisual");
     }
 
     auto Movement = mMovement.lock();
@@ -230,6 +235,41 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 #ifdef _DEBUG
     mDebugMissingDependencyLogged = false;
 #endif
+
+    auto Mesh = mMeshComponent.lock();
+
+    if (Mesh)
+    {
+        auto CameraMgr = World->GetCameraManager().lock();
+
+        if (!CameraMgr)
+        {
+            Mesh->SetEnable(false);
+            return;
+        }
+
+        const FVector3 CamPos = CameraMgr->GetMainCameraWorldPos();
+        float ViewWidth = (float)CDevice::GetInst()->GetResolution().Width;
+        float ViewHeight = (float)CDevice::GetInst()->GetResolution().Height;
+
+        auto MainCamera = CameraMgr->GetMainCamera().lock();
+
+        if (MainCamera &&
+            MainCamera->GetProjectionType() ==
+            ECameraProjectionType::Ortho)
+        {
+            ViewWidth = MainCamera->GetViewWidth();
+            ViewHeight = MainCamera->GetViewHeight();
+        }
+
+        const float Margin = (std::max)(mOrbDiameter * 2.f, 32.f);
+        const FVector3 Pos = GetWorldPos();
+        const bool Visible =
+            fabsf(Pos.x - CamPos.x) <= (ViewWidth * 0.5f + Margin) &&
+            fabsf(Pos.y - CamPos.y) <= (ViewHeight * 0.5f + Margin);
+
+        Mesh->SetEnable(Visible);
+    }
 
     const float CurrentZ = GetWorldPos().z;
 
@@ -808,6 +848,8 @@ void CBuildingMarkerOrb::UpdateScaleFromTileSize()
     if (Mesh)
     {
         Mesh->SetRelativeScale(Diameter, Diameter);
+        Mesh->SetRenderSortYBias(-Diameter * 0.5f);
+        Mesh->SetRenderSortPriority(1);
     }
 
     mScaleInitialized = true;
