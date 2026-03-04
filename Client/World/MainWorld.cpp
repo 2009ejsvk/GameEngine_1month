@@ -396,8 +396,8 @@ bool CMainWorld::Init()
 
 		MarkerOrbObj->SetRandomTargetNames(BuildingNames);
 
-		const float SpeedBase = 280.f;
-		const float SpeedVariance = 42.f;
+		const float SpeedBase = 140.f;
+		const float SpeedVariance = 21.f;
 		const float Speed = SpeedBase +
 			((float)(rand() % 1001) / 500.f - 1.f) * SpeedVariance;
 		MarkerOrbObj->SetMoveSpeed(Speed);

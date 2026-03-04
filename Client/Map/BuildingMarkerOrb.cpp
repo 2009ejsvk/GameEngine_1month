@@ -146,6 +146,16 @@ bool CBuildingMarkerOrb::Init()
 {
     CGameObject::Init();
 
+    mSatisfaction.Food = 70.f;
+    mSatisfaction.Health = 70.f;
+    mSatisfaction.Fun = 70.f;
+    mSatisfaction.Faith = 70.f;
+    mSatisfaction.Housing = 70.f;
+    mSatisfaction.Job = 70.f;
+    mSatisfaction.Freedom = 70.f;
+    mSatisfaction.Security = 70.f;
+    RecalculateOverallSatisfaction();
+
     mMeshComponent = CreateComponent<CMeshComponent>("MarkerOrbMesh");
     mMovement = CreateComponent<CObjectMovementComponent>(
         "MarkerOrbMovement");
@@ -209,6 +219,8 @@ bool CBuildingMarkerOrb::Init()
 void CBuildingMarkerOrb::Update(float DeltaTime)
 {
     CGameObject::Update(DeltaTime);
+
+    UpdateSatisfaction(DeltaTime);
 
     RefreshBuildings();
     UpdateScaleFromTileSize();
@@ -583,6 +595,39 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             Dist);
     }
 #endif
+}
+
+void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
+{
+    (void)DeltaTime;
+}
+
+void CBuildingMarkerOrb::RecalculateOverallSatisfaction()
+{
+    const float WeightedAverage =
+        mSatisfaction.Food * 0.18f +
+        mSatisfaction.Health * 0.14f +
+        mSatisfaction.Fun * 0.10f +
+        mSatisfaction.Faith * 0.10f +
+        mSatisfaction.Housing * 0.13f +
+        mSatisfaction.Job * 0.13f +
+        mSatisfaction.Freedom * 0.10f +
+        mSatisfaction.Security * 0.12f;
+
+    float MinimumNeed = mSatisfaction.Food;
+    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Health);
+    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Fun);
+    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Faith);
+    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Housing);
+    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Job);
+    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Freedom);
+    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Security);
+
+    const float LowNeedPenalty =
+        (std::max)(0.f, 30.f - MinimumNeed) * 0.8f;
+
+    mSatisfaction.Overall =
+        Clamp<float>(WeightedAverage - LowNeedPenalty, 0.f, 100.f);
 }
 
 void CBuildingMarkerOrb::ApplySoftSeparation(float DeltaTime)

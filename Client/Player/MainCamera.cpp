@@ -1,10 +1,14 @@
 #include "MainCamera.h"
 #include "../Map/PlacementAreaObject.h"
+#include "../Map/BuildingMarkerOrb.h"
+#include "../UI/CitizenInfoWidget.h"
 #include "Component/CameraComponent.h"
 #include "Component/ObjectMovementComponent.h"
 #include "Device.h"
 #include "World/World.h"
 #include "World/Input.h"
+#include "World/WorldUIManager.h"
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
 
@@ -208,6 +212,27 @@ void CMainCamera::PlaceCurrentArea()
         return;
 
     const FVector2 MouseWorldPos = Input->GetMouseWorldPos();
+    auto CitizenOrb = PickCitizenOrb(MouseWorldPos);
+
+    if (CitizenOrb)
+    {
+        EnsureCitizenInfoWidget();
+        auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+        if (CitizenInfoWidget)
+        {
+            CitizenInfoWidget->Open(
+                CitizenOrb->GetName(),
+                CitizenOrb->GetSatisfaction(),
+                Input->GetMousePos());
+        }
+        return;
+    }
+
+    auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+    if (CitizenInfoWidget)
+        CitizenInfoWidget->SetEnable(false);
 
     RefreshPlacementObjects();
 
@@ -261,4 +286,75 @@ std::shared_ptr<CPlacementAreaObject> CMainCamera::PickPlacementObject(
     }
 
     return BestObject;
+}
+
+std::shared_ptr<CBuildingMarkerOrb> CMainCamera::PickCitizenOrb(
+    const FVector2& MouseWorldPos)
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return std::shared_ptr<CBuildingMarkerOrb>();
+
+    std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+    if (!World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+    {
+        return std::shared_ptr<CBuildingMarkerOrb>();
+    }
+
+    std::shared_ptr<CBuildingMarkerOrb> BestOrb;
+    float BestDistSq = FLT_MAX;
+
+    for (size_t i = 0; i < OrbList.size(); ++i)
+    {
+        auto Orb = OrbList[i].lock();
+
+        if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+            continue;
+
+        FVector3 OrbPos = Orb->GetWorldPos();
+        const float dx = OrbPos.x - MouseWorldPos.x;
+        const float dy = OrbPos.y - MouseWorldPos.y;
+        const float DistSq = dx * dx + dy * dy;
+        const float Radius = (std::max)(6.f, Orb->GetOrbDiameter() * 0.5f);
+        const float RadiusSq = Radius * Radius;
+
+        if (DistSq > RadiusSq)
+            continue;
+
+        if (!BestOrb || DistSq < BestDistSq)
+        {
+            BestOrb = Orb;
+            BestDistSq = DistSq;
+        }
+    }
+
+    return BestOrb;
+}
+
+void CMainCamera::EnsureCitizenInfoWidget()
+{
+    if (!mCitizenInfoWidget.expired())
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return;
+
+    mCitizenInfoWidget =
+        UIManager->FindWidget<CCitizenInfoWidget>("CitizenInfoWidget");
+
+    if (!mCitizenInfoWidget.expired())
+        return;
+
+    mCitizenInfoWidget =
+        UIManager->CreateWidget<CCitizenInfoWidget>(
+            "CitizenInfoWidget", 200);
 }

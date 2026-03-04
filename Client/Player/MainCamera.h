@@ -23,6 +23,7 @@ private:
     std::vector<std::weak_ptr<class CPlacementAreaObject>>
         mPlacementObjects;
     std::weak_ptr<class CPlacementAreaObject> mActivePlacementObject;
+    std::weak_ptr<class CCitizenInfoWidget> mCitizenInfoWidget;
     float mViewDistance = 1000.f;
     float mZoomWidth = 0.f;
     float mZoomHeight = 0.f;
@@ -44,4 +45,7 @@ private:
     void RefreshPlacementObjects();
     std::shared_ptr<class CPlacementAreaObject> PickPlacementObject(
         const FVector2& MouseWorldPos);
+    std::shared_ptr<class CBuildingMarkerOrb> PickCitizenOrb(
+        const FVector2& MouseWorldPos);
+    void EnsureCitizenInfoWidget();
 };

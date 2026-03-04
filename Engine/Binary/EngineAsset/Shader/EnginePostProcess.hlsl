@@ -34,23 +34,24 @@ PS_OUTPUT_COLOR BlurPS(VS_OUTPUT_TEX input)
     
     SrcColor *= cbBlurWeight[0][0];
     
-    int i = 0;
+    uint i = 0;
+    uint BlurCount = (uint)max(cbBlurCount, 0);
     float4 TargetColor;
     
     [loop]
-    for (i = 1; i <= cbBlurCount; ++i)
+    for (i = 1; i <= BlurCount; ++i)
     {
-        float2 UV = input.UV + float2(cbTexelSize.x * i, 0.f);
+        float2 UV = input.UV + float2(cbTexelSize.x * (float)i, 0.f);
         
         TargetColor = tbBlendTarget.Sample(sbPoint, UV);
         
-        int Index1 = i / 4;
-        int Index2 = i % 4;
+        int Index1 = (int)(i >> 2);
+        int Index2 = (int)(i & 3u);
         
         //if (TargetColor.a > 0.f)
         SrcColor += TargetColor * cbBlurWeight[Index1][Index2];
         
-        UV = input.UV - float2(cbTexelSize.x * i, 0.f);
+        UV = input.UV - float2(cbTexelSize.x * (float)i, 0.f);
         
         TargetColor = tbBlendTarget.Sample(sbPoint, UV);
         
@@ -59,19 +60,19 @@ PS_OUTPUT_COLOR BlurPS(VS_OUTPUT_TEX input)
     }
     
     [loop]
-    for (i = 1; i <= cbBlurCount; ++i)
+    for (i = 1; i <= BlurCount; ++i)
     {
-        float2 UV = input.UV + float2(0.f, cbTexelSize.y * i);
+        float2 UV = input.UV + float2(0.f, cbTexelSize.y * (float)i);
         
         TargetColor = tbBlendTarget.Sample(sbPoint, UV);
         
-        int Index1 = i / 4;
-        int Index2 = i % 4;
+        int Index1 = (int)(i >> 2);
+        int Index2 = (int)(i & 3u);
         
         //if (TargetColor.a > 0.f)
         SrcColor += TargetColor * cbBlurWeight[Index1][Index2];
         
-        UV = input.UV - float2(0.f, cbTexelSize.y * i);
+        UV = input.UV - float2(0.f, cbTexelSize.y * (float)i);
         
         TargetColor = tbBlendTarget.Sample(sbPoint, UV);
         

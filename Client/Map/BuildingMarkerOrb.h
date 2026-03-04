@@ -6,6 +6,19 @@
 #include <utility>
 #include <vector>
 
+struct FNpcSatisfaction
+{
+    float Food = 70.f;
+    float Health = 70.f;
+    float Fun = 70.f;
+    float Faith = 70.f;
+    float Housing = 70.f;
+    float Job = 70.f;
+    float Freedom = 70.f;
+    float Security = 70.f;
+    float Overall = 70.f;
+};
+
 class CBuildingMarkerOrb :
     public CGameObject
 {
@@ -38,8 +51,10 @@ private:
     float mPathRetryAccum = 0.f;
     float mWaitingPathAccum = 0.f;
     float mStallAccum = 0.f;
+    float mSatisfactionTickAccum = 0.f;
     FVector3 mLockedTargetPos = FVector3::Zero;
     FVector3 mLastProgressPos = FVector3::Zero;
+    FNpcSatisfaction mSatisfaction;
     bool mHasLockedTarget = false;
     bool mWaitingForPath = false;
     bool mScaleInitialized = false;
@@ -54,6 +69,11 @@ public:
     float GetOrbDiameter() const
     {
         return mOrbDiameter;
+    }
+
+    const FNpcSatisfaction& GetSatisfaction() const
+    {
+        return mSatisfaction;
     }
 
     void SetBuildingNames(
@@ -130,6 +150,8 @@ public:
     virtual void Update(float DeltaTime);
 
 private:
+    void UpdateSatisfaction(float DeltaTime);
+    void RecalculateOverallSatisfaction();
     void ApplySoftSeparation(float DeltaTime);
     void RefreshBuildings();
     void UpdateScaleFromTileSize();
