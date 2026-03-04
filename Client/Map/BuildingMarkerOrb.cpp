@@ -346,6 +346,9 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         if (mCitizenState == ECitizenState::Wander)
             return false;
 
+        if (IsTeamsterState(mCitizenState))
+            return false;
+
         const bool IsFoodState =
             mCitizenState == ECitizenState::GoingToFood ||
             mCitizenState == ECitizenState::AtFood;
@@ -389,6 +392,12 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         case ECitizenState::GoingHome: return mHomeName;
         case ECitizenState::GoingToFood: return mFoodName;
         case ECitizenState::GoingToFun: return mFunName;
+        case ECitizenState::GoingToTeamsterSource:
+            return mTeamsterSourceName;
+        case ECitizenState::GoingToTeamsterHarbor:
+            return mTeamsterHarborName;
+        case ECitizenState::GoingToTeamsterOffice:
+            return mWorkName;
         default: return PickRandomTargetName(std::string());
         }
     };
@@ -399,6 +408,12 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         mCitizenState == ECitizenState::AtFood ||
         mCitizenState == ECitizenState::AtFun)
     {
+        if (mCitizenState == ECitizenState::AtWork &&
+            TryStartTeamsterDelivery())
+        {
+            return;
+        }
+
         if ((mCitizenState == ECitizenState::AtWork ||
             mCitizenState == ECitizenState::AtHome) &&
             TryInterruptByNeed())
@@ -526,6 +541,10 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         case ECitizenState::GoingToWork:
         case ECitizenState::AtWork:
             mWorkName.clear();
+            mTeamsterSourceName.clear();
+            mTeamsterHarborName.clear();
+            mTeamsterCarryAmount = 0;
+            ResetTeamsterSpeed();
             break;
         case ECitizenState::GoingHome:
         case ECitizenState::AtHome:
@@ -538,6 +557,23 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         case ECitizenState::GoingToFun:
         case ECitizenState::AtFun:
             mFunName.clear();
+            break;
+        case ECitizenState::GoingToTeamsterSource:
+            mTeamsterSourceName.clear();
+            mTeamsterCarryAmount = 0;
+            ResetTeamsterSpeed();
+            break;
+        case ECitizenState::GoingToTeamsterHarbor:
+            mTeamsterHarborName.clear();
+            mTeamsterCarryAmount = 0;
+            ResetTeamsterSpeed();
+            break;
+        case ECitizenState::GoingToTeamsterOffice:
+            mWorkName.clear();
+            mTeamsterSourceName.clear();
+            mTeamsterHarborName.clear();
+            mTeamsterCarryAmount = 0;
+            ResetTeamsterSpeed();
             break;
         default:
             break;
@@ -553,6 +589,11 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             mCitizenState == ECitizenState::AtFun)
         {
             TransitionFsm(ResolveStateAfterService());
+        }
+        else if (IsTeamsterState(mCitizenState))
+        {
+            ResetTeamsterSpeed();
+            TransitionFsm(ECitizenState::GoingToWork);
         }
 
         if (mCitizenState == ECitizenState::Wander)
@@ -686,6 +727,74 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         else if (mCitizenState == ECitizenState::GoingToFun)
         {
             TransitionFsm(ECitizenState::AtFun);
+        }
+        else if (mCitizenState == ECitizenState::GoingToTeamsterSource)
+        {
+            bool LoadedCargo = false;
+
+            if (World && !mCurrentTargetName.empty())
+            {
+                auto SourceBuilding =
+                    World->FindObject<CPlacementAreaObject>(
+                        mCurrentTargetName).lock();
+
+                const bool IsProductionOrFood =
+                    SourceBuilding &&
+                    !SourceBuilding->IsResidential() &&
+                    (!SourceBuilding->IsEntertainmentProvider() ||
+                        SourceBuilding->IsFoodProvider());
+
+                if (SourceBuilding &&
+                    IsProductionOrFood &&
+                    !SourceBuilding->IsTransportOffice() &&
+                    !SourceBuilding->IsHarbor() &&
+                    SourceBuilding->TryConsumeResource(GTeamsterTransferUnit))
+                {
+                    mTeamsterCarryAmount = GTeamsterTransferUnit;
+                    LoadedCargo = true;
+                }
+            }
+
+            if (LoadedCargo)
+            {
+                if (mTeamsterHarborName.empty())
+                    mTeamsterHarborName = FindHarborName();
+
+                if (!mTeamsterHarborName.empty())
+                    TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
+                else
+                    TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+            }
+            else
+            {
+                mTeamsterCarryAmount = 0;
+                TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+            }
+        }
+        else if (mCitizenState == ECitizenState::GoingToTeamsterHarbor)
+        {
+            if (World &&
+                mTeamsterCarryAmount > 0 &&
+                !mCurrentTargetName.empty())
+            {
+                auto HarborBuilding =
+                    World->FindObject<CPlacementAreaObject>(
+                        mCurrentTargetName).lock();
+
+                if (HarborBuilding && HarborBuilding->IsHarbor())
+                {
+                    HarborBuilding->AddResourceStock(mTeamsterCarryAmount);
+                }
+            }
+
+            mTeamsterCarryAmount = 0;
+            TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+        }
+        else if (mCitizenState == ECitizenState::GoingToTeamsterOffice)
+        {
+            ResetTeamsterSpeed();
+            mTeamsterCarryAmount = 0;
+            TransitionFsm(ECitizenState::AtWork);
         }
         else
         {
@@ -874,13 +983,26 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     {
     case ECitizenState::AtWork:
         RecoverUnderCap(mSatisfaction.Job, 10.f, WorkJobCap);
-        // 직장 건물 재고 생산 (2 units/sec)
+        // 생산/식량 시설만 재고를 생산한다.
+        // 운송업자 사무소/항구는 재고를 직접 생산하지 않는다.
         if (World && !mWorkName.empty())
         {
             auto WorkBuilding =
                 World->FindObject<CPlacementAreaObject>(mWorkName).lock();
             if (WorkBuilding)
-                WorkBuilding->AddProduction(2.f, DeltaTime);
+            {
+                float ProductionPerSec = 0.f;
+
+                if (WorkBuilding->IsFoodProductionFacility())
+                    ProductionPerSec = 40.f;
+                else if (!WorkBuilding->IsTransportOffice() &&
+                    !WorkBuilding->IsHarbor())
+                {
+                    ProductionPerSec = 2.f;
+                }
+
+                WorkBuilding->AddProduction(ProductionPerSec, DeltaTime);
+            }
         }
         break;
     case ECitizenState::AtHome:
@@ -1477,6 +1599,9 @@ void CBuildingMarkerOrb::RequestMoveTo(
 
 void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
 {
+    if (!IsTeamsterState(NewState))
+        ResetTeamsterSpeed();
+
     mCitizenState = NewState;
     mDwellTimer = 0.f;
 
@@ -1484,10 +1609,14 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
     {
     case ECitizenState::GoingToWork:
         mFoodVisitBuildingName.clear();
+        mTeamsterCarryAmount = 0;
         mCurrentTargetName = mWorkName;
         break;
     case ECitizenState::AtWork:
         mFoodVisitBuildingName.clear();
+        mTeamsterSourceName.clear();
+        mTeamsterHarborName.clear();
+        mTeamsterCarryAmount = 0;
         mDwellTimer = GAtWorkDuration;
         mCurrentTargetName.clear();
         break;
@@ -1531,6 +1660,21 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
         mDwellTimer = GAtFunDuration;
         mCurrentTargetName.clear();
         break;
+    case ECitizenState::GoingToTeamsterSource:
+        mFoodVisitBuildingName.clear();
+        StartTeamsterSpeedBoost();
+        mCurrentTargetName = mTeamsterSourceName;
+        break;
+    case ECitizenState::GoingToTeamsterHarbor:
+        mFoodVisitBuildingName.clear();
+        StartTeamsterSpeedBoost();
+        mCurrentTargetName = mTeamsterHarborName;
+        break;
+    case ECitizenState::GoingToTeamsterOffice:
+        mFoodVisitBuildingName.clear();
+        StartTeamsterSpeedBoost();
+        mCurrentTargetName = mWorkName;
+        break;
     default:
         mFoodVisitBuildingName.clear();
         mCurrentTargetName.clear();
@@ -1546,7 +1690,19 @@ void CBuildingMarkerOrb::SetHomeBuilding(const std::string& Name)
 
 void CBuildingMarkerOrb::SetWorkBuilding(const std::string& Name)
 {
+    if (mWorkName != Name)
+    {
+        mTeamsterSourceName.clear();
+        mTeamsterHarborName.clear();
+        mTeamsterCarryAmount = 0;
+        ResetTeamsterSpeed();
+    }
+
     mWorkName = Name;
+
+    if (IsTeamsterState(mCitizenState))
+        TransitionFsm(ECitizenState::GoingToWork);
+
     TryStartCoreLoop();
 }
 
@@ -1572,6 +1728,148 @@ void CBuildingMarkerOrb::TryStartCoreLoop()
     TransitionFsm(ECitizenState::GoingToWork);
     mHasLockedTarget = false;
     mPathRetryAccum = 0.f;
+}
+
+bool CBuildingMarkerOrb::IsTeamsterState(ECitizenState State) const
+{
+    return State == ECitizenState::GoingToTeamsterSource ||
+        State == ECitizenState::GoingToTeamsterHarbor ||
+        State == ECitizenState::GoingToTeamsterOffice;
+}
+
+void CBuildingMarkerOrb::StartTeamsterSpeedBoost()
+{
+    mTeamsterSpeedBoostActive = true;
+    mMoveSpeed = mDefaultMoveSpeed * GTeamsterSpeedMultiplier;
+}
+
+void CBuildingMarkerOrb::ResetTeamsterSpeed()
+{
+    mTeamsterSpeedBoostActive = false;
+    mMoveSpeed = mDefaultMoveSpeed;
+}
+
+bool CBuildingMarkerOrb::TryStartTeamsterDelivery()
+{
+    if (mCitizenState != ECitizenState::AtWork)
+        return false;
+
+    auto World = mWorld.lock();
+
+    if (!World || mWorkName.empty())
+        return false;
+
+    auto WorkBuilding =
+        World->FindObject<CPlacementAreaObject>(mWorkName).lock();
+
+    if (!WorkBuilding ||
+        !WorkBuilding->GetAlive() ||
+        !WorkBuilding->GetEnable() ||
+        !WorkBuilding->HasPlacedArea() ||
+        !WorkBuilding->IsTransportOffice())
+    {
+        return false;
+    }
+
+    const std::string SourceName = FindTeamsterSourceName();
+
+    if (SourceName.empty())
+        return false;
+
+    const std::string HarborName = FindHarborName();
+
+    if (HarborName.empty())
+        return false;
+
+    mTeamsterSourceName = SourceName;
+    mTeamsterHarborName = HarborName;
+    mTeamsterCarryAmount = 0;
+
+    TransitionFsm(ECitizenState::GoingToTeamsterSource);
+    mPathRetryAccum = 0.f;
+    return true;
+}
+
+std::string CBuildingMarkerOrb::FindTeamsterSourceName() const
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return std::string();
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return std::string();
+
+    std::string BestName;
+    int BestStock = 0;
+
+    for (size_t i = 0; i < BuildingList.size(); ++i)
+    {
+        auto Building = BuildingList[i].lock();
+
+        const bool IsProductionOrFood =
+            Building &&
+            !Building->IsResidential() &&
+            (!Building->IsEntertainmentProvider() ||
+                Building->IsFoodProvider());
+
+        if (!Building ||
+            !Building->GetAlive() ||
+            !Building->GetEnable() ||
+            !Building->HasPlacedArea() ||
+            !IsProductionOrFood ||
+            Building->IsTransportOffice() ||
+            Building->IsHarbor())
+        {
+            continue;
+        }
+
+        const int Stock = Building->GetResourceStock();
+
+        if (Stock < GTeamsterTransferUnit)
+            continue;
+
+        if (BestName.empty() || Stock > BestStock)
+        {
+            BestName = Building->GetName();
+            BestStock = Stock;
+        }
+    }
+
+    return BestName;
+}
+
+std::string CBuildingMarkerOrb::FindHarborName() const
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return std::string();
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return std::string();
+
+    for (size_t i = 0; i < BuildingList.size(); ++i)
+    {
+        auto Building = BuildingList[i].lock();
+
+        if (!Building ||
+            !Building->GetAlive() ||
+            !Building->GetEnable() ||
+            !Building->HasPlacedArea() ||
+            !Building->IsHarbor())
+        {
+            continue;
+        }
+
+        return Building->GetName();
+    }
+
+    return std::string();
 }
 
 void CBuildingMarkerOrb::RemoveTargetBuildingName(
@@ -1634,9 +1932,28 @@ void CBuildingMarkerOrb::RemoveTargetBuildingName(
         mFoodStockAvailableThisVisit = false;
     }
     if (mFunName == BuildingName) { mFunName.clear(); }
+    if (mTeamsterSourceName == BuildingName)
+    {
+        mTeamsterSourceName.clear();
+        mTeamsterCarryAmount = 0;
+    }
+    if (mTeamsterHarborName == BuildingName)
+    {
+        mTeamsterHarborName.clear();
+        mTeamsterCarryAmount = 0;
+    }
+
+    if ((mTeamsterSourceName.empty() || mTeamsterHarborName.empty()) &&
+        IsTeamsterState(mCitizenState))
+    {
+        ResetTeamsterSpeed();
+        TransitionFsm(ECitizenState::GoingToWork);
+    }
+
     if ((mHomeName.empty() || mWorkName.empty() || mFoodName.empty()) &&
         mCitizenState != ECitizenState::Wander)
     {
+        ResetTeamsterSpeed();
         mCitizenState = ECitizenState::Wander;
         mCurrentTargetName.clear();
         mHasLockedTarget = false;

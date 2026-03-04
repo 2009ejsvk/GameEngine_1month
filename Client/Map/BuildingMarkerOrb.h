@@ -16,7 +16,10 @@ enum class ECitizenState
     GoingToFood,
     AtFood,
     GoingToFun,
-    AtFun
+    AtFun,
+    GoingToTeamsterSource,
+    GoingToTeamsterHarbor,
+    GoingToTeamsterOffice
 };
 
 struct FNpcSatisfaction
@@ -73,9 +76,14 @@ private:
     std::string mFoodName;
     std::string mFoodVisitBuildingName;
     std::string mFunName;
+    std::string mTeamsterSourceName;
+    std::string mTeamsterHarborName;
+    int mTeamsterCarryAmount = 0;
     ECitizenState mCitizenState = ECitizenState::Wander;
     ECitizenState mResumeStateAfterService = ECitizenState::GoingToWork;
     float mDwellTimer = 0.f;
+    float mDefaultMoveSpeed = 200.f;
+    bool mTeamsterSpeedBoostActive = false;
     static constexpr float GAtWorkDuration = 15.f;
     static constexpr float GAtHomeDuration = 10.f;
     static constexpr float GAtFoodDuration = 4.f;
@@ -83,6 +91,8 @@ private:
     static constexpr float GFoodInterruptThreshold = 25.f;
     static constexpr float GFunInterruptThreshold = 30.f;
     static constexpr float GHealthRemoveThreshold = 5.f;
+    static constexpr float GTeamsterSpeedMultiplier = 5.f;
+    static constexpr int GTeamsterTransferUnit = 1000;
     bool mHasLockedTarget = false;
     bool mWaitingForPath = false;
     bool mScaleInitialized = false;
@@ -178,7 +188,11 @@ public:
 
     void SetMoveSpeed(float Speed)
     {
+        mDefaultMoveSpeed = Speed;
         mMoveSpeed = Speed;
+
+        if (mTeamsterSpeedBoostActive)
+            mMoveSpeed = mDefaultMoveSpeed * GTeamsterSpeedMultiplier;
     }
 
     void AddTargetBuildingName(const std::string& BuildingName)
@@ -248,4 +262,10 @@ private:
         const std::string& ExcludeName) const;
     void RequestMoveTo(const std::string& TargetBuildingName);
     void TryStartCoreLoop();
+    bool IsTeamsterState(ECitizenState State) const;
+    void StartTeamsterSpeedBoost();
+    void ResetTeamsterSpeed();
+    bool TryStartTeamsterDelivery();
+    std::string FindTeamsterSourceName() const;
+    std::string FindHarborName() const;
 };

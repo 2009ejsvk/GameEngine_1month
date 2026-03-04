@@ -30,10 +30,11 @@ namespace
 	constexpr float GCitizenReassignInterval = 0.5f;
 	constexpr float GNpcSpeedBase = 140.f;
 	constexpr float GNpcSpeedVariance = 21.f;
-	constexpr const char* GStarterHousingObjectName = "StarterHousing";
-	constexpr const char* GStarterWorkObjectName = "StarterWork";
-	constexpr const char* GStarterFoodObjectName = "StarterFood";
-	constexpr const char* GStarterFunObjectName = "StarterFun";
+	constexpr const char* GStarterDormitoryObjectName = "StarterDormitory";
+	constexpr const char* GStarterTeamsterObjectName = "StarterTeamsterOffice";
+	constexpr const char* GStarterRanchObjectName = "StarterRanch";
+	constexpr const char* GStarterFarmObjectName = "StarterLargeFarm";
+	constexpr const char* GStarterHarborObjectName = "StarterHarbor";
 
 	struct FBuildingDefinition
 	{
@@ -408,15 +409,69 @@ bool CMainWorld::Init()
 	};
 
 	CreateStarterBuilding(
-		GStarterHousingObjectName,
-		"starter_housing",
-		"판잣집",
-		"주거지",
-		true,
+		GStarterTeamsterObjectName,
+		"starter_teamster_office",
+		"운송업자 사무소",
+		"교통 및 기반시설",
+		false,
 		30,
 		false,
 		false,
-		10,
+		100,
+		75,
+		100,
+		100,
+		EPlacementBuildingKind::BuildingB,
+		EPlacementTemplateType::Diamond5x5TwoMarker,
+		-14,
+		8);
+
+	CreateStarterBuilding(
+		GStarterRanchObjectName,
+		"starter_ranch",
+		"목장",
+		"음식 및 자원",
+		false,
+		35,
+		true,
+		false,
+		100,
+		60,
+		65,
+		100,
+		EPlacementBuildingKind::BuildingA,
+		EPlacementTemplateType::Diamond5x5FourMarker,
+		12,
+		9);
+
+	CreateStarterBuilding(
+		GStarterFarmObjectName,
+		"starter_large_farm",
+		"대규모 농장",
+		"음식 및 자원",
+		false,
+		35,
+		true,
+		false,
+		100,
+		58,
+		72,
+		100,
+		EPlacementBuildingKind::BuildingA,
+		EPlacementTemplateType::Diamond7x7ThreeMarker,
+		-10,
+		-10);
+
+	CreateStarterBuilding(
+		GStarterDormitoryObjectName,
+		"starter_dormitory",
+		"합숙소",
+		"주거지",
+		true,
+		60,
+		false,
+		false,
+		30,
 		100,
 		100,
 		100,
@@ -426,57 +481,21 @@ bool CMainWorld::Init()
 		0);
 
 	CreateStarterBuilding(
-		GStarterWorkObjectName,
-		"starter_office",
-		"건설 사무소",
+		GStarterHarborObjectName,
+		"starter_harbor",
+		"항구",
 		"교통 및 기반시설",
 		false,
-		25,
+		0,
 		false,
 		false,
 		100,
-		55,
+		40,
 		100,
 		100,
 		EPlacementBuildingKind::BuildingB,
 		EPlacementTemplateType::Diamond5x5TwoMarker,
-		-12,
-		8);
-
-	CreateStarterBuilding(
-		GStarterFoodObjectName,
-		"starter_food",
-		"패스트푸드 체인점",
-		"유흥",
-		false,
-		25,
-		true,
-		true,
-		100,
-		100,
-		55,
-		52,
-		EPlacementBuildingKind::BuildingA,
-		EPlacementTemplateType::Diamond5x5FourMarker,
-		12,
-		8);
-
-	CreateStarterBuilding(
-		GStarterFunObjectName,
-		"starter_fun",
-		"주점",
-		"유흥",
-		false,
-		20,
-		false,
-		true,
-		100,
-		100,
-		100,
-		45,
-		EPlacementBuildingKind::BuildingB,
-		EPlacementTemplateType::Diamond3x3SingleMarker,
-		0,
+		15,
 		-12);
 
 	mSpawnedNpcCount = 0;
@@ -1346,6 +1365,7 @@ void CMainWorld::CollectWorkBuildingNames(std::vector<std::string>& Out)
 		// FoodProvider 건물은 직장 겸 음식 생산지로 포함
 		// EntertainmentProvider 전용 건물(주점 등)은 제외
 		if (!B->IsResidential() &&
+			!B->IsHarbor() &&
 			(!B->IsEntertainmentProvider() || B->IsFoodProvider()))
 		{
 			Out.push_back(B->GetName());

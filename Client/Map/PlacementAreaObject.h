@@ -89,7 +89,7 @@ private:
     std::vector<int> mMarkerTileIndices;
     int mResourceStock = 0;
     float mResourceProductionAccum = 0.f;
-    static constexpr int GMaxResourceStock = 100;
+    static constexpr int GMaxResourceStock = 100000;
 
 public:
     void SetTileMapObject(
@@ -184,6 +184,26 @@ public:
         return mEntertainmentProvider;
     }
 
+    bool IsTransportOffice() const
+    {
+        return mBuildingId == "build_1_2" ||
+            mBuildingId == "starter_teamster_office";
+    }
+
+    bool IsHarbor() const
+    {
+        return mBuildingId == "build_1_3" ||
+            mBuildingId == "starter_harbor";
+    }
+
+    bool IsFoodProductionFacility() const
+    {
+        return mFoodProvider &&
+            !mEntertainmentProvider &&
+            !IsTransportOffice() &&
+            !IsHarbor();
+    }
+
     int GetCapacity() const
     {
         return mCapacity;
@@ -232,6 +252,16 @@ public:
     }
 
     int GetResourceStock() const { return mResourceStock; }
+    int GetMaxResourceStock() const { return GMaxResourceStock; }
+
+    void AddResourceStock(int Amount)
+    {
+        if (Amount <= 0)
+            return;
+
+        mResourceStock = (std::min)(
+            GMaxResourceStock, mResourceStock + Amount);
+    }
 
     // AtWork 시민이 매 프레임 호출 - float 누적 후 int 단위로 재고에 추가
     void AddProduction(float UnitsPerSec, float DeltaTime)
@@ -248,6 +278,9 @@ public:
     // AtFood 진입 시 호출 - 재고 1단위 소비 시도, 성공하면 true
     bool TryConsumeResource(int Amount = 1)
     {
+        if (Amount <= 0)
+            return true;
+
         if (mResourceStock >= Amount)
         {
             mResourceStock -= Amount;

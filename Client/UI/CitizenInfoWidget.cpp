@@ -474,13 +474,15 @@ void CCitizenInfoWidget::RefreshBuildingInfo()
         Building->IsEntertainmentProvider();
     const bool WorkProvider = !Building->IsResidential() &&
         (!EntertainmentProvider || FoodProvider);
-    const bool UsesResourceStock = WorkProvider || FoodProvider;
+    const bool UsesResourceStock =
+        (WorkProvider && !Building->IsTransportOffice()) ||
+        FoodProvider;
 
     if (UsesResourceStock)
     {
         Body += L"\nResource stock: " +
             std::to_wstring(Building->GetResourceStock()) +
-            L"/100";
+            L"/" + std::to_wstring(Building->GetMaxResourceStock());
     }
 
     auto SummarizeNames = [&](const std::vector<std::string>& Names)
