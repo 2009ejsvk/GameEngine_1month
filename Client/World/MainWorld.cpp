@@ -30,6 +30,23 @@ namespace
 	constexpr float GCitizenReassignInterval = 0.5f;
 	constexpr float GNpcSpeedBase = 140.f;
 	constexpr float GNpcSpeedVariance = 21.f;
+	constexpr int GCitizenDirectionCount = 8;
+	constexpr float GCitizenFrameWidth = 16.f;
+	constexpr float GCitizenFrameHeight = 19.f;
+	constexpr float GCitizenRightBottomStartX = 15.f;
+	constexpr float GCitizenDirectionStepX = 16.f;
+	constexpr float GCitizenBlueWalkTopY = 125.f;
+	constexpr float GCitizenBlueIdleTopY = 148.f;
+	constexpr float GCitizenBlueWalkReverseTopY = 173.f;
+	constexpr float GCitizenRedWalkTopY = 221.f;
+	constexpr float GCitizenRedIdleTopY = 244.f;
+	constexpr float GCitizenRedWalkReverseTopY = 269.f;
+	constexpr const char* GCitizenBlueAnimationPrefix = "CitizenBlue";
+	constexpr const char* GCitizenRedAnimationPrefix = "CitizenRed";
+	constexpr const char* GCitizenSheetTextureName =
+		"CitizenSmall8DirectionSheet";
+	constexpr const TCHAR* GCitizenSheetTextureFile =
+		TEXT("Small-8-Direction-Characters_by_AxulArt.png");
 	constexpr const char* GStarterDormitoryObjectName = "StarterDormitory";
 	constexpr const char* GStarterTeamsterObjectName = "StarterTeamsterOffice";
 	constexpr const char* GStarterRanchObjectName = "StarterRanch";
@@ -176,6 +193,8 @@ bool CMainWorld::Init()
 
 	// 왼쪽 상단 디버그 렌더타겟(카메라 미리보기) 출력 비활성화.
 	CRenderManager::GetInst()->SetDebugTarget(false);
+
+	LoadCitizenAnimation2D();
 
 	// LoadAnimation2D();
 
@@ -1410,6 +1429,77 @@ void CMainWorld::CollectEntertainmentBuildingNames(
 		if (B->IsEntertainmentProvider())
 			Out.push_back(B->GetName());
 	}
+}
+
+void CMainWorld::LoadCitizenAnimation2D()
+{
+	auto CreateCitizenVariantAnimations = [&](const char* Prefix,
+		float WalkTopY,
+		float IdleTopY,
+		float WalkReverseTopY)
+	{
+		for (int Direction = 0;
+			Direction < GCitizenDirectionCount;
+			++Direction)
+		{
+			const std::string IdleAnimationName =
+				std::string(Prefix) + "Idle_Dir" +
+				std::to_string(Direction);
+			const std::string WalkAnimationName =
+				std::string(Prefix) + "Walk_Dir" +
+				std::to_string(Direction);
+			const float RightBottomX = GCitizenRightBottomStartX +
+				static_cast<float>(Direction) * GCitizenDirectionStepX;
+			const float StartX = RightBottomX - GCitizenFrameWidth;
+
+			mWorldAssetManager->CreateAnimation(IdleAnimationName);
+			mWorldAssetManager->SetAnimation2DTextureType(
+				IdleAnimationName,
+				EAnimation2DTextureType::SpriteSheet);
+			mWorldAssetManager->SetTexture(
+				IdleAnimationName,
+				GCitizenSheetTextureName,
+				GCitizenSheetTextureFile);
+			mWorldAssetManager->AddFrame(
+				IdleAnimationName,
+				StartX,
+				IdleTopY,
+				GCitizenFrameWidth,
+				GCitizenFrameHeight);
+
+			mWorldAssetManager->CreateAnimation(WalkAnimationName);
+			mWorldAssetManager->SetAnimation2DTextureType(
+				WalkAnimationName,
+				EAnimation2DTextureType::SpriteSheet);
+			mWorldAssetManager->SetTexture(
+				WalkAnimationName,
+				GCitizenSheetTextureName,
+				GCitizenSheetTextureFile);
+			mWorldAssetManager->AddFrame(
+				WalkAnimationName,
+				StartX,
+				WalkTopY,
+				GCitizenFrameWidth,
+				GCitizenFrameHeight);
+			mWorldAssetManager->AddFrame(
+				WalkAnimationName,
+				StartX,
+				WalkReverseTopY,
+				GCitizenFrameWidth,
+				GCitizenFrameHeight);
+		}
+	};
+
+	CreateCitizenVariantAnimations(
+		GCitizenBlueAnimationPrefix,
+		GCitizenBlueWalkTopY,
+		GCitizenBlueIdleTopY,
+		GCitizenBlueWalkReverseTopY);
+	CreateCitizenVariantAnimations(
+		GCitizenRedAnimationPrefix,
+		GCitizenRedWalkTopY,
+		GCitizenRedIdleTopY,
+		GCitizenRedWalkReverseTopY);
 }
 
 void CMainWorld::LoadAnimation2D()

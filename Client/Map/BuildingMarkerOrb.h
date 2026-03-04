@@ -51,6 +51,7 @@ public:
 
 private:
     std::weak_ptr<class CMeshComponent> mMeshComponent;
+    std::weak_ptr<class CAnimation2DComponent> mAnimation2DComponent;
     std::weak_ptr<class CObjectMovementComponent> mMovement;
     std::weak_ptr<class CTileMapObject> mTileMapObject;
     std::string mBuildingAName = "BuildingA";
@@ -98,6 +99,9 @@ private:
     bool mScaleInitialized = false;
     bool mHasStartPos = false;
     bool mFoodStockAvailableThisVisit = false;
+    int mCurrentAnimationDirection = 0;
+    bool mWasMovingLastFrame = false;
+    bool mUseRedVariant = false;
 #ifdef _DEBUG
     bool mDebugMissingDependencyLogged = false;
     bool mDebugMissingMarkerLogged = false;
@@ -268,4 +272,8 @@ private:
     bool TryStartTeamsterDelivery();
     std::string FindTeamsterSourceName() const;
     std::string FindHarborName() const;
+    void UpdateSpriteAnimationFromVelocity(const FVector3& Velocity);
+    int ResolveDirectionIndexFromVelocity(const FVector3& Velocity) const;
+    const char* GetIdleAnimationNameByDir(int Direction) const;
+    const char* GetWalkAnimationNameByDir(int Direction) const;
 };

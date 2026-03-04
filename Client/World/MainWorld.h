@@ -29,6 +29,7 @@ private:
 	void CollectWorkBuildingNames(std::vector<std::string>& OutNames);
 	void CollectFoodBuildingNames(std::vector<std::string>& OutNames);
 	void CollectEntertainmentBuildingNames(std::vector<std::string>& OutNames);
+	void LoadCitizenAnimation2D();
 	void LoadAnimation2D();
 	void LoadSound();
 	void CreateUI();

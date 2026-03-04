@@ -1,5 +1,6 @@
 ﻿#include "BuildingMarkerOrb.h"
 #include "PlacementAreaObject.h"
+#include "Component/Animation2DComponent.h"
 #include "Component/MeshComponent.h"
 #include "Component/ObjectMovementComponent.h"
 #include "Object/TileMapObject.h"
@@ -20,6 +21,63 @@
 
 namespace
 {
+    constexpr int GNpcDirectionCount = 8;
+
+    constexpr const char* GNpcWalkAnimationNamesBlue[GNpcDirectionCount] =
+    {
+        "CitizenBlueWalk_Dir0",
+        "CitizenBlueWalk_Dir1",
+        "CitizenBlueWalk_Dir2",
+        "CitizenBlueWalk_Dir3",
+        "CitizenBlueWalk_Dir4",
+        "CitizenBlueWalk_Dir5",
+        "CitizenBlueWalk_Dir6",
+        "CitizenBlueWalk_Dir7"
+    };
+
+    constexpr const char* GNpcIdleAnimationNamesBlue[GNpcDirectionCount] =
+    {
+        "CitizenBlueIdle_Dir0",
+        "CitizenBlueIdle_Dir1",
+        "CitizenBlueIdle_Dir2",
+        "CitizenBlueIdle_Dir3",
+        "CitizenBlueIdle_Dir4",
+        "CitizenBlueIdle_Dir5",
+        "CitizenBlueIdle_Dir6",
+        "CitizenBlueIdle_Dir7"
+    };
+
+    constexpr const char* GNpcWalkAnimationNamesRed[GNpcDirectionCount] =
+    {
+        "CitizenRedWalk_Dir0",
+        "CitizenRedWalk_Dir1",
+        "CitizenRedWalk_Dir2",
+        "CitizenRedWalk_Dir3",
+        "CitizenRedWalk_Dir4",
+        "CitizenRedWalk_Dir5",
+        "CitizenRedWalk_Dir6",
+        "CitizenRedWalk_Dir7"
+    };
+
+    constexpr const char* GNpcIdleAnimationNamesRed[GNpcDirectionCount] =
+    {
+        "CitizenRedIdle_Dir0",
+        "CitizenRedIdle_Dir1",
+        "CitizenRedIdle_Dir2",
+        "CitizenRedIdle_Dir3",
+        "CitizenRedIdle_Dir4",
+        "CitizenRedIdle_Dir5",
+        "CitizenRedIdle_Dir6",
+        "CitizenRedIdle_Dir7"
+    };
+
+    // 이동 방향 인덱스(E, NE, N, NW, W, SW, S, SE)를
+    // 시트 컬럼 순서(N, NE, E, SE, S, SW, W, NW)에 맞게 매핑한다.
+    constexpr int GNpcAnimationDirByMoveDir[GNpcDirectionCount] =
+    {
+        2, 1, 0, 7, 6, 5, 4, 3
+    };
+
 #ifdef _DEBUG
     void DebugOrbLog(const char* Format, ...)
     {
@@ -157,6 +215,8 @@ bool CBuildingMarkerOrb::Init()
     RecalculateOverallSatisfaction();
 
     mMeshComponent = CreateComponent<CMeshComponent>("MarkerOrbMesh");
+    mAnimation2DComponent = CreateComponent<CAnimation2DComponent>(
+        "NpcAnimation2D");
     mMovement = CreateComponent<CObjectMovementComponent>(
         "MarkerOrbMovement");
 
@@ -179,11 +239,11 @@ bool CBuildingMarkerOrb::Init()
             }
         }
 
-        Mesh->SetShader("MaterialColor2D");
-        Mesh->SetMesh("FrameSphere2DColor");
+        Mesh->SetShader("DefaultTexture2D");
+        Mesh->SetMesh("RectTex");
         Mesh->SetBlendState(0, "AlphaBlend");
-        Mesh->SetRelativeScale(20.f, 20.f);
-        Mesh->SetMaterialBaseColor(0, 1.f, 0.f, 0.f, 1.f);
+        Mesh->SetRelativeScale(mOrbDiameter, mOrbDiameter);
+        Mesh->SetMaterialBaseColor(0, 1.f, 1.f, 1.f, 1.f);
         Mesh->SetEnable(true);
         Mesh->SetMaterialOpacity(0, 1.f);
         Mesh->SetRenderSortYBias(-mOrbDiameter * 0.5f);
@@ -191,6 +251,25 @@ bool CBuildingMarkerOrb::Init()
 
         if (MarkerOrbLayer >= 0)
             Mesh->SetRenderLayer("BuildingVisual");
+    }
+
+    auto Anim = mAnimation2DComponent.lock();
+
+    if (Anim)
+    {
+        mUseRedVariant = (rand() % 2) == 1;
+        Anim->SetUpdateComponent(mMeshComponent);
+
+        for (int i = 0; i < GNpcDirectionCount; ++i)
+        {
+            Anim->AddAnimation(
+                GetIdleAnimationNameByDir(i), 1.f, 1.f, true, false);
+            Anim->AddAnimation(
+                GetWalkAnimationNameByDir(i), 0.6f, 1.f, true, false);
+        }
+
+        mCurrentAnimationDirection = 0;
+        Anim->ChangeAnimation(GetIdleAnimationNameByDir(0));
     }
 
     auto Movement = mMovement.lock();
@@ -844,6 +923,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     }
 
     const FVector3 Velocity = Movement->GetVelocity();
+    UpdateSpriteAnimationFromVelocity(Velocity);
 
     if (!Velocity.IsZero())
     {
@@ -922,6 +1002,85 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             Dist);
     }
 #endif
+}
+
+void CBuildingMarkerOrb::UpdateSpriteAnimationFromVelocity(
+    const FVector3& Velocity)
+{
+    auto Anim = mAnimation2DComponent.lock();
+
+    if (!Anim)
+        return;
+
+    if (Velocity.IsZero())
+    {
+        if (mWasMovingLastFrame)
+        {
+            Anim->ChangeAnimation(
+                GetIdleAnimationNameByDir(mCurrentAnimationDirection));
+            mWasMovingLastFrame = false;
+        }
+
+        return;
+    }
+
+    const int MoveDirection = ResolveDirectionIndexFromVelocity(Velocity);
+    int AnimationDirection = GNpcAnimationDirByMoveDir[MoveDirection];
+
+    if (AnimationDirection < 0 ||
+        AnimationDirection >= GNpcDirectionCount)
+    {
+        AnimationDirection = MoveDirection;
+    }
+
+    if (!mWasMovingLastFrame ||
+        AnimationDirection != mCurrentAnimationDirection)
+    {
+        mCurrentAnimationDirection = AnimationDirection;
+        Anim->ChangeAnimation(
+            GetWalkAnimationNameByDir(mCurrentAnimationDirection));
+    }
+
+    mWasMovingLastFrame = true;
+}
+
+int CBuildingMarkerOrb::ResolveDirectionIndexFromVelocity(
+    const FVector3& Velocity) const
+{
+    if (Velocity.IsZero())
+        return mCurrentAnimationDirection;
+
+    float Angle = atan2f(Velocity.y, Velocity.x);
+    const float Sector = 3.1415926535f / 4.f;
+    int Direction = static_cast<int>(roundf(Angle / Sector));
+    Direction = (Direction % GNpcDirectionCount + GNpcDirectionCount) %
+        GNpcDirectionCount;
+
+    return Direction;
+}
+
+const char* CBuildingMarkerOrb::GetIdleAnimationNameByDir(
+    int Direction) const
+{
+    if (Direction < 0 || Direction >= GNpcDirectionCount)
+        Direction = 0;
+
+    if (mUseRedVariant)
+        return GNpcIdleAnimationNamesRed[Direction];
+
+    return GNpcIdleAnimationNamesBlue[Direction];
+}
+
+const char* CBuildingMarkerOrb::GetWalkAnimationNameByDir(
+    int Direction) const
+{
+    if (Direction < 0 || Direction >= GNpcDirectionCount)
+        Direction = 0;
+
+    if (mUseRedVariant)
+        return GNpcWalkAnimationNamesRed[Direction];
+
+    return GNpcWalkAnimationNamesBlue[Direction];
 }
 
 void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
@@ -1377,7 +1536,7 @@ void CBuildingMarkerOrb::UpdateScaleFromTileSize()
     if (!SizeFound)
         return;
 
-    float Diameter = (std::min)(TileSize.x, TileSize.y) * 0.25f;
+    float Diameter = (std::min)(TileSize.x, TileSize.y) * 1.f;
 
     if (Diameter < 1.f)
         Diameter = 1.f;
