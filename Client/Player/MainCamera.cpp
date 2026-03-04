@@ -167,6 +167,8 @@ bool CMainCamera::BeginBuildPlacement(
     const std::string& CategoryName,
     bool Residential,
     int Capacity,
+    bool FoodProvider,
+    bool EntertainmentProvider,
     EPlacementTemplateType TemplateType,
     EPlacementBuildingKind BuildingKind)
 {
@@ -221,7 +223,12 @@ bool CMainCamera::BeginBuildPlacement(
     PlacementObject->SetAutoPlaceOnPrepare(false);
     PlacementObject->SetBuildingId(SafeBuildingId);
     PlacementObject->SetBuildingDisplayInfo(
-        BuildingDisplayName, CategoryName, Residential, Capacity);
+        BuildingDisplayName,
+        CategoryName,
+        Residential,
+        Capacity,
+        FoodProvider,
+        EntertainmentProvider);
     PlacementObject->SetBuildingKind(BuildingKind);
     PlacementObject->SetPlacementTemplateType(TemplateType);
 

@@ -6,6 +6,19 @@
 #include <utility>
 #include <vector>
 
+enum class ECitizenState
+{
+    Wander,       // 핵심 건물(집/직장/음식) 미배정
+    GoingToWork,
+    AtWork,       // 직장 체류 타이머
+    GoingHome,
+    AtHome,       // 집 체류 타이머
+    GoingToFood,
+    AtFood,
+    GoingToFun,
+    AtFun
+};
+
 struct FNpcSatisfaction
 {
     float Food = 70.f;
@@ -55,6 +68,20 @@ private:
     FVector3 mLockedTargetPos = FVector3::Zero;
     FVector3 mLastProgressPos = FVector3::Zero;
     FNpcSatisfaction mSatisfaction;
+    std::string mHomeName;
+    std::string mWorkName;
+    std::string mFoodName;
+    std::string mFunName;
+    ECitizenState mCitizenState = ECitizenState::Wander;
+    ECitizenState mResumeStateAfterService = ECitizenState::GoingToWork;
+    float mDwellTimer = 0.f;
+    static constexpr float GAtWorkDuration = 15.f;
+    static constexpr float GAtHomeDuration = 10.f;
+    static constexpr float GAtFoodDuration = 4.f;
+    static constexpr float GAtFunDuration = 6.f;
+    static constexpr float GFoodInterruptThreshold = 35.f;
+    static constexpr float GFunInterruptThreshold = 30.f;
+    static constexpr float GHealthRemoveThreshold = 5.f;
     bool mHasLockedTarget = false;
     bool mWaitingForPath = false;
     bool mScaleInitialized = false;
@@ -172,12 +199,29 @@ public:
 
     void RemoveTargetBuildingName(const std::string& BuildingName);
 
+    void SetHomeBuilding(const std::string& Name);
+    void SetWorkBuilding(const std::string& Name);
+    void SetFoodBuilding(const std::string& Name);
+    void SetFunBuilding(const std::string& Name);
+    ECitizenState GetCitizenState() const { return mCitizenState; }
+    const std::string& GetHomeBuilding() const { return mHomeName; }
+    const std::string& GetWorkBuilding() const { return mWorkName; }
+    const std::string& GetFoodBuilding() const { return mFoodName; }
+    const std::string& GetFunBuilding() const { return mFunName; }
+    bool HasCoreAssignments() const
+    {
+        return !mHomeName.empty() &&
+            !mWorkName.empty() &&
+            !mFoodName.empty();
+    }
+
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
 
 private:
     void UpdateSatisfaction(float DeltaTime);
+    void TransitionFsm(ECitizenState NewState);
     void RecalculateOverallSatisfaction();
     void ApplySoftSeparation(float DeltaTime);
     void RefreshBuildings();
@@ -188,4 +232,5 @@ private:
     std::string PickRandomTargetName(
         const std::string& ExcludeName) const;
     void RequestMoveTo(const std::string& TargetBuildingName);
+    void TryStartCoreLoop();
 };

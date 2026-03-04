@@ -13,7 +13,7 @@
 
 namespace
 {
-    constexpr int CategoryCount = 4;
+    constexpr int CategoryCount = 5;
     constexpr int SlotsPerPage = 12;
     constexpr int SlotColumnCount = 4;
     constexpr int SlotRowCount = 3;
@@ -23,7 +23,8 @@ namespace
         L"교통 및 기반시설",
         L"음식 및 자원",
         L"산업",
-        L"주거지"
+        L"주거지",
+        L"유흥"
     };
 
     std::string WideToUtf8(const std::wstring& Text)
@@ -274,7 +275,8 @@ bool CBuildMenuWidget::Init()
         &CBuildMenuWidget::OnCategoryInfrastructureClick,
         &CBuildMenuWidget::OnCategoryFoodResourceClick,
         &CBuildMenuWidget::OnCategoryIndustryClick,
-        &CBuildMenuWidget::OnCategoryHousingClick
+        &CBuildMenuWidget::OnCategoryHousingClick,
+        &CBuildMenuWidget::OnCategoryEntertainmentClick
     };
 
     for (int i = 0; i < CategoryCount; ++i)
@@ -706,6 +708,8 @@ void CBuildMenuWidget::StartPlacementBySlot(int SlotIndex)
         WideToUtf8(Entry.CategoryName),
         Entry.Residential,
         Entry.Capacity,
+        Entry.FoodProvider,
+        Entry.EntertainmentProvider,
         Entry.TemplateType,
         Entry.BuildingKind);
 
@@ -826,13 +830,31 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
             L"보안 저택"
         };
 
+        static const wchar_t* EntertainmentNames[] =
+        {
+            L"주점",
+            L"서커스",
+            L"버스커",
+            L"식물원",
+            L"유원지 부두",
+            L"레스토랑",
+            L"오락실",
+            L"패스트푸드 체인점",
+            L"영화관",
+            L"아쿠아 파크",
+            L"롤러코스터",
+            L"경기장"
+        };
+
         std::vector<FBuildCatalogEntry> Entries;
 
         auto AppendCategory = [&](
             int CategoryIndex,
             const wchar_t* const* Names,
             int NameCount,
-            bool Residential)
+            bool Residential,
+            bool FoodProvider,
+            bool EntertainmentProvider)
         {
             for (int i = 0; i < NameCount; ++i)
             {
@@ -842,6 +864,8 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
                 Entry.DisplayName = Names[i];
                 Entry.CategoryName = CategoryLabels[CategoryIndex];
                 Entry.Residential = Residential;
+                Entry.FoodProvider = FoodProvider;
+                Entry.EntertainmentProvider = EntertainmentProvider;
                 Entry.CategoryIndex = CategoryIndex;
                 Entry.TemplateType = static_cast<EPlacementTemplateType>(i % 4);
                 Entry.BuildingKind =
@@ -858,6 +882,13 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
                     Entry.Capacity = 15 + (i % 6) * 6 + (i / 6) * 3;
                 }
 
+                if (CategoryIndex == 4 &&
+                    (Entry.DisplayName == L"레스토랑" ||
+                        Entry.DisplayName == L"패스트푸드 체인점"))
+                {
+                    Entry.FoodProvider = true;
+                }
+
                 Entries.push_back(Entry);
             }
         };
@@ -866,21 +897,36 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
             0, InfrastructureNames,
             static_cast<int>(sizeof(InfrastructureNames) /
                 sizeof(InfrastructureNames[0])),
+            false,
+            false,
             false);
         AppendCategory(
             1, FoodResourceNames,
             static_cast<int>(sizeof(FoodResourceNames) /
                 sizeof(FoodResourceNames[0])),
+            false,
+            true,
             false);
         AppendCategory(
             2, IndustryNames,
             static_cast<int>(sizeof(IndustryNames) /
                 sizeof(IndustryNames[0])),
+            false,
+            false,
             false);
         AppendCategory(
             3, HousingNames,
             static_cast<int>(sizeof(HousingNames) /
                 sizeof(HousingNames[0])),
+            true,
+            false,
+            false);
+        AppendCategory(
+            4, EntertainmentNames,
+            static_cast<int>(sizeof(EntertainmentNames) /
+                sizeof(EntertainmentNames[0])),
+            false,
+            false,
             true);
 
         return Entries;
@@ -936,6 +982,11 @@ void CBuildMenuWidget::OnCategoryIndustryClick()
 void CBuildMenuWidget::OnCategoryHousingClick()
 {
     SelectCategory(3);
+}
+
+void CBuildMenuWidget::OnCategoryEntertainmentClick()
+{
+    SelectCategory(4);
 }
 
 void CBuildMenuWidget::OnPrevPageClick()

@@ -26,9 +26,13 @@ namespace
 	constexpr int GInitialNpcCount = 10;
 	constexpr int GMaxNpcCount = 2000;
 	constexpr float GNpcSpawnInterval = 5.f;
+	constexpr float GCitizenReassignInterval = 0.5f;
 	constexpr float GNpcSpeedBase = 140.f;
 	constexpr float GNpcSpeedVariance = 21.f;
 	constexpr const char* GStarterHousingObjectName = "StarterHousing";
+	constexpr const char* GStarterWorkObjectName = "StarterWork";
+	constexpr const char* GStarterFoodObjectName = "StarterFood";
+	constexpr const char* GStarterFunObjectName = "StarterFun";
 
 	struct FBuildingDefinition
 	{
@@ -144,6 +148,15 @@ namespace
 		}
 
 		return Spawns;
+	}
+
+	std::string PickRandomBuildingName(
+		const std::vector<std::string>& Names)
+	{
+		if (Names.empty())
+			return std::string();
+
+		return Names[rand() % Names.size()];
 	}
 }
 
@@ -345,37 +358,112 @@ bool CMainWorld::Init()
 		}
 	}
 
-	auto StarterBuilding =
-		CreateGameObject<CPlacementAreaObject>(GStarterHousingObjectName);
-	auto StarterBuildingObj = StarterBuilding.lock();
-
-	if (StarterBuildingObj)
+	auto CreateStarterBuilding = [&](const std::string& ObjectName,
+		const std::string& BuildingId,
+		const std::string& DisplayName,
+		const std::string& CategoryName,
+		bool Residential,
+		int Capacity,
+		bool FoodProvider,
+		bool EntertainmentProvider,
+		EPlacementBuildingKind Kind,
+		EPlacementTemplateType TemplateType,
+		int OffsetX,
+		int OffsetY)
 	{
-		StarterBuildingObj->SetTileMapObject(TileMapObj);
-		StarterBuildingObj->SetInitialCenterOffset(0, 0);
-		StarterBuildingObj->SetBuildingId("starter_housing");
-		StarterBuildingObj->SetBuildingDisplayInfo(
-			"판잣집", "주거지", true, 20);
-		StarterBuildingObj->SetBuildingKind(
-			EPlacementBuildingKind::BuildingA);
-		StarterBuildingObj->SetPlacementTemplateType(
-			EPlacementTemplateType::Diamond5x5TwoMarker);
+		auto Building = CreateGameObject<CPlacementAreaObject>(ObjectName);
+		auto BuildingObj = Building.lock();
+
+		if (!BuildingObj)
+			return;
+
+		BuildingObj->SetTileMapObject(TileMapObj);
+		BuildingObj->SetInitialCenterOffset(OffsetX, OffsetY);
+		BuildingObj->SetBuildingId(BuildingId);
+		BuildingObj->SetBuildingDisplayInfo(
+			DisplayName,
+			CategoryName,
+			Residential,
+			Capacity,
+			FoodProvider,
+			EntertainmentProvider);
+		BuildingObj->SetBuildingKind(Kind);
+		BuildingObj->SetPlacementTemplateType(TemplateType);
 
 		auto Visual = CreateGameObject<CBuildingVisual>(
-			std::string(GStarterHousingObjectName) + "_Visual");
+			ObjectName + "_Visual");
 		auto VisualObj = Visual.lock();
 
 		if (VisualObj)
-			VisualObj->SetBuilding(StarterBuilding);
-	}
+			VisualObj->SetBuilding(Building);
+	};
+
+	CreateStarterBuilding(
+		GStarterHousingObjectName,
+		"starter_housing",
+		"판잣집",
+		"주거지",
+		true,
+		30,
+		false,
+		false,
+		EPlacementBuildingKind::BuildingA,
+		EPlacementTemplateType::Diamond5x5TwoMarker,
+		0,
+		0);
+
+	CreateStarterBuilding(
+		GStarterWorkObjectName,
+		"starter_office",
+		"건설 사무소",
+		"교통 및 기반시설",
+		false,
+		25,
+		false,
+		false,
+		EPlacementBuildingKind::BuildingB,
+		EPlacementTemplateType::Diamond5x5TwoMarker,
+		-12,
+		8);
+
+	CreateStarterBuilding(
+		GStarterFoodObjectName,
+		"starter_food",
+		"패스트푸드 체인점",
+		"유흥",
+		false,
+		25,
+		true,
+		true,
+		EPlacementBuildingKind::BuildingA,
+		EPlacementTemplateType::Diamond5x5FourMarker,
+		12,
+		8);
+
+	CreateStarterBuilding(
+		GStarterFunObjectName,
+		"starter_fun",
+		"주점",
+		"유흥",
+		false,
+		20,
+		false,
+		true,
+		EPlacementBuildingKind::BuildingB,
+		EPlacementTemplateType::Diamond3x3SingleMarker,
+		0,
+		-12);
 
 	mSpawnedNpcCount = 0;
 	mNpcSpawnAccum = 0.f;
+	mCitizenReassignAccum = 0.f;
 
 	for (int i = 0; i < GInitialNpcCount; ++i)
 	{
 		SpawnCitizenOrb();
 	}
+
+	ReassignCitizenNeeds();
 	// TileMap.lock()->LoadTileMap(TEXT("Map/MainMap.tlm"), "Asset");
 	// std::weak_ptr<CPlayer>	Player = CreateGameObject<CPlayer>("Player");
 
@@ -439,16 +527,24 @@ void CMainWorld::Update(float DeltaTime)
 {
 	CWorld::Update(DeltaTime);
 
-	if (mSpawnedNpcCount >= GMaxNpcCount)
-		return;
+	mCitizenReassignAccum += DeltaTime;
 
-	mNpcSpawnAccum += DeltaTime;
-
-	while (mNpcSpawnAccum >= GNpcSpawnInterval &&
-		mSpawnedNpcCount < GMaxNpcCount)
+	while (mCitizenReassignAccum >= GCitizenReassignInterval)
 	{
-		mNpcSpawnAccum -= GNpcSpawnInterval;
-		SpawnCitizenOrb();
+		mCitizenReassignAccum -= GCitizenReassignInterval;
+		ReassignCitizenNeeds();
+	}
+
+	if (mSpawnedNpcCount < GMaxNpcCount)
+	{
+		mNpcSpawnAccum += DeltaTime;
+
+		while (mNpcSpawnAccum >= GNpcSpawnInterval &&
+			mSpawnedNpcCount < GMaxNpcCount)
+		{
+			mNpcSpawnAccum -= GNpcSpawnInterval;
+			SpawnCitizenOrb();
+		}
 	}
 }
 
@@ -468,14 +564,79 @@ void CMainWorld::SpawnCitizenOrb()
 	if (!MarkerOrbObj)
 		return;
 
-	std::vector<std::string> BuildingNames;
-	CollectCurrentBuildingNames(BuildingNames);
-	MarkerOrbObj->SetRandomTargetNames(BuildingNames);
+	std::vector<std::string> AllNames;
+	std::vector<std::string> HomeNames;
+	std::vector<std::string> WorkNames;
+	std::vector<std::string> FoodNames;
+	std::vector<std::string> FunNames;
+	CollectCurrentBuildingNames(AllNames);
+	CollectHomeBuildingNames(HomeNames);
+	CollectWorkBuildingNames(WorkNames);
+	CollectFoodBuildingNames(FoodNames);
+	CollectEntertainmentBuildingNames(FunNames);
+
+	MarkerOrbObj->SetRandomTargetNames(AllNames);
+
+	if (!HomeNames.empty() &&
+		!WorkNames.empty() &&
+		!FoodNames.empty())
+	{
+		MarkerOrbObj->SetHomeBuilding(PickRandomBuildingName(HomeNames));
+		MarkerOrbObj->SetWorkBuilding(PickRandomBuildingName(WorkNames));
+		MarkerOrbObj->SetFoodBuilding(PickRandomBuildingName(FoodNames));
+	}
+
+	if (!FunNames.empty())
+		MarkerOrbObj->SetFunBuilding(PickRandomBuildingName(FunNames));
 
 	const float Speed = GNpcSpeedBase +
 		((float)(rand() % 1001) / 500.f - 1.f) * GNpcSpeedVariance;
 	MarkerOrbObj->SetMoveSpeed(Speed);
 	++mSpawnedNpcCount;
+}
+
+void CMainWorld::ReassignCitizenNeeds()
+{
+	std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+	if (!FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+		return;
+
+	std::vector<std::string> AllNames;
+	std::vector<std::string> HomeNames;
+	std::vector<std::string> WorkNames;
+	std::vector<std::string> FoodNames;
+	std::vector<std::string> FunNames;
+	CollectCurrentBuildingNames(AllNames);
+	CollectHomeBuildingNames(HomeNames);
+	CollectWorkBuildingNames(WorkNames);
+	CollectFoodBuildingNames(FoodNames);
+	CollectEntertainmentBuildingNames(FunNames);
+
+	for (size_t i = 0; i < OrbList.size(); ++i)
+	{
+		auto Orb = OrbList[i].lock();
+
+		if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+			continue;
+
+		for (size_t NameIndex = 0; NameIndex < AllNames.size(); ++NameIndex)
+		{
+			Orb->AddTargetBuildingName(AllNames[NameIndex]);
+		}
+
+		if (Orb->GetHomeBuilding().empty() && !HomeNames.empty())
+			Orb->SetHomeBuilding(PickRandomBuildingName(HomeNames));
+
+		if (Orb->GetWorkBuilding().empty() && !WorkNames.empty())
+			Orb->SetWorkBuilding(PickRandomBuildingName(WorkNames));
+
+		if (Orb->GetFoodBuilding().empty() && !FoodNames.empty())
+			Orb->SetFoodBuilding(PickRandomBuildingName(FoodNames));
+
+		if (Orb->GetFunBuilding().empty() && !FunNames.empty())
+			Orb->SetFunBuilding(PickRandomBuildingName(FunNames));
+	}
 }
 
 void CMainWorld::CollectCurrentBuildingNames(
@@ -492,7 +653,8 @@ void CMainWorld::CollectCurrentBuildingNames(
 	{
 		auto Building = BuildingList[i].lock();
 
-		if (!Building || !Building->GetAlive())
+		if (!Building || !Building->GetAlive() ||
+			!Building->HasPlacedArea())
 			continue;
 
 		const std::string& Name = Building->GetName();
@@ -505,6 +667,87 @@ void CMainWorld::CollectCurrentBuildingNames(
 		{
 			OutBuildingNames.push_back(Name);
 		}
+	}
+}
+
+void CMainWorld::CollectHomeBuildingNames(std::vector<std::string>& Out)
+{
+	Out.clear();
+	std::vector<std::weak_ptr<CPlacementAreaObject>> List;
+	if (!FindObjectListByType<CPlacementAreaObject>(List))
+		return;
+
+	for (auto& W : List)
+	{
+		auto B = W.lock();
+
+		if (!B || !B->GetAlive() || !B->HasPlacedArea())
+			continue;
+
+		if (B->IsResidential())
+			Out.push_back(B->GetName());
+	}
+}
+
+void CMainWorld::CollectWorkBuildingNames(std::vector<std::string>& Out)
+{
+	Out.clear();
+	std::vector<std::weak_ptr<CPlacementAreaObject>> List;
+	if (!FindObjectListByType<CPlacementAreaObject>(List))
+		return;
+
+	for (auto& W : List)
+	{
+		auto B = W.lock();
+
+		if (!B || !B->GetAlive() || !B->HasPlacedArea())
+			continue;
+
+		if (!B->IsResidential() &&
+			!B->IsFoodProvider() &&
+			!B->IsEntertainmentProvider())
+		{
+			Out.push_back(B->GetName());
+		}
+	}
+}
+
+void CMainWorld::CollectFoodBuildingNames(std::vector<std::string>& Out)
+{
+	Out.clear();
+	std::vector<std::weak_ptr<CPlacementAreaObject>> List;
+	if (!FindObjectListByType<CPlacementAreaObject>(List))
+		return;
+
+	for (auto& W : List)
+	{
+		auto B = W.lock();
+
+		if (!B || !B->GetAlive() || !B->HasPlacedArea())
+			continue;
+
+		if (B->IsFoodProvider())
+			Out.push_back(B->GetName());
+	}
+}
+
+void CMainWorld::CollectEntertainmentBuildingNames(
+	std::vector<std::string>& Out)
+{
+	Out.clear();
+	std::vector<std::weak_ptr<CPlacementAreaObject>> List;
+	if (!FindObjectListByType<CPlacementAreaObject>(List))
+		return;
+
+	for (auto& W : List)
+	{
+		auto B = W.lock();
+
+		if (!B || !B->GetAlive() || !B->HasPlacedArea())
+			continue;
+
+		if (B->IsEntertainmentProvider())
+			Out.push_back(B->GetName());
 	}
 }
 

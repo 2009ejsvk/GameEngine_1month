@@ -74,6 +74,8 @@ private:
     std::string mBuildingDisplayName;
     std::string mBuildingCategoryName;
     bool mResidential = false;
+    bool mFoodProvider = false;
+    bool mEntertainmentProvider = false;
     int mCapacity = 0;
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
@@ -119,12 +121,16 @@ public:
         const std::string& DisplayName,
         const std::string& CategoryName,
         bool Residential,
-        int Capacity)
+        int Capacity,
+        bool FoodProvider = false,
+        bool EntertainmentProvider = false)
     {
         mBuildingDisplayName = DisplayName;
         mBuildingCategoryName = CategoryName;
         mResidential = Residential;
         mCapacity = Capacity;
+        mFoodProvider = FoodProvider;
+        mEntertainmentProvider = EntertainmentProvider;
     }
 
     const std::string& GetBuildingDisplayName() const
@@ -142,6 +148,16 @@ public:
     bool IsResidential() const
     {
         return mResidential;
+    }
+
+    bool IsFoodProvider() const
+    {
+        return mFoodProvider;
+    }
+
+    bool IsEntertainmentProvider() const
+    {
+        return mEntertainmentProvider;
     }
 
     int GetCapacity() const

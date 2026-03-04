@@ -222,6 +222,12 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     UpdateSatisfaction(DeltaTime);
 
+    if (mSatisfaction.Health <= GHealthRemoveThreshold)
+    {
+        Destroy();
+        return;
+    }
+
     RefreshBuildings();
     UpdateScaleFromTileSize();
 
@@ -295,9 +301,135 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         Movement->AdvancePathRequestId();
         Movement->StartPathPoint();
         Movement->SetPathTargetObjectName("");
+        mHasLockedTarget = false;
         mWaitingForPath = false;
         mWaitingPathAccum = 0.f;
     };
+
+    auto NormalizeResumeState = [&](ECitizenState State) -> ECitizenState
+    {
+        switch (State)
+        {
+        case ECitizenState::GoingHome:
+        case ECitizenState::AtHome:
+            return ECitizenState::GoingHome;
+        case ECitizenState::GoingToWork:
+        case ECitizenState::AtWork:
+            return ECitizenState::GoingToWork;
+        default:
+            return ECitizenState::GoingToWork;
+        }
+    };
+
+    auto ResolveStateAfterService = [&]() -> ECitizenState
+    {
+        if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
+            return ECitizenState::Wander;
+
+        ECitizenState ResumeState = NormalizeResumeState(
+            mResumeStateAfterService);
+
+        if (ResumeState == ECitizenState::GoingHome &&
+            !mHomeName.empty())
+        {
+            return ECitizenState::GoingHome;
+        }
+
+        if (!mWorkName.empty())
+            return ECitizenState::GoingToWork;
+
+        return ECitizenState::GoingHome;
+    };
+
+    auto TryInterruptByNeed = [&]() -> bool
+    {
+        if (mCitizenState == ECitizenState::Wander)
+            return false;
+
+        const bool IsFoodState =
+            mCitizenState == ECitizenState::GoingToFood ||
+            mCitizenState == ECitizenState::AtFood;
+        const bool IsFunState =
+            mCitizenState == ECitizenState::GoingToFun ||
+            mCitizenState == ECitizenState::AtFun;
+
+        if (!IsFoodState &&
+            !mFoodName.empty() &&
+            mSatisfaction.Food <= GFoodInterruptThreshold)
+        {
+            mResumeStateAfterService =
+                NormalizeResumeState(mCitizenState);
+            CancelCurrentPath();
+            TransitionFsm(ECitizenState::GoingToFood);
+            mPathRetryAccum = 0.f;
+            return true;
+        }
+
+        if (!IsFunState &&
+            !IsFoodState &&
+            !mFunName.empty() &&
+            mSatisfaction.Fun <= GFunInterruptThreshold)
+        {
+            mResumeStateAfterService =
+                NormalizeResumeState(mCitizenState);
+            CancelCurrentPath();
+            TransitionFsm(ECitizenState::GoingToFun);
+            mPathRetryAccum = 0.f;
+            return true;
+        }
+
+        return false;
+    };
+
+    auto ResolveTargetByState = [&]() -> std::string
+    {
+        switch (mCitizenState)
+        {
+        case ECitizenState::GoingToWork: return mWorkName;
+        case ECitizenState::GoingHome: return mHomeName;
+        case ECitizenState::GoingToFood: return mFoodName;
+        case ECitizenState::GoingToFun: return mFunName;
+        default: return PickRandomTargetName(std::string());
+        }
+    };
+
+    // 체류 상태: 타이머 소모 후 다음 상태로 전환
+    if (mCitizenState == ECitizenState::AtWork ||
+        mCitizenState == ECitizenState::AtHome ||
+        mCitizenState == ECitizenState::AtFood ||
+        mCitizenState == ECitizenState::AtFun)
+    {
+        if ((mCitizenState == ECitizenState::AtWork ||
+            mCitizenState == ECitizenState::AtHome) &&
+            TryInterruptByNeed())
+        {
+            return;
+        }
+
+        mDwellTimer -= DeltaTime;
+
+        if (mDwellTimer <= 0.f)
+        {
+            CancelCurrentPath();
+
+            if (mCitizenState == ECitizenState::AtWork)
+            {
+                TransitionFsm(ECitizenState::GoingHome);
+            }
+            else if (mCitizenState == ECitizenState::AtHome)
+            {
+                TransitionFsm(ECitizenState::GoingToWork);
+            }
+            else
+            {
+                TransitionFsm(ResolveStateAfterService());
+            }
+        }
+
+        return;
+    }
+
+    TryInterruptByNeed();
 
     if (!mHasStartPos)
     {
@@ -341,7 +473,11 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         const int StartIndex = rand() % (int)MarkerList.size();
         const std::string& StartName = MarkerList[StartIndex].first;
         SetWorldPos(MarkerList[StartIndex].second);
-        mCurrentTargetName = PickRandomTargetName(StartName);
+
+        if (mCitizenState == ECitizenState::Wander)
+            mCurrentTargetName = PickRandomTargetName(StartName);
+        else
+            mCurrentTargetName = ResolveTargetByState();
 
         if (mCurrentTargetName.empty())
             mCurrentTargetName = StartName;
@@ -368,8 +504,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     if (mCurrentTargetName.empty())
     {
         CancelCurrentPath();
-        mHasLockedTarget = false;
-        mCurrentTargetName = PickRandomTargetName(std::string());
+        mCurrentTargetName = ResolveTargetByState();
 
         if (mCurrentTargetName.empty())
             return;
@@ -386,8 +521,44 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     if (!TargetBuilding)
     {
         CancelCurrentPath();
-        mHasLockedTarget = false;
-        mCurrentTargetName = PickRandomTargetName(std::string());
+        switch (mCitizenState)
+        {
+        case ECitizenState::GoingToWork:
+        case ECitizenState::AtWork:
+            mWorkName.clear();
+            break;
+        case ECitizenState::GoingHome:
+        case ECitizenState::AtHome:
+            mHomeName.clear();
+            break;
+        case ECitizenState::GoingToFood:
+        case ECitizenState::AtFood:
+            mFoodName.clear();
+            break;
+        case ECitizenState::GoingToFun:
+        case ECitizenState::AtFun:
+            mFunName.clear();
+            break;
+        default:
+            break;
+        }
+
+        if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
+        {
+            TransitionFsm(ECitizenState::Wander);
+        }
+        else if (mCitizenState == ECitizenState::GoingToFood ||
+            mCitizenState == ECitizenState::AtFood ||
+            mCitizenState == ECitizenState::GoingToFun ||
+            mCitizenState == ECitizenState::AtFun)
+        {
+            TransitionFsm(ResolveStateAfterService());
+        }
+
+        if (mCitizenState == ECitizenState::Wander)
+            mCurrentTargetName = PickRandomTargetName(std::string());
+        else
+            mCurrentTargetName = ResolveTargetByState();
 
         if (mCurrentTargetName.empty())
             return;
@@ -412,8 +583,11 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         }
 #endif
         CancelCurrentPath();
-        mHasLockedTarget = false;
-        mCurrentTargetName = PickRandomTargetName(std::string());
+
+        if (mCitizenState == ECitizenState::Wander)
+            mCurrentTargetName = PickRandomTargetName(std::string());
+        else
+            mCurrentTargetName = ResolveTargetByState();
 
         if (mCurrentTargetName.empty())
             return;
@@ -493,18 +667,38 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     {
         // 구 경로를 즉시 클리어해 velocity가 다음 프레임에 0이 되도록 보장한다.
         CancelCurrentPath();
-        mHasLockedTarget = false;
-        mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
 
-        if (mCurrentTargetName.empty())
-            return;
+        if (mCitizenState == ECitizenState::GoingToWork)
+        {
+            TransitionFsm(ECitizenState::AtWork);
+        }
+        else if (mCitizenState == ECitizenState::GoingHome)
+        {
+            TransitionFsm(ECitizenState::AtHome);
+        }
+        else if (mCitizenState == ECitizenState::GoingToFood)
+        {
+            TransitionFsm(ECitizenState::AtFood);
+        }
+        else if (mCitizenState == ECitizenState::GoingToFun)
+        {
+            TransitionFsm(ECitizenState::AtFun);
+        }
+        else
+        {
+            // Wander 모드: 기존 랜덤 타겟 선택
+            mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
+
+            if (mCurrentTargetName.empty())
+                return;
 
 #ifdef _DEBUG
-        DebugOrbLog(
-            "[Orb] Arrived. switch target=%s dist=%.2f arrival=%.2f\n",
-            mCurrentTargetName.c_str(),
-            Dist, mArrivalDistance);
+            DebugOrbLog(
+                "[Orb] Arrived. switch target=%s dist=%.2f arrival=%.2f\n",
+                mCurrentTargetName.c_str(),
+                Dist, mArrivalDistance);
 #endif
+        }
 
         // 즉시 경로를 요청하지 않는다.
         // 도착 후 대기는 짧게 유지해 정지 체감을 줄인다.
@@ -560,16 +754,24 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     // 일정 시간 정체되면 타겟을 바꿔 고착 상태를 해소한다.
     if (mStallAccum >= 1.5f)
     {
-        const std::string PrevTarget = mCurrentTargetName;
-
         CancelCurrentPath();
-        mHasLockedTarget = false;
-        mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
 
-        if (mCurrentTargetName.empty())
-            mCurrentTargetName = PrevTarget;
+        if (mCitizenState != ECitizenState::Wander)
+        {
+            // FSM 모드: 같은 목표로 재시도 (경로 문제)
+            RequestMoveTo(mCurrentTargetName);
+        }
+        else
+        {
+            const std::string PrevTarget = mCurrentTargetName;
+            mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
 
-        RequestMoveTo(mCurrentTargetName);
+            if (mCurrentTargetName.empty())
+                mCurrentTargetName = PrevTarget;
+
+            RequestMoveTo(mCurrentTargetName);
+        }
+
         mPathRetryAccum = 0.f;
         mStallAccum = 0.f;
         mLastProgressPos = Current;
@@ -612,7 +814,54 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
 void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 {
-    (void)DeltaTime;
+    // 욕구 자연 감소
+    mSatisfaction.Food = (std::max)(
+        0.f, mSatisfaction.Food - 2.2f * DeltaTime);
+    mSatisfaction.Job = (std::max)(
+        0.f, mSatisfaction.Job - 1.0f * DeltaTime);
+    mSatisfaction.Housing = (std::max)(
+        0.f, mSatisfaction.Housing - 0.5f * DeltaTime);
+    mSatisfaction.Fun = (std::max)(
+        0.f, mSatisfaction.Fun - 0.9f * DeltaTime);
+    mSatisfaction.Health = (std::max)(
+        0.f, mSatisfaction.Health - 0.2f * DeltaTime);
+    mSatisfaction.Faith = (std::max)(
+        0.f, mSatisfaction.Faith - 0.15f * DeltaTime);
+
+    // FSM 상태별 회복
+    switch (mCitizenState)
+    {
+    case ECitizenState::AtWork:
+        mSatisfaction.Job = (std::min)(
+            100.f, mSatisfaction.Job + 10.f * DeltaTime);
+        break;
+    case ECitizenState::AtHome:
+        mSatisfaction.Housing = (std::min)(
+            100.f, mSatisfaction.Housing + 8.f * DeltaTime);
+        mSatisfaction.Health = (std::min)(
+            100.f, mSatisfaction.Health + 1.f * DeltaTime);
+        break;
+    case ECitizenState::AtFood:
+        mSatisfaction.Food = (std::min)(
+            100.f, mSatisfaction.Food + 30.f * DeltaTime);
+        mSatisfaction.Health = (std::min)(
+            100.f, mSatisfaction.Health + 3.f * DeltaTime);
+        break;
+    case ECitizenState::AtFun:
+        mSatisfaction.Fun = (std::min)(
+            100.f, mSatisfaction.Fun + 26.f * DeltaTime);
+        break;
+    default:
+        break;
+    }
+
+    // 1초 틱으로 Overall 재계산 (매 프레임 불필요)
+    mSatisfactionTickAccum += DeltaTime;
+    if (mSatisfactionTickAccum >= 1.f)
+    {
+        mSatisfactionTickAccum = 0.f;
+        RecalculateOverallSatisfaction();
+    }
 }
 
 void CBuildingMarkerOrb::RecalculateOverallSatisfaction()
@@ -1167,6 +1416,83 @@ void CBuildingMarkerOrb::RequestMoveTo(
     }
 }
 
+void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
+{
+    mCitizenState = NewState;
+    mDwellTimer = 0.f;
+
+    switch (NewState)
+    {
+    case ECitizenState::GoingToWork:
+        mCurrentTargetName = mWorkName;
+        break;
+    case ECitizenState::AtWork:
+        mDwellTimer = GAtWorkDuration;
+        mCurrentTargetName.clear();
+        break;
+    case ECitizenState::GoingHome:
+        mCurrentTargetName = mHomeName;
+        break;
+    case ECitizenState::AtHome:
+        mDwellTimer = GAtHomeDuration;
+        mCurrentTargetName.clear();
+        break;
+    case ECitizenState::GoingToFood:
+        mCurrentTargetName = mFoodName;
+        break;
+    case ECitizenState::AtFood:
+        mDwellTimer = GAtFoodDuration;
+        mCurrentTargetName.clear();
+        break;
+    case ECitizenState::GoingToFun:
+        mCurrentTargetName = mFunName;
+        break;
+    case ECitizenState::AtFun:
+        mDwellTimer = GAtFunDuration;
+        mCurrentTargetName.clear();
+        break;
+    default:
+        mCurrentTargetName.clear();
+        break;
+    }
+}
+
+void CBuildingMarkerOrb::SetHomeBuilding(const std::string& Name)
+{
+    mHomeName = Name;
+    TryStartCoreLoop();
+}
+
+void CBuildingMarkerOrb::SetWorkBuilding(const std::string& Name)
+{
+    mWorkName = Name;
+    TryStartCoreLoop();
+}
+
+void CBuildingMarkerOrb::SetFoodBuilding(const std::string& Name)
+{
+    mFoodName = Name;
+    TryStartCoreLoop();
+}
+
+void CBuildingMarkerOrb::SetFunBuilding(const std::string& Name)
+{
+    mFunName = Name;
+}
+
+void CBuildingMarkerOrb::TryStartCoreLoop()
+{
+    if (mCitizenState != ECitizenState::Wander)
+        return;
+
+    if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
+        return;
+
+    TransitionFsm(ECitizenState::GoingToWork);
+    mHasLockedTarget = false;
+    mPathRetryAccum = 0.f;
+}
+
 void CBuildingMarkerOrb::RemoveTargetBuildingName(
     const std::string& BuildingName)
 {
@@ -1215,5 +1541,24 @@ void CBuildingMarkerOrb::RemoveTargetBuildingName(
                 break;
             }
         }
+    }
+
+    // 핵심 건물(집/직장/음식)이 철거되면 Wander로 폴백
+    if (mHomeName == BuildingName) { mHomeName.clear(); }
+    if (mWorkName == BuildingName) { mWorkName.clear(); }
+    if (mFoodName == BuildingName) { mFoodName.clear(); }
+    if (mFunName == BuildingName) { mFunName.clear(); }
+    if ((mHomeName.empty() || mWorkName.empty() || mFoodName.empty()) &&
+        mCitizenState != ECitizenState::Wander)
+    {
+        mCitizenState = ECitizenState::Wander;
+        mCurrentTargetName.clear();
+        mHasLockedTarget = false;
+    }
+    else if ((mCitizenState == ECitizenState::GoingToFun ||
+        mCitizenState == ECitizenState::AtFun) &&
+        mFunName.empty())
+    {
+        TransitionFsm(ECitizenState::GoingToWork);
     }
 }

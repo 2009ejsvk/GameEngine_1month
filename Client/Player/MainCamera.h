@@ -49,6 +49,8 @@ public:
         const std::string& CategoryName,
         bool Residential,
         int Capacity,
+        bool FoodProvider,
+        bool EntertainmentProvider,
         EPlacementTemplateType TemplateType,
         EPlacementBuildingKind BuildingKind);
 

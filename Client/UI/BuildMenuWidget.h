@@ -23,6 +23,8 @@ private:
         std::wstring DisplayName;
         std::wstring CategoryName;
         bool Residential = false;
+        bool FoodProvider = false;
+        bool EntertainmentProvider = false;
         int Capacity = 0;
         int CategoryIndex = 0;
         EPlacementTemplateType TemplateType;
@@ -73,6 +75,7 @@ private:
     void OnCategoryFoodResourceClick();
     void OnCategoryIndustryClick();
     void OnCategoryHousingClick();
+    void OnCategoryEntertainmentClick();
     void OnPrevPageClick();
     void OnNextPageClick();
     void OnSlot0Click();
