@@ -41,6 +41,26 @@ CButton::~CButton()
 {
 }
 
+void CButton::SetSize(const FVector3& Size)
+{
+	CWidget::SetSize(Size);
+
+	if (mChild)
+	{
+		mChild->SetSize(Size);
+	}
+}
+
+void CButton::SetSize(float x, float y)
+{
+	CWidget::SetSize(x, y);
+
+	if (mChild)
+	{
+		mChild->SetSize(x, y);
+	}
+}
+
 bool CButton::SetTexture(EButtonState::Type State, 
 	const std::weak_ptr<class CTexture>& Texture)
 {

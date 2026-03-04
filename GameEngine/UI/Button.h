@@ -47,6 +47,8 @@ protected:
 	std::function<void()>	mEventCallback[EButtonEventState::End];
 
 public:
+	virtual void SetSize(const FVector3& Size) override;
+	virtual void SetSize(float x, float y) override;
 	void ButtonEnable(bool Enable)
 	{
 		mState = Enable ? EButtonState::Normal : EButtonState::Disable;

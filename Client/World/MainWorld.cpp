@@ -5,7 +5,7 @@
 #include "Asset/AssetManager.h"
 #include "Asset/Animation2D/Animation2DManager.h"
 #include "Component/ColliderBox2D.h"
-#include "../UI/MainWidget.h"
+#include "../UI/BuildMenuWidget.h"
 #include "World/WorldUIManager.h"
 #include "Render/RenderManager.h"
 #include "../PostProcess/PostProcessHit.h"
@@ -23,6 +23,13 @@
 
 namespace
 {
+	constexpr int GInitialNpcCount = 10;
+	constexpr int GMaxNpcCount = 2000;
+	constexpr float GNpcSpawnInterval = 5.f;
+	constexpr float GNpcSpeedBase = 140.f;
+	constexpr float GNpcSpeedVariance = 21.f;
+	constexpr const char* GStarterHousingObjectName = "StarterHousing";
+
 	struct FBuildingDefinition
 	{
 		std::string Id;
@@ -159,7 +166,7 @@ bool CMainWorld::Init()
 
 	// LoadSound();
 
-	// CreateUI();
+	CreateUI();
 
 	// MainWorld 화면 출력 요소는 우선 모두 주석 처리하고
 	// 이동 가능한 카메라만 별도로 배치한다.
@@ -338,69 +345,36 @@ bool CMainWorld::Init()
 		}
 	}
 
-	const std::vector<FBuildingDefinition> BuildingDefinitions =
-		BuildMainWorldBuildingDefinitions();
-	const std::vector<FBuildingSpawnData> BuildingSpawns =
-		BuildMainWorldBuildingSpawns(BuildingDefinitions);
+	auto StarterBuilding =
+		CreateGameObject<CPlacementAreaObject>(GStarterHousingObjectName);
+	auto StarterBuildingObj = StarterBuilding.lock();
 
-	std::vector<std::string> BuildingNames;
-	BuildingNames.reserve(BuildingSpawns.size());
-
-	auto CreatePlacementBuilding = [&](const FBuildingSpawnData& Spawn)
+	if (StarterBuildingObj)
 	{
-		const FBuildingDefinition* Definition = FindBuildingDefinition(
-			BuildingDefinitions, Spawn.DefinitionId);
+		StarterBuildingObj->SetTileMapObject(TileMapObj);
+		StarterBuildingObj->SetInitialCenterOffset(0, 0);
+		StarterBuildingObj->SetBuildingId("starter_housing");
+		StarterBuildingObj->SetBuildingDisplayInfo(
+			"판잣집", "주거지", true, 20);
+		StarterBuildingObj->SetBuildingKind(
+			EPlacementBuildingKind::BuildingA);
+		StarterBuildingObj->SetPlacementTemplateType(
+			EPlacementTemplateType::Diamond5x5TwoMarker);
 
-		if (!Definition)
-			return;
-
-		auto Building = CreateGameObject<CPlacementAreaObject>(Spawn.Name);
-		auto BuildingObj = Building.lock();
-
-		if (!BuildingObj)
-			return;
-
-		BuildingObj->SetTileMapObject(TileMapObj);
-		BuildingObj->SetTileMapObject(TileMapObj);
-		BuildingObj->SetInitialCenterOffset(Spawn.OffsetX, Spawn.OffsetY);
-		BuildingObj->SetBuildingId(Definition->Id);
-		BuildingObj->SetBuildingKind(Definition->Kind);
-		BuildingObj->SetPlacementTemplateType(Definition->TemplateType);
-		BuildingNames.push_back(Spawn.Name);
-
-		auto Visual = CreateGameObject<CBuildingVisual>(Spawn.Name + "_Visual");
+		auto Visual = CreateGameObject<CBuildingVisual>(
+			std::string(GStarterHousingObjectName) + "_Visual");
 		auto VisualObj = Visual.lock();
 
 		if (VisualObj)
-			VisualObj->SetBuilding(Building);
-	};
-
-	for (size_t i = 0; i < BuildingSpawns.size(); ++i)
-	{
-		CreatePlacementBuilding(BuildingSpawns[i]);
+			VisualObj->SetBuilding(StarterBuilding);
 	}
 
-	const int MarkerOrbCount = 2000;
+	mSpawnedNpcCount = 0;
+	mNpcSpawnAccum = 0.f;
 
-	for (int i = 0; i < MarkerOrbCount; ++i)
+	for (int i = 0; i < GInitialNpcCount; ++i)
 	{
-		const std::string OrbName = i == 0 ?
-			"BuildingMarkerOrb" :
-			"BuildingMarkerOrb" + std::to_string(i + 1);
-
-		auto MarkerOrb = CreateGameObject<CBuildingMarkerOrb>(OrbName);
-		auto MarkerOrbObj = MarkerOrb.lock();
-
-		if (!MarkerOrbObj)
-			continue;
-
-		MarkerOrbObj->SetRandomTargetNames(BuildingNames);
-
-		const float SpeedBase = 140.f;
-		const float SpeedVariance = 21.f;
-		const float Speed = SpeedBase +
-			((float)(rand() % 1001) / 500.f - 1.f) * SpeedVariance;
-		MarkerOrbObj->SetMoveSpeed(Speed);
+		SpawnCitizenOrb();
 	}
 	// TileMap.lock()->LoadTileMap(TEXT("Map/MainMap.tlm"), "Asset");
 	// std::weak_ptr<CPlayer>	Player = CreateGameObject<CPlayer>("Player");
@@ -459,6 +433,79 @@ bool CMainWorld::Init()
 	// }
 
 	return true;
+}
+
+void CMainWorld::Update(float DeltaTime)
+{
+	CWorld::Update(DeltaTime);
+
+	if (mSpawnedNpcCount >= GMaxNpcCount)
+		return;
+
+	mNpcSpawnAccum += DeltaTime;
+
+	while (mNpcSpawnAccum >= GNpcSpawnInterval &&
+		mSpawnedNpcCount < GMaxNpcCount)
+	{
+		mNpcSpawnAccum -= GNpcSpawnInterval;
+		SpawnCitizenOrb();
+	}
+}
+
+void CMainWorld::SpawnCitizenOrb()
+{
+	if (mSpawnedNpcCount >= GMaxNpcCount)
+		return;
+
+	const int OrbIndex = mSpawnedNpcCount;
+	const std::string OrbName = (OrbIndex == 0) ?
+		"BuildingMarkerOrb" :
+		"BuildingMarkerOrb" + std::to_string(OrbIndex + 1);
+
+	auto MarkerOrb = CreateGameObject<CBuildingMarkerOrb>(OrbName);
+	auto MarkerOrbObj = MarkerOrb.lock();
+
+	if (!MarkerOrbObj)
+		return;
+
+	std::vector<std::string> BuildingNames;
+	CollectCurrentBuildingNames(BuildingNames);
+	MarkerOrbObj->SetRandomTargetNames(BuildingNames);
+
+	const float Speed = GNpcSpeedBase +
+		((float)(rand() % 1001) / 500.f - 1.f) * GNpcSpeedVariance;
+	MarkerOrbObj->SetMoveSpeed(Speed);
+	++mSpawnedNpcCount;
+}
+
+void CMainWorld::CollectCurrentBuildingNames(
+	std::vector<std::string>& OutBuildingNames)
+{
+	OutBuildingNames.clear();
+
+	std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+	if (!FindObjectListByType<CPlacementAreaObject>(BuildingList))
+		return;
+
+	for (size_t i = 0; i < BuildingList.size(); ++i)
+	{
+		auto Building = BuildingList[i].lock();
+
+		if (!Building || !Building->GetAlive())
+			continue;
+
+		const std::string& Name = Building->GetName();
+
+		if (Name.empty())
+			continue;
+
+		if (std::find(OutBuildingNames.begin(),
+			OutBuildingNames.end(), Name) == OutBuildingNames.end())
+		{
+			OutBuildingNames.push_back(Name);
+		}
+	}
 }
 
 void CMainWorld::LoadAnimation2D()
@@ -584,6 +631,6 @@ void CMainWorld::LoadSound()
 
 void CMainWorld::CreateUI()
 {
-	std::weak_ptr<CMainWidget>	MainWidget =
-		mUIManager->CreateWidget<CMainWidget>("MainWidget");
+	mUIManager->CreateWidget<CBuildMenuWidget>(
+		"BuildMenuWidget", 300);
 }

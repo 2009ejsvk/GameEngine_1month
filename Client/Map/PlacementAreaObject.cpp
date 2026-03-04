@@ -167,6 +167,13 @@ void CPlacementAreaObject::Update(float DeltaTime)
         if (AcquireTileMap(TileMap))
         {
             ApplyPlacedAreaColor(TileMap);
+
+            if (mDemolitionHoverActive &&
+                !mPrimaryPlacedIndices.empty())
+            {
+                SetAreaColor(
+                    TileMap, mPrimaryPlacedIndices, FVector4::Red);
+            }
         }
     }
 
@@ -188,6 +195,36 @@ void CPlacementAreaObject::Update(float DeltaTime)
 
 void CPlacementAreaObject::Destroy()
 {
+    std::shared_ptr<CTileMapComponent> TileMap;
+
+    if (AcquireTileMap(TileMap))
+    {
+        for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
+        {
+            auto Tile = TileMap->GetTile(mPrimaryPlacedIndices[i]).lock();
+
+            if (!Tile)
+                continue;
+
+            Tile->SetTileType(ETileType::Normal);
+            Tile->SetOutLineColor(FVector4::White);
+        }
+
+        for (size_t i = 0; i < mPreviewIndices.size(); ++i)
+        {
+            RestoreTileColor(TileMap, mPreviewIndices[i]);
+        }
+    }
+
+    mPrimaryPlacedIndices.clear();
+    mMarkerTileIndices.clear();
+    mPreviewIndices.clear();
+    mMovePreviewActive = false;
+    mPlacedCenterIndex = -1;
+    mPreviewCenterIndex = -1;
+    mPreviewCanPlace = false;
+    mDemolitionHoverActive = false;
+
     UpdatePrimaryOverlayTiles(std::vector<int>());
     UpdateMarkerOverlayTiles(std::vector<int>());
     CGameObject::Destroy();
@@ -595,6 +632,18 @@ void CPlacementAreaObject::EnsurePlacementObject()
         }
 
         sInitializedTileMap = TileMap.get();
+    }
+
+    if (!mAutoPlaceOnPrepare)
+    {
+        mPrimaryPlacedIndices.clear();
+        mMarkerTileIndices.clear();
+        mPreviewIndices.clear();
+        mPlacedCenterIndex = -1;
+        mPreviewCenterIndex = -1;
+        mPreviewCanPlace = false;
+        mTileMapPrepared = true;
+        return;
     }
 
     std::vector<int> StartPrimaryIndices;

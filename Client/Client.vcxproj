@@ -190,6 +190,7 @@
     <ClCompile Include="Shader\ShaderPostProcessHit.cpp" />
     <ClCompile Include="Thread\LoadingThread.cpp" />
     <ClCompile Include="UI\EditorWidget.cpp" />
+    <ClCompile Include="UI\BuildMenuWidget.cpp" />
     <ClCompile Include="UI\CitizenInfoWidget.cpp" />
     <ClCompile Include="UI\Inventory.cpp" />
     <ClCompile Include="UI\LoadingWidget.cpp" />
@@ -227,6 +228,7 @@
     <ClInclude Include="Shader\ShaderPostProcessHit.h" />
     <ClInclude Include="Thread\LoadingThread.h" />
     <ClInclude Include="UI\EditorWidget.h" />
+    <ClInclude Include="UI\BuildMenuWidget.h" />
     <ClInclude Include="UI\CitizenInfoWidget.h" />
     <ClInclude Include="UI\Inventory.h" />
     <ClInclude Include="UI\LoadingWidget.h" />

@@ -1,9 +1,11 @@
 #include "MainCamera.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
+#include "../Map/PlacementBuildingVisual.h"
 #include "../UI/CitizenInfoWidget.h"
 #include "Component/CameraComponent.h"
 #include "Component/ObjectMovementComponent.h"
+#include "Object/TileMapObject.h"
 #include "Device.h"
 #include "World/World.h"
 #include "World/Input.h"
@@ -112,18 +114,133 @@ void CMainCamera::Update(float DeltaTime)
 
     int WheelDelta = Input->GetMouseWheelDelta();
 
-    if (WheelDelta == 0)
+    if (WheelDelta != 0)
+    {
+        float WheelStep = WheelDelta / (float)WHEEL_DELTA;
+        float ZoomFactor = std::pow(0.9f, WheelStep);
+
+        mZoomWidth = Clamp<float>(mZoomWidth * ZoomFactor,
+            mMinZoomWidth, mMaxZoomWidth);
+        mZoomHeight = mZoomWidth / mZoomAspect;
+
+        Camera->SetProjection(ECameraProjectionType::Ortho,
+            90.f, mZoomWidth, mZoomHeight, mViewDistance);
+    }
+
+    UpdateDemolitionHoverPreview();
+}
+
+void CMainCamera::SetDemolitionMode(bool Enable)
+{
+    if (mDemolitionMode == Enable)
         return;
 
-    float WheelStep = WheelDelta / (float)WHEEL_DELTA;
-    float ZoomFactor = std::pow(0.9f, WheelStep);
+    mDemolitionMode = Enable;
 
-    mZoomWidth = Clamp<float>(mZoomWidth * ZoomFactor,
-        mMinZoomWidth, mMaxZoomWidth);
-    mZoomHeight = mZoomWidth / mZoomAspect;
+    if (!mDemolitionMode)
+    {
+        ClearDemolitionHoverPreview();
+        return;
+    }
 
-    Camera->SetProjection(ECameraProjectionType::Ortho,
-        90.f, mZoomWidth, mZoomHeight, mViewDistance);
+    auto ActivePlacementObject = mActivePlacementObject.lock();
+
+    if (ActivePlacementObject &&
+        ActivePlacementObject->IsMovePreviewActive())
+    {
+        ActivePlacementObject->CancelMovePreview();
+    }
+
+    mActivePlacementObject.reset();
+
+    auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+    if (CitizenInfoWidget)
+        CitizenInfoWidget->SetEnable(false);
+
+    UpdateDemolitionHoverPreview();
+}
+
+bool CMainCamera::BeginBuildPlacement(
+    const std::string& BuildingId,
+    const std::string& BuildingDisplayName,
+    const std::string& CategoryName,
+    bool Residential,
+    int Capacity,
+    EPlacementTemplateType TemplateType,
+    EPlacementBuildingKind BuildingKind)
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    if (mDemolitionMode)
+        SetDemolitionMode(false);
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+        return false;
+
+    auto TileMapObject = World->FindObject<CTileMapObject>("TileMap").lock();
+
+    if (!TileMapObject)
+        return false;
+
+    auto ActivePlacementObject = mActivePlacementObject.lock();
+
+    if (ActivePlacementObject &&
+        ActivePlacementObject->IsMovePreviewActive())
+    {
+        ActivePlacementObject->CancelMovePreview();
+    }
+
+    int NameSuffix = 1;
+    std::string PlacementName;
+
+    do
+    {
+        PlacementName = "PlacedBuilding_" + std::to_string(NameSuffix);
+        ++NameSuffix;
+    } while (World->FindObject<CPlacementAreaObject>(
+        PlacementName).lock());
+
+    auto PlacementObjectWeak =
+        World->CreateGameObject<CPlacementAreaObject>(PlacementName);
+    auto PlacementObject = PlacementObjectWeak.lock();
+
+    if (!PlacementObject)
+        return false;
+
+    const std::string SafeBuildingId = BuildingId.empty() ?
+        PlacementName :
+        BuildingId;
+
+    PlacementObject->SetTileMapObject(TileMapObject);
+    PlacementObject->SetAutoPlaceOnPrepare(false);
+    PlacementObject->SetBuildingId(SafeBuildingId);
+    PlacementObject->SetBuildingDisplayInfo(
+        BuildingDisplayName, CategoryName, Residential, Capacity);
+    PlacementObject->SetBuildingKind(BuildingKind);
+    PlacementObject->SetPlacementTemplateType(TemplateType);
+
+    auto VisualWeak = World->CreateGameObject<CBuildingVisual>(
+        PlacementName + "_Visual");
+    auto Visual = VisualWeak.lock();
+
+    if (Visual)
+        Visual->SetBuilding(PlacementObjectWeak);
+
+    mActivePlacementObject = PlacementObject;
+    PlacementObject->StartMovePreview(Input->GetMouseWorldPos());
+
+    auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+    if (CitizenInfoWidget)
+        CitizenInfoWidget->SetEnable(false);
+
+    return true;
 }
 
 void CMainCamera::MoveUp()
@@ -160,6 +277,9 @@ void CMainCamera::MoveRight()
 
 void CMainCamera::MoveCurrentArea()
 {
+    if (mDemolitionMode)
+        return;
+
     auto ActiveObject = mActivePlacementObject.lock();
 
     if (ActiveObject && ActiveObject->IsMovePreviewActive())
@@ -212,6 +332,44 @@ void CMainCamera::PlaceCurrentArea()
         return;
 
     const FVector2 MouseWorldPos = Input->GetMouseWorldPos();
+    auto ActivePlacementObject = mActivePlacementObject.lock();
+
+    if (ActivePlacementObject &&
+        ActivePlacementObject->IsMovePreviewActive())
+    {
+        const bool WasPlaced = ActivePlacementObject->HasPlacedArea();
+        ActivePlacementObject->ConfirmPlacement();
+
+        const bool IsPlaced = ActivePlacementObject->HasPlacedArea();
+
+        if (!WasPlaced && IsPlaced)
+        {
+            RegisterBuildingToOrbs(ActivePlacementObject->GetName());
+        }
+
+        if (!ActivePlacementObject->IsMovePreviewActive())
+            mActivePlacementObject.reset();
+        return;
+    }
+
+    if (mDemolitionMode)
+    {
+        RefreshPlacementObjects();
+        auto ClickedPlacementObject = PickPlacementObject(MouseWorldPos);
+
+        if (ClickedPlacementObject)
+        {
+            DemolishPlacementObject(ClickedPlacementObject);
+        }
+
+        auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+        if (CitizenInfoWidget)
+            CitizenInfoWidget->SetEnable(false);
+
+        return;
+    }
+
     auto CitizenOrb = PickCitizenOrb(MouseWorldPos);
 
     if (CitizenOrb)
@@ -221,7 +379,7 @@ void CMainCamera::PlaceCurrentArea()
 
         if (CitizenInfoWidget)
         {
-            CitizenInfoWidget->Open(
+            CitizenInfoWidget->OpenCitizen(
                 CitizenOrb->GetName(),
                 CitizenOrb->GetSatisfaction(),
                 Input->GetMousePos());
@@ -229,23 +387,86 @@ void CMainCamera::PlaceCurrentArea()
         return;
     }
 
+    RefreshPlacementObjects();
+    auto ClickedPlacementObject = PickPlacementObject(MouseWorldPos);
     auto CitizenInfoWidget = mCitizenInfoWidget.lock();
 
-    if (CitizenInfoWidget)
-        CitizenInfoWidget->SetEnable(false);
+    if (ClickedPlacementObject)
+    {
+        EnsureCitizenInfoWidget();
+        CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+        if (CitizenInfoWidget)
+        {
+            CitizenInfoWidget->OpenBuilding(
+                ClickedPlacementObject->GetName(),
+                ClickedPlacementObject->GetBuildingDisplayName(),
+                ClickedPlacementObject->GetBuildingCategoryName(),
+                ClickedPlacementObject->IsResidential(),
+                ClickedPlacementObject->GetCapacity(),
+                Input->GetMousePos());
+        }
+    }
+    else
+    {
+        if (CitizenInfoWidget)
+            CitizenInfoWidget->SetEnable(false);
+    }
+}
+
+void CMainCamera::UpdateDemolitionHoverPreview()
+{
+    if (!mDemolitionMode)
+    {
+        ClearDemolitionHoverPreview();
+        return;
+    }
+
+    auto World = mWorld.lock();
+
+    if (!World)
+    {
+        ClearDemolitionHoverPreview();
+        return;
+    }
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+    {
+        ClearDemolitionHoverPreview();
+        return;
+    }
 
     RefreshPlacementObjects();
 
-    auto PlacementObject = mActivePlacementObject.lock();
+    auto HoverObject = PickPlacementObject(Input->GetMouseWorldPos());
+    auto PrevHoverObject = mDemolitionHoverObject.lock();
 
-    if (!PlacementObject)
+    if (PrevHoverObject == HoverObject)
     {
-        PlacementObject = PickPlacementObject(MouseWorldPos);
-        mActivePlacementObject = PlacementObject;
+        if (PrevHoverObject)
+            PrevHoverObject->SetDemolitionHoverActive(true);
+        return;
     }
 
-    if (PlacementObject)
-        PlacementObject->ConfirmPlacement();
+    if (PrevHoverObject)
+        PrevHoverObject->SetDemolitionHoverActive(false);
+
+    if (HoverObject)
+        HoverObject->SetDemolitionHoverActive(true);
+
+    mDemolitionHoverObject = HoverObject;
+}
+
+void CMainCamera::ClearDemolitionHoverPreview()
+{
+    auto HoverObject = mDemolitionHoverObject.lock();
+
+    if (HoverObject)
+        HoverObject->SetDemolitionHoverActive(false);
+
+    mDemolitionHoverObject.reset();
 }
 
 void CMainCamera::RefreshPlacementObjects()
@@ -357,4 +578,100 @@ void CMainCamera::EnsureCitizenInfoWidget()
     mCitizenInfoWidget =
         UIManager->CreateWidget<CCitizenInfoWidget>(
             "CitizenInfoWidget", 200);
+}
+
+void CMainCamera::DemolishPlacementObject(
+    const std::shared_ptr<class CPlacementAreaObject>& PlacementObject)
+{
+    if (!PlacementObject)
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    const std::string BuildingObjectName = PlacementObject->GetName();
+
+    if (BuildingObjectName.empty())
+        return;
+
+    if (mActivePlacementObject.lock() == PlacementObject)
+    {
+        mActivePlacementObject.reset();
+    }
+
+    auto HoverObject = mDemolitionHoverObject.lock();
+
+    if (HoverObject == PlacementObject)
+    {
+        HoverObject->SetDemolitionHoverActive(false);
+        mDemolitionHoverObject.reset();
+    }
+
+    PlacementObject->Destroy();
+
+    auto Visual =
+        World->FindObject<CBuildingVisual>(
+            BuildingObjectName + "_Visual").lock();
+
+    if (Visual && Visual->GetAlive())
+        Visual->Destroy();
+
+    UnregisterBuildingFromOrbs(BuildingObjectName);
+    RefreshPlacementObjects();
+}
+
+void CMainCamera::RegisterBuildingToOrbs(
+    const std::string& BuildingObjectName)
+{
+    if (BuildingObjectName.empty())
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+    if (!World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+        return;
+
+    for (size_t i = 0; i < OrbList.size(); ++i)
+    {
+        auto Orb = OrbList[i].lock();
+
+        if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+            continue;
+
+        Orb->AddTargetBuildingName(BuildingObjectName);
+    }
+}
+
+void CMainCamera::UnregisterBuildingFromOrbs(
+    const std::string& BuildingObjectName)
+{
+    if (BuildingObjectName.empty())
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+    if (!World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+        return;
+
+    for (size_t i = 0; i < OrbList.size(); ++i)
+    {
+        auto Orb = OrbList[i].lock();
+
+        if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+            continue;
+
+        Orb->RemoveTargetBuildingName(BuildingObjectName);
+    }
 }

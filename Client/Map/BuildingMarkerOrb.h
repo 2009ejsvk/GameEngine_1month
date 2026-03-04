@@ -105,6 +105,8 @@ public:
         const std::vector<std::string>& BuildingNames)
     {
         mRandomTargetNames.clear();
+        mBuildingAName.clear();
+        mBuildingBName.clear();
 
         for (size_t i = 0; i < BuildingNames.size(); ++i)
         {
@@ -145,6 +147,31 @@ public:
         mMoveSpeed = Speed;
     }
 
+    void AddTargetBuildingName(const std::string& BuildingName)
+    {
+        if (BuildingName.empty())
+            return;
+
+        if (std::find(mRandomTargetNames.begin(),
+            mRandomTargetNames.end(), BuildingName) ==
+            mRandomTargetNames.end())
+        {
+            mRandomTargetNames.push_back(BuildingName);
+        }
+
+        if (mBuildingAName.empty())
+        {
+            mBuildingAName = BuildingName;
+        }
+        else if (mBuildingBName.empty() &&
+            mBuildingAName != BuildingName)
+        {
+            mBuildingBName = BuildingName;
+        }
+    }
+
+    void RemoveTargetBuildingName(const std::string& BuildingName);
+
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
@@ -155,6 +182,7 @@ private:
     void ApplySoftSeparation(float DeltaTime);
     void RefreshBuildings();
     void UpdateScaleFromTileSize();
+    bool TryGetFallbackStartPos(FVector3& OutPos);
     bool CollectTargetMarkers(
         std::vector<std::pair<std::string, FVector3>>& OutMarkers);
     std::string PickRandomTargetName(

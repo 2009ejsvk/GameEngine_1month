@@ -29,13 +29,21 @@ public:
     virtual void Render();
 
 public:
-    void Open(
+    void OpenCitizen(
         const std::string& CitizenName,
         const FNpcSatisfaction& Satisfaction,
         const FVector2& ScreenPos);
+    void OpenBuilding(
+        const std::string& BuildingObjectName,
+        const std::string& BuildingDisplayName,
+        const std::string& CategoryName,
+        bool IsResidential,
+        int Capacity,
+        const FVector2& ScreenPos);
 
 private:
-    void SetCitizenName(const std::string& CitizenName);
-    void SetSatisfaction(const FNpcSatisfaction& Satisfaction);
+    void SetTitle(const std::wstring& Title);
+    void SetCitizenSatisfaction(const FNpcSatisfaction& Satisfaction);
+    void SetBodyText(const std::wstring& Text);
     void SetPanelScreenPos(const FVector2& ScreenPos);
 };

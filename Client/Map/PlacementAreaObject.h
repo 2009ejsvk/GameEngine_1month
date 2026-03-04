@@ -62,13 +62,19 @@ private:
     std::vector<int> mAppliedMarkerOverlayIndices;
     std::vector<int> mPreviewIndices;
     bool mPreviewCanPlace = false;
+    bool mDemolitionHoverActive = false;
     bool mTileMapPrepared = false;
     bool mMovePreviewActive = false;
     int mPlacedCenterIndex = -1;
     int mPreviewCenterIndex = -1;
     int mInitialCenterOffsetX = 0;
     int mInitialCenterOffsetY = 0;
+    bool mAutoPlaceOnPrepare = true;
     std::string mBuildingId;
+    std::string mBuildingDisplayName;
+    std::string mBuildingCategoryName;
+    bool mResidential = false;
+    int mCapacity = 0;
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
@@ -94,11 +100,59 @@ public:
     void SetBuildingId(const std::string& Id)
     {
         mBuildingId = Id;
+
+        if (mBuildingDisplayName.empty())
+            mBuildingDisplayName = Id;
     }
 
     const std::string& GetBuildingId() const
     {
         return mBuildingId;
+    }
+
+    void SetAutoPlaceOnPrepare(bool AutoPlace)
+    {
+        mAutoPlaceOnPrepare = AutoPlace;
+    }
+
+    void SetBuildingDisplayInfo(
+        const std::string& DisplayName,
+        const std::string& CategoryName,
+        bool Residential,
+        int Capacity)
+    {
+        mBuildingDisplayName = DisplayName;
+        mBuildingCategoryName = CategoryName;
+        mResidential = Residential;
+        mCapacity = Capacity;
+    }
+
+    const std::string& GetBuildingDisplayName() const
+    {
+        return mBuildingDisplayName.empty() ?
+            mBuildingId :
+            mBuildingDisplayName;
+    }
+
+    const std::string& GetBuildingCategoryName() const
+    {
+        return mBuildingCategoryName;
+    }
+
+    bool IsResidential() const
+    {
+        return mResidential;
+    }
+
+    int GetCapacity() const
+    {
+        return mCapacity;
+    }
+
+    bool HasPlacedArea() const
+    {
+        return mPlacedCenterIndex >= 0 &&
+            !mPrimaryPlacedIndices.empty();
     }
 
     int GetDiamondRadius() const
@@ -126,6 +180,10 @@ public:
     bool IsMovePreviewActive() const
     {
         return mMovePreviewActive;
+    }
+    void SetDemolitionHoverActive(bool Active)
+    {
+        mDemolitionHoverActive = Active;
     }
     bool ContainsPlacedTile(const FVector2& MouseWorldPos);
     float GetCenterDistanceSq(const FVector2& MouseWorldPos) const;

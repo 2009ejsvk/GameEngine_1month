@@ -305,6 +305,19 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
         if (!CollectTargetMarkers(MarkerList))
         {
+            FVector3 FallbackStartPos = FVector3::Zero;
+
+            if (TryGetFallbackStartPos(FallbackStartPos))
+            {
+                SetWorldPos(FallbackStartPos);
+                mCurrentTargetName.clear();
+                mHasStartPos = true;
+#ifdef _DEBUG
+                mDebugMissingMarkerLogged = false;
+#endif
+                return;
+            }
+
 #ifdef _DEBUG
             if (!mDebugMissingMarkerLogged)
             {
@@ -811,6 +824,64 @@ void CBuildingMarkerOrb::RefreshBuildings()
     }
 }
 
+bool CBuildingMarkerOrb::TryGetFallbackStartPos(FVector3& OutPos)
+{
+    auto TileMapObject = mTileMapObject.lock();
+
+    if (!TileMapObject)
+        return false;
+
+    auto TileMap = TileMapObject->GetTileMap().lock();
+
+    if (!TileMap)
+        return false;
+
+    const int CountX = TileMap->GetTileCountX();
+    const int CountY = TileMap->GetTileCountY();
+
+    if (CountX <= 0 || CountY <= 0)
+        return false;
+
+    const int TileCount = CountX * CountY;
+    int ChosenIndex = -1;
+    const int MaxAttempts = (std::min)(TileCount, 64);
+
+    for (int Attempt = 0; Attempt < MaxAttempts; ++Attempt)
+    {
+        const int CandidateIndex = rand() % TileCount;
+        auto CandidateTile = TileMap->GetTile(CandidateIndex).lock();
+
+        if (!CandidateTile)
+            continue;
+
+        if (CandidateTile->GetType() == ETileType::UnableToMove)
+            continue;
+
+        ChosenIndex = CandidateIndex;
+        break;
+    }
+
+    if (ChosenIndex < 0)
+    {
+        ChosenIndex = (CountY / 2) * CountX + (CountX / 2);
+    }
+
+    auto SpawnTile = TileMap->GetTile(ChosenIndex).lock();
+
+    if (!SpawnTile)
+        return false;
+
+    const FVector2 Center = SpawnTile->GetCenter();
+    const FVector3 TileMapWorldPos = TileMapObject->GetWorldPos();
+    const float CurrentZ = GetWorldPos().z;
+    OutPos = FVector3(
+        Center.x + TileMapWorldPos.x,
+        Center.y + TileMapWorldPos.y,
+        CurrentZ);
+
+    return true;
+}
+
 void CBuildingMarkerOrb::UpdateScaleFromTileSize()
 {
     if (mScaleInitialized)
@@ -1093,5 +1164,56 @@ void CBuildingMarkerOrb::RequestMoveTo(
             "[Orb] RequestMoveTo fallback enqueue failed target=%s\n",
             TargetBuildingName.c_str());
 #endif
+    }
+}
+
+void CBuildingMarkerOrb::RemoveTargetBuildingName(
+    const std::string& BuildingName)
+{
+    if (BuildingName.empty())
+        return;
+
+    mRandomTargetNames.erase(
+        std::remove(mRandomTargetNames.begin(),
+            mRandomTargetNames.end(), BuildingName),
+        mRandomTargetNames.end());
+
+    if (mBuildingAName == BuildingName)
+        mBuildingAName.clear();
+
+    if (mBuildingBName == BuildingName)
+        mBuildingBName.clear();
+
+    if (mCurrentTargetName == BuildingName)
+    {
+        mCurrentTargetName.clear();
+        mHasLockedTarget = false;
+        mWaitingForPath = false;
+        mWaitingPathAccum = 0.f;
+        mStallAccum = 0.f;
+
+        auto Movement = mMovement.lock();
+
+        if (Movement)
+        {
+            Movement->AdvancePathRequestId();
+            Movement->StartPathPoint();
+            Movement->SetPathTargetObjectName("");
+        }
+    }
+
+    if (mBuildingAName.empty() && !mRandomTargetNames.empty())
+        mBuildingAName = mRandomTargetNames[0];
+
+    if (mBuildingBName.empty())
+    {
+        for (size_t i = 0; i < mRandomTargetNames.size(); ++i)
+        {
+            if (mRandomTargetNames[i] != mBuildingAName)
+            {
+                mBuildingBName = mRandomTargetNames[i];
+                break;
+            }
+        }
     }
 }

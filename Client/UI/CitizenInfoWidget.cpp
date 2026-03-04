@@ -3,9 +3,35 @@
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
 #include "Device.h"
+#include <Windows.h>
 #include <algorithm>
 #include <cmath>
 #include <cwchar>
+
+namespace
+{
+    std::wstring Utf8ToWide(const std::string& Text)
+    {
+        if (Text.empty())
+            return std::wstring();
+
+        const int RequiredCount = MultiByteToWideChar(
+            CP_UTF8, 0, Text.c_str(), -1, nullptr, 0);
+
+        if (RequiredCount <= 1)
+        {
+            return std::wstring(Text.begin(), Text.end());
+        }
+
+        std::wstring WideText;
+        WideText.resize(RequiredCount - 1);
+        MultiByteToWideChar(
+            CP_UTF8, 0, Text.c_str(),
+            static_cast<int>(Text.size()),
+            &WideText[0], RequiredCount - 1);
+        return WideText;
+    }
+}
 
 CCitizenInfoWidget::CCitizenInfoWidget()
 {
@@ -74,38 +100,75 @@ void CCitizenInfoWidget::Render()
     CWidgetContainer::Render();
 }
 
-void CCitizenInfoWidget::Open(
+void CCitizenInfoWidget::OpenCitizen(
     const std::string& CitizenName,
     const FNpcSatisfaction& Satisfaction,
     const FVector2& ScreenPos)
 {
     (void)ScreenPos;
     SetPanelScreenPos(FVector2(0.f, 0.f));
-    SetCitizenName(CitizenName);
-    SetSatisfaction(Satisfaction);
+    std::wstring WideName(CitizenName.begin(), CitizenName.end());
+    SetTitle(L"Citizen: " + WideName);
+    SetCitizenSatisfaction(Satisfaction);
     SetEnable(true);
 }
 
-void CCitizenInfoWidget::SetCitizenName(const std::string& CitizenName)
+void CCitizenInfoWidget::OpenBuilding(
+    const std::string& BuildingObjectName,
+    const std::string& BuildingDisplayName,
+    const std::string& CategoryName,
+    bool IsResidential,
+    int Capacity,
+    const FVector2& ScreenPos)
+{
+    (void)ScreenPos;
+    SetPanelScreenPos(FVector2(0.f, 0.f));
+
+    const std::wstring WideObjectName = Utf8ToWide(
+        BuildingObjectName);
+    const std::wstring WideDisplayName = BuildingDisplayName.empty() ?
+        WideObjectName :
+        Utf8ToWide(BuildingDisplayName);
+    const std::wstring WideCategoryName = CategoryName.empty() ?
+        L"미분류" :
+        Utf8ToWide(CategoryName);
+    const int SafeCapacity = (std::max)(0, Capacity);
+
+    wchar_t Body[512] = {};
+
+    if (IsResidential)
+    {
+        swprintf_s(Body,
+            L"카테고리: %s\n건물 종류: %s\n거주 가능 인원: %d명",
+            WideCategoryName.c_str(),
+            WideDisplayName.c_str(),
+            SafeCapacity);
+    }
+    else
+    {
+        swprintf_s(Body,
+            L"카테고리: %s\n건물 종류: %s\n근무 가능 인원: %d명",
+            WideCategoryName.c_str(),
+            WideDisplayName.c_str(),
+            SafeCapacity);
+    }
+
+    SetTitle(L"Building: " + WideObjectName);
+    SetBodyText(Body);
+    SetEnable(true);
+}
+
+void CCitizenInfoWidget::SetTitle(const std::wstring& Title)
 {
     auto TitleText = mTitleText.lock();
 
-    if (!TitleText)
-        return;
-
-    std::wstring WideName(CitizenName.begin(), CitizenName.end());
-    std::wstring Title = L"Citizen: " + WideName;
-    TitleText->SetText(Title.c_str());
+    if (TitleText)
+        TitleText->SetText(Title.c_str());
 }
 
-void CCitizenInfoWidget::SetSatisfaction(
+void CCitizenInfoWidget::SetCitizenSatisfaction(
     const FNpcSatisfaction& Satisfaction)
 {
-    auto BodyText = mBodyText.lock();
-
-    if (!BodyText)
-        return;
-
     auto ToPercent = [](float Value)
     {
         const float Clamped = (std::max)(0.f, (std::min)(100.f, Value));
@@ -127,7 +190,15 @@ void CCitizenInfoWidget::SetSatisfaction(
         ToPercent(Satisfaction.Security),
         ToPercent(Satisfaction.Overall));
 
-    BodyText->SetText(Text);
+    SetBodyText(Text);
+}
+
+void CCitizenInfoWidget::SetBodyText(const std::wstring& Text)
+{
+    auto BodyText = mBodyText.lock();
+
+    if (BodyText)
+        BodyText->SetText(Text.c_str());
 }
 
 void CCitizenInfoWidget::SetPanelScreenPos(const FVector2& ScreenPos)

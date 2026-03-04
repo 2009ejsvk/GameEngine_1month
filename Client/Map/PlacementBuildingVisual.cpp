@@ -1,5 +1,6 @@
 ﻿#include "PlacementBuildingVisual.h"
 #include "PlacementAreaObject.h"
+#include "../Player/MainCamera.h"
 #include "Component/MeshComponent.h"
 #include "Component/SceneComponent.h"
 #include "Render/RenderManager.h"
@@ -89,10 +90,27 @@ void CBuildingVisual::Update(float DeltaTime)
 
 void CBuildingVisual::SyncVisuals()
 {
-	auto Building = mBuilding.lock();
+    auto Building = mBuilding.lock();
 
-	if (!Building)
-		return;
+    if (!Building)
+        return;
+
+    if (!Building->HasPlacedArea())
+    {
+        auto LeftWall = mLeftWall.lock();
+        auto RightWall = mRightWall.lock();
+        auto Roof = mRoof.lock();
+
+        if (LeftWall)
+            LeftWall->SetEnable(false);
+        if (RightWall)
+            RightWall->SetEnable(false);
+        if (Roof)
+            Roof->SetEnable(false);
+
+        mVisible = false;
+        return;
+    }
 
 	// 건물이 타일맵에 배치 완료될 때까지 대기
 	FVector2 TileSize;
@@ -101,6 +119,7 @@ void CBuildingVisual::SyncVisuals()
 		return;
 
 	bool IsAnyMovePreviewActive = false;
+    bool IsDemolitionModeActive = false;
 	auto World = mWorld.lock();
 
 	if (World)
@@ -121,10 +140,19 @@ void CBuildingVisual::SyncVisuals()
 				break;
 			}
 		}
+
+        auto MainCamera =
+            World->FindObject<CMainCamera>("MainCamera").lock();
+
+        if (MainCamera && MainCamera->IsDemolitionMode())
+        {
+            IsDemolitionModeActive = true;
+        }
 	}
 
 	const float BuildingFaceOpacity =
-		IsAnyMovePreviewActive ? 0.35f : 1.f;
+		(IsAnyMovePreviewActive || IsDemolitionModeActive) ?
+        0.35f : 1.f;
 
 	const FVector3 Center = Building->GetWorldPos();
 	const int      Radius = Building->GetDiamondRadius();
@@ -139,7 +167,7 @@ void CBuildingVisual::SyncVisuals()
 	const float ScaleY = TileSize.y * FootprintTiles;
 
 	// ─ 좌측 벽 ─ (중심 기준, 회전 없음)
-	auto LeftWall = mLeftWall.lock();
+    auto LeftWall = mLeftWall.lock();
 
 	if (LeftWall)
 	{
