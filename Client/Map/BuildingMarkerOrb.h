@@ -71,6 +71,7 @@ private:
     std::string mHomeName;
     std::string mWorkName;
     std::string mFoodName;
+    std::string mFoodVisitBuildingName;
     std::string mFunName;
     ECitizenState mCitizenState = ECitizenState::Wander;
     ECitizenState mResumeStateAfterService = ECitizenState::GoingToWork;
@@ -79,13 +80,14 @@ private:
     static constexpr float GAtHomeDuration = 10.f;
     static constexpr float GAtFoodDuration = 4.f;
     static constexpr float GAtFunDuration = 6.f;
-    static constexpr float GFoodInterruptThreshold = 35.f;
+    static constexpr float GFoodInterruptThreshold = 25.f;
     static constexpr float GFunInterruptThreshold = 30.f;
     static constexpr float GHealthRemoveThreshold = 5.f;
     bool mHasLockedTarget = false;
     bool mWaitingForPath = false;
     bool mScaleInitialized = false;
     bool mHasStartPos = false;
+    bool mFoodStockAvailableThisVisit = false;
 #ifdef _DEBUG
     bool mDebugMissingDependencyLogged = false;
     bool mDebugMissingMarkerLogged = false;
@@ -96,6 +98,11 @@ public:
     float GetOrbDiameter() const
     {
         return mOrbDiameter;
+    }
+
+    float GetArrivalDistance() const
+    {
+        return mArrivalDistance;
     }
 
     const FNpcSatisfaction& GetSatisfaction() const
@@ -204,6 +211,14 @@ public:
     void SetFoodBuilding(const std::string& Name);
     void SetFunBuilding(const std::string& Name);
     ECitizenState GetCitizenState() const { return mCitizenState; }
+    bool IsConsumingFoodThisVisit() const
+    {
+        return mFoodStockAvailableThisVisit;
+    }
+    const std::string& GetFoodVisitBuilding() const
+    {
+        return mFoodVisitBuildingName;
+    }
     const std::string& GetHomeBuilding() const { return mHomeName; }
     const std::string& GetWorkBuilding() const { return mWorkName; }
     const std::string& GetFoodBuilding() const { return mFoodName; }

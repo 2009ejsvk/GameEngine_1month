@@ -18,6 +18,7 @@
 #include <numeric>
 #include <random>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -621,6 +622,23 @@ void CMainWorld::SpawnCitizenOrb()
 
 void CMainWorld::ReassignCitizenNeeds()
 {
+	struct FFoodBuildingInfo
+	{
+		std::string Name;
+		int FoodCap = 0;
+		int Assigned = 0;
+	};
+
+	struct FWorkBuildingInfo
+	{
+		std::string Name;
+		int Capacity = 0;
+		int JobCap = 0;
+		int Occupied = 0;
+		int MinRequired = 0;
+		bool IsFoodProvider = false;
+	};
+
 	std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
 
 	if (!FindObjectListByType<CBuildingMarkerOrb>(OrbList))
@@ -637,6 +655,53 @@ void CMainWorld::ReassignCitizenNeeds()
 	CollectFoodBuildingNames(FoodNames);
 	CollectEntertainmentBuildingNames(FunNames);
 
+	std::vector<FWorkBuildingInfo> WorkInfos;
+	WorkInfos.reserve(WorkNames.size());
+
+	for (size_t i = 0; i < WorkNames.size(); ++i)
+	{
+		auto WorkBuilding =
+			FindObject<CPlacementAreaObject>(WorkNames[i]).lock();
+
+		if (!WorkBuilding ||
+			!WorkBuilding->GetAlive() ||
+			!WorkBuilding->GetEnable() ||
+			!WorkBuilding->HasPlacedArea())
+		{
+			continue;
+		}
+
+		FWorkBuildingInfo Info;
+		Info.Name = WorkNames[i];
+		Info.Capacity = (std::max)(0, WorkBuilding->GetCapacity());
+		Info.JobCap = WorkBuilding->GetJobSatisfactionCap();
+		Info.IsFoodProvider = WorkBuilding->IsFoodProvider();
+		WorkInfos.push_back(std::move(Info));
+	}
+
+	std::sort(WorkInfos.begin(), WorkInfos.end(),
+		[](const FWorkBuildingInfo& A, const FWorkBuildingInfo& B)
+		{
+			if (A.JobCap != B.JobCap)
+				return A.JobCap > B.JobCap;
+
+			if (A.Capacity != B.Capacity)
+				return A.Capacity > B.Capacity;
+
+			return A.Name < B.Name;
+		});
+
+	std::unordered_map<std::string, size_t> WorkIndexByName;
+	WorkIndexByName.reserve(WorkInfos.size());
+
+	for (size_t i = 0; i < WorkInfos.size(); ++i)
+	{
+		WorkIndexByName.emplace(WorkInfos[i].Name, i);
+	}
+
+	std::vector<std::shared_ptr<CBuildingMarkerOrb>> ActiveOrbs;
+	ActiveOrbs.reserve(OrbList.size());
+
 	for (size_t i = 0; i < OrbList.size(); ++i)
 	{
 		auto Orb = OrbList[i].lock();
@@ -644,22 +709,573 @@ void CMainWorld::ReassignCitizenNeeds()
 		if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
 			continue;
 
+		ActiveOrbs.push_back(Orb);
+
 		for (size_t NameIndex = 0; NameIndex < AllNames.size(); ++NameIndex)
 		{
 			Orb->AddTargetBuildingName(AllNames[NameIndex]);
 		}
 
+		const ECitizenState OrbState = Orb->GetCitizenState();
+		const bool IsInFoodVisit =
+			OrbState == ECitizenState::GoingToFood ||
+			OrbState == ECitizenState::AtFood;
+
 		if (Orb->GetHomeBuilding().empty() && !HomeNames.empty())
 			Orb->SetHomeBuilding(PickRandomBuildingName(HomeNames));
 
-		if (Orb->GetWorkBuilding().empty() && !WorkNames.empty())
-			Orb->SetWorkBuilding(PickRandomBuildingName(WorkNames));
-
-		if (Orb->GetFoodBuilding().empty() && !FoodNames.empty())
+		if (!IsInFoodVisit &&
+			Orb->GetFoodBuilding().empty() &&
+			!FoodNames.empty())
+		{
 			Orb->SetFoodBuilding(PickRandomBuildingName(FoodNames));
+		}
 
 		if (Orb->GetFunBuilding().empty() && !FunNames.empty())
 			Orb->SetFunBuilding(PickRandomBuildingName(FunNames));
+	}
+
+	if (ActiveOrbs.empty())
+		return;
+
+	std::vector<FFoodBuildingInfo> FoodInfos;
+	FoodInfos.reserve(FoodNames.size());
+
+	for (size_t i = 0; i < FoodNames.size(); ++i)
+	{
+		auto FoodBuilding =
+			FindObject<CPlacementAreaObject>(FoodNames[i]).lock();
+
+		if (!FoodBuilding ||
+			!FoodBuilding->GetAlive() ||
+			!FoodBuilding->GetEnable() ||
+			!FoodBuilding->HasPlacedArea())
+		{
+			continue;
+		}
+
+		FFoodBuildingInfo Info;
+		Info.Name = FoodNames[i];
+		Info.FoodCap = FoodBuilding->GetFoodSatisfactionCap();
+		FoodInfos.push_back(std::move(Info));
+	}
+
+	std::sort(FoodInfos.begin(), FoodInfos.end(),
+		[](const FFoodBuildingInfo& A, const FFoodBuildingInfo& B)
+		{
+			if (A.FoodCap != B.FoodCap)
+				return A.FoodCap > B.FoodCap;
+
+			return A.Name < B.Name;
+		});
+
+	std::unordered_map<std::string, size_t> FoodIndexByName;
+	FoodIndexByName.reserve(FoodInfos.size());
+
+	for (size_t i = 0; i < FoodInfos.size(); ++i)
+	{
+		FoodIndexByName.emplace(FoodInfos[i].Name, i);
+	}
+
+	std::vector<int> OrbFoodIndex(ActiveOrbs.size(), -1);
+	auto IsFoodAssignmentLocked = [&](int OrbIndex) -> bool
+	{
+		if (OrbIndex < 0 ||
+			OrbIndex >= static_cast<int>(ActiveOrbs.size()))
+		{
+			return false;
+		}
+
+		auto Orb = ActiveOrbs[OrbIndex];
+
+		if (!Orb)
+			return false;
+
+		const ECitizenState State = Orb->GetCitizenState();
+		return State == ECitizenState::GoingToFood ||
+			State == ECitizenState::AtFood;
+	};
+
+	auto AssignOrbToFood = [&](int OrbIndex, int FoodIndex) -> bool
+	{
+		if (OrbIndex < 0 || FoodIndex < 0)
+			return false;
+
+		if (OrbIndex >= static_cast<int>(ActiveOrbs.size()) ||
+			FoodIndex >= static_cast<int>(FoodInfos.size()))
+		{
+			return false;
+		}
+
+		auto Orb = ActiveOrbs[OrbIndex];
+
+		if (!Orb)
+			return false;
+
+		const int PrevFoodIndex = OrbFoodIndex[OrbIndex];
+
+		if (PrevFoodIndex == FoodIndex)
+			return true;
+
+		if (IsFoodAssignmentLocked(OrbIndex))
+			return false;
+
+		if (PrevFoodIndex >= 0 &&
+			PrevFoodIndex < static_cast<int>(FoodInfos.size()) &&
+			FoodInfos[PrevFoodIndex].Assigned > 0)
+		{
+			--FoodInfos[PrevFoodIndex].Assigned;
+		}
+
+		auto& TargetInfo = FoodInfos[FoodIndex];
+
+		if (Orb->GetFoodBuilding() != TargetInfo.Name)
+			Orb->SetFoodBuilding(TargetInfo.Name);
+
+		++TargetInfo.Assigned;
+		OrbFoodIndex[OrbIndex] = FoodIndex;
+		return true;
+	};
+
+	auto FindLeastLoadedFood = [&]() -> int
+	{
+		if (FoodInfos.empty())
+			return -1;
+
+		int BestIndex = -1;
+
+		for (size_t i = 0; i < FoodInfos.size(); ++i)
+		{
+			if (BestIndex < 0 ||
+				FoodInfos[i].Assigned < FoodInfos[BestIndex].Assigned ||
+				(FoodInfos[i].Assigned == FoodInfos[BestIndex].Assigned &&
+					FoodInfos[i].FoodCap > FoodInfos[BestIndex].FoodCap))
+			{
+				BestIndex = static_cast<int>(i);
+			}
+		}
+
+		return BestIndex;
+	};
+
+	auto FindDonorFood = [&]() -> int
+	{
+		int DonorIndex = -1;
+
+		for (size_t i = 0; i < FoodInfos.size(); ++i)
+		{
+			if (FoodInfos[i].Assigned <= 1)
+				continue;
+
+			if (DonorIndex < 0 ||
+				FoodInfos[i].Assigned > FoodInfos[DonorIndex].Assigned)
+			{
+				DonorIndex = static_cast<int>(i);
+			}
+		}
+
+		return DonorIndex;
+	};
+
+	auto FindOrbAssignedToFood = [&](int FoodIndex) -> int
+	{
+		for (size_t i = 0; i < OrbFoodIndex.size(); ++i)
+		{
+			if (OrbFoodIndex[i] == FoodIndex &&
+				!IsFoodAssignmentLocked(static_cast<int>(i)))
+			{
+				return static_cast<int>(i);
+			}
+		}
+
+		return -1;
+	};
+
+	if (!FoodInfos.empty())
+	{
+		for (size_t i = 0; i < ActiveOrbs.size(); ++i)
+		{
+			auto Orb = ActiveOrbs[i];
+
+			if (!Orb)
+				continue;
+
+			const std::string& CurrentFood = Orb->GetFoodBuilding();
+
+			if (CurrentFood.empty())
+				continue;
+
+			auto FoodIt = FoodIndexByName.find(CurrentFood);
+
+			if (FoodIt == FoodIndexByName.end())
+			{
+				Orb->SetFoodBuilding("");
+				continue;
+			}
+
+			const int FoodIndex = static_cast<int>(FoodIt->second);
+			OrbFoodIndex[i] = FoodIndex;
+			++FoodInfos[FoodIndex].Assigned;
+		}
+
+		for (size_t i = 0; i < ActiveOrbs.size(); ++i)
+		{
+			if (OrbFoodIndex[i] >= 0)
+				continue;
+
+			if (IsFoodAssignmentLocked(static_cast<int>(i)))
+				continue;
+
+			const int BestFoodIndex = FindLeastLoadedFood();
+
+			if (BestFoodIndex < 0)
+				break;
+
+			AssignOrbToFood(static_cast<int>(i), BestFoodIndex);
+		}
+
+		const bool CanCoverAllFoodBuildings =
+			ActiveOrbs.size() >= FoodInfos.size();
+
+		if (CanCoverAllFoodBuildings)
+		{
+			for (size_t FoodIdx = 0; FoodIdx < FoodInfos.size(); ++FoodIdx)
+			{
+				if (FoodInfos[FoodIdx].Assigned > 0)
+					continue;
+
+				const int DonorFoodIndex = FindDonorFood();
+
+				if (DonorFoodIndex < 0)
+					break;
+
+				const int DonorOrbIndex =
+					FindOrbAssignedToFood(DonorFoodIndex);
+
+				if (DonorOrbIndex < 0)
+					break;
+
+				AssignOrbToFood(DonorOrbIndex, static_cast<int>(FoodIdx));
+			}
+		}
+	}
+
+	if (WorkInfos.empty())
+		return;
+
+	std::vector<int> OrbWorkIndex(ActiveOrbs.size(), -1);
+	std::vector<int> OrbWorkCap(ActiveOrbs.size(), -1);
+	std::vector<int> UnemployedOrbIndices;
+	UnemployedOrbIndices.reserve(ActiveOrbs.size());
+
+	std::unordered_map<std::string, int> FoodDemandByBuilding;
+	FoodDemandByBuilding.reserve(FoodNames.size());
+
+	for (size_t i = 0; i < ActiveOrbs.size(); ++i)
+	{
+		auto Orb = ActiveOrbs[i];
+
+		if (!Orb)
+			continue;
+
+		const std::string& FoodName = Orb->GetFoodBuilding();
+
+		if (!FoodName.empty())
+			++FoodDemandByBuilding[FoodName];
+	}
+
+	for (size_t i = 0; i < WorkInfos.size(); ++i)
+	{
+		auto& Info = WorkInfos[i];
+
+		if (!Info.IsFoodProvider || Info.Capacity <= 0)
+			continue;
+
+		auto FoodDemandIt = FoodDemandByBuilding.find(Info.Name);
+
+		if (FoodDemandIt != FoodDemandByBuilding.end() &&
+			FoodDemandIt->second > 0)
+		{
+			Info.MinRequired = 1;
+		}
+	}
+
+	auto AssignOrbToWork = [&](int OrbIndex, int WorkIndex) -> bool
+	{
+		if (OrbIndex < 0 || WorkIndex < 0)
+			return false;
+
+		if (OrbIndex >= static_cast<int>(ActiveOrbs.size()) ||
+			WorkIndex >= static_cast<int>(WorkInfos.size()))
+		{
+			return false;
+		}
+
+		auto Orb = ActiveOrbs[OrbIndex];
+
+		if (!Orb)
+			return false;
+
+		const int PrevWorkIndex = OrbWorkIndex[OrbIndex];
+
+		if (PrevWorkIndex == WorkIndex)
+			return true;
+
+		if (PrevWorkIndex >= 0 &&
+			PrevWorkIndex < static_cast<int>(WorkInfos.size()))
+		{
+			auto& PrevInfo = WorkInfos[PrevWorkIndex];
+
+			if (PrevInfo.Occupied <= PrevInfo.MinRequired)
+				return false;
+
+			if (PrevInfo.Occupied > 0)
+				--PrevInfo.Occupied;
+		}
+
+		auto& TargetInfo = WorkInfos[WorkIndex];
+
+		if (TargetInfo.Capacity <= 0 ||
+			TargetInfo.Occupied >= TargetInfo.Capacity)
+		{
+			return false;
+		}
+
+		const std::string& TargetName = TargetInfo.Name;
+
+		if (Orb->GetWorkBuilding() != TargetName)
+			Orb->SetWorkBuilding(TargetName);
+
+		++TargetInfo.Occupied;
+		OrbWorkIndex[OrbIndex] = WorkIndex;
+		OrbWorkCap[OrbIndex] = TargetInfo.JobCap;
+		return true;
+	};
+
+	auto FindBestVacancyWork = [&](int MinJobCapExclusive) -> int
+	{
+		for (size_t i = 0; i < WorkInfos.size(); ++i)
+		{
+			const FWorkBuildingInfo& Info = WorkInfos[i];
+
+			if (Info.JobCap <= MinJobCapExclusive)
+				break;
+
+			if (Info.Capacity <= 0)
+				continue;
+
+			if (Info.Occupied < Info.Capacity)
+				return static_cast<int>(i);
+		}
+
+		return -1;
+	};
+
+	auto FindFoodDeficitWork = [&]() -> int
+	{
+		for (size_t i = 0; i < WorkInfos.size(); ++i)
+		{
+			const FWorkBuildingInfo& Info = WorkInfos[i];
+
+			if (!Info.IsFoodProvider || Info.MinRequired <= 0)
+				continue;
+
+			if (Info.Capacity <= 0)
+				continue;
+
+			if (Info.Occupied < Info.MinRequired &&
+				Info.Occupied < Info.Capacity)
+			{
+				return static_cast<int>(i);
+			}
+		}
+
+		return -1;
+	};
+
+	auto FindDonorWork = [&](int ExcludeWorkIndex) -> int
+	{
+		for (int i = static_cast<int>(WorkInfos.size()) - 1; i >= 0; --i)
+		{
+			if (i == ExcludeWorkIndex)
+				continue;
+
+			const FWorkBuildingInfo& Info = WorkInfos[i];
+
+			if (Info.Occupied > Info.MinRequired)
+				return i;
+		}
+
+		return -1;
+	};
+
+	auto FindOrbAssignedToWork = [&](int WorkIndex) -> int
+	{
+		for (size_t i = 0; i < OrbWorkIndex.size(); ++i)
+		{
+			if (OrbWorkIndex[i] == WorkIndex)
+				return static_cast<int>(i);
+		}
+
+		return -1;
+	};
+
+	for (size_t i = 0; i < ActiveOrbs.size(); ++i)
+	{
+		auto Orb = ActiveOrbs[i];
+
+		if (!Orb)
+			continue;
+
+		const std::string& CurrentWork = Orb->GetWorkBuilding();
+
+		if (CurrentWork.empty())
+		{
+			UnemployedOrbIndices.push_back(static_cast<int>(i));
+			continue;
+		}
+
+		auto WorkIt = WorkIndexByName.find(CurrentWork);
+
+		if (WorkIt == WorkIndexByName.end())
+		{
+			Orb->SetWorkBuilding("");
+			UnemployedOrbIndices.push_back(static_cast<int>(i));
+			continue;
+		}
+
+		const int WorkIndex = static_cast<int>(WorkIt->second);
+		OrbWorkIndex[i] = WorkIndex;
+		OrbWorkCap[i] = WorkInfos[WorkIndex].JobCap;
+		++WorkInfos[WorkIndex].Occupied;
+	}
+
+	for (size_t WorkIdx = 0; WorkIdx < WorkInfos.size(); ++WorkIdx)
+	{
+		FWorkBuildingInfo& Info = WorkInfos[WorkIdx];
+
+		if (Info.Capacity < 0)
+			Info.Capacity = 0;
+
+		if (Info.Occupied <= Info.Capacity)
+			continue;
+
+		int Overflow = Info.Occupied - Info.Capacity;
+
+		for (size_t OrbIdx = 0;
+			OrbIdx < ActiveOrbs.size() && Overflow > 0;
+			++OrbIdx)
+		{
+			if (OrbWorkIndex[OrbIdx] != static_cast<int>(WorkIdx))
+				continue;
+
+			auto Orb = ActiveOrbs[OrbIdx];
+
+			if (!Orb)
+				continue;
+
+			Orb->SetWorkBuilding("");
+			OrbWorkIndex[OrbIdx] = -1;
+			OrbWorkCap[OrbIdx] = -1;
+			if (Info.Occupied > 0)
+				--Info.Occupied;
+			--Overflow;
+			UnemployedOrbIndices.push_back(static_cast<int>(OrbIdx));
+		}
+	}
+
+	while (true)
+	{
+		const int DeficitWorkIndex = FindFoodDeficitWork();
+
+		if (DeficitWorkIndex < 0)
+			break;
+
+		bool Assigned = false;
+
+		for (size_t i = 0; i < UnemployedOrbIndices.size(); ++i)
+		{
+			const int OrbIndex = UnemployedOrbIndices[i];
+
+			if (OrbIndex < 0 ||
+				OrbIndex >= static_cast<int>(OrbWorkIndex.size()))
+			{
+				continue;
+			}
+
+			if (OrbWorkIndex[OrbIndex] >= 0)
+				continue;
+
+			if (AssignOrbToWork(OrbIndex, DeficitWorkIndex))
+			{
+				Assigned = true;
+				break;
+			}
+		}
+
+		if (Assigned)
+			continue;
+
+		const int DonorWorkIndex = FindDonorWork(DeficitWorkIndex);
+
+		if (DonorWorkIndex < 0)
+			break;
+
+		const int DonorOrbIndex = FindOrbAssignedToWork(DonorWorkIndex);
+
+		if (DonorOrbIndex < 0)
+			break;
+
+		if (!AssignOrbToWork(DonorOrbIndex, DeficitWorkIndex))
+			break;
+	}
+
+	for (size_t i = 0; i < UnemployedOrbIndices.size(); ++i)
+	{
+		const int OrbIndex = UnemployedOrbIndices[i];
+
+		if (OrbIndex < 0 ||
+			OrbIndex >= static_cast<int>(OrbWorkIndex.size()))
+		{
+			continue;
+		}
+
+		if (OrbWorkIndex[OrbIndex] >= 0)
+			continue;
+
+		const int BestWorkIndex = FindBestVacancyWork(-1);
+
+		if (BestWorkIndex < 0)
+			break;
+
+		AssignOrbToWork(OrbIndex, BestWorkIndex);
+	}
+
+	for (size_t i = 0; i < ActiveOrbs.size(); ++i)
+	{
+		if (OrbWorkIndex[i] < 0)
+			continue;
+
+		const int CurrentWorkIndex = OrbWorkIndex[i];
+
+		if (CurrentWorkIndex < 0 ||
+			CurrentWorkIndex >= static_cast<int>(WorkInfos.size()))
+		{
+			continue;
+		}
+
+		if (WorkInfos[CurrentWorkIndex].Occupied <=
+			WorkInfos[CurrentWorkIndex].MinRequired)
+		{
+			continue;
+		}
+
+		const int BetterWorkIndex = FindBestVacancyWork(OrbWorkCap[i]);
+
+		if (BetterWorkIndex < 0)
+			continue;
+
+		AssignOrbToWork(static_cast<int>(i), BetterWorkIndex);
 	}
 }
 
@@ -727,9 +1343,10 @@ void CMainWorld::CollectWorkBuildingNames(std::vector<std::string>& Out)
 		if (!B || !B->GetAlive() || !B->HasPlacedArea())
 			continue;
 
+		// FoodProvider 건물은 직장 겸 음식 생산지로 포함
+		// EntertainmentProvider 전용 건물(주점 등)은 제외
 		if (!B->IsResidential() &&
-			!B->IsFoodProvider() &&
-			!B->IsEntertainmentProvider())
+			(!B->IsEntertainmentProvider() || B->IsFoodProvider()))
 		{
 			Out.push_back(B->GetName());
 		}

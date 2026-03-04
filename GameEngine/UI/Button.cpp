@@ -283,10 +283,11 @@ bool CButton::CollisionMouse(std::weak_ptr<CWidget>& Result,
 
 	if (mChild)
 	{
-		if (!mChild->CollisionMouse(Result, MousePos))
-			return false;
+		std::weak_ptr<CWidget> ChildResult;
+		mChild->CollisionMouse(ChildResult, MousePos);
 	}
 
+	Result = mSelf;
 	return true;
 }
 

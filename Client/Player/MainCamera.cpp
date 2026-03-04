@@ -1,4 +1,4 @@
-#include "MainCamera.h"
+﻿#include "MainCamera.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementBuildingVisual.h"
@@ -347,6 +347,25 @@ void CMainCamera::PlaceCurrentArea()
         return;
 
     const FVector2 MouseWorldPos = Input->GetMouseWorldPos();
+    const FVector2 MouseScreenPos = Input->GetMousePos();
+
+    auto CitizenInfoPanelWidget = mCitizenInfoWidget.lock();
+
+    if (CitizenInfoPanelWidget && CitizenInfoPanelWidget->GetEnable())
+    {
+        const FVector3& PanelPos = CitizenInfoPanelWidget->GetPos();
+        const FVector3& PanelSize = CitizenInfoPanelWidget->GetSize();
+
+        const bool InsideCitizenPanel =
+            MouseScreenPos.x >= PanelPos.x &&
+            MouseScreenPos.x <= PanelPos.x + PanelSize.x &&
+            MouseScreenPos.y >= PanelPos.y &&
+            MouseScreenPos.y <= PanelPos.y + PanelSize.y;
+
+        if (InsideCitizenPanel)
+            return;
+    }
+
     auto ActivePlacementObject = mActivePlacementObject.lock();
 
     if (ActivePlacementObject &&

@@ -87,6 +87,9 @@ private:
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
+    int mResourceStock = 0;
+    float mResourceProductionAccum = 0.f;
+    static constexpr int GMaxResourceStock = 100;
 
 public:
     void SetTileMapObject(
@@ -226,6 +229,31 @@ public:
         case 5: return 1.30f;
         default: return 1.00f;
         }
+    }
+
+    int GetResourceStock() const { return mResourceStock; }
+
+    // AtWork 시민이 매 프레임 호출 - float 누적 후 int 단위로 재고에 추가
+    void AddProduction(float UnitsPerSec, float DeltaTime)
+    {
+        mResourceProductionAccum += UnitsPerSec * DeltaTime;
+        const int Whole = static_cast<int>(mResourceProductionAccum);
+        if (Whole > 0)
+        {
+            mResourceProductionAccum -= static_cast<float>(Whole);
+            mResourceStock = (std::min)(GMaxResourceStock, mResourceStock + Whole);
+        }
+    }
+
+    // AtFood 진입 시 호출 - 재고 1단위 소비 시도, 성공하면 true
+    bool TryConsumeResource(int Amount = 1)
+    {
+        if (mResourceStock >= Amount)
+        {
+            mResourceStock -= Amount;
+            return true;
+        }
+        return false;
     }
 
     bool HasPlacedArea() const

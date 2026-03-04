@@ -678,6 +678,9 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         }
         else if (mCitizenState == ECitizenState::GoingToFood)
         {
+            // 실제 도착한 건물명을 우선 고정한다.
+            // (주기 재배정으로 mFoodName이 바뀌어도 이번 방문은 유지)
+            mFoodVisitBuildingName = mCurrentTargetName;
             TransitionFsm(ECitizenState::AtFood);
         }
         else if (mCitizenState == ECitizenState::GoingToFun)
@@ -836,8 +839,11 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         mHomeName, &CPlacementAreaObject::GetHousingSatisfactionCap);
     const float WorkJobCap = ResolveBuildingCap(
         mWorkName, &CPlacementAreaObject::GetJobSatisfactionCap);
+    const std::string& FoodCapBuildingName = mFoodVisitBuildingName.empty() ?
+        mFoodName :
+        mFoodVisitBuildingName;
     const float FoodCap = ResolveBuildingCap(
-        mFoodName, &CPlacementAreaObject::GetFoodSatisfactionCap);
+        FoodCapBuildingName, &CPlacementAreaObject::GetFoodSatisfactionCap);
     const float FunCap = ResolveBuildingCap(
         mFunName, &CPlacementAreaObject::GetFunSatisfactionCap);
 
@@ -868,6 +874,14 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     {
     case ECitizenState::AtWork:
         RecoverUnderCap(mSatisfaction.Job, 10.f, WorkJobCap);
+        // 직장 건물 재고 생산 (2 units/sec)
+        if (World && !mWorkName.empty())
+        {
+            auto WorkBuilding =
+                World->FindObject<CPlacementAreaObject>(mWorkName).lock();
+            if (WorkBuilding)
+                WorkBuilding->AddProduction(2.f, DeltaTime);
+        }
         break;
     case ECitizenState::AtHome:
         RecoverUnderCap(mSatisfaction.Housing, 8.f, HomeHousingCap);
@@ -875,7 +889,21 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             100.f, mSatisfaction.Health + 1.f * DeltaTime);
         break;
     case ECitizenState::AtFood:
-        RecoverUnderCap(mSatisfaction.Food, 30.f, FoodCap);
+        if (!mFoodStockAvailableThisVisit &&
+            World && !mFoodVisitBuildingName.empty())
+        {
+            auto FoodBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mFoodVisitBuildingName).lock();
+
+            if (FoodBuilding)
+                mFoodStockAvailableThisVisit =
+                    FoodBuilding->TryConsumeResource(1);
+        }
+
+        // 재고가 있었을 때만 음식 만족도 회복
+        if (mFoodStockAvailableThisVisit)
+            RecoverUnderCap(mSatisfaction.Food, 30.f, FoodCap);
         mSatisfaction.Health = (std::min)(
             100.f, mSatisfaction.Health + 3.f * DeltaTime);
         break;
@@ -1234,7 +1262,7 @@ void CBuildingMarkerOrb::UpdateScaleFromTileSize()
 
     mOrbDiameter = Diameter;
 
-    mArrivalDistance = Diameter * 0.75f;
+    mArrivalDistance = Diameter * 2.5f;
 
     if (mArrivalDistance < 4.f)
         mArrivalDistance = 4.f;
@@ -1455,34 +1483,56 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
     switch (NewState)
     {
     case ECitizenState::GoingToWork:
+        mFoodVisitBuildingName.clear();
         mCurrentTargetName = mWorkName;
         break;
     case ECitizenState::AtWork:
+        mFoodVisitBuildingName.clear();
         mDwellTimer = GAtWorkDuration;
         mCurrentTargetName.clear();
         break;
     case ECitizenState::GoingHome:
+        mFoodVisitBuildingName.clear();
         mCurrentTargetName = mHomeName;
         break;
     case ECitizenState::AtHome:
+        mFoodVisitBuildingName.clear();
         mDwellTimer = GAtHomeDuration;
         mCurrentTargetName.clear();
         break;
     case ECitizenState::GoingToFood:
+        mFoodVisitBuildingName.clear();
         mCurrentTargetName = mFoodName;
         break;
     case ECitizenState::AtFood:
         mDwellTimer = GAtFoodDuration;
         mCurrentTargetName.clear();
+        if (mFoodVisitBuildingName.empty())
+            mFoodVisitBuildingName = mFoodName;
+        mFoodStockAvailableThisVisit = false;
+        {
+            auto FoodWorld = mWorld.lock();
+            if (FoodWorld && !mFoodVisitBuildingName.empty())
+            {
+                auto FoodBuilding =
+                    FoodWorld->FindObject<CPlacementAreaObject>(
+                        mFoodVisitBuildingName).lock();
+                if (FoodBuilding)
+                    mFoodStockAvailableThisVisit = FoodBuilding->TryConsumeResource(1);
+            }
+        }
         break;
     case ECitizenState::GoingToFun:
+        mFoodVisitBuildingName.clear();
         mCurrentTargetName = mFunName;
         break;
     case ECitizenState::AtFun:
+        mFoodVisitBuildingName.clear();
         mDwellTimer = GAtFunDuration;
         mCurrentTargetName.clear();
         break;
     default:
+        mFoodVisitBuildingName.clear();
         mCurrentTargetName.clear();
         break;
     }
@@ -1578,6 +1628,11 @@ void CBuildingMarkerOrb::RemoveTargetBuildingName(
     if (mHomeName == BuildingName) { mHomeName.clear(); }
     if (mWorkName == BuildingName) { mWorkName.clear(); }
     if (mFoodName == BuildingName) { mFoodName.clear(); }
+    if (mFoodVisitBuildingName == BuildingName)
+    {
+        mFoodVisitBuildingName.clear();
+        mFoodStockAvailableThisVisit = false;
+    }
     if (mFunName == BuildingName) { mFunName.clear(); }
     if ((mHomeName.empty() || mWorkName.empty() || mFoodName.empty()) &&
         mCitizenState != ECitizenState::Wander)

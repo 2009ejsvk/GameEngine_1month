@@ -338,6 +338,7 @@ void CCitizenInfoWidget::SetPanelScreenPos(const FVector2& ScreenPos)
     mPanelHeight = (float)Resolution.Height;
 
     SetPos((float)Resolution.Width - mPanelWidth, 0.f);
+    SetSize(mPanelWidth, mPanelHeight);
 
     auto PanelImage = mPanelImage.lock();
     if (PanelImage)
@@ -458,32 +459,205 @@ void CCitizenInfoWidget::RefreshBuildingInfo()
             continue;
 
         ConfigureBudgetButtonStyle(Button, BudgetLevel == i + 1);
-        Button->ButtonEnable(true);
     }
 
-    wchar_t Body[1024] = {};
+    std::wstring Body = L"카테고리: " + WideCategoryName +
+        L"\n건물 종류: " + WideDisplayName + L"\n";
+
+    if (Building->IsResidential())
+        Body += L"거주 가능 인원: " + std::to_wstring(SafeCapacity) + L"명";
+    else
+        Body += L"근무 가능 인원: " + std::to_wstring(SafeCapacity) + L"명";
+
+    const bool FoodProvider = Building->IsFoodProvider();
+    const bool EntertainmentProvider =
+        Building->IsEntertainmentProvider();
+    const bool WorkProvider = !Building->IsResidential() &&
+        (!EntertainmentProvider || FoodProvider);
+    const bool UsesResourceStock = WorkProvider || FoodProvider;
+
+    if (UsesResourceStock)
+    {
+        Body += L"\nResource stock: " +
+            std::to_wstring(Building->GetResourceStock()) +
+            L"/100";
+    }
+
+    auto SummarizeNames = [&](const std::vector<std::string>& Names)
+        -> std::wstring
+    {
+        if (Names.empty())
+            return L"-";
+
+        constexpr size_t GMaxShownNames = 8;
+        const size_t CountToShow = (std::min)(Names.size(), GMaxShownNames);
+        std::wstring Summary;
+
+        for (size_t i = 0; i < CountToShow; ++i)
+        {
+            if (i > 0)
+                Summary += L", ";
+
+            Summary += Utf8ToWide(Names[i]);
+        }
+
+        if (Names.size() > GMaxShownNames)
+        {
+            Summary += L" (+";
+            Summary += std::to_wstring(Names.size() - GMaxShownNames);
+            Summary += L" more)";
+        }
+
+        return Summary;
+    };
+
+    std::vector<std::string> AssignedEmployees;
+    std::vector<std::string> WorkingEmployees;
+    std::vector<std::string> ArrivedGuests;
+    std::vector<std::string> IncomingGuests;
+    std::vector<std::string> ListedGuests;
+    std::vector<std::string> ConsumingGuests;
+    std::vector<std::string> WaitingGuests;
+    const std::string BuildingName = Building->GetName();
+
+    if (WorkProvider || FoodProvider)
+    {
+        std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+        if (World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+        {
+            for (size_t i = 0; i < OrbList.size(); ++i)
+            {
+                auto Orb = OrbList[i].lock();
+
+                if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+                    continue;
+
+                const std::string& OrbName = Orb->GetName();
+
+                if (WorkProvider && Orb->GetWorkBuilding() == BuildingName)
+                {
+                    AssignedEmployees.push_back(OrbName);
+
+                    if (Orb->GetCitizenState() == ECitizenState::AtWork)
+                        WorkingEmployees.push_back(OrbName);
+                }
+
+                if (FoodProvider)
+                {
+                    const ECitizenState OrbState = Orb->GetCitizenState();
+
+                    if (OrbState == ECitizenState::AtFood)
+                    {
+                        const std::string& VisitFoodBuilding =
+                            Orb->GetFoodVisitBuilding();
+                        const bool IsVisitBuildingMatched =
+                            VisitFoodBuilding == BuildingName ||
+                            (VisitFoodBuilding.empty() &&
+                                Orb->GetFoodBuilding() == BuildingName);
+
+                        if (IsVisitBuildingMatched)
+                        {
+                            ArrivedGuests.push_back(OrbName);
+                            ListedGuests.push_back(OrbName);
+
+                            if (Orb->IsConsumingFoodThisVisit())
+                                ConsumingGuests.push_back(OrbName);
+                            else
+                                WaitingGuests.push_back(OrbName);
+                        }
+                    }
+                    else if (OrbState == ECitizenState::GoingToFood &&
+                        Orb->GetFoodBuilding() == BuildingName)
+                    {
+                        FVector3 MarkerPos = FVector3::Zero;
+
+                        if (Building->GetClosestMarkerWorldPos(
+                            Orb->GetWorldPos(), MarkerPos))
+                        {
+                            FVector3 OrbPos = Orb->GetWorldPos();
+                            OrbPos.z = MarkerPos.z;
+
+                            const float NearDistance =
+                                (std::max)(8.f,
+                                    Orb->GetArrivalDistance() * 2.f);
+
+                            if (OrbPos.Distance(MarkerPos) <= NearDistance)
+                            {
+                                IncomingGuests.push_back(OrbName);
+                                ListedGuests.push_back(OrbName);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        std::sort(AssignedEmployees.begin(), AssignedEmployees.end());
+        std::sort(WorkingEmployees.begin(), WorkingEmployees.end());
+        std::sort(ArrivedGuests.begin(), ArrivedGuests.end());
+        std::sort(IncomingGuests.begin(), IncomingGuests.end());
+        std::sort(ListedGuests.begin(), ListedGuests.end());
+        std::sort(ConsumingGuests.begin(), ConsumingGuests.end());
+        std::sort(WaitingGuests.begin(), WaitingGuests.end());
+    }
+
+    if (WorkProvider)
+    {
+        Body += L"\nEmployees: " + std::to_wstring(AssignedEmployees.size()) +
+            L"/" + std::to_wstring((std::max)(0, SafeCapacity));
+        Body += L"\nAssigned: " + SummarizeNames(AssignedEmployees);
+        Body += L"\nWorking now: " + SummarizeNames(WorkingEmployees);
+    }
+
+    if (FoodProvider)
+    {
+        Body += L"\nGuests at building: " + std::to_wstring(ArrivedGuests.size());
+        Body += L"\nIncoming(near): " + SummarizeNames(IncomingGuests);
+        Body += L"\nGuest list: " + SummarizeNames(ListedGuests);
+        Body += L"\nConsuming food: " + SummarizeNames(ConsumingGuests);
+        Body += L"\nWaiting(no stock): " + SummarizeNames(WaitingGuests);
+    }
+
+    std::vector<std::wstring> CapLines;
 
     if (Building->IsResidential())
     {
-        swprintf_s(Body,
-            L"카테고리: %s\n건물 종류: %s\n거주 가능 인원: %d명\n\n"
-            L"주거 만족도 상한: %d\n직업 만족도 상한: %d\n"
-            L"음식 만족도 상한: %d\n유흥 만족도 상한: %d",
-            WideCategoryName.c_str(),
-            WideDisplayName.c_str(),
-            SafeCapacity,
-            HousingCap, JobCap, FoodCap, FunCap);
+        CapLines.push_back(
+            L"주거 만족도 상한: " + std::to_wstring(HousingCap));
     }
     else
     {
-        swprintf_s(Body,
-            L"카테고리: %s\n건물 종류: %s\n근무 가능 인원: %d명\n\n"
-            L"주거 만족도 상한: %d\n직업 만족도 상한: %d\n"
-            L"음식 만족도 상한: %d\n유흥 만족도 상한: %d",
-            WideCategoryName.c_str(),
-            WideDisplayName.c_str(),
-            SafeCapacity,
-            HousingCap, JobCap, FoodCap, FunCap);
+        if (WorkProvider)
+        {
+            CapLines.push_back(
+                L"직업 만족도 상한: " + std::to_wstring(JobCap));
+        }
+
+        if (FoodProvider)
+        {
+            CapLines.push_back(
+                L"음식 만족도 상한: " + std::to_wstring(FoodCap));
+        }
+
+        if (EntertainmentProvider)
+        {
+            CapLines.push_back(
+                L"유흥 만족도 상한: " + std::to_wstring(FunCap));
+        }
+    }
+
+    if (!CapLines.empty())
+    {
+        Body += L"\n\n";
+
+        for (size_t i = 0; i < CapLines.size(); ++i)
+        {
+            if (i > 0)
+                Body += L"\n";
+
+            Body += CapLines[i];
+        }
     }
 
     SetTitle(L"Building: " + WideObjectName);
