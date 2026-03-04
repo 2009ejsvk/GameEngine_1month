@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -76,6 +78,11 @@ private:
     bool mResidential = false;
     bool mFoodProvider = false;
     bool mEntertainmentProvider = false;
+    int mHousingSatisfactionCap = 100;
+    int mJobSatisfactionCap = 100;
+    int mFoodSatisfactionCap = 100;
+    int mFunSatisfactionCap = 100;
+    int mBudgetLevel = 3;
     int mCapacity = 0;
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
@@ -123,14 +130,28 @@ public:
         bool Residential,
         int Capacity,
         bool FoodProvider = false,
-        bool EntertainmentProvider = false)
+        bool EntertainmentProvider = false,
+        int HousingSatisfactionCap = 100,
+        int JobSatisfactionCap = 100,
+        int FoodSatisfactionCap = 100,
+        int FunSatisfactionCap = 100)
     {
+        auto ClampTo100 = [](int Value)
+        {
+            return (std::max)(0, (std::min)(100, Value));
+        };
+
         mBuildingDisplayName = DisplayName;
         mBuildingCategoryName = CategoryName;
         mResidential = Residential;
         mCapacity = Capacity;
         mFoodProvider = FoodProvider;
         mEntertainmentProvider = EntertainmentProvider;
+        mHousingSatisfactionCap = ClampTo100(HousingSatisfactionCap);
+        mJobSatisfactionCap = ClampTo100(JobSatisfactionCap);
+        mFoodSatisfactionCap = ClampTo100(FoodSatisfactionCap);
+        mFunSatisfactionCap = ClampTo100(FunSatisfactionCap);
+        mBudgetLevel = 3;
     }
 
     const std::string& GetBuildingDisplayName() const
@@ -163,6 +184,48 @@ public:
     int GetCapacity() const
     {
         return mCapacity;
+    }
+
+    int GetHousingSatisfactionCap() const
+    {
+        return ApplyBudgetScale(mHousingSatisfactionCap);
+    }
+
+    int GetJobSatisfactionCap() const
+    {
+        return ApplyBudgetScale(mJobSatisfactionCap);
+    }
+
+    int GetFoodSatisfactionCap() const
+    {
+        return ApplyBudgetScale(mFoodSatisfactionCap);
+    }
+
+    int GetFunSatisfactionCap() const
+    {
+        return ApplyBudgetScale(mFunSatisfactionCap);
+    }
+
+    int GetBudgetLevel() const
+    {
+        return mBudgetLevel;
+    }
+
+    void SetBudgetLevel(int Level)
+    {
+        mBudgetLevel = (std::max)(1, (std::min)(5, Level));
+    }
+
+    float GetBudgetSatisfactionScale() const
+    {
+        switch (mBudgetLevel)
+        {
+        case 1: return 0.70f;
+        case 2: return 0.85f;
+        case 4: return 1.15f;
+        case 5: return 1.30f;
+        default: return 1.00f;
+        }
     }
 
     bool HasPlacedArea() const
@@ -248,4 +311,11 @@ private:
     int GetIsoNeighborIndexByDir(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int TileIndex, int DirIndex) const;
+    int ApplyBudgetScale(int BaseCap) const
+    {
+        const float Scaled =
+            BaseCap * GetBudgetSatisfactionScale();
+        const int Rounded = static_cast<int>(roundf(Scaled));
+        return (std::max)(0, (std::min)(100, Rounded));
+    }
 };

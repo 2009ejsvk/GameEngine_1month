@@ -51,6 +51,10 @@ public:
         int Capacity,
         bool FoodProvider,
         bool EntertainmentProvider,
+        int HousingSatisfactionCap,
+        int JobSatisfactionCap,
+        int FoodSatisfactionCap,
+        int FunSatisfactionCap,
         EPlacementTemplateType TemplateType,
         EPlacementBuildingKind BuildingKind);
 

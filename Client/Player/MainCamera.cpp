@@ -169,6 +169,10 @@ bool CMainCamera::BeginBuildPlacement(
     int Capacity,
     bool FoodProvider,
     bool EntertainmentProvider,
+    int HousingSatisfactionCap,
+    int JobSatisfactionCap,
+    int FoodSatisfactionCap,
+    int FunSatisfactionCap,
     EPlacementTemplateType TemplateType,
     EPlacementBuildingKind BuildingKind)
 {
@@ -228,7 +232,11 @@ bool CMainCamera::BeginBuildPlacement(
         Residential,
         Capacity,
         FoodProvider,
-        EntertainmentProvider);
+        EntertainmentProvider,
+        HousingSatisfactionCap,
+        JobSatisfactionCap,
+        FoodSatisfactionCap,
+        FunSatisfactionCap);
     PlacementObject->SetBuildingKind(BuildingKind);
     PlacementObject->SetPlacementTemplateType(TemplateType);
 
@@ -531,6 +539,33 @@ std::shared_ptr<CBuildingMarkerOrb> CMainCamera::PickCitizenOrb(
         return std::shared_ptr<CBuildingMarkerOrb>();
     }
 
+    const FResolution& Resolution = CDevice::GetInst()->GetResolution();
+    float ViewWidth = static_cast<float>(Resolution.Width);
+    float ViewHeight = static_cast<float>(Resolution.Height);
+
+    auto CameraManager = World->GetCameraManager().lock();
+
+    if (CameraManager)
+    {
+        auto MainCamera = CameraManager->GetMainCamera().lock();
+
+        if (MainCamera &&
+            MainCamera->GetProjectionType() ==
+            ECameraProjectionType::Ortho)
+        {
+            ViewWidth = MainCamera->GetViewWidth();
+            ViewHeight = MainCamera->GetViewHeight();
+        }
+    }
+
+    const float WorldPerPixelX = ViewWidth /
+        (std::max)(1.f, static_cast<float>(Resolution.Width));
+    const float WorldPerPixelY = ViewHeight /
+        (std::max)(1.f, static_cast<float>(Resolution.Height));
+    const float SafeWorldPerPixel =
+        (std::max)(WorldPerPixelX, WorldPerPixelY);
+    constexpr float MinPickRadiusPixels = 14.f;
+
     std::shared_ptr<CBuildingMarkerOrb> BestOrb;
     float BestDistSq = FLT_MAX;
 
@@ -544,17 +579,27 @@ std::shared_ptr<CBuildingMarkerOrb> CMainCamera::PickCitizenOrb(
         FVector3 OrbPos = Orb->GetWorldPos();
         const float dx = OrbPos.x - MouseWorldPos.x;
         const float dy = OrbPos.y - MouseWorldPos.y;
-        const float DistSq = dx * dx + dy * dy;
-        const float Radius = (std::max)(6.f, Orb->GetOrbDiameter() * 0.5f);
-        const float RadiusSq = Radius * Radius;
+        const float DistPxSq =
+            (dx * dx) /
+            ((std::max)(0.0001f, WorldPerPixelX * WorldPerPixelX)) +
+            (dy * dy) /
+            ((std::max)(0.0001f, WorldPerPixelY * WorldPerPixelY));
 
-        if (DistSq > RadiusSq)
+        const float BaseWorldRadius =
+            (std::max)(6.f, Orb->GetOrbDiameter() * 0.5f);
+        const float BaseRadiusPixels =
+            BaseWorldRadius / (std::max)(0.0001f, SafeWorldPerPixel);
+        const float PickRadiusPixels = (std::max)(
+            MinPickRadiusPixels, BaseRadiusPixels);
+        const float PickRadiusPxSq = PickRadiusPixels * PickRadiusPixels;
+
+        if (DistPxSq > PickRadiusPxSq)
             continue;
 
-        if (!BestOrb || DistSq < BestDistSq)
+        if (!BestOrb || DistPxSq < BestDistSq)
         {
             BestOrb = Orb;
-            BestDistSq = DistSq;
+            BestDistSq = DistPxSq;
         }
     }
 

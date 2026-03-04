@@ -710,6 +710,10 @@ void CBuildMenuWidget::StartPlacementBySlot(int SlotIndex)
         Entry.Capacity,
         Entry.FoodProvider,
         Entry.EntertainmentProvider,
+        Entry.HousingSatisfactionCap,
+        Entry.JobSatisfactionCap,
+        Entry.FoodSatisfactionCap,
+        Entry.FunSatisfactionCap,
         Entry.TemplateType,
         Entry.BuildingKind);
 
@@ -846,6 +850,38 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
             L"경기장"
         };
 
+        static const int HousingCaps[] =
+        {
+            10, // 판잣집
+            20, // 시골 주택
+            30, // 합숙소
+            75, // 저택
+            50, // 단독주택
+            25, // 간이 숙박소
+            60, // 아파트
+            40, // 서민 아파트
+            45, // 공동주택
+            70, // 현대식 아파트
+            85, // 현대식 저택
+            90  // 보안 저택
+        };
+
+        static const int EntertainmentFunCaps[] =
+        {
+            45, // 주점
+            70, // 서커스
+            40, // 버스커
+            55, // 식물원
+            68, // 유원지 부두
+            60, // 레스토랑
+            58, // 오락실
+            52, // 패스트푸드 체인점
+            65, // 영화관
+            72, // 아쿠아 파크
+            78, // 롤러코스터
+            80  // 경기장
+        };
+
         std::vector<FBuildCatalogEntry> Entries;
 
         auto AppendCategory = [&](
@@ -882,11 +918,57 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
                     Entry.Capacity = 15 + (i % 6) * 6 + (i / 6) * 3;
                 }
 
+                Entry.HousingSatisfactionCap = 100;
+                Entry.JobSatisfactionCap = 100;
+                Entry.FoodSatisfactionCap = 100;
+                Entry.FunSatisfactionCap = 100;
+
+                if (CategoryIndex == 0)
+                {
+                    Entry.JobSatisfactionCap = (std::min)(
+                        85, 45 + (i % 7) * 5 + (i / 7) * 3);
+                }
+                else if (CategoryIndex == 1)
+                {
+                    Entry.FoodSatisfactionCap = (std::min)(
+                        82, 35 + (i % 7) * 6 + (i / 7) * 4);
+                    Entry.JobSatisfactionCap = (std::min)(
+                        70, 40 + (i % 5) * 5 + (i / 5) * 2);
+                }
+                else if (CategoryIndex == 2)
+                {
+                    Entry.JobSatisfactionCap = (std::min)(
+                        90, 50 + (i % 8) * 5 + (i / 8) * 4);
+                }
+                else if (CategoryIndex == 3)
+                {
+                    if (i >= 0 && i < static_cast<int>(
+                        sizeof(HousingCaps) / sizeof(HousingCaps[0])))
+                    {
+                        Entry.HousingSatisfactionCap = HousingCaps[i];
+                    }
+                }
+                else if (CategoryIndex == 4)
+                {
+                    if (i >= 0 && i < static_cast<int>(
+                        sizeof(EntertainmentFunCaps) /
+                        sizeof(EntertainmentFunCaps[0])))
+                    {
+                        Entry.FunSatisfactionCap =
+                            EntertainmentFunCaps[i];
+                    }
+                }
+
                 if (CategoryIndex == 4 &&
                     (Entry.DisplayName == L"레스토랑" ||
                         Entry.DisplayName == L"패스트푸드 체인점"))
                 {
                     Entry.FoodProvider = true;
+
+                    if (Entry.DisplayName == L"레스토랑")
+                        Entry.FoodSatisfactionCap = 65;
+                    else
+                        Entry.FoodSatisfactionCap = 55;
                 }
 
                 Entries.push_back(Entry);

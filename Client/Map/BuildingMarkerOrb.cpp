@@ -814,9 +814,44 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
 void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 {
+    auto World = mWorld.lock();
+
+    auto ResolveBuildingCap = [&](
+        const std::string& BuildingName,
+        int (CPlacementAreaObject::*Getter)() const) -> float
+    {
+        if (!World || BuildingName.empty())
+            return 100.f;
+
+        auto Building = World->FindObject<CPlacementAreaObject>(
+            BuildingName).lock();
+
+        if (!Building || !Building->GetAlive())
+            return 100.f;
+
+        return static_cast<float>((Building.get()->*Getter)());
+    };
+
+    const float HomeHousingCap = ResolveBuildingCap(
+        mHomeName, &CPlacementAreaObject::GetHousingSatisfactionCap);
+    const float WorkJobCap = ResolveBuildingCap(
+        mWorkName, &CPlacementAreaObject::GetJobSatisfactionCap);
+    const float FoodCap = ResolveBuildingCap(
+        mFoodName, &CPlacementAreaObject::GetFoodSatisfactionCap);
+    const float FunCap = ResolveBuildingCap(
+        mFunName, &CPlacementAreaObject::GetFunSatisfactionCap);
+
+    auto RecoverUnderCap = [&](float& Value, float GainPerSec, float Cap)
+    {
+        if (Value >= Cap)
+            return;
+
+        Value = (std::min)(Cap, Value + GainPerSec * DeltaTime);
+    };
+
     // 욕구 자연 감소
     mSatisfaction.Food = (std::max)(
-        0.f, mSatisfaction.Food - 2.2f * DeltaTime);
+        0.f, mSatisfaction.Food - 1.2f * DeltaTime);
     mSatisfaction.Job = (std::max)(
         0.f, mSatisfaction.Job - 1.0f * DeltaTime);
     mSatisfaction.Housing = (std::max)(
@@ -832,24 +867,20 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     switch (mCitizenState)
     {
     case ECitizenState::AtWork:
-        mSatisfaction.Job = (std::min)(
-            100.f, mSatisfaction.Job + 10.f * DeltaTime);
+        RecoverUnderCap(mSatisfaction.Job, 10.f, WorkJobCap);
         break;
     case ECitizenState::AtHome:
-        mSatisfaction.Housing = (std::min)(
-            100.f, mSatisfaction.Housing + 8.f * DeltaTime);
+        RecoverUnderCap(mSatisfaction.Housing, 8.f, HomeHousingCap);
         mSatisfaction.Health = (std::min)(
             100.f, mSatisfaction.Health + 1.f * DeltaTime);
         break;
     case ECitizenState::AtFood:
-        mSatisfaction.Food = (std::min)(
-            100.f, mSatisfaction.Food + 30.f * DeltaTime);
+        RecoverUnderCap(mSatisfaction.Food, 30.f, FoodCap);
         mSatisfaction.Health = (std::min)(
             100.f, mSatisfaction.Health + 3.f * DeltaTime);
         break;
     case ECitizenState::AtFun:
-        mSatisfaction.Fun = (std::min)(
-            100.f, mSatisfaction.Fun + 26.f * DeltaTime);
+        RecoverUnderCap(mSatisfaction.Fun, 26.f, FunCap);
         break;
     default:
         break;

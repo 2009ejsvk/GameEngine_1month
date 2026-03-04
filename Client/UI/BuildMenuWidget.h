@@ -25,6 +25,10 @@ private:
         bool Residential = false;
         bool FoodProvider = false;
         bool EntertainmentProvider = false;
+        int HousingSatisfactionCap = 100;
+        int JobSatisfactionCap = 100;
+        int FoodSatisfactionCap = 100;
+        int FunSatisfactionCap = 100;
         int Capacity = 0;
         int CategoryIndex = 0;
         EPlacementTemplateType TemplateType;

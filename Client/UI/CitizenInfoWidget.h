@@ -2,6 +2,7 @@
 
 #include "UI/WidgetContainer.h"
 #include <string>
+#include <vector>
 
 struct FNpcSatisfaction;
 
@@ -20,6 +21,11 @@ private:
     std::weak_ptr<class CImage> mPanelImage;
     std::weak_ptr<class CTextBlock> mTitleText;
     std::weak_ptr<class CTextBlock> mBodyText;
+    std::string mTrackedCitizenName;
+    std::string mTrackedBuildingName;
+    std::weak_ptr<class CTextBlock> mBudgetText;
+    std::vector<std::weak_ptr<class CButton>> mBudgetButtons;
+    std::vector<std::weak_ptr<class CTextBlock>> mBudgetButtonTexts;
     float mPanelWidth = 260.f;
     float mPanelHeight = 120.f;
 
@@ -46,4 +52,12 @@ private:
     void SetCitizenSatisfaction(const FNpcSatisfaction& Satisfaction);
     void SetBodyText(const std::wstring& Text);
     void SetPanelScreenPos(const FVector2& ScreenPos);
+    void SetBudgetControlsVisible(bool Visible);
+    void RefreshBuildingInfo();
+    void SetBuildingBudgetLevel(int Level);
+    void OnBudgetLevel1Click();
+    void OnBudgetLevel2Click();
+    void OnBudgetLevel3Click();
+    void OnBudgetLevel4Click();
+    void OnBudgetLevel5Click();
 };
