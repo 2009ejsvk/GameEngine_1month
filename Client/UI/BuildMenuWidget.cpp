@@ -1,4 +1,4 @@
-#include "BuildMenuWidget.h"
+﻿#include "BuildMenuWidget.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Player/MainCamera.h"
@@ -47,6 +47,35 @@ namespace
         "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_standard.png");
     constexpr const TCHAR* GCategoryTabBackgroundTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\IconBackground\\T_icon_background.png");
+
+    EPlacementTemplateType ResolveTemplateTypeByBuildingId(
+        const std::string& BuildingId)
+    {
+        // 건물별 배치 크기/형태를 한 곳에서 관리하기 위한 룰 테이블.
+        // 필요한 건물 ID를 여기에 추가하면 된다.
+        struct FTemplateRule
+        {
+            const char* BuildingId;
+            EPlacementTemplateType TemplateType;
+        };
+
+        static const std::vector<FTemplateRule> GRules =
+        {
+            // 예시:
+            // { "build_1_3", EPlacementTemplateType::Diamond5x5TwoMarker },
+            // { "build_4_3", EPlacementTemplateType::Diamond5x5FourMarker },
+            // { "build_7_5", EPlacementTemplateType::Diamond7x7ThreeMarker },
+        };
+
+        for (const FTemplateRule& Rule : GRules)
+        {
+            if (BuildingId == Rule.BuildingId)
+                return Rule.TemplateType;
+        }
+
+        // 룰이 없으면 기존과 동일하게 3x3 템플릿 사용.
+        return EPlacementTemplateType::Diamond3x3SingleMarker;
+    }
 
     const TCHAR* const GTopHudSpeedIcons[TopHudSpeedButtonCount] =
     {
@@ -3866,7 +3895,7 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
                 Entry.CategoryIndex = CategoryIndex;
                 Entry.CategoryLocalIndex = i;
                 Entry.TemplateType =
-                    EPlacementTemplateType::Diamond3x3SingleMarker;
+                    ResolveTemplateTypeByBuildingId(Entry.Id);
                 Entry.BuildingKind =
                     (Residential || (i % 2 == 0)) ?
                     EPlacementBuildingKind::BuildingA :

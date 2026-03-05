@@ -512,7 +512,7 @@ bool CMainWorld::Init()
 			CatalogData.FunSatisfactionCap);
 		BuildingObj->SetBuildingKind(CatalogData.BuildingKind);
 		BuildingObj->SetPlacementTemplateType(
-			EPlacementTemplateType::Diamond3x3SingleMarker);
+			CatalogData.TemplateType);
 
 		auto Visual = CreateGameObject<CBuildingVisual>(
 			ObjectName + "_Visual");
