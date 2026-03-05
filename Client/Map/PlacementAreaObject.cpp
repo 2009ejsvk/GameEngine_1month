@@ -325,6 +325,24 @@ void CPlacementAreaObject::StartMovePreview(
     UpdatePlacementPreviewFromMouse(MouseWorldPos);
 }
 
+void CPlacementAreaObject::RotatePreviewCW(
+    const FVector2& MouseWorldPos)
+{
+    mPreviewDirection = (mPreviewDirection + 1) % 4;
+
+    if (mMovePreviewActive)
+        UpdatePlacementPreviewFromMouse(MouseWorldPos);
+}
+
+void CPlacementAreaObject::RotatePreviewCCW(
+    const FVector2& MouseWorldPos)
+{
+    mPreviewDirection = (mPreviewDirection + 3) % 4;
+
+    if (mMovePreviewActive)
+        UpdatePlacementPreviewFromMouse(MouseWorldPos);
+}
+
 void CPlacementAreaObject::ConfirmPlacement()
 {
     EnsurePlacementObject();
@@ -531,6 +549,7 @@ FPlacementTemplate CPlacementAreaObject::CreateTemplateByType(
     FPlacementTemplate Template;
     Template.Type = Type;
     Template.AreaColor = FVector4::Blue;
+    Template.HasDirectionalGap = false;
 
     switch (Type)
     {
@@ -559,6 +578,7 @@ FPlacementTemplate CPlacementAreaObject::CreateTemplateByType(
     default:
         Template.DiamondRadius = 1;
         Template.MarkerAnchors.push_back({ 0.5f, 0.5f });
+        Template.HasDirectionalGap = true;
         break;
     }
 
@@ -589,6 +609,7 @@ void CPlacementAreaObject::ResetPlacementState()
     mMovePreviewActive = false;
     mPlacedCenterIndex = -1;
     mPreviewCenterIndex = -1;
+    mPreviewDirection = 0;
     mMarkerTileIndices.clear();
 }
 
@@ -742,6 +763,16 @@ void CPlacementAreaObject::UpdatePlacementPreviewFromMouse(
         FVector4::Green : FVector4::Red;
 
     SetAreaColor(TileMap, mPreviewIndices, PreviewColor);
+
+    // 프리뷰에서도 중앙 타일은 노란색(O)으로 표시한다.
+    if (std::find(mPreviewIndices.begin(), mPreviewIndices.end(),
+        mPreviewCenterIndex) != mPreviewIndices.end())
+    {
+        auto CenterTile = TileMap->GetTile(mPreviewCenterIndex).lock();
+
+        if (CenterTile)
+            CenterTile->SetOutLineColor(1.f, 1.f, 0.f, 1.f);
+    }
 }
 
 void CPlacementAreaObject::ClearPreview()
@@ -927,7 +958,50 @@ bool CPlacementAreaObject::BuildDiamondAreaIndices(
         }
     }
 
+    if (mTemplate.HasDirectionalGap)
+    {
+        const int OpenTileIndex = FindPreviewOpenTileIndex(
+            TileMap, CenterIndex, OutIndices);
+
+        if (OpenTileIndex >= 0)
+        {
+            auto OpenIt = std::find(
+                OutIndices.begin(), OutIndices.end(), OpenTileIndex);
+
+            if (OpenIt != OutIndices.end())
+                OutIndices.erase(OpenIt);
+        }
+    }
+
     return !OutIndices.empty();
+}
+
+int CPlacementAreaObject::FindPreviewOpenTileIndex(
+    const std::shared_ptr<class CTileMapComponent>& TileMap,
+    int CenterIndex,
+    const std::vector<int>& CandidateIndices) const
+{
+    if (!TileMap || CandidateIndices.empty())
+        return -1;
+
+    // 0: 아래, 1: 오른쪽, 2: 위, 3: 왼쪽
+    static const FPlacementMarkerAnchor GOpenOffsets[4] =
+    {
+        { 0.f, 1.f },
+        { 1.f, 0.f },
+        { 0.f, -1.f },
+        { -1.f, 0.f }
+    };
+
+    const int Dir = (mPreviewDirection % 4 + 4) % 4;
+    const FPlacementMarkerAnchor& OpenOffset = GOpenOffsets[Dir];
+
+    return FindMarkerTileIndexByLogicalOffset(
+        TileMap,
+        CenterIndex,
+        CandidateIndices,
+        OpenOffset.LogicalOffsetX,
+        OpenOffset.LogicalOffsetY);
 }
 
 bool CPlacementAreaObject::IsAreaPlaceable(
@@ -1060,23 +1134,9 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
         return;
     }
 
-    for (size_t i = 0; i < mTemplate.MarkerAnchors.size(); ++i)
-    {
-        const FPlacementMarkerAnchor& Marker = mTemplate.MarkerAnchors[i];
-        const int MarkerIndex = FindMarkerTileIndexByLogicalOffset(
-            TileMap, mPlacedCenterIndex, mPrimaryPlacedIndices,
-            Marker.LogicalOffsetX, Marker.LogicalOffsetY);
-
-        if (MarkerIndex < 0 || !IsPlacedIndex(MarkerIndex))
-            continue;
-
-        if (std::find(mMarkerTileIndices.begin(),
-            mMarkerTileIndices.end(), MarkerIndex) ==
-            mMarkerTileIndices.end())
-        {
-            mMarkerTileIndices.push_back(MarkerIndex);
-        }
-    }
+    // 중앙 타일을 노란색 마커(O)로 고정한다.
+    if (IsPlacedIndex(mPlacedCenterIndex))
+        mMarkerTileIndices.push_back(mPlacedCenterIndex);
 
     if (mMarkerTileIndices.empty() &&
         !mPrimaryPlacedIndices.empty())

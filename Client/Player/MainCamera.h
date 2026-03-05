@@ -46,6 +46,7 @@ public:
     bool BeginBuildPlacement(
         const std::string& BuildingId,
         const std::string& BuildingDisplayName,
+        const std::string& BuildingSpriteTexturePath,
         const std::string& CategoryName,
         bool Residential,
         int Capacity,
@@ -63,6 +64,8 @@ private:
     void MoveDown();
     void MoveLeft();
     void MoveRight();
+    void RotateCurrentAreaCCW();
+    void RotateCurrentAreaCW();
     void MoveCurrentArea();
     void PlaceCurrentArea();
     void UpdateDemolitionHoverPreview();

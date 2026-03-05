@@ -120,11 +120,37 @@ bool CBuildingVisual::BindSpriteTexture(
 		return false;
 
 	const std::string& BuildingId = Building.GetBuildingId();
+	const std::string& ExplicitTexturePath =
+		Building.GetBuildingSpriteTexturePath();
 	const std::vector<std::string> Candidates =
 		BuildTextureCandidates(Building);
 	const std::string TexturePrefix =
 		"BuildingSprite_" +
 		(BuildingId.empty() ? "Unknown" : BuildingId) + "_";
+
+	if (!ExplicitTexturePath.empty())
+	{
+		const std::wstring WideTexturePath(
+			ExplicitTexturePath.begin(),
+			ExplicitTexturePath.end());
+		const std::string ExplicitTextureKey =
+			TexturePrefix + "explicit";
+
+		if (AssetMgr->LoadTexture(
+			ExplicitTextureKey, WideTexturePath.c_str(), "Texture"))
+		{
+			auto ExplicitTexture =
+				AssetMgr->FindTexture(ExplicitTextureKey);
+
+			if (!ExplicitTexture.expired() &&
+				Sprite->SetTexture(0, 0, ExplicitTexture))
+			{
+				mLoadedBuildingId = BuildingId;
+				mLoadedTextureFile = ExplicitTexturePath;
+				return true;
+			}
+		}
+	}
 
 	for (size_t i = 0; i < Candidates.size(); ++i)
 	{
@@ -154,6 +180,7 @@ bool CBuildingVisual::BindSpriteTexture(
 	}
 
 	mLoadedBuildingId = BuildingId;
+	mLoadedTextureFile.clear();
 	return false;
 }
 
@@ -220,6 +247,7 @@ void CBuildingVisual::SyncVisuals()
 
 	const FVector3 Center = Building->GetWorldPos();
 	const int Radius = Building->GetDiamondRadius();
+	const int Direction = Building->GetPlacementDirection();
 	const float FootprintTiles = Radius * 2.f + 1.f;
 	const float BaseScaleX = TileSize.x * FootprintTiles;
 	const float BaseScaleY = TileSize.y * FootprintTiles;
@@ -227,6 +255,7 @@ void CBuildingVisual::SyncVisuals()
 	const float SpriteScaleY = BaseScaleY * GSpriteScaleYMultiplier;
 	const float UpwardStretchOffsetY =
 		BaseScaleY * (GSpriteScaleYMultiplier - 1.f) * 0.5f;
+	const float SpriteRotationZ = -90.f * static_cast<float>(Direction);
 
 	SetWorldPos(Center.x, Center.y, Center.z);
 
@@ -234,6 +263,7 @@ void CBuildingVisual::SyncVisuals()
 		0.f,
 		BaseScaleY * GSpriteOffsetYMultiplier + UpwardStretchOffsetY,
 		0.f);
+	Sprite->SetRelativeRotation(0.f, 0.f, SpriteRotationZ);
 	Sprite->SetRelativeScale(SpriteScaleX, SpriteScaleY);
 	Sprite->SetRenderSortYBias(
 		BaseScaleY * GSpriteSortYBiasMultiplier);

@@ -110,7 +110,8 @@ bool CCitizenInfoWidget::Init()
         BodyText->SetSize(mPanelWidth - 40.f, mPanelHeight - 92.f);
         BodyText->SetText(TEXT(
             "Food: -\nHealth: -\nFun: -\nFaith: -\nHousing: -\n"
-            "Job: -\nFreedom: -\nSecurity: -\nOverall: -"));
+            "Job: -\nFreedom: -\nSecurity: -\nOverall: -\n\n"
+            "경제: - (-)\n신념: - (-)\n산업: - (-)\n사회: - (-)"));
         BodyText->SetFontSize(18.f);
         BodyText->SetAlignH(ETextAlignH::Left);
         BodyText->SetAlignV(ETextAlignV::Top);
@@ -207,7 +208,9 @@ void CCitizenInfoWidget::Update(float DeltaTime)
             return;
         }
 
-        SetCitizenSatisfaction(Citizen->GetSatisfaction());
+        SetCitizenSatisfaction(
+            Citizen->GetSatisfaction(),
+            Citizen->GetPoliticalProfile());
         return;
     }
 
@@ -234,7 +237,20 @@ void CCitizenInfoWidget::OpenCitizen(
     SetBudgetControlsVisible(false);
     std::wstring WideName(CitizenName.begin(), CitizenName.end());
     SetTitle(L"Citizen: " + WideName);
-    SetCitizenSatisfaction(Satisfaction);
+
+    FNpcPoliticalProfile PoliticalProfile;
+    auto World = mWorld.lock();
+
+    if (World)
+    {
+        auto Citizen = World->FindObject<CBuildingMarkerOrb>(
+            CitizenName).lock();
+
+        if (Citizen && Citizen->GetAlive() && Citizen->GetEnable())
+            PoliticalProfile = Citizen->GetPoliticalProfile();
+    }
+
+    SetCitizenSatisfaction(Satisfaction, PoliticalProfile);
     SetEnable(true);
 }
 
@@ -296,7 +312,8 @@ void CCitizenInfoWidget::SetTitle(const std::wstring& Title)
 }
 
 void CCitizenInfoWidget::SetCitizenSatisfaction(
-    const FNpcSatisfaction& Satisfaction)
+    const FNpcSatisfaction& Satisfaction,
+    const FNpcPoliticalProfile& PoliticalProfile)
 {
     auto ToPercent = [](float Value)
     {
@@ -304,11 +321,15 @@ void CCitizenInfoWidget::SetCitizenSatisfaction(
         return (int)roundf(Clamped);
     };
 
-    wchar_t Text[512] = {};
+    wchar_t Text[1024] = {};
 
     swprintf_s(Text,
         L"Food: %d\nHealth: %d\nFun: %d\nFaith: %d\nHousing: %d\n"
-        L"Job: %d\nFreedom: %d\nSecurity: %d\nOverall: %d",
+        L"Job: %d\nFreedom: %d\nSecurity: %d\nOverall: %d\n\n"
+        L"%s: %s (%s)\n"
+        L"%s: %s (%s)\n"
+        L"%s: %s (%s)\n"
+        L"%s: %s (%s)",
         ToPercent(Satisfaction.Food),
         ToPercent(Satisfaction.Health),
         ToPercent(Satisfaction.Fun),
@@ -317,7 +338,31 @@ void CCitizenInfoWidget::SetCitizenSatisfaction(
         ToPercent(Satisfaction.Job),
         ToPercent(Satisfaction.Freedom),
         ToPercent(Satisfaction.Security),
-        ToPercent(Satisfaction.Overall));
+        ToPercent(Satisfaction.Overall),
+        GetPoliticalAxisDisplayName(EPoliticalAxis::Economy),
+        GetPoliticalFactionDisplayName(
+            EPoliticalAxis::Economy,
+            PoliticalProfile.Economy.Stance),
+        GetPoliticalSupportDisplayName(
+            PoliticalProfile.Economy.Support),
+        GetPoliticalAxisDisplayName(EPoliticalAxis::ReligionMilitarism),
+        GetPoliticalFactionDisplayName(
+            EPoliticalAxis::ReligionMilitarism,
+            PoliticalProfile.ReligionMilitarism.Stance),
+        GetPoliticalSupportDisplayName(
+            PoliticalProfile.ReligionMilitarism.Support),
+        GetPoliticalAxisDisplayName(EPoliticalAxis::EnvironmentIndustry),
+        GetPoliticalFactionDisplayName(
+            EPoliticalAxis::EnvironmentIndustry,
+            PoliticalProfile.EnvironmentIndustry.Stance),
+        GetPoliticalSupportDisplayName(
+            PoliticalProfile.EnvironmentIndustry.Support),
+        GetPoliticalAxisDisplayName(EPoliticalAxis::IntellectualConservative),
+        GetPoliticalFactionDisplayName(
+            EPoliticalAxis::IntellectualConservative,
+            PoliticalProfile.IntellectualConservative.Stance),
+        GetPoliticalSupportDisplayName(
+            PoliticalProfile.IntellectualConservative.Support));
 
     SetBodyText(Text);
 }

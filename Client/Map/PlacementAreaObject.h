@@ -33,11 +33,12 @@ struct FPlacementTemplate
     int DiamondRadius = 1;
     std::vector<FPlacementMarkerAnchor> MarkerAnchors;
     FVector4 AreaColor = FVector4::Blue;
+    bool HasDirectionalGap = true;
 
     int GetExpectedTileCount() const
     {
         const int Side = DiamondRadius * 2 + 1;
-        return Side * Side;
+        return Side * Side - (HasDirectionalGap ? 1 : 0);
     }
 };
 
@@ -69,12 +70,14 @@ private:
     bool mMovePreviewActive = false;
     int mPlacedCenterIndex = -1;
     int mPreviewCenterIndex = -1;
+    int mPreviewDirection = 0;
     int mInitialCenterOffsetX = 0;
     int mInitialCenterOffsetY = 0;
     bool mAutoPlaceOnPrepare = true;
     std::string mBuildingId;
     std::string mBuildingDisplayName;
     std::string mBuildingCategoryName;
+    std::string mBuildingSpriteTexturePath;
     bool mResidential = false;
     bool mFoodProvider = false;
     bool mEntertainmentProvider = false;
@@ -223,6 +226,16 @@ public:
         return mBuildingCategoryName;
     }
 
+    void SetBuildingSpriteTexturePath(const std::string& TexturePath)
+    {
+        mBuildingSpriteTexturePath = TexturePath;
+    }
+
+    const std::string& GetBuildingSpriteTexturePath() const
+    {
+        return mBuildingSpriteTexturePath;
+    }
+
     bool IsResidential() const
     {
         return mResidential;
@@ -240,7 +253,7 @@ public:
 
     bool IsTransportOffice() const
     {
-        return mBuildingId == "build_1_2" ||
+        return mBuildingId == "build_1_5" ||
             mBuildingId == "starter_teamster_office";
     }
 
@@ -441,6 +454,12 @@ public:
     void StartMovePreview(const FVector2& MouseWorldPos);
     void ConfirmPlacement();
     void CancelMovePreview();
+    void RotatePreviewCW(const FVector2& MouseWorldPos);
+    void RotatePreviewCCW(const FVector2& MouseWorldPos);
+    int GetPlacementDirection() const
+    {
+        return (mPreviewDirection % 4 + 4) % 4;
+    }
     bool IsMovePreviewActive() const
     {
         return mMovePreviewActive;
@@ -475,6 +494,10 @@ private:
     bool BuildDiamondAreaIndices(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, std::vector<int>& OutIndices) const;
+    int FindPreviewOpenTileIndex(
+        const std::shared_ptr<class CTileMapComponent>& TileMap,
+        int CenterIndex,
+        const std::vector<int>& CandidateIndices) const;
     bool IsAreaPlaceable(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         const std::vector<int>& Indices) const;

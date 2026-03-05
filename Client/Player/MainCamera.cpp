@@ -86,6 +86,14 @@ bool CMainCamera::Init()
     Input->SetBindFunction<CMainCamera>("MainCameraMoveArea",
         EInputType::Press, this, &CMainCamera::MoveCurrentArea);
 
+    Input->AddBindKey("MainCameraRotateCCW", 'Q');
+    Input->SetBindFunction<CMainCamera>("MainCameraRotateCCW",
+        EInputType::Press, this, &CMainCamera::RotateCurrentAreaCCW);
+
+    Input->AddBindKey("MainCameraRotateCW", 'E');
+    Input->SetBindFunction<CMainCamera>("MainCameraRotateCW",
+        EInputType::Press, this, &CMainCamera::RotateCurrentAreaCW);
+
     Input->AddBindKey("MainCameraPlace", VK_LBUTTON);
     Input->SetBindFunction<CMainCamera>("MainCameraPlace",
         EInputType::Press, this, &CMainCamera::PlaceCurrentArea);
@@ -164,6 +172,7 @@ void CMainCamera::SetDemolitionMode(bool Enable)
 bool CMainCamera::BeginBuildPlacement(
     const std::string& BuildingId,
     const std::string& BuildingDisplayName,
+    const std::string& BuildingSpriteTexturePath,
     const std::string& CategoryName,
     bool Residential,
     int Capacity,
@@ -226,6 +235,8 @@ bool CMainCamera::BeginBuildPlacement(
     PlacementObject->SetTileMapObject(TileMapObject);
     PlacementObject->SetAutoPlaceOnPrepare(false);
     PlacementObject->SetBuildingId(SafeBuildingId);
+    PlacementObject->SetBuildingSpriteTexturePath(
+        BuildingSpriteTexturePath);
     PlacementObject->SetBuildingDisplayInfo(
         BuildingDisplayName,
         CategoryName,
@@ -290,10 +301,53 @@ void CMainCamera::MoveRight()
         Movement->AddMove(GetAxis(EAxis::X));
 }
 
+void CMainCamera::RotateCurrentAreaCCW()
+{
+    auto ActiveObject = mActivePlacementObject.lock();
+
+    if (!ActiveObject || !ActiveObject->IsMovePreviewActive())
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+        return;
+
+    ActiveObject->RotatePreviewCCW(Input->GetMouseWorldPos());
+}
+
+void CMainCamera::RotateCurrentAreaCW()
+{
+    auto ActiveObject = mActivePlacementObject.lock();
+
+    if (!ActiveObject || !ActiveObject->IsMovePreviewActive())
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+        return;
+
+    ActiveObject->RotatePreviewCW(Input->GetMouseWorldPos());
+}
+
 void CMainCamera::MoveCurrentArea()
 {
     if (mDemolitionMode)
+    {
+        SetDemolitionMode(false);
         return;
+    }
 
     auto ActiveObject = mActivePlacementObject.lock();
 

@@ -100,14 +100,6 @@ namespace
 		const int DefinitionCount = 30;
 		Definitions.reserve(DefinitionCount);
 
-		const EPlacementTemplateType TemplateCycle[4] =
-		{
-			EPlacementTemplateType::Diamond3x3SingleMarker,
-			EPlacementTemplateType::Diamond5x5TwoMarker,
-			EPlacementTemplateType::Diamond5x5FourMarker,
-			EPlacementTemplateType::Diamond7x7ThreeMarker
-		};
-
 		for (int i = 0; i < DefinitionCount; ++i)
 		{
 			Definitions.push_back({
@@ -115,7 +107,7 @@ namespace
 				(i % 2 == 0) ?
 					EPlacementBuildingKind::BuildingA :
 					EPlacementBuildingKind::BuildingB,
-				TemplateCycle[i % 4]
+				EPlacementTemplateType::Diamond3x3SingleMarker
 				});
 		}
 
@@ -466,18 +458,6 @@ bool CMainWorld::Init()
 
 	auto CreateStarterBuilding = [&](const std::string& ObjectName,
 		const std::string& BuildingId,
-		const std::string& DisplayName,
-		const std::string& CategoryName,
-		bool Residential,
-		int Capacity,
-		bool FoodProvider,
-		bool EntertainmentProvider,
-		int HousingSatisfactionCap,
-		int JobSatisfactionCap,
-		int FoodSatisfactionCap,
-		int FunSatisfactionCap,
-		EPlacementBuildingKind Kind,
-		EPlacementTemplateType TemplateType,
 		int OffsetX,
 		int OffsetY)
 	{
@@ -487,22 +467,52 @@ bool CMainWorld::Init()
 		if (!BuildingObj)
 			return;
 
+		CBuildMenuWidget::FCatalogEntryData CatalogData;
+
+		if (!CBuildMenuWidget::GetCatalogEntryDataById(
+			BuildingId, CatalogData))
+		{
+			CatalogData.Id = BuildingId;
+			CatalogData.DisplayName = BuildingId;
+			CatalogData.CategoryName = "기본";
+			CatalogData.Residential = false;
+			CatalogData.FoodProvider = false;
+			CatalogData.EntertainmentProvider = false;
+			CatalogData.HousingSatisfactionCap = 100;
+			CatalogData.JobSatisfactionCap = 100;
+			CatalogData.FoodSatisfactionCap = 100;
+			CatalogData.FunSatisfactionCap = 100;
+			CatalogData.Capacity = 0;
+			CatalogData.TemplateType =
+				EPlacementTemplateType::Diamond3x3SingleMarker;
+			CatalogData.BuildingKind = EPlacementBuildingKind::BuildingB;
+			CatalogData.IconTexturePath.clear();
+		}
+
 		BuildingObj->SetTileMapObject(TileMapObj);
 		BuildingObj->SetInitialCenterOffset(OffsetX, OffsetY);
 		BuildingObj->SetBuildingId(BuildingId);
+
+		if (!CatalogData.IconTexturePath.empty())
+		{
+			BuildingObj->SetBuildingSpriteTexturePath(
+				CatalogData.IconTexturePath);
+		}
+
 		BuildingObj->SetBuildingDisplayInfo(
-			DisplayName,
-			CategoryName,
-			Residential,
-			Capacity,
-			FoodProvider,
-			EntertainmentProvider,
-			HousingSatisfactionCap,
-			JobSatisfactionCap,
-			FoodSatisfactionCap,
-			FunSatisfactionCap);
-		BuildingObj->SetBuildingKind(Kind);
-		BuildingObj->SetPlacementTemplateType(TemplateType);
+			CatalogData.DisplayName,
+			CatalogData.CategoryName,
+			CatalogData.Residential,
+			CatalogData.Capacity,
+			CatalogData.FoodProvider,
+			CatalogData.EntertainmentProvider,
+			CatalogData.HousingSatisfactionCap,
+			CatalogData.JobSatisfactionCap,
+			CatalogData.FoodSatisfactionCap,
+			CatalogData.FunSatisfactionCap);
+		BuildingObj->SetBuildingKind(CatalogData.BuildingKind);
+		BuildingObj->SetPlacementTemplateType(
+			EPlacementTemplateType::Diamond3x3SingleMarker);
 
 		auto Visual = CreateGameObject<CBuildingVisual>(
 			ObjectName + "_Visual");
@@ -514,91 +524,31 @@ bool CMainWorld::Init()
 
 	CreateStarterBuilding(
 		GStarterTeamsterObjectName,
-		"starter_teamster_office",
-		"운송업자 사무소",
-		"교통 및 기반시설",
-		false,
-		30,
-		false,
-		false,
-		100,
-		75,
-		100,
-		100,
-		EPlacementBuildingKind::BuildingB,
-		EPlacementTemplateType::Diamond5x5TwoMarker,
+		"build_1_5",
 		-14,
 		8);
 
 	CreateStarterBuilding(
 		GStarterRanchObjectName,
-		"starter_ranch",
-		"목장",
-		"음식 및 자원",
-		false,
-		35,
-		true,
-		false,
-		100,
-		60,
-		65,
-		100,
-		EPlacementBuildingKind::BuildingA,
-		EPlacementTemplateType::Diamond5x5FourMarker,
+		"build_2_6",
 		12,
 		9);
 
 	CreateStarterBuilding(
 		GStarterFarmObjectName,
-		"starter_large_farm",
-		"대규모 농장",
-		"음식 및 자원",
-		false,
-		35,
-		true,
-		false,
-		100,
-		58,
-		72,
-		100,
-		EPlacementBuildingKind::BuildingA,
-		EPlacementTemplateType::Diamond7x7ThreeMarker,
+		"build_2_4",
 		-10,
 		-10);
 
 	CreateStarterBuilding(
 		GStarterDormitoryObjectName,
-		"starter_dormitory",
-		"합숙소",
-		"주거지",
-		true,
-		60,
-		false,
-		false,
-		30,
-		100,
-		100,
-		100,
-		EPlacementBuildingKind::BuildingA,
-		EPlacementTemplateType::Diamond5x5TwoMarker,
+		"build_4_3",
 		0,
 		0);
 
 	CreateStarterBuilding(
 		GStarterHarborObjectName,
-		"starter_harbor",
-		"항구",
-		"교통 및 기반시설",
-		false,
-		0,
-		false,
-		false,
-		100,
-		40,
-		100,
-		100,
-		EPlacementBuildingKind::BuildingB,
-		EPlacementTemplateType::Diamond5x5TwoMarker,
+		"build_1_3",
 		15,
 		-12);
 
