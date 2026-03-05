@@ -248,11 +248,15 @@ bool CMainWorld::Init()
 	auto FloorYellowTileMap =
 		CreateGameObject<CTileMapObject>("TileMapFloorYellow");
 	auto FloorYellowTileMapObj = FloorYellowTileMap.lock();
+	auto ExpansionTileMap =
+		CreateGameObject<CTileMapObject>("TileMapExpansion");
+	auto ExpansionTileMapObj = ExpansionTileMap.lock();
 	auto MainCameraObj = MainCamera.lock();
 
 	if (TileMapObj &&
 		FloorBlueTileMapObj &&
-		FloorYellowTileMapObj)
+		FloorYellowTileMapObj &&
+		ExpansionTileMapObj)
 	{
 		auto BaseTileMap = TileMapObj->GetTileMap().lock();
 
@@ -332,11 +336,85 @@ bool CMainWorld::Init()
 			OverlayObj->SetWorldPos(TileMapObj->GetWorldPos());
 		};
 
+		auto ConfigureExpansionTileMap =
+			[&](const std::shared_ptr<CTileMapObject>& OverlayObj)
+		{
+			if (!BaseTileMap || !OverlayObj)
+				return;
+
+			auto OverlayRender =
+				OverlayObj->FindComponent<CTileMapRender>().lock();
+			auto OverlayMap = OverlayObj->GetTileMap().lock();
+
+			if (!OverlayRender || !OverlayMap)
+				return;
+
+			const int OverlayLayerOrder = ResolveLayerOrder(
+				"MapExpansion", 1, ERenderListSort::None);
+
+			if (OverlayLayerOrder >= 0)
+				OverlayRender->SetRenderLayer("MapExpansion");
+
+			OverlayRender->EnableTileAlphaBlend();
+			OverlayRender->SetTexture(
+				ETileTextureType::Tile,
+				"LandscapeTile066Expansion",
+				TEXT("landscapeTiles_066.png"));
+			OverlayRender->AddTileFrame(
+				0.f,
+				0.f,
+				CTileMapMain::TileTextureWidth,
+				CTileMapMain::TileTextureHeight);
+
+			OverlayMap->CreateTile(
+				BaseTileMap->GetTileShape(),
+				BaseTileMap->GetTileCountX(),
+				BaseTileMap->GetTileCountY(),
+				BaseTileMap->GetTileSize());
+			OverlayMap->SetViewCulling(true);
+			OverlayMap->SetTileTextureSize(
+				CTileMapMain::TileTextureWidth,
+				CTileMapMain::TileTextureHeight);
+			OverlayMap->SetTileFrameAll(0);
+			OverlayMap->SetTileOutLineRender(false);
+
+			const int CountX = OverlayMap->GetTileCountX();
+			const int CountY = OverlayMap->GetTileCountY();
+			const int BorderX = CTileMapMain::SeaBorderX;
+			const int BorderY = CTileMapMain::SeaBorderY;
+
+			for (int y = 0; y < CountY; ++y)
+			{
+				for (int x = 0; x < CountX; ++x)
+				{
+					const int Index = y * CountX + x;
+					auto Tile = OverlayMap->GetTile(Index).lock();
+
+					if (!Tile)
+						continue;
+
+					const bool IsExpandedTile =
+						x < BorderX ||
+						x >= CountX - BorderX ||
+						y < BorderY ||
+						y >= CountY - BorderY;
+
+					Tile->SetTileType(ETileType::Normal);
+					Tile->SetOutLineColor(
+						1.f, 1.f, 1.f, IsExpandedTile ? 1.f : 0.f);
+				}
+			}
+
+			OverlayObj->SetWorldPos(TileMapObj->GetWorldPos());
+		};
+
 		if (BaseTileMap)
 		{
+			ResolveLayerOrder("MapExpansion",   1, ERenderListSort::None);
 			ResolveLayerOrder("MapFloorBlue",    2, ERenderListSort::None);
 			ResolveLayerOrder("BuildingVisual",  3, ERenderListSort::Y);
 
+			ConfigureExpansionTileMap(ExpansionTileMapObj);
 			ConfigureOverlayTileMap(FloorBlueTileMapObj,
 				"MapFloorBlue",
 				2, ERenderListSort::None,

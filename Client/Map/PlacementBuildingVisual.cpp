@@ -1,11 +1,46 @@
-﻿#include "PlacementBuildingVisual.h"
+#include "PlacementBuildingVisual.h"
 #include "PlacementAreaObject.h"
 #include "../Player/MainCamera.h"
 #include "Component/MeshComponent.h"
 #include "Component/SceneComponent.h"
 #include "Render/RenderManager.h"
 #include "World/World.h"
+#include "World/WorldAssetManager.h"
+#include <string>
 #include <vector>
+
+namespace
+{
+	constexpr const TCHAR* GDefaultBuildingSpriteFile = TEXT("Floors.png");
+	constexpr float GSpriteScaleXMultiplier = 1.0f;
+	constexpr float GSpriteScaleYMultiplier = 2.0f;
+	constexpr float GSpriteOffsetYMultiplier = 0.0f;
+	constexpr float GSpriteSortYBiasMultiplier = -0.5f;
+
+	std::vector<std::string> BuildTextureCandidates(
+		const CPlacementAreaObject& Building)
+	{
+		std::vector<std::string> Candidates;
+		const std::string& BuildingId = Building.GetBuildingId();
+
+		if (!BuildingId.empty())
+			Candidates.push_back(BuildingId + ".png");
+
+		// 항구는 추후 방향 텍스처를 추가할 수 있도록 후보를 미리 넣어둔다.
+		if (Building.IsHarbor())
+		{
+			Candidates.push_back("harbor_up.png");
+			Candidates.push_back("harbor_right.png");
+			Candidates.push_back("harbor_down.png");
+			Candidates.push_back("harbor_left.png");
+			Candidates.push_back("harbor.png");
+		}
+
+		Candidates.push_back("building_default.png");
+		Candidates.push_back("Floors.png");
+		return Candidates;
+	}
+}
 
 CBuildingVisual::CBuildingVisual()
 {
@@ -44,40 +79,22 @@ bool CBuildingVisual::Init()
 		}
 	}
 
-	// 컴포넌트 계층: root → 각 face
 	CreateComponent<CSceneComponent>("VisualRoot");
+	mSprite = CreateComponent<CMeshComponent>("BuildingSprite");
+	auto Sprite = mSprite.lock();
 
-	auto MakeFace = [&](
-		std::weak_ptr<CMeshComponent>& Out,
-		const char* Name,
-		const char* MeshName,
-		const char* TextureName,
-		const TCHAR* TextureFileName)
+	if (Sprite)
 	{
-		Out = CreateComponent<CMeshComponent>(Name);
-		auto Face = Out.lock();
-
-		if (!Face)
-			return;
-
-		Face->SetShader("DefaultTexture2D");
-		Face->SetMesh(MeshName);
-		Face->AddTexture(0, TextureName, TextureFileName, "Texture");
-		Face->SetBlendState(0, "AlphaBlend");
-		Face->SetMaterialBaseColor(0, 1.f, 1.f, 1.f, 1.f);
-		Face->SetMaterialOpacity(0, 1.f);
-		Face->SetRenderLayer("BuildingVisual");
-		Face->SetEnable(false);
-	};
-
-	// 면별 텍스처를 개별 바인딩한다.
-	MakeFace(mLeftWall,  "LeftWall",  "IsoWallLeftTex",
-		"BuildingWallLeftTex",  TEXT("wall.png"));
-	MakeFace(mRightWall, "RightWall", "IsoWallRightTex",
-		"BuildingWallRightTex", TEXT("wall.png"));
-	// 지붕은 전용 텍스처를 사용한다.
-	MakeFace(mRoof,      "Roof",      "IsoDiamondTex",
-		"BuildingRoofTex",      TEXT("Floors.png"));
+		Sprite->SetShader("DefaultTexture2D");
+		Sprite->SetMesh("CenterRectTex");
+		Sprite->AddTexture(0, "BuildingDefaultTex",
+			GDefaultBuildingSpriteFile, "Texture");
+		Sprite->SetBlendState(0, "AlphaBlend");
+		Sprite->SetMaterialBaseColor(0, 1.f, 1.f, 1.f, 1.f);
+		Sprite->SetMaterialOpacity(0, 1.f);
+		Sprite->SetRenderLayer("BuildingVisual");
+		Sprite->SetEnable(false);
+	}
 
 	return true;
 }
@@ -88,38 +105,87 @@ void CBuildingVisual::Update(float DeltaTime)
 	SyncVisuals();
 }
 
+bool CBuildingVisual::BindSpriteTexture(
+	const CPlacementAreaObject& Building)
+{
+	auto Sprite = mSprite.lock();
+	auto World = mWorld.lock();
+
+	if (!Sprite || !World)
+		return false;
+
+	auto AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr)
+		return false;
+
+	const std::string& BuildingId = Building.GetBuildingId();
+	const std::vector<std::string> Candidates =
+		BuildTextureCandidates(Building);
+	const std::string TexturePrefix =
+		"BuildingSprite_" +
+		(BuildingId.empty() ? "Unknown" : BuildingId) + "_";
+
+	for (size_t i = 0; i < Candidates.size(); ++i)
+	{
+		const std::string& FileName = Candidates[i];
+		const std::wstring WideFileName(
+			FileName.begin(), FileName.end());
+		const std::string TextureKey =
+			TexturePrefix + std::to_string(i);
+
+		if (!AssetMgr->LoadTexture(
+			TextureKey, WideFileName.c_str(), "Texture"))
+		{
+			continue;
+		}
+
+		auto Texture = AssetMgr->FindTexture(TextureKey);
+
+		if (Texture.expired())
+			continue;
+
+		if (Sprite->SetTexture(0, 0, Texture))
+		{
+			mLoadedBuildingId = BuildingId;
+			mLoadedTextureFile = FileName;
+			return true;
+		}
+	}
+
+	mLoadedBuildingId = BuildingId;
+	return false;
+}
+
 void CBuildingVisual::SyncVisuals()
 {
-    auto Building = mBuilding.lock();
+	auto Building = mBuilding.lock();
+	auto Sprite = mSprite.lock();
 
-    if (!Building)
-        return;
+	if (!Building || !Sprite)
+		return;
 
-    if (!Building->HasPlacedArea())
-    {
-        auto LeftWall = mLeftWall.lock();
-        auto RightWall = mRightWall.lock();
-        auto Roof = mRoof.lock();
+	if (!Building->HasPlacedArea())
+	{
+		Sprite->SetEnable(false);
+		mVisible = false;
+		return;
+	}
 
-        if (LeftWall)
-            LeftWall->SetEnable(false);
-        if (RightWall)
-            RightWall->SetEnable(false);
-        if (Roof)
-            Roof->SetEnable(false);
+	// 건물 ID 기준 파일명 규칙: "<building_id>.png"
+	// 예: build_1_1.png, starter_harbor.png
+	if (mLoadedBuildingId != Building->GetBuildingId())
+	{
+		BindSpriteTexture(*Building);
+	}
 
-        mVisible = false;
-        return;
-    }
-
-	// 건물이 타일맵에 배치 완료될 때까지 대기
 	FVector2 TileSize;
 
 	if (!Building->GetTileSize(TileSize))
 		return;
 
 	bool IsAnyMovePreviewActive = false;
-    bool IsDemolitionModeActive = false;
+	bool IsDemolitionModeActive = false;
 	auto World = mWorld.lock();
 
 	if (World)
@@ -141,78 +207,41 @@ void CBuildingVisual::SyncVisuals()
 			}
 		}
 
-        auto MainCamera =
-            World->FindObject<CMainCamera>("MainCamera").lock();
+		auto MainCamera =
+			World->FindObject<CMainCamera>("MainCamera").lock();
 
-        if (MainCamera && MainCamera->IsDemolitionMode())
-        {
-            IsDemolitionModeActive = true;
-        }
+		if (MainCamera && MainCamera->IsDemolitionMode())
+			IsDemolitionModeActive = true;
 	}
 
 	const float BuildingFaceOpacity =
 		(IsAnyMovePreviewActive || IsDemolitionModeActive) ?
-        0.35f : 1.f;
+		0.35f : 1.f;
 
 	const FVector3 Center = Building->GetWorldPos();
-	const int      Radius = Building->GetDiamondRadius();
+	const int Radius = Building->GetDiamondRadius();
+	const float FootprintTiles = Radius * 2.f + 1.f;
+	const float BaseScaleX = TileSize.x * FootprintTiles;
+	const float BaseScaleY = TileSize.y * FootprintTiles;
+	const float SpriteScaleX = BaseScaleX * GSpriteScaleXMultiplier;
+	const float SpriteScaleY = BaseScaleY * GSpriteScaleYMultiplier;
+	const float UpwardStretchOffsetY =
+		BaseScaleY * (GSpriteScaleYMultiplier - 1.f) * 0.5f;
 
-	// 이 오브젝트 자체를 건물 중심에 맞춘다
 	SetWorldPos(Center.x, Center.y, Center.z);
 
-	// Radius는 "점유 다이아몬드 반경"이며 실제 폭/높이 타일 수는 (2R + 1)이다.
-	// 정점 좌표는 이미 아이소 형태이므로 footprint 타일 수만 스케일에 반영한다.
-	const float FootprintTiles = Radius * 2.f + 1.f;
-	const float ScaleX = TileSize.x * FootprintTiles;
-	const float ScaleY = TileSize.y * FootprintTiles;
+	Sprite->SetRelativePos(
+		0.f,
+		BaseScaleY * GSpriteOffsetYMultiplier + UpwardStretchOffsetY,
+		0.f);
+	Sprite->SetRelativeScale(SpriteScaleX, SpriteScaleY);
+	Sprite->SetRenderSortYBias(
+		BaseScaleY * GSpriteSortYBiasMultiplier);
+	Sprite->SetRenderSortPriority(0);
+	Sprite->SetMaterialOpacity(0, BuildingFaceOpacity);
 
-	// ─ 좌측 벽 ─ (중심 기준, 회전 없음)
-    auto LeftWall = mLeftWall.lock();
-
-	if (LeftWall)
-	{
-		LeftWall->SetRelativePos(0.f, 0.f, 0.f);
-		LeftWall->SetRelativeScale(ScaleX, ScaleY);
-		// 아이소 기준 깊이 앵커를 중심이 아닌 footprint 하단점으로 맞춘다.
-		LeftWall->SetRenderSortYBias(-ScaleY * 0.5f);
-		LeftWall->SetRenderSortPriority(0);
-		LeftWall->SetMaterialOpacity(0, BuildingFaceOpacity);
-
-		if (!mVisible)
-			LeftWall->SetEnable(true);
-	}
-
-	// ─ 우측 벽 ─ (중심 기준, 회전 없음)
-	auto RightWall = mRightWall.lock();
-
-	if (RightWall)
-	{
-		RightWall->SetRelativePos(0.f, 0.f, 0.f);
-		RightWall->SetRelativeScale(ScaleX, ScaleY);
-		RightWall->SetRenderSortYBias(-ScaleY * 0.5f);
-		RightWall->SetRenderSortPriority(1);
-		RightWall->SetMaterialOpacity(0, BuildingFaceOpacity);
-
-		if (!mVisible)
-			RightWall->SetEnable(true);
-	}
-
-	// ─ 옥상 ─ (ScaleY 픽셀 위에 배치, 회전 없음)
-	auto Roof = mRoof.lock();
-
-	if (Roof)
-	{
-		Roof->SetRelativePos(0.f, ScaleY, 0.f);
-		Roof->SetRelativeScale(ScaleX, ScaleY);
-		// 지붕은 실제 위치를 올리되, 정렬 키는 벽과 동일한 footprint 하단점에 고정한다.
-		Roof->SetRenderSortYBias(-ScaleY * 1.5f);
-		Roof->SetRenderSortPriority(2);
-		Roof->SetMaterialOpacity(0, BuildingFaceOpacity);
-
-		if (!mVisible)
-			Roof->SetEnable(true);
-	}
+	if (!mVisible)
+		Sprite->SetEnable(true);
 
 	mVisible = true;
 }
-

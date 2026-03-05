@@ -52,7 +52,8 @@ private:
     bool mMenuOpen = false;
     int mSelectedCategoryIndex = 0;
     int mCurrentPage = 0;
-    float mPanelHeight = 300.f;
+    float mPanelWidth = 656.f;
+    float mPanelHeight = 544.f;
 
 public:
     virtual bool Init();

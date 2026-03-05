@@ -32,6 +32,8 @@ struct VS_OUTPUT_TEX_COLOR
     float4 Pos : SV_POSITION;
     float2 UV : TEXCOORD;
     float4 Color : TEXCOORD1;
+    float2 LTUV : TEXCOORD2;
+    float2 RBUV : TEXCOORD3;
 };
 
 cbuffer CBTileMap : register(b10)
@@ -139,6 +141,8 @@ VS_OUTPUT_TEX_COLOR TileMapInstancingVS(VS_INPUT_INSTANCING_TEX input,
     output.UV = ComputeInstancingTileUV(input.UV, input.LTUV,
                     input.RBUV);
     output.Color = input.Color;
+    output.LTUV = input.LTUV;
+    output.RBUV = input.RBUV;
 	
     return output;
 }
@@ -147,13 +151,18 @@ PS_OUTPUT_COLOR TileMapInstancingPS(VS_OUTPUT_TEX_COLOR input)
 {
     PS_OUTPUT_COLOR output = (PS_OUTPUT_COLOR) 0;
 
+    // 프레임이 시트의 일부여도 로컬 UV(0~1) 기준으로 마름모 클리핑한다.
+    float2 uvSize = max(input.RBUV - input.LTUV, float2(0.0001f, 0.0001f));
+    float2 localUV = (input.UV - input.LTUV) / uvSize;
+
     // UV 기준 마름모 외곽은 잘라내서 아이소메트릭 다이아 타일만 남긴다.
-    float2 uv = input.UV;
-    float diamond = abs(uv.x - 0.5f) + abs(uv.y - 0.5f);
+    float diamond = abs(localUV.x - 0.5f) + abs(localUV.y - 0.5f);
     clip(0.5f - diamond);
-    
-    // 인스턴싱 컬러를 그대로 타일 채움색으로 사용한다.
-    output.Color = input.Color;
+
+    // 타일 텍스처를 샘플링하고 인스턴싱 컬러로 틴트한다.
+    float4 textureColor = tbTileTexture.Sample(sbLinear, input.UV);
+    output.Color.rgb = textureColor.rgb * input.Color.rgb;
+    output.Color.a = textureColor.a * input.Color.a;
     
     return output;
 }

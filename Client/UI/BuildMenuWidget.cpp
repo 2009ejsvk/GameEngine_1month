@@ -188,7 +188,8 @@ bool CBuildMenuWidget::Init()
 
     if (MenuBackground)
     {
-        MenuBackground->SetTint(0.07f, 0.08f, 0.10f, 0.92f);
+        MenuBackground->SetTexture("BuildMenuBackground", TEXT("basic_UI.png"));
+        MenuBackground->SetTint(1.f, 1.f, 1.f, 1.f);
         mMenuBackground = MenuBackground;
     }
 
@@ -382,9 +383,20 @@ void CBuildMenuWidget::RefreshLayout()
     const FResolution& Resolution = CDevice::GetInst()->GetResolution();
     const float ScreenWidth = static_cast<float>(Resolution.Width);
     const float ScreenHeight = static_cast<float>(Resolution.Height);
-    const float PanelTop = ScreenHeight - mPanelHeight;
-    const float HorizontalMargin = 24.f;
-    const float ContentWidth = ScreenWidth - HorizontalMargin * 2.f;
+    const float AvailableWidth = (std::max)(320.f, ScreenWidth - 80.f);
+    const float AvailableHeight = (std::max)(320.f, ScreenHeight - 180.f);
+    const float Scale =
+        (std::min)(1.f,
+            (std::min)(AvailableWidth / mPanelWidth,
+                AvailableHeight / mPanelHeight));
+    const float PanelWidth = mPanelWidth * Scale;
+    const float PanelHeight = mPanelHeight * Scale;
+    const float PanelLeft = (ScreenWidth - PanelWidth) * 0.5f;
+    const float PanelTop = (ScreenHeight - PanelHeight) * 0.5f;
+    const float HorizontalMargin = 24.f * Scale;
+    const float ContentWidth = PanelWidth - HorizontalMargin * 2.f;
+    const float HeaderTopPadding = 14.f * Scale;
+    const float HeaderHeight = 36.f * Scale;
 
     auto BuildButton = mBuildButton.lock();
     auto DemolishButton = mDemolishButton.lock();
@@ -399,8 +411,10 @@ void CBuildMenuWidget::RefreshLayout()
     if (DemolishButton)
     {
         DemolishButton->SetPivot(0.f, 0.f);
-        DemolishButton->SetPos(HorizontalMargin + 336.f, PanelTop + 12.f);
-        DemolishButton->SetSize(140.f, 36.f);
+        DemolishButton->SetPos(
+            PanelLeft + PanelWidth * 0.5f - 72.f * Scale,
+            PanelTop + HeaderTopPadding);
+        DemolishButton->SetSize(144.f * Scale, HeaderHeight);
     }
 
     auto NpcCountText = mNpcCountText.lock();
@@ -416,16 +430,18 @@ void CBuildMenuWidget::RefreshLayout()
 
     if (MenuBackground)
     {
-        MenuBackground->SetPos(0.f, PanelTop);
-        MenuBackground->SetSize(ScreenWidth, mPanelHeight);
+        MenuBackground->SetPos(PanelLeft, PanelTop);
+        MenuBackground->SetSize(PanelWidth, PanelHeight);
     }
 
     auto TitleText = mTitleText.lock();
 
     if (TitleText)
     {
-        TitleText->SetPos(HorizontalMargin, PanelTop + 14.f);
-        TitleText->SetSize(320.f, 34.f);
+        TitleText->SetPos(
+            PanelLeft + HorizontalMargin,
+            PanelTop + HeaderTopPadding);
+        TitleText->SetSize(280.f * Scale, HeaderHeight);
     }
 
     auto PrevPageButton = mPrevPageButton.lock();
@@ -434,27 +450,35 @@ void CBuildMenuWidget::RefreshLayout()
 
     if (PrevPageButton)
     {
-        PrevPageButton->SetPos(ScreenWidth - 176.f, PanelTop + 12.f);
-        PrevPageButton->SetSize(40.f, 36.f);
+        PrevPageButton->SetPos(
+            PanelLeft + PanelWidth - HorizontalMargin - 136.f * Scale,
+            PanelTop + HeaderTopPadding);
+        PrevPageButton->SetSize(36.f * Scale, HeaderHeight);
     }
 
     if (PageText)
     {
-        PageText->SetPos(ScreenWidth - 132.f, PanelTop + 12.f);
-        PageText->SetSize(88.f, 36.f);
+        PageText->SetPos(
+            PanelLeft + PanelWidth - HorizontalMargin - 96.f * Scale,
+            PanelTop + HeaderTopPadding);
+        PageText->SetSize(56.f * Scale, HeaderHeight);
     }
 
     if (NextPageButton)
     {
-        NextPageButton->SetPos(ScreenWidth - 40.f, PanelTop + 12.f);
-        NextPageButton->SetSize(40.f, 36.f);
+        NextPageButton->SetPos(
+            PanelLeft + PanelWidth - HorizontalMargin - 36.f * Scale,
+            PanelTop + HeaderTopPadding);
+        NextPageButton->SetSize(36.f * Scale, HeaderHeight);
     }
 
-    const float CategoryTop = PanelTop + 58.f;
-    const float CategoryGap = 12.f;
+    const float CategoryTop =
+        PanelTop + HeaderTopPadding + HeaderHeight + 14.f * Scale;
+    const float CategoryGap = 12.f * Scale;
     const float CategoryWidth =
         (ContentWidth - CategoryGap * (CategoryCount - 1)) /
         static_cast<float>(CategoryCount);
+    const float CategoryHeight = 40.f * Scale;
 
     for (int i = 0; i < CategoryCount; ++i)
     {
@@ -464,21 +488,21 @@ void CBuildMenuWidget::RefreshLayout()
             continue;
 
         CategoryButton->SetPos(
-            HorizontalMargin +
+            PanelLeft + HorizontalMargin +
             (CategoryWidth + CategoryGap) * static_cast<float>(i),
             CategoryTop);
-        CategoryButton->SetSize(CategoryWidth, 40.f);
+        CategoryButton->SetSize(CategoryWidth, CategoryHeight);
     }
 
-    const float SlotGapX = 12.f;
-    const float SlotGapY = 12.f;
-    const float SlotTop = PanelTop + 112.f;
+    const float SlotGapX = 12.f * Scale;
+    const float SlotGapY = 12.f * Scale;
+    const float SlotTop = CategoryTop + CategoryHeight + 12.f * Scale;
     const float SlotWidth =
         (ContentWidth - SlotGapX * (SlotColumnCount - 1)) /
         static_cast<float>(SlotColumnCount);
     const float SlotHeight =
-        (mPanelHeight - (SlotTop - PanelTop) -
-            SlotGapY * (SlotRowCount - 1) - 16.f) /
+        (PanelHeight - (SlotTop - PanelTop) -
+            SlotGapY * (SlotRowCount - 1) - 16.f * Scale) /
         static_cast<float>(SlotRowCount);
 
     for (int i = 0; i < SlotsPerPage; ++i)
@@ -492,7 +516,7 @@ void CBuildMenuWidget::RefreshLayout()
             continue;
 
         SlotButton->SetPos(
-            HorizontalMargin +
+            PanelLeft + HorizontalMargin +
             (SlotWidth + SlotGapX) * static_cast<float>(Col),
             SlotTop + (SlotHeight + SlotGapY) * static_cast<float>(Row));
         SlotButton->SetSize(SlotWidth, SlotHeight);

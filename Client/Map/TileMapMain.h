@@ -17,6 +17,14 @@ public:
 	virtual ~CTileMapMain();
 
 public:
+	static constexpr int BaseTileCountX = 50;
+	static constexpr int BaseTileCountY = 100;
+	static constexpr int SeaBorderX = 5;
+	static constexpr int SeaBorderY = 10;
+	static constexpr float TileTextureWidth = 132.f;
+	static constexpr float TileTextureHeight = 99.f;
+
+public:
 	virtual void Begin();
 	virtual bool Init();
 	virtual void PostUpdate(float DeltaTime);

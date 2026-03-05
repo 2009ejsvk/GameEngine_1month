@@ -33,25 +33,34 @@ bool CTileMapMain::Init()
 	if (Render)
 	{
 		Render->EnableTileAlphaBlend();
+		Render->SetTexture(
+			ETileTextureType::Tile,
+			"LandscapeTile067",
+			TEXT("landscapeTiles_067.png"));
 
 		Render->SetWorldScale(6400.f, 6400.f);
 
-		// 이미지 없이 셰이더 색상만으로 타일을 채우기 위해
-		// 더미 프레임 1개만 등록한다.
-		Render->AddTileFrame(0.f, 0.f, 1.f, 1.f);
+		// 단일 이미지 전체를 하나의 타일 프레임으로 사용한다.
+		Render->AddTileFrame(
+			0.f,
+			0.f,
+			TileTextureWidth,
+			TileTextureHeight);
 	}
 
 	auto	TileMap = mTileMap.lock();
 
 	if (TileMap)
 	{
-		const int CountX = 50;
-		const int CountY = 100;
+		const int CountX = BaseTileCountX + SeaBorderX * 2;
+		const int CountY = BaseTileCountY + SeaBorderY * 2;
 
 		TileMap->CreateTile(ETileShape::Isometric, CountX, CountY,
 			FVector2(160.f, 80.f));
 		TileMap->SetViewCulling(true);
-		TileMap->SetTileTextureSize(1.f, 1.f);
+		TileMap->SetTileTextureSize(
+			TileTextureWidth,
+			TileTextureHeight);
 
 		TileMap->SetTileFrameAll(0);
 		TileMap->SetTileOutLineRender(true);
@@ -66,6 +75,18 @@ bool CTileMapMain::Init()
 			if (!Tile)
 				continue;
 
+			const int TileX = i % CountX;
+			const int TileY = i / CountX;
+			const bool IsExpandedTile =
+				TileX < SeaBorderX ||
+				TileX >= CountX - SeaBorderX ||
+				TileY < SeaBorderY ||
+				TileY >= CountY - SeaBorderY;
+
+			Tile->SetTileType(
+				IsExpandedTile ?
+				ETileType::UnableToMove :
+				ETileType::Normal);
 			Tile->SetOutLineColor(1.f, 1.f, 1.f, 1.f);
 		}
 

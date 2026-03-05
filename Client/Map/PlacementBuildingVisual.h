@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include <string>
 
 class CBuildingVisual : public CGameObject
 {
@@ -17,10 +18,10 @@ public:
 
 private:
 	std::weak_ptr<class CPlacementAreaObject> mBuilding;
-	std::weak_ptr<class CMeshComponent> mLeftWall;
-	std::weak_ptr<class CMeshComponent> mRightWall;
-	std::weak_ptr<class CMeshComponent> mRoof;
+	std::weak_ptr<class CMeshComponent> mSprite;
 	bool mVisible = false;
+	std::string mLoadedBuildingId;
+	std::string mLoadedTextureFile;
 
 public:
 	void SetBuilding(const std::weak_ptr<class CPlacementAreaObject>& Building)
@@ -33,4 +34,5 @@ public:
 
 private:
 	void SyncVisuals();
+	bool BindSpriteTexture(const class CPlacementAreaObject& Building);
 };
