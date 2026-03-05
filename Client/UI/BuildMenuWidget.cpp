@@ -2,14 +2,18 @@
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Player/MainCamera.h"
+#include "../World/MainWorld.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
+#include "UI/ProgressBar.h"
 #include "UI/TextBlock.h"
 #include "Device.h"
 #include "World/World.h"
 #include <Windows.h>
 #include <algorithm>
+#include <cmath>
 #include <cwchar>
+#include <string>
 
 namespace
 {
@@ -93,6 +97,34 @@ namespace
         Button->SetTint(EButtonState::Disable,
             FVector4(0.08f, 0.24f, 0.40f, 0.70f));
     }
+
+    std::wstring FormatCurrency(long long Value)
+    {
+        bool Negative = false;
+        unsigned long long AbsValue = 0;
+
+        if (Value < 0)
+        {
+            Negative = true;
+            AbsValue = static_cast<unsigned long long>(-Value);
+        }
+        else
+        {
+            AbsValue = static_cast<unsigned long long>(Value);
+        }
+
+        std::wstring Digits = std::to_wstring(AbsValue);
+
+        for (int i = static_cast<int>(Digits.size()) - 3; i > 0; i -= 3)
+        {
+            Digits.insert(static_cast<size_t>(i), 1, L',');
+        }
+
+        if (Negative)
+            Digits.insert(Digits.begin(), L'-');
+
+        return L"$" + Digits;
+    }
 }
 
 CBuildMenuWidget::CBuildMenuWidget()
@@ -136,6 +168,37 @@ bool CBuildMenuWidget::Init()
         }
 
         mBuildButton = BuildButton;
+    }
+
+    auto YearbookButton =
+        CreateWidget<CButton>("BuildMenu_YearbookButton", 10).lock();
+
+    if (YearbookButton)
+    {
+        ConfigureDefaultButtonStyle(YearbookButton);
+        YearbookButton->SetEventCallback<CBuildMenuWidget>(
+            EButtonEventState::Click, this,
+            &CBuildMenuWidget::OnYearbookButtonClick);
+
+        auto YearbookButtonText =
+            CWidget::CreateStaticWidget<CTextBlock>(
+                "BuildMenu_YearbookButtonText", mWorld);
+
+        if (YearbookButtonText)
+        {
+            YearbookButtonText->SetText(TEXT("연감"));
+            YearbookButtonText->SetFontSize(24.f);
+            YearbookButtonText->SetAlignH(ETextAlignH::Center);
+            YearbookButtonText->SetAlignV(ETextAlignV::Middle);
+            YearbookButtonText->SetTextColor(255, 255, 255, 255);
+            YearbookButtonText->EnableShadow(true);
+            YearbookButtonText->SetShadowOffset(1.f, 1.f);
+            YearbookButtonText->SetShadowTextColor(40, 40, 40, 255);
+            YearbookButton->SetChild(YearbookButtonText);
+            mYearbookButtonText = YearbookButtonText;
+        }
+
+        mYearbookButton = YearbookButton;
     }
 
     auto DemolishButton =
@@ -182,6 +245,122 @@ bool CBuildMenuWidget::Init()
         NpcCountText->SetShadowOffset(1.f, 1.f);
         NpcCountText->SetShadowTextColor(20, 20, 20, 255);
         mNpcCountText = NpcCountText;
+    }
+
+    auto BudgetText = CreateWidget<CTextBlock>(
+        "BuildMenu_NationalBudget", 11).lock();
+
+    if (BudgetText)
+    {
+        BudgetText->SetText(TEXT("국가 예산: $0"));
+        BudgetText->SetFontSize(20.f);
+        BudgetText->SetAlignH(ETextAlignH::Left);
+        BudgetText->SetAlignV(ETextAlignV::Middle);
+        BudgetText->SetTextColor(245, 245, 210, 255);
+        BudgetText->EnableShadow(true);
+        BudgetText->SetShadowOffset(1.f, 1.f);
+        BudgetText->SetShadowTextColor(20, 20, 20, 255);
+        mBudgetText = BudgetText;
+    }
+
+    auto DateText = CreateWidget<CTextBlock>(
+        "BuildMenu_SimulationDate", 11).lock();
+
+    if (DateText)
+    {
+        DateText->SetText(TEXT("날짜: 2000-01-01"));
+        DateText->SetFontSize(20.f);
+        DateText->SetAlignH(ETextAlignH::Left);
+        DateText->SetAlignV(ETextAlignV::Middle);
+        DateText->SetTextColor(220, 235, 255, 255);
+        DateText->EnableShadow(true);
+        DateText->SetShadowOffset(1.f, 1.f);
+        DateText->SetShadowTextColor(20, 20, 20, 255);
+        mDateText = DateText;
+    }
+
+    auto DayProgressText = CreateWidget<CTextBlock>(
+        "BuildMenu_DayProgressText", 11).lock();
+
+    if (DayProgressText)
+    {
+        DayProgressText->SetText(TEXT("월 진행: 0%"));
+        DayProgressText->SetFontSize(16.f);
+        DayProgressText->SetAlignH(ETextAlignH::Left);
+        DayProgressText->SetAlignV(ETextAlignV::Middle);
+        DayProgressText->SetTextColor(220, 220, 220, 255);
+        DayProgressText->EnableShadow(true);
+        DayProgressText->SetShadowOffset(1.f, 1.f);
+        DayProgressText->SetShadowTextColor(20, 20, 20, 255);
+        mDayProgressText = DayProgressText;
+    }
+
+    auto DayProgressBar = CreateWidget<CProgressBar>(
+        "BuildMenu_DayProgressBar", 10).lock();
+
+    if (DayProgressBar)
+    {
+        DayProgressBar->SetTint(
+            EProgressBarImageType::Back,
+            FVector4(0.08f, 0.08f, 0.10f, 0.85f));
+        DayProgressBar->SetTint(
+            EProgressBarImageType::Fill,
+            FVector4(0.18f, 0.62f, 0.34f, 0.95f));
+        DayProgressBar->SetPercent(0.f);
+        DayProgressBar->SetBarDir(EProgressBarDir::RightToLeft);
+        mDayProgressBar = DayProgressBar;
+    }
+
+    auto YearbookPanel = CreateWidget<CImage>("BuildMenu_YearbookPanel", 12).lock();
+
+    if (YearbookPanel)
+    {
+        YearbookPanel->SetTexture("BuildMenuBackground", TEXT("basic_UI.png"));
+        YearbookPanel->SetTint(1.f, 1.f, 1.f, 1.f);
+        mYearbookPanel = YearbookPanel;
+    }
+
+    auto YearbookTitleText =
+        CreateWidget<CTextBlock>("BuildMenu_YearbookTitle", 13).lock();
+
+    if (YearbookTitleText)
+    {
+        YearbookTitleText->SetText(TEXT("연감"));
+        YearbookTitleText->SetFontSize(24.f);
+        YearbookTitleText->SetAlignH(ETextAlignH::Left);
+        YearbookTitleText->SetAlignV(ETextAlignV::Middle);
+        YearbookTitleText->SetTextColor(245, 245, 245, 255);
+        YearbookTitleText->EnableShadow(true);
+        YearbookTitleText->SetShadowOffset(1.f, 1.f);
+        YearbookTitleText->SetShadowTextColor(20, 20, 20, 255);
+        mYearbookTitleText = YearbookTitleText;
+    }
+
+    auto YearbookBodyText =
+        CreateWidget<CTextBlock>("BuildMenu_YearbookBody", 13).lock();
+
+    if (YearbookBodyText)
+    {
+        YearbookBodyText->SetText(
+            TEXT("종합 만족도: -\n"
+                "음식: -\n"
+                "보건: -\n"
+                "유흥: -\n"
+                "신앙: -\n"
+                "주거: -\n"
+                "직업: -\n"
+                "자유: -\n"
+                "치안: -\n"
+                "무주택자 수: 0명\n"
+                "실업자 수: 0명"));
+        YearbookBodyText->SetFontSize(18.f);
+        YearbookBodyText->SetAlignH(ETextAlignH::Left);
+        YearbookBodyText->SetAlignV(ETextAlignV::Top);
+        YearbookBodyText->SetTextColor(225, 225, 225, 255);
+        YearbookBodyText->EnableShadow(true);
+        YearbookBodyText->SetShadowOffset(1.f, 1.f);
+        YearbookBodyText->SetShadowTextColor(20, 20, 20, 255);
+        mYearbookBodyText = YearbookBodyText;
     }
 
     auto MenuBackground = CreateWidget<CImage>("BuildMenu_Background", 6).lock();
@@ -357,9 +536,14 @@ bool CBuildMenuWidget::Init()
     }
 
     mMenuOpen = false;
+    mYearbookOpen = false;
     SelectCategory(0);
     ApplyMenuOpenState();
+    ApplyYearbookOpenState();
     SyncDemolitionButtonState();
+    RefreshNpcCountText();
+    RefreshEconomyStatus();
+    RefreshYearbookStatus();
     RefreshLayout();
 
     return true;
@@ -370,6 +554,8 @@ void CBuildMenuWidget::Update(float DeltaTime)
     CWidgetContainer::Update(DeltaTime);
     SyncDemolitionButtonState();
     RefreshNpcCountText();
+    RefreshEconomyStatus();
+    RefreshYearbookStatus();
     RefreshLayout();
 }
 
@@ -399,13 +585,31 @@ void CBuildMenuWidget::RefreshLayout()
     const float HeaderHeight = 36.f * Scale;
 
     auto BuildButton = mBuildButton.lock();
+    auto YearbookButton = mYearbookButton.lock();
     auto DemolishButton = mDemolishButton.lock();
+
+    const float BuildButtonWidth = 220.f;
+    const float YearbookButtonWidth = 140.f;
+    const float BottomButtonGap = 14.f;
+    const float BottomButtonHeight = 58.f;
+    const float BottomButtonTop =
+        ScreenWidth * 0.5f -
+        (BuildButtonWidth + BottomButtonGap + YearbookButtonWidth) * 0.5f;
 
     if (BuildButton)
     {
-        BuildButton->SetPivot(0.5f, 1.f);
-        BuildButton->SetPos(ScreenWidth * 0.5f, ScreenHeight - 20.f);
-        BuildButton->SetSize(220.f, 58.f);
+        BuildButton->SetPivot(0.f, 1.f);
+        BuildButton->SetPos(BottomButtonTop, ScreenHeight - 20.f);
+        BuildButton->SetSize(BuildButtonWidth, BottomButtonHeight);
+    }
+
+    if (YearbookButton)
+    {
+        YearbookButton->SetPivot(0.f, 1.f);
+        YearbookButton->SetPos(
+            BottomButtonTop + BuildButtonWidth + BottomButtonGap,
+            ScreenHeight - 20.f);
+        YearbookButton->SetSize(YearbookButtonWidth, BottomButtonHeight);
     }
 
     if (DemolishButton)
@@ -418,12 +622,78 @@ void CBuildMenuWidget::RefreshLayout()
     }
 
     auto NpcCountText = mNpcCountText.lock();
+    auto BudgetText = mBudgetText.lock();
+    auto DateText = mDateText.lock();
+    auto DayProgressText = mDayProgressText.lock();
+    auto DayProgressBar = mDayProgressBar.lock();
 
     if (NpcCountText)
     {
         NpcCountText->SetPivot(0.f, 1.f);
         NpcCountText->SetPos(20.f, ScreenHeight - 20.f);
-        NpcCountText->SetSize(280.f, 28.f);
+        NpcCountText->SetSize(380.f, 28.f);
+    }
+
+    if (BudgetText)
+    {
+        BudgetText->SetPivot(0.f, 1.f);
+        BudgetText->SetPos(20.f, ScreenHeight - 48.f);
+        BudgetText->SetSize(420.f, 28.f);
+    }
+
+    if (DateText)
+    {
+        DateText->SetPivot(0.f, 1.f);
+        DateText->SetPos(20.f, ScreenHeight - 76.f);
+        DateText->SetSize(420.f, 28.f);
+    }
+
+    if (DayProgressText)
+    {
+        DayProgressText->SetPivot(0.f, 1.f);
+        DayProgressText->SetPos(20.f, ScreenHeight - 104.f);
+        DayProgressText->SetSize(420.f, 24.f);
+    }
+
+    if (DayProgressBar)
+    {
+        DayProgressBar->SetPivot(0.f, 1.f);
+        DayProgressBar->SetPos(20.f, ScreenHeight - 124.f);
+        DayProgressBar->SetSize(300.f, 14.f);
+    }
+
+    auto YearbookPanel = mYearbookPanel.lock();
+    auto YearbookTitleText = mYearbookTitleText.lock();
+    auto YearbookBodyText = mYearbookBodyText.lock();
+
+    const float YearbookPanelWidth = PanelWidth;
+    const float YearbookPanelHeight = PanelHeight;
+    const float YearbookLeft = PanelLeft;
+    const float YearbookTop = PanelTop;
+    const float YearbookBodyTop =
+        YearbookTop + HeaderTopPadding + HeaderHeight + 14.f * Scale;
+    const float YearbookBodyHeight = (std::max)(
+        40.f, YearbookPanelHeight - (YearbookBodyTop - YearbookTop) - 16.f * Scale);
+
+    if (YearbookPanel)
+    {
+        YearbookPanel->SetPos(YearbookLeft, YearbookTop);
+        YearbookPanel->SetSize(YearbookPanelWidth, YearbookPanelHeight);
+    }
+
+    if (YearbookTitleText)
+    {
+        YearbookTitleText->SetPos(
+            YearbookLeft + HorizontalMargin,
+            YearbookTop + HeaderTopPadding);
+        YearbookTitleText->SetSize(ContentWidth, HeaderHeight);
+    }
+
+    if (YearbookBodyText)
+    {
+        YearbookBodyText->SetPos(
+            YearbookLeft + HorizontalMargin, YearbookBodyTop);
+        YearbookBodyText->SetSize(ContentWidth, YearbookBodyHeight);
     }
 
     auto MenuBackground = mMenuBackground.lock();
@@ -562,6 +832,38 @@ void CBuildMenuWidget::ApplyMenuOpenState()
     }
 }
 
+void CBuildMenuWidget::ApplyYearbookOpenState()
+{
+    auto YearbookPanel = mYearbookPanel.lock();
+    auto YearbookTitleText = mYearbookTitleText.lock();
+    auto YearbookBodyText = mYearbookBodyText.lock();
+    auto YearbookButton = mYearbookButton.lock();
+    auto YearbookButtonText = mYearbookButtonText.lock();
+
+    if (YearbookPanel)
+        YearbookPanel->SetEnable(mYearbookOpen);
+    if (YearbookTitleText)
+        YearbookTitleText->SetEnable(mYearbookOpen);
+    if (YearbookBodyText)
+        YearbookBodyText->SetEnable(mYearbookOpen);
+
+    if (YearbookButton)
+    {
+        if (mYearbookOpen)
+            ConfigureHighlightedButtonStyle(YearbookButton);
+        else
+            ConfigureDefaultButtonStyle(YearbookButton);
+    }
+
+    if (YearbookButtonText)
+    {
+        if (mYearbookOpen)
+            YearbookButtonText->SetText(TEXT("연감 ON"));
+        else
+            YearbookButtonText->SetText(TEXT("연감"));
+    }
+}
+
 void CBuildMenuWidget::RefreshNpcCountText()
 {
     auto NpcCountText = mNpcCountText.lock();
@@ -587,6 +889,181 @@ void CBuildMenuWidget::RefreshNpcCountText()
     wchar_t CountBuffer[64] = {};
     swprintf_s(CountBuffer, L"NPC: %d", NpcCount);
     NpcCountText->SetText(CountBuffer);
+}
+
+void CBuildMenuWidget::RefreshEconomyStatus()
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+
+    if (!MainWorld)
+        return;
+
+    auto BudgetText = mBudgetText.lock();
+    auto DateText = mDateText.lock();
+    auto DayProgressText = mDayProgressText.lock();
+    auto DayProgressBar = mDayProgressBar.lock();
+
+    if (BudgetText)
+    {
+        const std::wstring BudgetLabel =
+            L"국가 예산: " +
+            FormatCurrency(MainWorld->GetNationalBudget());
+        BudgetText->SetText(BudgetLabel.c_str());
+    }
+
+    const int Year = MainWorld->GetSimulationYear();
+    const int Month = MainWorld->GetSimulationMonth();
+    const int Day = MainWorld->GetSimulationDay();
+    const int MonthDays = MainWorld->GetSimulationMonthDayCount();
+    const float MonthProgress = MainWorld->GetSimulationMonthProgress();
+
+    if (DateText)
+    {
+        wchar_t DateBuffer[64] = {};
+        swprintf_s(DateBuffer, L"날짜: %04d-%02d-%02d", Year, Month, Day);
+        DateText->SetText(DateBuffer);
+    }
+
+    if (DayProgressBar)
+        DayProgressBar->SetPercent(MonthProgress);
+
+    if (DayProgressText)
+    {
+        wchar_t ProgressBuffer[96] = {};
+        swprintf_s(
+            ProgressBuffer,
+            L"월 진행: %d%%  |  %d / %d일",
+            static_cast<int>(roundf(MonthProgress * 100.f)),
+            Day,
+            MonthDays);
+        DayProgressText->SetText(ProgressBuffer);
+    }
+}
+
+void CBuildMenuWidget::RefreshYearbookStatus()
+{
+    auto YearbookBodyText = mYearbookBodyText.lock();
+    auto World = mWorld.lock();
+
+    if (!YearbookBodyText || !World)
+        return;
+
+    std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+    int ActiveNpcCount = 0;
+    int HomelessCount = 0;
+    int UnemployedCount = 0;
+    double FoodSum = 0.0;
+    double HealthSum = 0.0;
+    double FunSum = 0.0;
+    double FaithSum = 0.0;
+    double HousingSum = 0.0;
+    double JobSum = 0.0;
+    double FreedomSum = 0.0;
+    double SecuritySum = 0.0;
+    double OverallSatisfactionSum = 0.0;
+
+    if (World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+    {
+        for (size_t i = 0; i < OrbList.size(); ++i)
+        {
+            auto Orb = OrbList[i].lock();
+
+            if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+                continue;
+
+            const FNpcSatisfaction& Satisfaction = Orb->GetSatisfaction();
+            ++ActiveNpcCount;
+            FoodSum += static_cast<double>(Satisfaction.Food);
+            HealthSum += static_cast<double>(Satisfaction.Health);
+            FunSum += static_cast<double>(Satisfaction.Fun);
+            FaithSum += static_cast<double>(Satisfaction.Faith);
+            HousingSum += static_cast<double>(Satisfaction.Housing);
+            JobSum += static_cast<double>(Satisfaction.Job);
+            FreedomSum += static_cast<double>(Satisfaction.Freedom);
+            SecuritySum += static_cast<double>(Satisfaction.Security);
+            OverallSatisfactionSum += static_cast<double>(Satisfaction.Overall);
+
+            if (Orb->GetHomeBuilding().empty())
+                ++HomelessCount;
+
+            if (Orb->GetWorkBuilding().empty())
+                ++UnemployedCount;
+        }
+    }
+
+    const double AverageSatisfaction =
+        ActiveNpcCount > 0 ?
+        OverallSatisfactionSum / static_cast<double>(ActiveNpcCount) :
+        0.0;
+    const double AverageFood =
+        ActiveNpcCount > 0 ? FoodSum / static_cast<double>(ActiveNpcCount) : 0.0;
+    const double AverageHealth =
+        ActiveNpcCount > 0 ? HealthSum / static_cast<double>(ActiveNpcCount) : 0.0;
+    const double AverageFun =
+        ActiveNpcCount > 0 ? FunSum / static_cast<double>(ActiveNpcCount) : 0.0;
+    const double AverageFaith =
+        ActiveNpcCount > 0 ? FaithSum / static_cast<double>(ActiveNpcCount) : 0.0;
+    const double AverageHousing =
+        ActiveNpcCount > 0 ? HousingSum / static_cast<double>(ActiveNpcCount) : 0.0;
+    const double AverageJob =
+        ActiveNpcCount > 0 ? JobSum / static_cast<double>(ActiveNpcCount) : 0.0;
+    const double AverageFreedom =
+        ActiveNpcCount > 0 ? FreedomSum / static_cast<double>(ActiveNpcCount) : 0.0;
+    const double AverageSecurity =
+        ActiveNpcCount > 0 ? SecuritySum / static_cast<double>(ActiveNpcCount) : 0.0;
+
+    wchar_t YearbookBuffer[1024] = {};
+
+    if (ActiveNpcCount > 0)
+    {
+        swprintf_s(
+            YearbookBuffer,
+            L"종합 만족도: %.1f / 100\n"
+            L"음식: %.1f\n"
+            L"보건: %.1f\n"
+            L"유흥: %.1f\n"
+            L"신앙: %.1f\n"
+            L"주거: %.1f\n"
+            L"직업: %.1f\n"
+            L"자유: %.1f\n"
+            L"치안: %.1f\n"
+            L"무주택자 수: %d명\n"
+            L"실업자 수: %d명",
+            AverageSatisfaction,
+            AverageFood,
+            AverageHealth,
+            AverageFun,
+            AverageFaith,
+            AverageHousing,
+            AverageJob,
+            AverageFreedom,
+            AverageSecurity,
+            HomelessCount,
+            UnemployedCount);
+    }
+    else
+    {
+        swprintf_s(
+            YearbookBuffer,
+            L"종합 만족도: -\n"
+            L"음식: -\n"
+            L"보건: -\n"
+            L"유흥: -\n"
+            L"신앙: -\n"
+            L"주거: -\n"
+            L"직업: -\n"
+            L"자유: -\n"
+            L"치안: -\n"
+            L"무주택자 수: 0명\n"
+            L"실업자 수: 0명");
+    }
+
+    YearbookBodyText->SetText(YearbookBuffer);
 }
 
 void CBuildMenuWidget::RefreshCategoryButtons()
@@ -1043,8 +1520,26 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
 
 void CBuildMenuWidget::OnBuildButtonClick()
 {
-    mMenuOpen = !mMenuOpen;
+    const bool NextOpen = !mMenuOpen;
+    mMenuOpen = NextOpen;
+
+    if (NextOpen)
+        mYearbookOpen = false;
+
     ApplyMenuOpenState();
+    ApplyYearbookOpenState();
+}
+
+void CBuildMenuWidget::OnYearbookButtonClick()
+{
+    const bool NextOpen = !mYearbookOpen;
+    mYearbookOpen = NextOpen;
+
+    if (NextOpen)
+        mMenuOpen = false;
+
+    ApplyMenuOpenState();
+    ApplyYearbookOpenState();
 }
 
 void CBuildMenuWidget::OnDemolishButtonClick()

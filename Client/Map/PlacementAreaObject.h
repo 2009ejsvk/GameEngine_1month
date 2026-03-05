@@ -89,6 +89,9 @@ private:
     std::vector<int> mMarkerTileIndices;
     int mResourceStock = 0;
     float mResourceProductionAccum = 0.f;
+    int mBaseMonthlyWage = 0;
+    int mBaseMonthlyUpkeep = 0;
+    float mHarborShipProgressMonths = 0.f;
     static constexpr int GMaxResourceStock = 100000;
 
 public:
@@ -137,7 +140,9 @@ public:
         int HousingSatisfactionCap = 100,
         int JobSatisfactionCap = 100,
         int FoodSatisfactionCap = 100,
-        int FunSatisfactionCap = 100)
+        int FunSatisfactionCap = 100,
+        int BaseMonthlyWage = -1,
+        int BaseMonthlyUpkeep = -1)
     {
         auto ClampTo100 = [](int Value)
         {
@@ -155,6 +160,55 @@ public:
         mFoodSatisfactionCap = ClampTo100(FoodSatisfactionCap);
         mFunSatisfactionCap = ClampTo100(FunSatisfactionCap);
         mBudgetLevel = 3;
+
+        const int SafeCapacity = (std::max)(0, mCapacity);
+
+        if (BaseMonthlyWage < 0)
+        {
+            if (mResidential)
+                mBaseMonthlyWage = 0;
+            else
+            {
+                int DerivedWage = (std::max)(1, SafeCapacity) * 120;
+
+                if (IsTransportOffice())
+                    DerivedWage = (std::max)(DerivedWage, 800);
+
+                if (IsHarbor())
+                    DerivedWage = (std::max)(DerivedWage, 1000);
+
+                mBaseMonthlyWage = DerivedWage;
+            }
+        }
+        else
+        {
+            mBaseMonthlyWage = (std::max)(0, BaseMonthlyWage);
+        }
+
+        if (BaseMonthlyUpkeep < 0)
+        {
+            int DerivedUpkeep = mResidential ?
+                (80 + SafeCapacity * 4) :
+                (110 + SafeCapacity * 5);
+
+            if (IsTransportOffice())
+                DerivedUpkeep += 300;
+
+            if (IsHarbor())
+                DerivedUpkeep += 450;
+
+            if (mEntertainmentProvider && !mFoodProvider)
+                DerivedUpkeep += 120;
+
+            if (mFoodProvider)
+                DerivedUpkeep += 90;
+
+            mBaseMonthlyUpkeep = (std::max)(0, DerivedUpkeep);
+        }
+        else
+        {
+            mBaseMonthlyUpkeep = (std::max)(0, BaseMonthlyUpkeep);
+        }
     }
 
     const std::string& GetBuildingDisplayName() const
@@ -249,6 +303,76 @@ public:
         case 5: return 1.30f;
         default: return 1.00f;
         }
+    }
+
+    int GetBaseMonthlyWage() const
+    {
+        return mBaseMonthlyWage;
+    }
+
+    int GetBaseMonthlyUpkeep() const
+    {
+        return mBaseMonthlyUpkeep;
+    }
+
+    int GetMonthlyWageCost() const
+    {
+        return ApplyEconomyScale(mBaseMonthlyWage);
+    }
+
+    int GetMonthlyUpkeepCost() const
+    {
+        return ApplyEconomyScale(mBaseMonthlyUpkeep);
+    }
+
+    int GetDailyWageCost(int DaysInMonth) const
+    {
+        const int SafeDays = (std::max)(1, DaysInMonth);
+        const float Daily = static_cast<float>(GetMonthlyWageCost()) /
+            static_cast<float>(SafeDays);
+        return (std::max)(0, static_cast<int>(roundf(Daily)));
+    }
+
+    int GetDailyUpkeepCost(int DaysInMonth) const
+    {
+        const int SafeDays = (std::max)(1, DaysInMonth);
+        const float Daily = static_cast<float>(GetMonthlyUpkeepCost()) /
+            static_cast<float>(SafeDays);
+        return (std::max)(0, static_cast<int>(roundf(Daily)));
+    }
+
+    bool AdvanceHarborShipProgressAndCheckArrival(int DaysInMonth)
+    {
+        if (!IsHarbor())
+            return false;
+
+        const int SafeDays = (std::max)(1, DaysInMonth);
+        const float DailyProgress =
+            GetBudgetSatisfactionScale() /
+            static_cast<float>(SafeDays);
+        mHarborShipProgressMonths += DailyProgress;
+
+        constexpr float GBaseShipIntervalMonths = 3.f;
+
+        if (mHarborShipProgressMonths < GBaseShipIntervalMonths)
+            return false;
+
+        while (mHarborShipProgressMonths >= GBaseShipIntervalMonths)
+        {
+            mHarborShipProgressMonths -= GBaseShipIntervalMonths;
+        }
+
+        return true;
+    }
+
+    float GetHarborShipProgressPercent() const
+    {
+        if (!IsHarbor())
+            return 0.f;
+
+        constexpr float GBaseShipIntervalMonths = 3.f;
+        return Clamp<float>(
+            mHarborShipProgressMonths / GBaseShipIntervalMonths, 0.f, 1.f);
     }
 
     int GetResourceStock() const { return mResourceStock; }
@@ -378,5 +502,12 @@ private:
             BaseCap * GetBudgetSatisfactionScale();
         const int Rounded = static_cast<int>(roundf(Scaled));
         return (std::max)(0, (std::min)(100, Rounded));
+    }
+
+    int ApplyEconomyScale(int BaseCost) const
+    {
+        const float Scaled =
+            static_cast<float>(BaseCost) * GetBudgetSatisfactionScale();
+        return (std::max)(0, static_cast<int>(roundf(Scaled)));
     }
 };

@@ -37,9 +37,18 @@ private:
 
 private:
     std::weak_ptr<class CButton> mBuildButton;
+    std::weak_ptr<class CButton> mYearbookButton;
+    std::weak_ptr<class CTextBlock> mYearbookButtonText;
     std::weak_ptr<class CButton> mDemolishButton;
     std::weak_ptr<class CTextBlock> mDemolishButtonText;
     std::weak_ptr<class CTextBlock> mNpcCountText;
+    std::weak_ptr<class CTextBlock> mBudgetText;
+    std::weak_ptr<class CTextBlock> mDateText;
+    std::weak_ptr<class CTextBlock> mDayProgressText;
+    std::weak_ptr<class CProgressBar> mDayProgressBar;
+    std::weak_ptr<class CImage> mYearbookPanel;
+    std::weak_ptr<class CTextBlock> mYearbookTitleText;
+    std::weak_ptr<class CTextBlock> mYearbookBodyText;
     std::weak_ptr<class CImage> mMenuBackground;
     std::weak_ptr<class CTextBlock> mTitleText;
     std::weak_ptr<class CTextBlock> mPageText;
@@ -50,6 +59,7 @@ private:
     std::vector<std::weak_ptr<class CTextBlock>> mBuildingButtonTexts;
     std::vector<int> mVisibleEntryIndices;
     bool mMenuOpen = false;
+    bool mYearbookOpen = false;
     int mSelectedCategoryIndex = 0;
     int mCurrentPage = 0;
     float mPanelWidth = 656.f;
@@ -63,7 +73,10 @@ public:
 private:
     void RefreshLayout();
     void RefreshNpcCountText();
+    void RefreshEconomyStatus();
+    void RefreshYearbookStatus();
     void ApplyMenuOpenState();
+    void ApplyYearbookOpenState();
     void RefreshCategoryButtons();
     void RefreshBuildingButtons();
     void SelectCategory(int CategoryIndex);
@@ -75,6 +88,7 @@ private:
 
 private:
     void OnBuildButtonClick();
+    void OnYearbookButtonClick();
     void OnDemolishButtonClick();
     void OnCategoryInfrastructureClick();
     void OnCategoryFoodResourceClick();

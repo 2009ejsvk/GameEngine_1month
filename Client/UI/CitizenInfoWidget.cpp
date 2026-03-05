@@ -1,6 +1,7 @@
 #include "CitizenInfoWidget.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
+#include "../World/MainWorld.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
@@ -477,6 +478,17 @@ void CCitizenInfoWidget::RefreshBuildingInfo()
     const bool UsesResourceStock =
         (WorkProvider && !Building->IsTransportOffice()) ||
         FoodProvider;
+    int DaysInMonth = 30;
+
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+
+    if (MainWorld)
+        DaysInMonth = (std::max)(1, MainWorld->GetSimulationMonthDayCount());
+
+    const int MonthlyWageCost = Building->GetMonthlyWageCost();
+    const int MonthlyUpkeepCost = Building->GetMonthlyUpkeepCost();
+    const int DailyWageCost = Building->GetDailyWageCost(DaysInMonth);
+    const int DailyUpkeepCost = Building->GetDailyUpkeepCost(DaysInMonth);
 
     if (UsesResourceStock)
     {
@@ -484,6 +496,19 @@ void CCitizenInfoWidget::RefreshBuildingInfo()
             std::to_wstring(Building->GetResourceStock()) +
             L"/" + std::to_wstring(Building->GetMaxResourceStock());
     }
+
+    if (Building->IsHarbor())
+    {
+        const int ShipProgressPercent = static_cast<int>(roundf(
+            Building->GetHarborShipProgressPercent() * 100.f));
+        Body += L"\n선박 도착 진행: " +
+            std::to_wstring(ShipProgressPercent) + L"%";
+    }
+
+    Body += L"\n월급(월): $" + std::to_wstring(MonthlyWageCost);
+    Body += L"\n유지비(월): $" + std::to_wstring(MonthlyUpkeepCost);
+    Body += L"\n월급(일): $" + std::to_wstring(DailyWageCost);
+    Body += L"\n유지비(일): $" + std::to_wstring(DailyUpkeepCost);
 
     auto SummarizeNames = [&](const std::vector<std::string>& Names)
         -> std::wstring

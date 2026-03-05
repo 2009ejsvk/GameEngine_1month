@@ -15,6 +15,7 @@
 #include "../Map/PlacementBuildingVisual.h"
 #include "../Player/MainCamera.h"
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <random>
 #include <string>
@@ -28,6 +29,12 @@ namespace
 	constexpr int GMaxNpcCount = 2000;
 	constexpr float GNpcSpawnInterval = 5.f;
 	constexpr float GCitizenReassignInterval = 0.5f;
+	constexpr long long GInitialNationalBudget = 500000;
+	constexpr int GSimulationStartYear = 2000;
+	constexpr int GSimulationStartMonth = 1;
+	constexpr int GSimulationStartDay = 1;
+	constexpr float GSecondsPerSimulationDay = 2.f;
+	constexpr int GExportPricePerStockUnit = 2;
 	constexpr float GNpcSpeedBase = 140.f;
 	constexpr float GNpcSpeedVariance = 21.f;
 	constexpr int GCitizenDirectionCount = 8;
@@ -598,6 +605,16 @@ bool CMainWorld::Init()
 	mSpawnedNpcCount = 0;
 	mNpcSpawnAccum = 0.f;
 	mCitizenReassignAccum = 0.f;
+	mNationalBudget = GInitialNationalBudget;
+	mLastDailyWageCost = 0;
+	mLastDailyUpkeepCost = 0;
+	mLastDailyExportIncome = 0;
+	mLastDailyNetChange = 0;
+	mSimulationYear = GSimulationStartYear;
+	mSimulationMonth = GSimulationStartMonth;
+	mSimulationDay = GSimulationStartDay;
+	mDayProgressAccum = 0.f;
+	mSecondsPerSimulationDay = GSecondsPerSimulationDay;
 
 	for (int i = 0; i < GInitialNpcCount; ++i)
 	{
@@ -667,6 +684,7 @@ bool CMainWorld::Init()
 void CMainWorld::Update(float DeltaTime)
 {
 	CWorld::Update(DeltaTime);
+	AdvanceSimulationDate(DeltaTime);
 
 	mCitizenReassignAccum += DeltaTime;
 
@@ -687,6 +705,154 @@ void CMainWorld::Update(float DeltaTime)
 			SpawnCitizenOrb();
 		}
 	}
+}
+
+int CMainWorld::GetSimulationMonthDayCount() const
+{
+	return GetDaysInMonth(mSimulationYear, mSimulationMonth);
+}
+
+float CMainWorld::GetSimulationDayProgress() const
+{
+	if (mSecondsPerSimulationDay <= 0.f)
+		return 0.f;
+
+	return Clamp<float>(
+		mDayProgressAccum / mSecondsPerSimulationDay, 0.f, 1.f);
+}
+
+float CMainWorld::GetSimulationMonthProgress() const
+{
+	const int MonthDays = GetDaysInMonth(mSimulationYear, mSimulationMonth);
+
+	if (MonthDays <= 0)
+		return 0.f;
+
+	const float DayProgress = GetSimulationDayProgress();
+	const float CompletedDays =
+		static_cast<float>((std::max)(0, mSimulationDay - 1)) +
+		DayProgress;
+
+	return Clamp<float>(
+		CompletedDays / static_cast<float>(MonthDays), 0.f, 1.f);
+}
+
+void CMainWorld::AdvanceSimulationDate(float DeltaTime)
+{
+	if (DeltaTime <= 0.f || mSecondsPerSimulationDay <= 0.f)
+		return;
+
+	mDayProgressAccum += DeltaTime;
+
+	while (mDayProgressAccum >= mSecondsPerSimulationDay)
+	{
+		mDayProgressAccum -= mSecondsPerSimulationDay;
+		AdvanceSimulationDay();
+	}
+}
+
+void CMainWorld::AdvanceSimulationDay()
+{
+	ApplyDailyEconomySettlement();
+
+	++mSimulationDay;
+	const int CurrentMonthDays =
+		GetDaysInMonth(mSimulationYear, mSimulationMonth);
+
+	if (mSimulationDay <= CurrentMonthDays)
+		return;
+
+	mSimulationDay = 1;
+	++mSimulationMonth;
+
+	if (mSimulationMonth <= 12)
+		return;
+
+	mSimulationMonth = 1;
+	++mSimulationYear;
+}
+
+int CMainWorld::GetDaysInMonth(int Year, int Month) const
+{
+	switch (Month)
+	{
+	case 1:
+	case 3:
+	case 5:
+	case 7:
+	case 8:
+	case 10:
+	case 12:
+		return 31;
+	case 4:
+	case 6:
+	case 9:
+	case 11:
+		return 30;
+	case 2:
+	{
+		const bool IsLeapYear =
+			(Year % 400 == 0) || (Year % 4 == 0 && Year % 100 != 0);
+		return IsLeapYear ? 29 : 28;
+	}
+	default:
+		return 30;
+	}
+}
+
+void CMainWorld::ApplyDailyEconomySettlement()
+{
+	std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+	if (!FindObjectListByType<CPlacementAreaObject>(BuildingList))
+		return;
+
+	const int DaysInMonth = GetDaysInMonth(mSimulationYear, mSimulationMonth);
+	long long DailyWageCost = 0;
+	long long DailyUpkeepCost = 0;
+	long long DailyExportIncome = 0;
+
+	for (size_t i = 0; i < BuildingList.size(); ++i)
+	{
+		auto Building = BuildingList[i].lock();
+
+		if (!Building ||
+			!Building->GetAlive() ||
+			!Building->GetEnable() ||
+			!Building->HasPlacedArea())
+		{
+			continue;
+		}
+
+		DailyWageCost += Building->GetDailyWageCost(DaysInMonth);
+		DailyUpkeepCost += Building->GetDailyUpkeepCost(DaysInMonth);
+
+		if (Building->IsHarbor())
+		{
+			const bool ShipArrived =
+				Building->AdvanceHarborShipProgressAndCheckArrival(
+					DaysInMonth);
+
+			if (!ShipArrived)
+				continue;
+
+			const int ExportStock = Building->GetResourceStock();
+
+			if (ExportStock > 0 &&
+				Building->TryConsumeResource(ExportStock))
+			{
+				DailyExportIncome += static_cast<long long>(
+					ExportStock) * GExportPricePerStockUnit;
+			}
+		}
+	}
+
+	mLastDailyWageCost = DailyWageCost;
+	mLastDailyUpkeepCost = DailyUpkeepCost;
+	mLastDailyExportIncome = DailyExportIncome;
+	mLastDailyNetChange = DailyExportIncome -
+		DailyWageCost - DailyUpkeepCost;
+	mNationalBudget += mLastDailyNetChange;
 }
 
 void CMainWorld::SpawnCitizenOrb()
