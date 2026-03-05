@@ -21,12 +21,40 @@ namespace
     constexpr int SlotsPerPage = 12;
     constexpr int SlotColumnCount = 4;
     constexpr int SlotRowCount = 3;
+    constexpr int TopHudSpeedButtonCount = 4;
+    constexpr int TopHudMenuButtonCount = 8;
+    constexpr const TCHAR* GTopHudSpeedPanelTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Gamespeed\\T_gamespeed_deco_bg.png");
+    constexpr const TCHAR* GTopHudTimeBarBackTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Gamespeed\\T_gamespeed_timeBar_bg.png");
+    constexpr const TCHAR* GTopHudTimeBarFillTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Gamespeed\\T_gamespeed_timeBar.png");
     constexpr const TCHAR* GBuildMenuPanelTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\5_MainMenu\\CenterPopUp\\T_center_popUp.png");
     constexpr const TCHAR* GYearbookPanelTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\CenterPopUp\\T_center_popUp.png");
     constexpr const TCHAR* GEmptySlotTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_standard.png");
+
+    const TCHAR* const GTopHudSpeedIcons[TopHudSpeedButtonCount] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_pause.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_playTwo.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_playThree.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_quadruple.png")
+    };
+
+    const TCHAR* const GTopHudMenuIcons[TopHudMenuButtonCount] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Tasks.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Construction.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Edicts.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Constitution.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Trade.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Raids.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Research.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Almanac.png")
+    };
 
     const wchar_t* CategoryLabels[CategoryCount] =
     {
@@ -260,6 +288,22 @@ namespace
             FVector4(0.80f, 0.80f, 0.80f, 1.f));
         Button->SetTint(EButtonState::Disable,
             FVector4(0.35f, 0.35f, 0.35f, 0.75f));
+    }
+
+    void ConfigureTopHudIconButtonStyle(
+        const std::shared_ptr<CButton>& Button)
+    {
+        if (!Button)
+            return;
+
+        Button->SetTint(EButtonState::Normal,
+            FVector4(0.96f, 0.96f, 0.96f, 0.95f));
+        Button->SetTint(EButtonState::Hovered,
+            FVector4(1.f, 1.f, 1.f, 1.f));
+        Button->SetTint(EButtonState::Click,
+            FVector4(0.78f, 0.78f, 0.78f, 1.f));
+        Button->SetTint(EButtonState::Disable,
+            FVector4(0.40f, 0.40f, 0.40f, 0.75f));
     }
 
     void ApplyTextureToAllButtonStates(
@@ -720,6 +764,117 @@ bool CBuildMenuWidget::Init()
         mBuildingButtonTexts[i] = ButtonText;
     }
 
+    auto TopHudSpeedPanel =
+        CreateWidget<CImage>("TopHud_SpeedPanel", 14).lock();
+
+    if (TopHudSpeedPanel)
+    {
+        TopHudSpeedPanel->SetTexture(
+            "TopHudSpeedPanel", GTopHudSpeedPanelTexture);
+        TopHudSpeedPanel->SetTint(1.f, 1.f, 1.f, 1.f);
+        mTopHudSpeedPanel = TopHudSpeedPanel;
+    }
+
+    auto TopHudTimeBarBack =
+        CreateWidget<CImage>("TopHud_TimeBarBack", 15).lock();
+
+    if (TopHudTimeBarBack)
+    {
+        TopHudTimeBarBack->SetTexture(
+            "TopHudTimeBarBack", GTopHudTimeBarBackTexture);
+        TopHudTimeBarBack->SetTint(1.f, 1.f, 1.f, 1.f);
+        mTopHudTimeBarBack = TopHudTimeBarBack;
+    }
+
+    auto TopHudTimeBarFill =
+        CreateWidget<CImage>("TopHud_TimeBarFill", 16).lock();
+
+    if (TopHudTimeBarFill)
+    {
+        TopHudTimeBarFill->SetTexture(
+            "TopHudTimeBarFill", GTopHudTimeBarFillTexture);
+        TopHudTimeBarFill->SetTint(1.f, 1.f, 1.f, 1.f);
+        mTopHudTimeBarFill = TopHudTimeBarFill;
+    }
+
+    auto TopHudDateText =
+        CreateWidget<CTextBlock>("TopHud_DateText", 17).lock();
+
+    if (TopHudDateText)
+    {
+        TopHudDateText->SetText(TEXT("2월, 1959"));
+        TopHudDateText->SetFontSize(16.f);
+        TopHudDateText->SetAlignH(ETextAlignH::Left);
+        TopHudDateText->SetAlignV(ETextAlignV::Middle);
+        TopHudDateText->SetTextColor(245, 235, 210, 255);
+        TopHudDateText->EnableShadow(true);
+        TopHudDateText->SetShadowOffset(1.f, 1.f);
+        TopHudDateText->SetShadowTextColor(18, 18, 18, 220);
+        mTopHudDateText = TopHudDateText;
+    }
+
+    auto TopHudClickText =
+        CreateWidget<CTextBlock>("TopHud_ClickText", 17).lock();
+
+    if (TopHudClickText)
+    {
+        TopHudClickText->SetText(TEXT("HUD 클릭: 0"));
+        TopHudClickText->SetFontSize(14.f);
+        TopHudClickText->SetAlignH(ETextAlignH::Left);
+        TopHudClickText->SetAlignV(ETextAlignV::Middle);
+        TopHudClickText->SetTextColor(232, 232, 232, 255);
+        TopHudClickText->EnableShadow(true);
+        TopHudClickText->SetShadowOffset(1.f, 1.f);
+        TopHudClickText->SetShadowTextColor(16, 16, 16, 220);
+        mTopHudClickText = TopHudClickText;
+    }
+
+    mTopHudSpeedButtons.resize(TopHudSpeedButtonCount);
+
+    for (int i = 0; i < TopHudSpeedButtonCount; ++i)
+    {
+        auto Button = CreateWidget<CButton>(
+            "TopHud_SpeedButton_" + std::to_string(i + 1), 18).lock();
+
+        if (!Button)
+            continue;
+
+        ConfigureTopHudIconButtonStyle(Button);
+        Button->SetEventCallback<CBuildMenuWidget>(
+            EButtonEventState::Click, this,
+            &CBuildMenuWidget::OnTopHudAnyButtonClick);
+
+        ApplyTextureToAllButtonStates(
+            Button,
+            "TopHudSpeedIcon_" + std::to_string(i),
+            GTopHudSpeedIcons[i]);
+
+        mTopHudSpeedButtons[i] = Button;
+    }
+
+    mTopHudMenuButtons.resize(TopHudMenuButtonCount);
+
+    for (int i = 0; i < TopHudMenuButtonCount; ++i)
+    {
+        auto Button = CreateWidget<CButton>(
+            "TopHud_MenuButton_" + std::to_string(i + 1), 18).lock();
+
+        if (!Button)
+            continue;
+
+        ConfigureTopHudIconButtonStyle(Button);
+        Button->SetEventCallback<CBuildMenuWidget>(
+            EButtonEventState::Click, this,
+            &CBuildMenuWidget::OnTopHudAnyButtonClick);
+
+        ApplyTextureToAllButtonStates(
+            Button,
+            "TopHudMenuIcon_" + std::to_string(i),
+            GTopHudMenuIcons[i]);
+
+        mTopHudMenuButtons[i] = Button;
+    }
+
     mMenuOpen = false;
     mYearbookOpen = false;
     SelectCategory(0);
@@ -845,6 +1000,110 @@ void CBuildMenuWidget::RefreshLayout()
         DayProgressBar->SetPivot(0.f, 1.f);
         DayProgressBar->SetPos(20.f, ScreenHeight - 124.f);
         DayProgressBar->SetSize(300.f, 14.f);
+    }
+
+    const float TopHudScale =
+        (std::max)(0.62f, (std::min)(1.f, ScreenWidth / 1920.f));
+    const float TopHudPanelX = 16.f;
+    const float TopHudPanelY = 14.f;
+    const float TopHudPanelW = 303.f * TopHudScale;
+    const float TopHudPanelH = 130.f * TopHudScale;
+
+    auto TopHudSpeedPanel = mTopHudSpeedPanel.lock();
+    auto TopHudTimeBarBack = mTopHudTimeBarBack.lock();
+    auto TopHudTimeBarFill = mTopHudTimeBarFill.lock();
+    auto TopHudDateText = mTopHudDateText.lock();
+    auto TopHudClickText = mTopHudClickText.lock();
+
+    if (TopHudSpeedPanel)
+    {
+        TopHudSpeedPanel->SetPos(TopHudPanelX, TopHudPanelY);
+        TopHudSpeedPanel->SetSize(TopHudPanelW, TopHudPanelH);
+    }
+
+    const float TimeBarX = TopHudPanelX + 62.f * TopHudScale;
+    const float TimeBarY = TopHudPanelY + 10.f * TopHudScale;
+    const float TimeBarW = 177.f * TopHudScale;
+    const float TimeBarH = 13.f * TopHudScale;
+
+    if (TopHudTimeBarBack)
+    {
+        TopHudTimeBarBack->SetPos(TimeBarX, TimeBarY);
+        TopHudTimeBarBack->SetSize(TimeBarW, TimeBarH);
+    }
+
+    if (TopHudTimeBarFill)
+    {
+        TopHudTimeBarFill->SetPos(TimeBarX, TimeBarY);
+        TopHudTimeBarFill->SetSize(TimeBarW * 0.66f, TimeBarH);
+    }
+
+    if (TopHudDateText)
+    {
+        TopHudDateText->SetPos(
+            TopHudPanelX + 62.f * TopHudScale,
+            TopHudPanelY + 24.f * TopHudScale);
+        TopHudDateText->SetSize(170.f * TopHudScale, 20.f * TopHudScale);
+    }
+
+    const float SpeedButtonSize = 40.f * TopHudScale;
+    const float SpeedButtonGap = 44.f * TopHudScale;
+    const float SpeedButtonY =
+        TopHudPanelY + TopHudPanelH - SpeedButtonSize - 14.f * TopHudScale;
+    const float SpeedButtonStartX =
+        TopHudPanelX + 18.f * TopHudScale;
+
+    for (int i = 0; i < static_cast<int>(mTopHudSpeedButtons.size()); ++i)
+    {
+        auto SpeedButton = mTopHudSpeedButtons[i].lock();
+
+        if (!SpeedButton)
+            continue;
+
+        SpeedButton->SetPos(
+            SpeedButtonStartX + SpeedButtonGap * static_cast<float>(i),
+            SpeedButtonY);
+        SpeedButton->SetSize(SpeedButtonSize, SpeedButtonSize);
+    }
+
+    float MenuButtonSize = 48.f * TopHudScale;
+    float MenuButtonGap = 6.f * TopHudScale;
+    const float MenuStartX =
+        TopHudPanelX + TopHudPanelW + 24.f * TopHudScale;
+    const float MenuY = TopHudPanelY + 4.f * TopHudScale;
+
+    const float WantedMenuWidth =
+        MenuButtonSize * TopHudMenuButtonCount +
+        MenuButtonGap * static_cast<float>(TopHudMenuButtonCount - 1);
+    const float MaxMenuWidth =
+        (std::max)(80.f, ScreenWidth - MenuStartX - 14.f);
+
+    if (WantedMenuWidth > MaxMenuWidth)
+    {
+        const float MenuScale = (std::max)(0.62f, MaxMenuWidth / WantedMenuWidth);
+        MenuButtonSize *= MenuScale;
+        MenuButtonGap *= MenuScale;
+    }
+
+    for (int i = 0; i < static_cast<int>(mTopHudMenuButtons.size()); ++i)
+    {
+        auto MenuButton = mTopHudMenuButtons[i].lock();
+
+        if (!MenuButton)
+            continue;
+
+        MenuButton->SetPos(
+            MenuStartX + (MenuButtonSize + MenuButtonGap) * static_cast<float>(i),
+            MenuY);
+        MenuButton->SetSize(MenuButtonSize, MenuButtonSize);
+    }
+
+    if (TopHudClickText)
+    {
+        TopHudClickText->SetPos(
+            MenuStartX,
+            MenuY + MenuButtonSize + 4.f * TopHudScale);
+        TopHudClickText->SetSize(420.f * TopHudScale, 20.f * TopHudScale);
     }
 
     auto YearbookPanel = mYearbookPanel.lock();
@@ -1890,4 +2149,18 @@ void CBuildMenuWidget::OnSlot10Click()
 void CBuildMenuWidget::OnSlot11Click()
 {
     StartPlacementBySlot(11);
+}
+
+void CBuildMenuWidget::OnTopHudAnyButtonClick()
+{
+    ++mTopHudClickCount;
+
+    auto TopHudClickText = mTopHudClickText.lock();
+
+    if (!TopHudClickText)
+        return;
+
+    wchar_t Buffer[64] = {};
+    swprintf_s(Buffer, L"HUD 클릭: %d", mTopHudClickCount);
+    TopHudClickText->SetText(Buffer);
 }

@@ -55,10 +55,18 @@ private:
     std::weak_ptr<class CTextBlock> mPageText;
     std::weak_ptr<class CButton> mPrevPageButton;
     std::weak_ptr<class CButton> mNextPageButton;
+    std::weak_ptr<class CImage> mTopHudSpeedPanel;
+    std::weak_ptr<class CImage> mTopHudTimeBarBack;
+    std::weak_ptr<class CImage> mTopHudTimeBarFill;
+    std::weak_ptr<class CTextBlock> mTopHudDateText;
+    std::weak_ptr<class CTextBlock> mTopHudClickText;
+    std::vector<std::weak_ptr<class CButton>> mTopHudSpeedButtons;
+    std::vector<std::weak_ptr<class CButton>> mTopHudMenuButtons;
     std::vector<std::weak_ptr<class CButton>> mCategoryButtons;
     std::vector<std::weak_ptr<class CButton>> mBuildingButtons;
     std::vector<std::weak_ptr<class CTextBlock>> mBuildingButtonTexts;
     std::vector<int> mVisibleEntryIndices;
+    int mTopHudClickCount = 0;
     bool mMenuOpen = false;
     bool mYearbookOpen = false;
     int mSelectedCategoryIndex = 0;
@@ -110,4 +118,5 @@ private:
     void OnSlot9Click();
     void OnSlot10Click();
     void OnSlot11Click();
+    void OnTopHudAnyButtonClick();
 };
