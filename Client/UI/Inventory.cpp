@@ -76,17 +76,23 @@ bool CInventory::Init()
 
 	auto Slot = mSlotArray[0].lock();
 
-	Slot->SetIconImage("Shield", TEXT("Icon_Shield.PNG"));
+	Slot->SetIconImage(
+		"TropicoGuardTower",
+		TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_guardTower.png"));
 	Slot->EnableIcon(true);
 
 	Slot = mSlotArray[1].lock();
 
-	Slot->SetIconImage("Sword", TEXT("Icon_Sword.PNG"));
+	Slot->SetIconImage(
+		"TropicoHospital",
+		TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_hospital.png"));
 	Slot->EnableIcon(true);
 
 	Slot = mSlotArray[7].lock();
 
-	Slot->SetIconImage("Sword", TEXT("Icon_Sword.PNG"));
+	Slot->SetIconImage(
+		"TropicoElectronicsFactory",
+		TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_electronicsFactory.png"));
 	Slot->EnableIcon(true);
 
 	return true;

@@ -31,6 +31,7 @@ private:
         int FunSatisfactionCap = 100;
         int Capacity = 0;
         int CategoryIndex = 0;
+        int CategoryLocalIndex = 0;
         EPlacementTemplateType TemplateType;
         EPlacementBuildingKind BuildingKind;
     };

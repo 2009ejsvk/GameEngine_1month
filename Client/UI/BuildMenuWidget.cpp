@@ -21,6 +21,12 @@ namespace
     constexpr int SlotsPerPage = 12;
     constexpr int SlotColumnCount = 4;
     constexpr int SlotRowCount = 3;
+    constexpr const TCHAR* GBuildMenuPanelTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\5_MainMenu\\CenterPopUp\\T_center_popUp.png");
+    constexpr const TCHAR* GYearbookPanelTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\CenterPopUp\\T_center_popUp.png");
+    constexpr const TCHAR* GEmptySlotTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_standard.png");
 
     const wchar_t* CategoryLabels[CategoryCount] =
     {
@@ -30,6 +36,148 @@ namespace
         L"주거지",
         L"유흥"
     };
+
+    const TCHAR* const GInfrastructureIcons[] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_constructionOffice.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_teamsters.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_dock.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_storageQuay.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_DLC_warehouse.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_electricSubstation.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_powerPlant.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_parkDeck.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_busGarage.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_busStop.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_telefericStation.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_NuclearPowerPlant.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_metroStation.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_airport.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_windFarm.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\ICO_OffshoreWindTurbine.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_solarPowerPlant.png")
+    };
+
+    const TCHAR* const GFoodResourceIcons[] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_CoconutHarvester.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_loggingCamp.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_wharf.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_plantation.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_ranch.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_mine.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_oilWell.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_fishFarm.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_oilRig.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_hydrophobicPlantation.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_factoryRanch.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_automatedMine.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_juicer.png")
+    };
+
+    const TCHAR* const GIndustryIcons[] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_lumberMill.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_rumDistillery.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_tannery.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_cannery.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_creamery.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_cigarFactory.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_shipyard.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_steelMill.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_textileMill.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_weaponsFactory.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_chocolateFactory.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_furnitureFactory.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_jewelryFactory.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_plasticPlant.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_vehicleFactory.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_electronicsFactory.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_fashionCompany.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_pharmaceuticalCompany.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_DLC_smartFurnitureStudio.png")
+    };
+
+    const TCHAR* const GHousingIcons[] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_bunkhouse.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_countryHouse.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_house.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_mansion.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_apartment.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_tenment.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\ICO_Flophouse.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_Conventillo.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_cabin.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_beachVilla.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_modernApartment.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_modernMansion.png")
+    };
+
+    const TCHAR* const GEntertainmentIcons[] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_tavern.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_circus.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_cabaret.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_botanicalGarden.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_funFairPier.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_gourmetRestaurant.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_arcade.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_fastFoodJoint.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_movieTheatre.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_aquaPark.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_rollerCoaster.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_stadium.png")
+    };
+
+    const TCHAR* PickIcon(const TCHAR* const* Icons, int Count, int LocalIndex)
+    {
+        if (!Icons || Count <= 0)
+            return nullptr;
+
+        int Index = LocalIndex % Count;
+
+        if (Index < 0)
+            Index += Count;
+
+        return Icons[Index];
+    }
+
+    const TCHAR* GetCatalogEntryIconPath(int CategoryIndex, int CategoryLocalIndex)
+    {
+        switch (CategoryIndex)
+        {
+        case 0:
+            return PickIcon(
+                GInfrastructureIcons,
+                _countof(GInfrastructureIcons),
+                CategoryLocalIndex);
+        case 1:
+            return PickIcon(
+                GFoodResourceIcons,
+                _countof(GFoodResourceIcons),
+                CategoryLocalIndex);
+        case 2:
+            return PickIcon(
+                GIndustryIcons,
+                _countof(GIndustryIcons),
+                CategoryLocalIndex);
+        case 3:
+            return PickIcon(
+                GHousingIcons,
+                _countof(GHousingIcons),
+                CategoryLocalIndex);
+        case 4:
+            return PickIcon(
+                GEntertainmentIcons,
+                _countof(GEntertainmentIcons),
+                CategoryLocalIndex);
+        default:
+            break;
+        }
+
+        return nullptr;
+    }
 
     std::string WideToUtf8(const std::wstring& Text)
     {
@@ -96,6 +244,38 @@ namespace
             FVector4(0.08f, 0.24f, 0.40f, 0.98f));
         Button->SetTint(EButtonState::Disable,
             FVector4(0.08f, 0.24f, 0.40f, 0.70f));
+    }
+
+    void ConfigureIconSlotButtonStyle(
+        const std::shared_ptr<CButton>& Button)
+    {
+        if (!Button)
+            return;
+
+        Button->SetTint(EButtonState::Normal,
+            FVector4(1.f, 1.f, 1.f, 0.96f));
+        Button->SetTint(EButtonState::Hovered,
+            FVector4(1.f, 1.f, 1.f, 1.f));
+        Button->SetTint(EButtonState::Click,
+            FVector4(0.80f, 0.80f, 0.80f, 1.f));
+        Button->SetTint(EButtonState::Disable,
+            FVector4(0.35f, 0.35f, 0.35f, 0.75f));
+    }
+
+    void ApplyTextureToAllButtonStates(
+        const std::shared_ptr<CButton>& Button,
+        const std::string& TextureKey,
+        const TCHAR* TextureFile)
+    {
+        if (!Button || !TextureFile)
+            return;
+
+        if (!Button->SetTexture(EButtonState::Normal, TextureKey, TextureFile))
+            return;
+
+        Button->SetTexture(EButtonState::Hovered, TextureKey);
+        Button->SetTexture(EButtonState::Click, TextureKey);
+        Button->SetTexture(EButtonState::Disable, TextureKey);
     }
 
     std::wstring FormatCurrency(long long Value)
@@ -315,7 +495,8 @@ bool CBuildMenuWidget::Init()
 
     if (YearbookPanel)
     {
-        YearbookPanel->SetTexture("BuildMenuBackground", TEXT("basic_UI.png"));
+        YearbookPanel->SetTexture("BuildMenuYearbookBackground",
+            GYearbookPanelTexture);
         YearbookPanel->SetTint(1.f, 1.f, 1.f, 1.f);
         mYearbookPanel = YearbookPanel;
     }
@@ -353,7 +534,7 @@ bool CBuildMenuWidget::Init()
                 "치안: -\n"
                 "무주택자 수: 0명\n"
                 "실업자 수: 0명"));
-        YearbookBodyText->SetFontSize(18.f);
+        YearbookBodyText->SetFontSize(14.f);
         YearbookBodyText->SetAlignH(ETextAlignH::Left);
         YearbookBodyText->SetAlignV(ETextAlignV::Top);
         YearbookBodyText->SetTextColor(225, 225, 225, 255);
@@ -367,7 +548,8 @@ bool CBuildMenuWidget::Init()
 
     if (MenuBackground)
     {
-        MenuBackground->SetTexture("BuildMenuBackground", TEXT("basic_UI.png"));
+        MenuBackground->SetTexture("BuildMenuBackground",
+            GBuildMenuPanelTexture);
         MenuBackground->SetTint(1.f, 1.f, 1.f, 1.f);
         mMenuBackground = MenuBackground;
     }
@@ -514,7 +696,7 @@ bool CBuildMenuWidget::Init()
         if (!Button)
             continue;
 
-        ConfigureDefaultButtonStyle(Button);
+        ConfigureIconSlotButtonStyle(Button);
         Button->SetEventCallback<CBuildMenuWidget>(
             EButtonEventState::Click, this, SlotCallbacks[i]);
 
@@ -524,10 +706,13 @@ bool CBuildMenuWidget::Init()
         if (ButtonText)
         {
             ButtonText->SetText(TEXT("-"));
-            ButtonText->SetFontSize(18.f);
+            ButtonText->SetFontSize(14.f);
             ButtonText->SetAlignH(ETextAlignH::Center);
-            ButtonText->SetAlignV(ETextAlignV::Middle);
+            ButtonText->SetAlignV(ETextAlignV::Bottom);
             ButtonText->SetTextColor(240, 240, 240, 255);
+            ButtonText->EnableShadow(true);
+            ButtonText->SetShadowOffset(1.f, 1.f);
+            ButtonText->SetShadowTextColor(16, 16, 16, 220);
             Button->SetChild(ButtonText);
         }
 
@@ -957,6 +1142,7 @@ void CBuildMenuWidget::RefreshYearbookStatus()
     int ActiveNpcCount = 0;
     int HomelessCount = 0;
     int UnemployedCount = 0;
+    int PoliticalCount[static_cast<int>(EPoliticalAxis::Count)][3] = {};
     double FoodSum = 0.0;
     double HealthSum = 0.0;
     double FunSum = 0.0;
@@ -977,6 +1163,7 @@ void CBuildMenuWidget::RefreshYearbookStatus()
                 continue;
 
             const FNpcSatisfaction& Satisfaction = Orb->GetSatisfaction();
+            const FNpcPoliticalProfile& Political = Orb->GetPoliticalProfile();
             ++ActiveNpcCount;
             FoodSum += static_cast<double>(Satisfaction.Food);
             HealthSum += static_cast<double>(Satisfaction.Health);
@@ -993,6 +1180,19 @@ void CBuildMenuWidget::RefreshYearbookStatus()
 
             if (Orb->GetWorkBuilding().empty())
                 ++UnemployedCount;
+
+            for (int AxisIndex = 0;
+                AxisIndex < static_cast<int>(EPoliticalAxis::Count);
+                ++AxisIndex)
+            {
+                const EPoliticalAxis Axis =
+                    static_cast<EPoliticalAxis>(AxisIndex);
+                const int StanceIndex =
+                    static_cast<int>(Political.Get(Axis).Stance);
+
+                if (StanceIndex >= 0 && StanceIndex < 3)
+                    ++PoliticalCount[AxisIndex][StanceIndex];
+            }
         }
     }
 
@@ -1017,39 +1217,27 @@ void CBuildMenuWidget::RefreshYearbookStatus()
     const double AverageSecurity =
         ActiveNpcCount > 0 ? SecuritySum / static_cast<double>(ActiveNpcCount) : 0.0;
 
-    wchar_t YearbookBuffer[1024] = {};
+    std::wstring Body;
 
     if (ActiveNpcCount > 0)
     {
-        swprintf_s(
-            YearbookBuffer,
-            L"종합 만족도: %.1f / 100\n"
-            L"음식: %.1f\n"
-            L"보건: %.1f\n"
-            L"유흥: %.1f\n"
-            L"신앙: %.1f\n"
-            L"주거: %.1f\n"
-            L"직업: %.1f\n"
-            L"자유: %.1f\n"
-            L"치안: %.1f\n"
-            L"무주택자 수: %d명\n"
-            L"실업자 수: %d명",
-            AverageSatisfaction,
-            AverageFood,
-            AverageHealth,
-            AverageFun,
-            AverageFaith,
-            AverageHousing,
-            AverageJob,
-            AverageFreedom,
-            AverageSecurity,
-            HomelessCount,
-            UnemployedCount);
+        wchar_t Buffer[256] = {};
+        swprintf_s(Buffer, L"종합 만족도: %.1f / 100\n", AverageSatisfaction);
+        Body += Buffer;
+        swprintf_s(Buffer, L"음식: %.1f\n", AverageFood); Body += Buffer;
+        swprintf_s(Buffer, L"보건: %.1f\n", AverageHealth); Body += Buffer;
+        swprintf_s(Buffer, L"유흥: %.1f\n", AverageFun); Body += Buffer;
+        swprintf_s(Buffer, L"신앙: %.1f\n", AverageFaith); Body += Buffer;
+        swprintf_s(Buffer, L"주거: %.1f\n", AverageHousing); Body += Buffer;
+        swprintf_s(Buffer, L"직업: %.1f\n", AverageJob); Body += Buffer;
+        swprintf_s(Buffer, L"자유: %.1f\n", AverageFreedom); Body += Buffer;
+        swprintf_s(Buffer, L"치안: %.1f\n", AverageSecurity); Body += Buffer;
+        swprintf_s(Buffer, L"무주택자 수: %d명\n", HomelessCount); Body += Buffer;
+        swprintf_s(Buffer, L"실업자 수: %d명\n", UnemployedCount); Body += Buffer;
     }
     else
     {
-        swprintf_s(
-            YearbookBuffer,
+        Body +=
             L"종합 만족도: -\n"
             L"음식: -\n"
             L"보건: -\n"
@@ -1060,10 +1248,32 @@ void CBuildMenuWidget::RefreshYearbookStatus()
             L"자유: -\n"
             L"치안: -\n"
             L"무주택자 수: 0명\n"
-            L"실업자 수: 0명");
+            L"실업자 수: 0명\n";
     }
 
-    YearbookBodyText->SetText(YearbookBuffer);
+    Body += L"\n정치 성향 인원\n";
+
+    for (int AxisIndex = 0;
+        AxisIndex < static_cast<int>(EPoliticalAxis::Count);
+        ++AxisIndex)
+    {
+        const EPoliticalAxis Axis =
+            static_cast<EPoliticalAxis>(AxisIndex);
+        wchar_t LineBuffer[384] = {};
+        swprintf_s(
+            LineBuffer,
+            L"%s: %s %d명 / %s %d명 / %s %d명\n",
+            GetPoliticalAxisDisplayName(Axis),
+            GetPoliticalFactionDisplayName(Axis, EPoliticalStance::Left),
+            PoliticalCount[AxisIndex][static_cast<int>(EPoliticalStance::Left)],
+            GetPoliticalFactionDisplayName(Axis, EPoliticalStance::Neutral),
+            PoliticalCount[AxisIndex][static_cast<int>(EPoliticalStance::Neutral)],
+            GetPoliticalFactionDisplayName(Axis, EPoliticalStance::Right),
+            PoliticalCount[AxisIndex][static_cast<int>(EPoliticalStance::Right)]);
+        Body += LineBuffer;
+    }
+
+    YearbookBodyText->SetText(Body.c_str());
 }
 
 void CBuildMenuWidget::RefreshCategoryButtons()
@@ -1124,15 +1334,36 @@ void CBuildMenuWidget::RefreshBuildingButtons()
         {
             const int EntryIndex = CategoryEntries[CategoryListIndex];
             const auto& Entry = GetCatalog()[EntryIndex];
+            const TCHAR* IconPath = GetCatalogEntryIconPath(
+                Entry.CategoryIndex, Entry.CategoryLocalIndex);
+            const std::string TextureKey = "BuildMenuSlotIcon_" +
+                std::to_string(Entry.CategoryIndex) + "_" +
+                std::to_string(Entry.CategoryLocalIndex);
 
             mVisibleEntryIndices[i] = EntryIndex;
             Button->ButtonEnable(true);
             ButtonText->SetText(Entry.DisplayName.c_str());
+
+            if (IconPath)
+            {
+                ApplyTextureToAllButtonStates(Button, TextureKey, IconPath);
+            }
+            else
+            {
+                ApplyTextureToAllButtonStates(
+                    Button,
+                    "BuildMenuSlotEmptyTexture",
+                    GEmptySlotTexture);
+            }
         }
         else
         {
             Button->ButtonEnable(false);
             ButtonText->SetText(TEXT("-"));
+            ApplyTextureToAllButtonStates(
+                Button,
+                "BuildMenuSlotEmptyTexture",
+                GEmptySlotTexture);
         }
     }
 
@@ -1404,6 +1635,7 @@ const std::vector<CBuildMenuWidget::FBuildCatalogEntry>&
                 Entry.FoodProvider = FoodProvider;
                 Entry.EntertainmentProvider = EntertainmentProvider;
                 Entry.CategoryIndex = CategoryIndex;
+                Entry.CategoryLocalIndex = i;
                 Entry.TemplateType = static_cast<EPlacementTemplateType>(i % 4);
                 Entry.BuildingKind =
                     (Residential || (i % 2 == 0)) ?
