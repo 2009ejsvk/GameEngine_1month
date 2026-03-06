@@ -1,6 +1,7 @@
 #include "PlacementBuildingVisual.h"
 #include "PlacementAreaObject.h"
-#include "../Player/MainCamera.h"
+#include "PlacementController.h"
+#include "../ObjectNames.h"
 #include "Component/MeshComponent.h"
 #include "Component/SceneComponent.h"
 #include "Render/RenderManager.h"
@@ -234,10 +235,10 @@ void CBuildingVisual::SyncVisuals()
 			}
 		}
 
-		auto MainCamera =
-			World->FindObject<CMainCamera>("MainCamera").lock();
+		auto PlacementCtrl =
+			World->FindObject<CPlacementController>(GPlacementControllerName).lock();
 
-		if (MainCamera && MainCamera->IsDemolitionMode())
+		if (PlacementCtrl && PlacementCtrl->IsDemolitionMode())
 			IsDemolitionModeActive = true;
 	}
 

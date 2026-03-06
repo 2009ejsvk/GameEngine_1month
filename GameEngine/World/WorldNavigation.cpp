@@ -204,6 +204,14 @@ void CWorldNavigation::CreateNavigationThread(int Count,
 		mThreadList.push_back(Thread);
 	}
 
+	// 스레드를 CREATE_SUSPENDED 모드로 생성했으므로 즉시 깨운다.
+	// BeginManager()는 월드 초기화 시점에 1회만 호출되어
+	// TileMap 로드 이후 생성된 스레드는 Resume되지 않는다.
+	for (size_t i = 0; i < mThreadList.size(); ++i)
+	{
+		mThreadList[i]->Resume();
+	}
+
 #ifdef _DEBUG
 	DebugNavLog("[Nav] CreateNavigationThread requested=%d total=%zu\n",
 		Count, mThreadList.size());
@@ -300,6 +308,30 @@ bool CWorldNavigation::FindPath(const FVector3& Start,
 			Entry.GoalIndices            = GoalIndices;
 			Entry.ResolvedTargetObjectName = ResolvedTargetObjectName;
 		}
+	}
+
+	// 이름 기반 목표 요청인데 실제 건물을 찾지 못하면
+	// 요청을 실패로 처리해 상위(FSM)가 즉시 타겟을 교체할 수 있게 한다.
+	if (!TargetObjectName.empty() &&
+		ResolvedTargetObjectName.empty())
+	{
+#ifdef _DEBUG
+		DebugNavLog(
+			"[Nav] FindPath invalid target target=%s req=%u\n",
+			TargetObjectName.c_str(),
+			RequestId);
+#endif
+
+		auto NavAgent =
+			std::dynamic_pointer_cast<CNavAgent>(Agent->lock());
+
+		if (NavAgent)
+		{
+			NavAgent->StartPathPoint();
+			NavAgent->SetPathTargetObjectName("");
+		}
+
+		return false;
 	}
 
 	if (!ResolvedTargetObjectName.empty() && GoalIndices.empty())

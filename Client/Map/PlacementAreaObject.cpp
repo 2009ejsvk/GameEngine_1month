@@ -1,4 +1,5 @@
 ﻿#include "PlacementAreaObject.h"
+#include "../ObjectNames.h"
 #include "Component/SceneComponent.h"
 #include "Object/TileMapObject.h"
 #include "World/World.h"
@@ -189,6 +190,87 @@ CPlacementAreaObject::CPlacementAreaObject(
 
 CPlacementAreaObject::~CPlacementAreaObject()
 {
+}
+
+void CPlacementAreaObject::SetBuildingDisplayInfo(
+    const std::string& DisplayName,
+    const std::string& CategoryName,
+    bool Residential,
+    int Capacity,
+    bool FoodProvider,
+    bool EntertainmentProvider,
+    int HousingSatisfactionCap,
+    int JobSatisfactionCap,
+    int FoodSatisfactionCap,
+    int FunSatisfactionCap,
+    int BaseMonthlyWage,
+    int BaseMonthlyUpkeep)
+{
+    auto ClampTo100 = [](int Value)
+    {
+        return (std::max)(0, (std::min)(100, Value));
+    };
+
+    mBuildingDisplayName = DisplayName;
+    mBuildingCategoryName = CategoryName;
+    mResidential = Residential;
+    mCapacity = Capacity;
+    mFoodProvider = FoodProvider;
+    mEntertainmentProvider = EntertainmentProvider;
+    mHousingSatisfactionCap = ClampTo100(HousingSatisfactionCap);
+    mJobSatisfactionCap = ClampTo100(JobSatisfactionCap);
+    mFoodSatisfactionCap = ClampTo100(FoodSatisfactionCap);
+    mFunSatisfactionCap = ClampTo100(FunSatisfactionCap);
+    mBudgetLevel = 3;
+
+    const int SafeCapacity = (std::max)(0, mCapacity);
+
+    if (BaseMonthlyWage < 0)
+    {
+        if (mResidential)
+            mBaseMonthlyWage = 0;
+        else
+        {
+            int DerivedWage = (std::max)(1, SafeCapacity) * 120;
+
+            if (IsTransportOffice())
+                DerivedWage = (std::max)(DerivedWage, 800);
+
+            if (IsHarbor())
+                DerivedWage = (std::max)(DerivedWage, 1000);
+
+            mBaseMonthlyWage = DerivedWage;
+        }
+    }
+    else
+    {
+        mBaseMonthlyWage = (std::max)(0, BaseMonthlyWage);
+    }
+
+    if (BaseMonthlyUpkeep < 0)
+    {
+        int DerivedUpkeep = mResidential ?
+            (80 + SafeCapacity * 4) :
+            (110 + SafeCapacity * 5);
+
+        if (IsTransportOffice())
+            DerivedUpkeep += 300;
+
+        if (IsHarbor())
+            DerivedUpkeep += 450;
+
+        if (mEntertainmentProvider && !mFoodProvider)
+            DerivedUpkeep += 120;
+
+        if (mFoodProvider)
+            DerivedUpkeep += 90;
+
+        mBaseMonthlyUpkeep = (std::max)(0, DerivedUpkeep);
+    }
+    else
+    {
+        mBaseMonthlyUpkeep = (std::max)(0, BaseMonthlyUpkeep);
+    }
 }
 
 bool CPlacementAreaObject::Init()
@@ -932,7 +1014,7 @@ bool CPlacementAreaObject::AcquireTileMap(
     if (mTileMapObject.expired())
     {
         // 캐시가 비어 있으면 월드에서 이름으로 1회 검색해 캐시.
-        mTileMapObject = World->FindObject<CTileMapObject>("TileMap");
+        mTileMapObject = World->FindObject<CTileMapObject>(GTileMapObjectName);
     }
 
     auto TileMapObj = mTileMapObject.lock();
@@ -958,7 +1040,7 @@ bool CPlacementAreaObject::AcquireBlueOverlayTileMap(
     if (mBlueOverlayTileMapObject.expired())
     {
         mBlueOverlayTileMapObject =
-            World->FindObject<CTileMapObject>("TileMapFloorBlue");
+            World->FindObject<CTileMapObject>(GTileMapFloorBlueName);
     }
 
     auto BlueOverlayObj = mBlueOverlayTileMapObject.lock();
@@ -983,7 +1065,7 @@ bool CPlacementAreaObject::AcquireYellowOverlayTileMap(
     if (mYellowOverlayTileMapObject.expired())
     {
         mYellowOverlayTileMapObject =
-            World->FindObject<CTileMapObject>("TileMapFloorYellow");
+            World->FindObject<CTileMapObject>(GTileMapFloorYellowName);
     }
 
     auto YellowOverlayObj = mYellowOverlayTileMapObject.lock();
@@ -1123,12 +1205,14 @@ int CPlacementAreaObject::FindPreviewOpenTileIndex(
         return -1;
 
     // 0: 아래, 1: 오른쪽, 2: 위, 3: 왼쪽
+    // 논리 좌표 기준이 아닌 화면(아이소메트릭) 방향 기준으로 오프셋 설정.
+    // 화면 아래 = 논리 (+0.5, +0.5), 오른쪽 = (+0.5, -0.5) 방향.
     static const FPlacementMarkerAnchor GOpenOffsets[4] =
     {
-        { 0.f, 1.f },
-        { 1.f, 0.f },
-        { 0.f, -1.f },
-        { -1.f, 0.f }
+        {  0.5f,  0.5f },   // 0: 화면 아래
+        {  0.5f, -0.5f },   // 1: 화면 오른쪽
+        { -0.5f, -0.5f },   // 2: 화면 위
+        { -0.5f,  0.5f },   // 3: 화면 왼쪽
     };
 
     const int Dir = (mPreviewDirection % 4 + 4) % 4;
@@ -1287,19 +1371,77 @@ void CPlacementAreaObject::ApplyPlacedAreaColor(
         return;
     }
 
-    // 중앙 타일을 노란색 마커(O)로 고정한다.
-    if (IsPlacedIndex(mPlacedCenterIndex))
-        mMarkerTileIndices.push_back(mPlacedCenterIndex);
+    auto AddMarkerUnique = [&](int MarkerIndex)
+    {
+        if (MarkerIndex < 0)
+            return;
+
+        if (!IsPlacedIndex(MarkerIndex))
+            return;
+
+        if (std::find(mMarkerTileIndices.begin(),
+            mMarkerTileIndices.end(),
+            MarkerIndex) != mMarkerTileIndices.end())
+        {
+            return;
+        }
+
+        mMarkerTileIndices.push_back(MarkerIndex);
+    };
+
+    // 템플릿 마커 앵커를 기준으로 네비게이션 goal 타일을 계산한다.
+    // mPreviewDirection(0~3)에 맞춰 논리 오프셋을 회전 적용한다.
+    const int Rotation = (mPreviewDirection % 4 + 4) % 4;
+
+    for (size_t i = 0; i < mTemplate.MarkerAnchors.size(); ++i)
+    {
+        float OffsetX = mTemplate.MarkerAnchors[i].LogicalOffsetX;
+        float OffsetY = mTemplate.MarkerAnchors[i].LogicalOffsetY;
+
+        for (int r = 0; r < Rotation; ++r)
+        {
+            const float PrevX = OffsetX;
+            OffsetX = OffsetY;
+            OffsetY = -PrevX;
+        }
+
+        int MarkerIndex = -1;
+
+        if (fabs(OffsetX) <= 0.001f &&
+            fabs(OffsetY) <= 0.001f &&
+            IsPlacedIndex(mPlacedCenterIndex))
+        {
+            MarkerIndex = mPlacedCenterIndex;
+        }
+        else
+        {
+            MarkerIndex = FindMarkerTileIndexByLogicalOffset(
+                TileMap,
+                mPlacedCenterIndex,
+                mPrimaryPlacedIndices,
+                OffsetX,
+                OffsetY);
+        }
+
+        AddMarkerUnique(MarkerIndex);
+    }
 
     if (mMarkerTileIndices.empty() &&
         !mPrimaryPlacedIndices.empty())
     {
-        // 중심을 못 찾는 예외 상황을 대비한 보조 로직.
+        // 앵커 계산 실패 시 중심을 우선 사용한다.
+        if (IsPlacedIndex(mPlacedCenterIndex))
+            mMarkerTileIndices.push_back(mPlacedCenterIndex);
+    }
+
+    if (mMarkerTileIndices.empty() &&
+        !mPrimaryPlacedIndices.empty())
+    {
+        // 중심 사용도 실패하면 보조 인덱스를 사용한다.
         const int FallbackEdgeIndex = FindMarkerTileIndexByLogicalOffset(
             TileMap, mPlacedCenterIndex, mPrimaryPlacedIndices, 0.f, 0.f);
 
-        if (FallbackEdgeIndex >= 0)
-            mMarkerTileIndices.push_back(FallbackEdgeIndex);
+        AddMarkerUnique(FallbackEdgeIndex);
     }
 
     UpdateMarkerOverlayTiles(mMarkerTileIndices);

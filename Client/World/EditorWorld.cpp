@@ -1,4 +1,5 @@
 #include "EditorWorld.h"
+#include "../ObjectNames.h"
 #include "World/WorldUIManager.h"
 #include "World/WorldManager.h"
 #include "../Map/TileMapMain.h"
@@ -25,7 +26,7 @@ bool CEditorWorld::Init()
 
 	mPlayer = CreateGameObject<CEditorPlayer>("Player");
 
-	mTileMap = CreateGameObject<CTileMapMain>("TileMap");
+	mTileMap = CreateGameObject<CTileMapMain>(GTileMapObjectName);
 
 	auto	TileMapObj = mTileMap.lock();
 

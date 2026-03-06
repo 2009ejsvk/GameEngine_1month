@@ -1,15 +1,15 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="소스 파일">
+    <Filter Include="�ҽ� ����">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="헤더 파일">
+    <Filter Include="��� ����">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="리소스 파일">
+    <Filter Include="���ҽ� ����">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
@@ -73,40 +73,40 @@
     <Filter Include="07. UI\04. Editor">
       <UniqueIdentifier>{dc526ad9-c200-4dbb-b198-9270d4992ca7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="12. Building">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="13. Citizen">
+      <UniqueIdentifier>{b2c3d4e5-f6a7-8901-bcde-f12345678901}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="14. Economy">
+      <UniqueIdentifier>{c3d4e5f6-a7b8-9012-cdef-012345678902}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="Player\Player.cpp">
-      <Filter>01. Player</Filter>
+      <Filter>�ҽ� ����</Filter>
     </ClCompile>
     <ClCompile Include="World\MainWorld.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
-    <ClCompile Include="Player\Bullet.cpp">
-      <Filter>01. Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Monster\Monster.cpp">
-      <Filter>03. Monster</Filter>
-    </ClCompile>
-    <ClCompile Include="Player\Missile.cpp">
-      <Filter>01. Player</Filter>
-    </ClCompile>
-    <ClCompile Include="Component\StateComponent.cpp">
-      <Filter>04. Component\01. State</Filter>
-    </ClCompile>
-    <ClCompile Include="Interface\StateInterface.cpp">
-      <Filter>05. Interface</Filter>
-    </ClCompile>
-    <ClCompile Include="Monster\MonsterSpawnPoint.cpp">
-      <Filter>03. Monster</Filter>
-    </ClCompile>
-    <ClCompile Include="Player\BulletEffect.cpp">
-      <Filter>01. Player</Filter>
-    </ClCompile>
     <ClCompile Include="GlobalSetting.cpp">
       <Filter>06. Setting</Filter>
+    </ClCompile>
+    <ClCompile Include="Building\BuildingCatalog.cpp">
+      <Filter>12. Building</Filter>
+    </ClCompile>
+    <ClCompile Include="Citizen\CitizenPolitics.cpp">
+      <Filter>13. Citizen</Filter>
+    </ClCompile>
+    <ClCompile Include="Citizen\CitizenSatisfaction.cpp">
+      <Filter>13. Citizen</Filter>
+    </ClCompile>
+    <ClCompile Include="Citizen\CitizenSystem.cpp">
+      <Filter>13. Citizen</Filter>
+    </ClCompile>
+    <ClCompile Include="Economy\EconomySystem.cpp">
+      <Filter>14. Economy</Filter>
     </ClCompile>
     <ClCompile Include="UI\MainWidget.cpp">
       <Filter>07. UI\01. Main</Filter>
@@ -141,15 +141,6 @@
     <ClCompile Include="Thread\LoadingThread.cpp">
       <Filter>08. Thread</Filter>
     </ClCompile>
-    <ClCompile Include="PostProcess\PostProcessHit.cpp">
-      <Filter>09. PostProcess</Filter>
-    </ClCompile>
-    <ClCompile Include="Shader\ShaderPostProcessHit.cpp">
-      <Filter>10. Shader</Filter>
-    </ClCompile>
-    <ClCompile Include="Shader\CBufferHit.cpp">
-      <Filter>10. Shader</Filter>
-    </ClCompile>
     <ClCompile Include="Map\TileMapMain.cpp">
       <Filter>11. Map</Filter>
     </ClCompile>
@@ -157,6 +148,9 @@
       <Filter>11. Map</Filter>
     </ClCompile>
     <ClCompile Include="Map\PlacementAreaObject.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\PlacementController.cpp">
       <Filter>11. Map</Filter>
     </ClCompile>
     <ClCompile Include="Map\PlacementBuildingVisual.cpp">
@@ -177,40 +171,19 @@
     <ClCompile Include="UI\BuildMenuWidget.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
+    <ClCompile Include="UI\TopHudWidget.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
     <ClCompile Include="UI\CitizenInfoWidget.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>��� ����</Filter>
     </ClInclude>
     <ClInclude Include="World\MainWorld.h">
       <Filter>02. World</Filter>
-    </ClInclude>
-    <ClInclude Include="Player\Bullet.h">
-      <Filter>01. Player</Filter>
-    </ClInclude>
-    <ClInclude Include="Monster\Monster.h">
-      <Filter>03. Monster</Filter>
-    </ClInclude>
-    <ClInclude Include="Player\Missile.h">
-      <Filter>01. Player</Filter>
-    </ClInclude>
-    <ClInclude Include="Component\StateComponent.h">
-      <Filter>04. Component\01. State</Filter>
-    </ClInclude>
-    <ClInclude Include="Interface\StateInterface.h">
-      <Filter>05. Interface</Filter>
-    </ClInclude>
-    <ClInclude Include="Monster\MonsterSpawnPoint.h">
-      <Filter>03. Monster</Filter>
-    </ClInclude>
-    <ClInclude Include="Player\BulletEffect.h">
-      <Filter>01. Player</Filter>
-    </ClInclude>
-    <ClInclude Include="Player\Player.h">
-      <Filter>01. Player</Filter>
     </ClInclude>
     <ClInclude Include="GlobalSetting.h">
       <Filter>06. Setting</Filter>
@@ -249,16 +222,7 @@
       <Filter>08. Thread</Filter>
     </ClInclude>
     <ClInclude Include="ClientInfo.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="PostProcess\PostProcessHit.h">
-      <Filter>09. PostProcess</Filter>
-    </ClInclude>
-    <ClInclude Include="Shader\ShaderPostProcessHit.h">
-      <Filter>10. Shader</Filter>
-    </ClInclude>
-    <ClInclude Include="Shader\CBufferHit.h">
-      <Filter>10. Shader</Filter>
+      <Filter>��� ����</Filter>
     </ClInclude>
     <ClInclude Include="Map\TileMapMain.h">
       <Filter>11. Map</Filter>
@@ -269,8 +233,32 @@
     <ClInclude Include="Map\PlacementAreaObject.h">
       <Filter>11. Map</Filter>
     </ClInclude>
+    <ClInclude Include="Map\PlacementController.h">
+      <Filter>11. Map</Filter>
+    </ClInclude>
     <ClInclude Include="Map\PlacementBuildingVisual.h">
       <Filter>11. Map</Filter>
+    </ClInclude>
+    <ClInclude Include="Building\BuildingCatalog.h">
+      <Filter>12. Building</Filter>
+    </ClInclude>
+    <ClInclude Include="Building\BuildingTypes.h">
+      <Filter>12. Building</Filter>
+    </ClInclude>
+    <ClInclude Include="Citizen\CitizenPolitics.h">
+      <Filter>13. Citizen</Filter>
+    </ClInclude>
+    <ClInclude Include="Citizen\CitizenSatisfaction.h">
+      <Filter>13. Citizen</Filter>
+    </ClInclude>
+    <ClInclude Include="Citizen\CitizenTypes.h">
+      <Filter>13. Citizen</Filter>
+    </ClInclude>
+    <ClInclude Include="Citizen\CitizenSystem.h">
+      <Filter>13. Citizen</Filter>
+    </ClInclude>
+    <ClInclude Include="Economy\EconomySystem.h">
+      <Filter>14. Economy</Filter>
     </ClInclude>
     <ClInclude Include="World\EditorWorld.h">
       <Filter>02. World</Filter>
@@ -287,23 +275,26 @@
     <ClInclude Include="UI\BuildMenuWidget.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
+    <ClInclude Include="UI\TopHudWidget.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
     <ClInclude Include="UI\CitizenInfoWidget.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Client.rc">
-      <Filter>리소스 파일</Filter>
+      <Filter>���ҽ� ����</Filter>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="icon1.ico">
-      <Filter>리소스 파일</Filter>
+      <Filter>���ҽ� ����</Filter>
     </Image>
   </ItemGroup>
   <ItemGroup>
     <None Include="Copy.bat">
-      <Filter>소스 파일</Filter>
+      <Filter>�ҽ� ����</Filter>
     </None>
     <None Include="..\.editorconfig" />
   </ItemGroup>

@@ -1,192 +1,11 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include "../Citizen/CitizenTypes.h"
 #include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
-
-enum class ECitizenState
-{
-    Wander,       // 핵심 건물(집/직장/음식) 미배정
-    GoingToWork,
-    AtWork,       // 직장 체류 타이머
-    GoingHome,
-    AtHome,       // 집 체류 타이머
-    GoingToFood,
-    AtFood,
-    GoingToFun,
-    AtFun,
-    GoingToTeamsterSource,
-    GoingToTeamsterHarbor,
-    GoingToTeamsterOffice
-};
-
-struct FNpcSatisfaction
-{
-    float Food = 70.f;
-    float Health = 70.f;
-    float Fun = 70.f;
-    float Faith = 70.f;
-    float Housing = 70.f;
-    float Job = 70.f;
-    float Freedom = 70.f;
-    float Security = 70.f;
-    float Overall = 70.f;
-};
-
-enum class EPoliticalAxis
-{
-    Economy = 0,
-    ReligionMilitarism,
-    EnvironmentIndustry,
-    IntellectualConservative,
-    Count
-};
-
-enum class EPoliticalStance
-{
-    Left = 0,
-    Neutral,
-    Right
-};
-
-enum class EPoliticalSupportLevel
-{
-    Weak = 0,
-    Normal,
-    Strong
-};
-
-struct FNpcPoliticalChoice
-{
-    EPoliticalStance Stance = EPoliticalStance::Neutral;
-    EPoliticalSupportLevel Support = EPoliticalSupportLevel::Normal;
-};
-
-struct FNpcPoliticalProfile
-{
-    FNpcPoliticalChoice Economy;
-    FNpcPoliticalChoice ReligionMilitarism;
-    FNpcPoliticalChoice EnvironmentIndustry;
-    FNpcPoliticalChoice IntellectualConservative;
-
-    const FNpcPoliticalChoice& Get(EPoliticalAxis Axis) const
-    {
-        switch (Axis)
-        {
-        case EPoliticalAxis::Economy:
-            return Economy;
-        case EPoliticalAxis::ReligionMilitarism:
-            return ReligionMilitarism;
-        case EPoliticalAxis::EnvironmentIndustry:
-            return EnvironmentIndustry;
-        case EPoliticalAxis::IntellectualConservative:
-            return IntellectualConservative;
-        default:
-            return Economy;
-        }
-    }
-
-    FNpcPoliticalChoice& Get(EPoliticalAxis Axis)
-    {
-        switch (Axis)
-        {
-        case EPoliticalAxis::Economy:
-            return Economy;
-        case EPoliticalAxis::ReligionMilitarism:
-            return ReligionMilitarism;
-        case EPoliticalAxis::EnvironmentIndustry:
-            return EnvironmentIndustry;
-        case EPoliticalAxis::IntellectualConservative:
-            return IntellectualConservative;
-        default:
-            return Economy;
-        }
-    }
-};
-
-inline const wchar_t* GetPoliticalAxisDisplayName(EPoliticalAxis Axis)
-{
-    switch (Axis)
-    {
-    case EPoliticalAxis::Economy:
-        return L"경제";
-    case EPoliticalAxis::ReligionMilitarism:
-        return L"신념";
-    case EPoliticalAxis::EnvironmentIndustry:
-        return L"산업";
-    case EPoliticalAxis::IntellectualConservative:
-        return L"사회";
-    default:
-        return L"정치";
-    }
-}
-
-inline const wchar_t* GetPoliticalFactionDisplayName(
-    EPoliticalAxis Axis,
-    EPoliticalStance Stance)
-{
-    switch (Axis)
-    {
-    case EPoliticalAxis::Economy:
-        switch (Stance)
-        {
-        case EPoliticalStance::Left:
-            return L"자본주의자";
-        case EPoliticalStance::Right:
-            return L"공산주의자";
-        default:
-            return L"무관심";
-        }
-    case EPoliticalAxis::ReligionMilitarism:
-        switch (Stance)
-        {
-        case EPoliticalStance::Left:
-            return L"종교인";
-        case EPoliticalStance::Right:
-            return L"군국주의자";
-        default:
-            return L"무관심";
-        }
-    case EPoliticalAxis::EnvironmentIndustry:
-        switch (Stance)
-        {
-        case EPoliticalStance::Left:
-            return L"환경주의자";
-        case EPoliticalStance::Right:
-            return L"실업가";
-        default:
-            return L"무관심";
-        }
-    case EPoliticalAxis::IntellectualConservative:
-        switch (Stance)
-        {
-        case EPoliticalStance::Left:
-            return L"지식인";
-        case EPoliticalStance::Right:
-            return L"보수주의자";
-        default:
-            return L"무관심";
-        }
-    default:
-        return L"무관심";
-    }
-}
-
-inline const wchar_t* GetPoliticalSupportDisplayName(
-    EPoliticalSupportLevel Support)
-{
-    switch (Support)
-    {
-    case EPoliticalSupportLevel::Weak:
-        return L"약함";
-    case EPoliticalSupportLevel::Strong:
-        return L"강함";
-    default:
-        return L"보통";
-    }
-}
 
 class CBuildingMarkerOrb :
     public CGameObject
@@ -207,8 +26,8 @@ private:
     std::weak_ptr<class CAnimation2DComponent> mAnimation2DComponent;
     std::weak_ptr<class CObjectMovementComponent> mMovement;
     std::weak_ptr<class CTileMapObject> mTileMapObject;
-    std::string mBuildingAName = "BuildingA";
-    std::string mBuildingBName = "BuildingB";
+    std::string mBuildingAName;
+    std::string mBuildingBName;
     std::vector<std::string> mRandomTargetNames;
     std::string mCurrentTargetName;
     float mMoveSpeed = 200.f;
@@ -255,6 +74,7 @@ private:
     bool mScaleInitialized = false;
     bool mHasStartPos = false;
     bool mFoodStockAvailableThisVisit = false;
+    float mRuntimeTraceAccum = 0.f;
     int mCurrentAnimationDirection = 0;
     bool mWasMovingLastFrame = false;
     bool mUseRedVariant = false;
@@ -417,7 +237,6 @@ private:
     void UpdateSatisfaction(float DeltaTime);
     void InitPoliticalProfile();
     void UpdatePoliticalProfile(float DeltaTime);
-    void UpdatePoliticalChoice(FNpcPoliticalChoice& Choice);
     void TransitionFsm(ECitizenState NewState);
     void RecalculateOverallSatisfaction();
     void ApplySoftSeparation(float DeltaTime);
@@ -440,4 +259,17 @@ private:
     int ResolveDirectionIndexFromVelocity(const FVector3& Velocity) const;
     const char* GetIdleAnimationNameByDir(int Direction) const;
     const char* GetWalkAnimationNameByDir(int Direction) const;
+
+    // Update() 분해 — FSM 헬퍼
+    void CancelCurrentPath();
+    ECitizenState NormalizeResumeState(ECitizenState State) const;
+    ECitizenState ResolveStateAfterService() const;
+    bool TryInterruptByNeed();
+    std::string ResolveTargetByState() const;
+
+    // Update() 분해 — 대형 블록
+    bool TickDwellState(float DeltaTime);
+    bool TickInitialPosition(float CurrentZ);
+    void HandleMissingTarget();
+    void HandleArrival(float Dist);
 };

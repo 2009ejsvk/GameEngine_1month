@@ -169,28 +169,24 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Component\StateComponent.cpp" />
     <ClCompile Include="GlobalSetting.cpp" />
-    <ClCompile Include="Interface\StateInterface.cpp" />
+    <ClCompile Include="Building\BuildingCatalog.cpp" />
+    <ClCompile Include="Citizen\CitizenPolitics.cpp" />
+    <ClCompile Include="Citizen\CitizenSatisfaction.cpp" />
+    <ClCompile Include="Citizen\CitizenSystem.cpp" />
+    <ClCompile Include="Economy\EconomySystem.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Map\BuildingMarkerOrb.cpp" />
     <ClCompile Include="Map\PlacementAreaObject.cpp" />
+    <ClCompile Include="Map\PlacementController.cpp" />
     <ClCompile Include="Map\PlacementBuildingVisual.cpp" />
     <ClCompile Include="Map\TileMapMain.cpp" />
-    <ClCompile Include="Monster\Monster.cpp" />
-    <ClCompile Include="Monster\MonsterSpawnPoint.cpp" />
-    <ClCompile Include="Player\Bullet.cpp" />
-    <ClCompile Include="Player\BulletEffect.cpp" />
     <ClCompile Include="Player\EditorPlayer.cpp" />
     <ClCompile Include="Player\MainCamera.cpp" />
-    <ClCompile Include="Player\Missile.cpp" />
-    <ClCompile Include="Player\Player.cpp" />
-    <ClCompile Include="PostProcess\PostProcessHit.cpp" />
-    <ClCompile Include="Shader\CBufferHit.cpp" />
-    <ClCompile Include="Shader\ShaderPostProcessHit.cpp" />
     <ClCompile Include="Thread\LoadingThread.cpp" />
     <ClCompile Include="UI\EditorWidget.cpp" />
     <ClCompile Include="UI\BuildMenuWidget.cpp" />
+    <ClCompile Include="UI\TopHudWidget.cpp" />
     <ClCompile Include="UI\CitizenInfoWidget.cpp" />
     <ClCompile Include="UI\Inventory.cpp" />
     <ClCompile Include="UI\LoadingWidget.cpp" />
@@ -207,28 +203,26 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ClientInfo.h" />
-    <ClInclude Include="Component\StateComponent.h" />
+    <ClInclude Include="Building\BuildingCatalog.h" />
+    <ClInclude Include="Building\BuildingTypes.h" />
+    <ClInclude Include="Citizen\CitizenPolitics.h" />
+    <ClInclude Include="Citizen\CitizenSatisfaction.h" />
+    <ClInclude Include="Citizen\CitizenTypes.h" />
+    <ClInclude Include="Citizen\CitizenSystem.h" />
+    <ClInclude Include="Economy\EconomySystem.h" />
     <ClInclude Include="GlobalSetting.h" />
-    <ClInclude Include="Interface\StateInterface.h" />
     <ClInclude Include="Map\BuildingMarkerOrb.h" />
     <ClInclude Include="Map\PlacementAreaObject.h" />
+    <ClInclude Include="Map\PlacementController.h" />
     <ClInclude Include="Map\PlacementBuildingVisual.h" />
     <ClInclude Include="Map\TileMapMain.h" />
-    <ClInclude Include="Monster\Monster.h" />
-    <ClInclude Include="Monster\MonsterSpawnPoint.h" />
-    <ClInclude Include="Player\Bullet.h" />
-    <ClInclude Include="Player\BulletEffect.h" />
     <ClInclude Include="Player\EditorPlayer.h" />
     <ClInclude Include="Player\MainCamera.h" />
-    <ClInclude Include="Player\Missile.h" />
-    <ClInclude Include="Player\Player.h" />
-    <ClInclude Include="PostProcess\PostProcessHit.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="Shader\CBufferHit.h" />
-    <ClInclude Include="Shader\ShaderPostProcessHit.h" />
     <ClInclude Include="Thread\LoadingThread.h" />
     <ClInclude Include="UI\EditorWidget.h" />
     <ClInclude Include="UI\BuildMenuWidget.h" />
+    <ClInclude Include="UI\TopHudWidget.h" />
     <ClInclude Include="UI\CitizenInfoWidget.h" />
     <ClInclude Include="UI\Inventory.h" />
     <ClInclude Include="UI\LoadingWidget.h" />

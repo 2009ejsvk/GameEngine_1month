@@ -1,5 +1,8 @@
 ﻿#include "BuildingMarkerOrb.h"
 #include "PlacementAreaObject.h"
+#include "../Citizen/CitizenPolitics.h"
+#include "../Citizen/CitizenSatisfaction.h"
+#include "../ObjectNames.h"
 #include "Component/Animation2DComponent.h"
 #include "Component/MeshComponent.h"
 #include "Component/ObjectMovementComponent.h"
@@ -122,30 +125,6 @@ namespace
     int ToCellCoord(float Value, float CellSize)
     {
         return static_cast<int>(floorf(Value / CellSize));
-    }
-
-    EPoliticalStance GetOppositePoliticalStance(EPoliticalStance Stance)
-    {
-        switch (Stance)
-        {
-        case EPoliticalStance::Left:
-            return EPoliticalStance::Right;
-        case EPoliticalStance::Right:
-            return EPoliticalStance::Left;
-        default:
-            return EPoliticalStance::Neutral;
-        }
-    }
-
-    EPoliticalSupportLevel ClampPoliticalSupportLevel(int Value)
-    {
-        if (Value <= static_cast<int>(EPoliticalSupportLevel::Weak))
-            return EPoliticalSupportLevel::Weak;
-
-        if (Value >= static_cast<int>(EPoliticalSupportLevel::Strong))
-            return EPoliticalSupportLevel::Strong;
-
-        return static_cast<EPoliticalSupportLevel>(Value);
     }
 
     void RebuildOrbSpatialHash(
@@ -320,6 +299,415 @@ bool CBuildingMarkerOrb::Init()
     return true;
 }
 
+
+// ── FSM 헬퍼 ──────────────────────────────────────────────────────────────
+
+void CBuildingMarkerOrb::CancelCurrentPath()
+{
+    auto Movement = mMovement.lock();
+
+    if (!Movement)
+        return;
+
+    Movement->AdvancePathRequestId();
+    Movement->StartPathPoint();
+    Movement->SetPathTargetObjectName("");
+    mHasLockedTarget   = false;
+    mWaitingForPath    = false;
+    mWaitingPathAccum  = 0.f;
+}
+
+ECitizenState CBuildingMarkerOrb::NormalizeResumeState(
+    ECitizenState State) const
+{
+    switch (State)
+    {
+    case ECitizenState::GoingHome:
+    case ECitizenState::AtHome:
+        return ECitizenState::GoingHome;
+    case ECitizenState::GoingToWork:
+    case ECitizenState::AtWork:
+        return ECitizenState::GoingToWork;
+    default:
+        return ECitizenState::GoingToWork;
+    }
+}
+
+ECitizenState CBuildingMarkerOrb::ResolveStateAfterService() const
+{
+    if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
+        return ECitizenState::Wander;
+
+    const ECitizenState ResumeState =
+        NormalizeResumeState(mResumeStateAfterService);
+
+    if (ResumeState == ECitizenState::GoingHome && !mHomeName.empty())
+        return ECitizenState::GoingHome;
+
+    if (!mWorkName.empty())
+        return ECitizenState::GoingToWork;
+
+    return ECitizenState::GoingHome;
+}
+
+bool CBuildingMarkerOrb::TryInterruptByNeed()
+{
+    if (mCitizenState == ECitizenState::Wander)
+        return false;
+
+    if (IsTeamsterState(mCitizenState))
+        return false;
+
+    const bool IsFoodState =
+        mCitizenState == ECitizenState::GoingToFood ||
+        mCitizenState == ECitizenState::AtFood;
+    const bool IsFunState =
+        mCitizenState == ECitizenState::GoingToFun ||
+        mCitizenState == ECitizenState::AtFun;
+
+    if (!IsFoodState &&
+        !mFoodName.empty() &&
+        mSatisfaction.Food <= GFoodInterruptThreshold)
+    {
+        mResumeStateAfterService = NormalizeResumeState(mCitizenState);
+        CancelCurrentPath();
+        TransitionFsm(ECitizenState::GoingToFood);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
+    if (!IsFunState &&
+        !IsFoodState &&
+        !mFunName.empty() &&
+        mSatisfaction.Fun <= GFunInterruptThreshold)
+    {
+        mResumeStateAfterService = NormalizeResumeState(mCitizenState);
+        CancelCurrentPath();
+        TransitionFsm(ECitizenState::GoingToFun);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
+    return false;
+}
+
+std::string CBuildingMarkerOrb::ResolveTargetByState() const
+{
+    switch (mCitizenState)
+    {
+    case ECitizenState::GoingToWork:
+        return mWorkName;
+    case ECitizenState::GoingHome:
+        return mHomeName;
+    case ECitizenState::GoingToFood:
+        return mFoodName;
+    case ECitizenState::GoingToFun:
+        return mFunName;
+    case ECitizenState::GoingToTeamsterSource:
+        return mTeamsterSourceName;
+    case ECitizenState::GoingToTeamsterHarbor:
+        return mTeamsterHarborName;
+    case ECitizenState::GoingToTeamsterOffice:
+        return mWorkName;
+    default:
+        return PickRandomTargetName(std::string());
+    }
+}
+
+// ── Update() 분해 — 대형 블록 ──────────────────────────────────────────────
+
+bool CBuildingMarkerOrb::TickDwellState(float DeltaTime)
+{
+    const bool IsDwelling =
+        mCitizenState == ECitizenState::AtWork  ||
+        mCitizenState == ECitizenState::AtHome  ||
+        mCitizenState == ECitizenState::AtFood  ||
+        mCitizenState == ECitizenState::AtFun;
+
+    if (!IsDwelling)
+        return false;
+
+    if (mCitizenState == ECitizenState::AtWork &&
+        TryStartTeamsterDelivery())
+    {
+        return true;
+    }
+
+    if ((mCitizenState == ECitizenState::AtWork ||
+         mCitizenState == ECitizenState::AtHome) &&
+        TryInterruptByNeed())
+    {
+        return true;
+    }
+
+    mDwellTimer -= DeltaTime;
+
+    if (mDwellTimer <= 0.f)
+    {
+        CancelCurrentPath();
+
+        if (mCitizenState == ECitizenState::AtWork)
+            TransitionFsm(ECitizenState::GoingHome);
+        else if (mCitizenState == ECitizenState::AtHome)
+            TransitionFsm(ECitizenState::GoingToWork);
+        else
+            TransitionFsm(ResolveStateAfterService());
+    }
+
+    return true;
+}
+
+bool CBuildingMarkerOrb::TickInitialPosition(float CurrentZ)
+{
+    std::vector<std::pair<std::string, FVector3>> MarkerList;
+
+    if (!CollectTargetMarkers(MarkerList))
+    {
+        FVector3 FallbackStartPos = FVector3::Zero;
+
+        if (TryGetFallbackStartPos(FallbackStartPos))
+        {
+            SetWorldPos(FallbackStartPos);
+            mCurrentTargetName.clear();
+            mHasStartPos = true;
+#ifdef _DEBUG
+            mDebugMissingMarkerLogged = false;
+#endif
+            return true;
+        }
+
+#ifdef _DEBUG
+        if (!mDebugMissingMarkerLogged)
+        {
+            DebugOrbLog(
+                "[Orb] Marker unavailable. no valid target marker\n");
+            mDebugMissingMarkerLogged = true;
+        }
+#endif
+        return true;
+    }
+
+#ifdef _DEBUG
+    mDebugMissingMarkerLogged = false;
+#endif
+
+    for (size_t i = 0; i < MarkerList.size(); ++i)
+        MarkerList[i].second.z = CurrentZ;
+
+    const int StartIndex = rand() % (int)MarkerList.size();
+    const std::string& StartName = MarkerList[StartIndex].first;
+    SetWorldPos(MarkerList[StartIndex].second);
+
+    mCurrentTargetName = (mCitizenState == ECitizenState::Wander)
+        ? PickRandomTargetName(StartName)
+        : ResolveTargetByState();
+
+    if (mCurrentTargetName.empty())
+        mCurrentTargetName = StartName;
+
+    mPathRetryAccum = -((float)(rand() % 20) / 100.f);
+
+#ifdef _DEBUG
+    DebugOrbLog(
+        "[Orb] Start at %s marker=(%.1f, %.1f) target=%s delay=%.2f\n",
+        StartName.c_str(),
+        MarkerList[StartIndex].second.x,
+        MarkerList[StartIndex].second.y,
+        mCurrentTargetName.c_str(),
+        -mPathRetryAccum);
+#endif
+
+    mHasStartPos = true;
+    return true;
+}
+
+void CBuildingMarkerOrb::HandleMissingTarget()
+{
+    CancelCurrentPath();
+
+    switch (mCitizenState)
+    {
+    case ECitizenState::GoingToWork:
+    case ECitizenState::AtWork:
+        mWorkName.clear();
+        mTeamsterSourceName.clear();
+        mTeamsterHarborName.clear();
+        mTeamsterCarryAmount = 0;
+        ResetTeamsterSpeed();
+        break;
+    case ECitizenState::GoingHome:
+    case ECitizenState::AtHome:
+        mHomeName.clear();
+        break;
+    case ECitizenState::GoingToFood:
+    case ECitizenState::AtFood:
+        mFoodName.clear();
+        break;
+    case ECitizenState::GoingToFun:
+    case ECitizenState::AtFun:
+        mFunName.clear();
+        break;
+    case ECitizenState::GoingToTeamsterSource:
+        mTeamsterSourceName.clear();
+        mTeamsterCarryAmount = 0;
+        ResetTeamsterSpeed();
+        break;
+    case ECitizenState::GoingToTeamsterHarbor:
+        mTeamsterHarborName.clear();
+        mTeamsterCarryAmount = 0;
+        ResetTeamsterSpeed();
+        break;
+    case ECitizenState::GoingToTeamsterOffice:
+        mWorkName.clear();
+        mTeamsterSourceName.clear();
+        mTeamsterHarborName.clear();
+        mTeamsterCarryAmount = 0;
+        ResetTeamsterSpeed();
+        break;
+    default:
+        break;
+    }
+
+    if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
+    {
+        TransitionFsm(ECitizenState::Wander);
+    }
+    else if (mCitizenState == ECitizenState::GoingToFood ||
+             mCitizenState == ECitizenState::AtFood      ||
+             mCitizenState == ECitizenState::GoingToFun  ||
+             mCitizenState == ECitizenState::AtFun)
+    {
+        TransitionFsm(ResolveStateAfterService());
+    }
+    else if (IsTeamsterState(mCitizenState))
+    {
+        ResetTeamsterSpeed();
+        TransitionFsm(ECitizenState::GoingToWork);
+    }
+
+    mCurrentTargetName = (mCitizenState == ECitizenState::Wander)
+        ? PickRandomTargetName(std::string())
+        : ResolveTargetByState();
+
+    if (mCurrentTargetName.empty())
+        return;
+
+    RequestMoveTo(mCurrentTargetName);
+    mPathRetryAccum = 0.f;
+}
+
+void CBuildingMarkerOrb::HandleArrival(float Dist)
+{
+    CancelCurrentPath();
+
+    if (mCitizenState == ECitizenState::GoingToWork)
+    {
+        TransitionFsm(ECitizenState::AtWork);
+    }
+    else if (mCitizenState == ECitizenState::GoingHome)
+    {
+        TransitionFsm(ECitizenState::AtHome);
+    }
+    else if (mCitizenState == ECitizenState::GoingToFood)
+    {
+        mFoodVisitBuildingName = mCurrentTargetName;
+        TransitionFsm(ECitizenState::AtFood);
+    }
+    else if (mCitizenState == ECitizenState::GoingToFun)
+    {
+        TransitionFsm(ECitizenState::AtFun);
+    }
+    else if (mCitizenState == ECitizenState::GoingToTeamsterSource)
+    {
+        auto World = mWorld.lock();
+        bool LoadedCargo = false;
+
+        if (World && !mCurrentTargetName.empty())
+        {
+            auto SourceBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mCurrentTargetName).lock();
+
+            const bool IsProductionOrFood =
+                SourceBuilding &&
+                !SourceBuilding->IsResidential() &&
+                (!SourceBuilding->IsEntertainmentProvider() ||
+                    SourceBuilding->IsFoodProvider());
+
+            if (SourceBuilding &&
+                IsProductionOrFood &&
+                !SourceBuilding->IsTransportOffice() &&
+                !SourceBuilding->IsHarbor() &&
+                SourceBuilding->TryConsumeResource(GTeamsterTransferUnit))
+            {
+                mTeamsterCarryAmount = GTeamsterTransferUnit;
+                LoadedCargo = true;
+            }
+        }
+
+        if (LoadedCargo)
+        {
+            if (mTeamsterHarborName.empty())
+                mTeamsterHarborName = FindHarborName();
+
+            if (!mTeamsterHarborName.empty())
+                TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
+            else
+                TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+        }
+        else
+        {
+            mTeamsterCarryAmount = 0;
+            TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+        }
+    }
+    else if (mCitizenState == ECitizenState::GoingToTeamsterHarbor)
+    {
+        auto World = mWorld.lock();
+
+        if (World &&
+            mTeamsterCarryAmount > 0 &&
+            !mCurrentTargetName.empty())
+        {
+            auto HarborBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mCurrentTargetName).lock();
+
+            if (HarborBuilding && HarborBuilding->IsHarbor())
+                HarborBuilding->AddResourceStock(mTeamsterCarryAmount);
+        }
+
+        mTeamsterCarryAmount = 0;
+        TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+    }
+    else if (mCitizenState == ECitizenState::GoingToTeamsterOffice)
+    {
+        ResetTeamsterSpeed();
+        mTeamsterCarryAmount = 0;
+        TransitionFsm(ECitizenState::AtWork);
+    }
+    else
+    {
+        // Wander 모드: 랜덤 타겟 선택
+        mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
+
+        if (mCurrentTargetName.empty())
+            return;
+
+#ifdef _DEBUG
+        DebugOrbLog(
+            "[Orb] Arrived. switch target=%s dist=%.2f arrival=%.2f\n",
+            mCurrentTargetName.c_str(),
+            Dist, mArrivalDistance);
+#endif
+    }
+
+    // 도착 후 짧은 대기로 정지 체감 감소
+    mPathRetryAccum = -((float)(rand() % 10) / 100.f);
+}
+
+// ── Update ────────────────────────────────────────────────────────────────
+
 void CBuildingMarkerOrb::Update(float DeltaTime)
 {
     CGameObject::Update(DeltaTime);
@@ -336,8 +724,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     RefreshBuildings();
     UpdateScaleFromTileSize();
 
-    auto World = mWorld.lock();
-
+    auto World    = mWorld.lock();
     auto Movement = mMovement.lock();
 
     if (!World || !Movement)
@@ -359,6 +746,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     mDebugMissingDependencyLogged = false;
 #endif
 
+    // 화면 바깥 오브 렌더링 컬링
     auto Mesh = mMeshComponent.lock();
 
     if (Mesh)
@@ -372,7 +760,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         }
 
         const FVector3 CamPos = CameraMgr->GetMainCameraWorldPos();
-        float ViewWidth = (float)CDevice::GetInst()->GetResolution().Width;
+        float ViewWidth  = (float)CDevice::GetInst()->GetResolution().Width;
         float ViewHeight = (float)CDevice::GetInst()->GetResolution().Height;
 
         auto MainCamera = CameraMgr->GetMainCamera().lock();
@@ -381,14 +769,14 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             MainCamera->GetProjectionType() ==
             ECameraProjectionType::Ortho)
         {
-            ViewWidth = MainCamera->GetViewWidth();
+            ViewWidth  = MainCamera->GetViewWidth();
             ViewHeight = MainCamera->GetViewHeight();
         }
 
         const float Margin = (std::max)(mOrbDiameter * 2.f, 32.f);
         const FVector3 Pos = GetWorldPos();
         const bool Visible =
-            fabsf(Pos.x - CamPos.x) <= (ViewWidth * 0.5f + Margin) &&
+            fabsf(Pos.x - CamPos.x) <= (ViewWidth  * 0.5f + Margin) &&
             fabsf(Pos.y - CamPos.y) <= (ViewHeight * 0.5f + Margin);
 
         Mesh->SetEnable(Visible);
@@ -399,225 +787,16 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     Movement->SetSpeed(mMoveSpeed);
     mPathRetryAccum += DeltaTime;
 
-    // 즉시 경로 취소 시에는 request id도 함께 갱신해야
-    // 큐에 남아 있던 구 FindPath 완료 패킷이 적용되지 않는다.
-    auto CancelCurrentPath = [&]()
-    {
-        Movement->AdvancePathRequestId();
-        Movement->StartPathPoint();
-        Movement->SetPathTargetObjectName("");
-        mHasLockedTarget = false;
-        mWaitingForPath = false;
-        mWaitingPathAccum = 0.f;
-    };
-
-    auto NormalizeResumeState = [&](ECitizenState State) -> ECitizenState
-    {
-        switch (State)
-        {
-        case ECitizenState::GoingHome:
-        case ECitizenState::AtHome:
-            return ECitizenState::GoingHome;
-        case ECitizenState::GoingToWork:
-        case ECitizenState::AtWork:
-            return ECitizenState::GoingToWork;
-        default:
-            return ECitizenState::GoingToWork;
-        }
-    };
-
-    auto ResolveStateAfterService = [&]() -> ECitizenState
-    {
-        if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
-            return ECitizenState::Wander;
-
-        ECitizenState ResumeState = NormalizeResumeState(
-            mResumeStateAfterService);
-
-        if (ResumeState == ECitizenState::GoingHome &&
-            !mHomeName.empty())
-        {
-            return ECitizenState::GoingHome;
-        }
-
-        if (!mWorkName.empty())
-            return ECitizenState::GoingToWork;
-
-        return ECitizenState::GoingHome;
-    };
-
-    auto TryInterruptByNeed = [&]() -> bool
-    {
-        if (mCitizenState == ECitizenState::Wander)
-            return false;
-
-        if (IsTeamsterState(mCitizenState))
-            return false;
-
-        const bool IsFoodState =
-            mCitizenState == ECitizenState::GoingToFood ||
-            mCitizenState == ECitizenState::AtFood;
-        const bool IsFunState =
-            mCitizenState == ECitizenState::GoingToFun ||
-            mCitizenState == ECitizenState::AtFun;
-
-        if (!IsFoodState &&
-            !mFoodName.empty() &&
-            mSatisfaction.Food <= GFoodInterruptThreshold)
-        {
-            mResumeStateAfterService =
-                NormalizeResumeState(mCitizenState);
-            CancelCurrentPath();
-            TransitionFsm(ECitizenState::GoingToFood);
-            mPathRetryAccum = 0.f;
-            return true;
-        }
-
-        if (!IsFunState &&
-            !IsFoodState &&
-            !mFunName.empty() &&
-            mSatisfaction.Fun <= GFunInterruptThreshold)
-        {
-            mResumeStateAfterService =
-                NormalizeResumeState(mCitizenState);
-            CancelCurrentPath();
-            TransitionFsm(ECitizenState::GoingToFun);
-            mPathRetryAccum = 0.f;
-            return true;
-        }
-
-        return false;
-    };
-
-    auto ResolveTargetByState = [&]() -> std::string
-    {
-        switch (mCitizenState)
-        {
-        case ECitizenState::GoingToWork: return mWorkName;
-        case ECitizenState::GoingHome: return mHomeName;
-        case ECitizenState::GoingToFood: return mFoodName;
-        case ECitizenState::GoingToFun: return mFunName;
-        case ECitizenState::GoingToTeamsterSource:
-            return mTeamsterSourceName;
-        case ECitizenState::GoingToTeamsterHarbor:
-            return mTeamsterHarborName;
-        case ECitizenState::GoingToTeamsterOffice:
-            return mWorkName;
-        default: return PickRandomTargetName(std::string());
-        }
-    };
-
-    // 체류 상태: 타이머 소모 후 다음 상태로 전환
-    if (mCitizenState == ECitizenState::AtWork ||
-        mCitizenState == ECitizenState::AtHome ||
-        mCitizenState == ECitizenState::AtFood ||
-        mCitizenState == ECitizenState::AtFun)
-    {
-        if (mCitizenState == ECitizenState::AtWork &&
-            TryStartTeamsterDelivery())
-        {
-            return;
-        }
-
-        if ((mCitizenState == ECitizenState::AtWork ||
-            mCitizenState == ECitizenState::AtHome) &&
-            TryInterruptByNeed())
-        {
-            return;
-        }
-
-        mDwellTimer -= DeltaTime;
-
-        if (mDwellTimer <= 0.f)
-        {
-            CancelCurrentPath();
-
-            if (mCitizenState == ECitizenState::AtWork)
-            {
-                TransitionFsm(ECitizenState::GoingHome);
-            }
-            else if (mCitizenState == ECitizenState::AtHome)
-            {
-                TransitionFsm(ECitizenState::GoingToWork);
-            }
-            else
-            {
-                TransitionFsm(ResolveStateAfterService());
-            }
-        }
-
+    // 체류 상태 (At* 상태): 타이머 소모 후 다음 상태 전환
+    if (TickDwellState(DeltaTime))
         return;
-    }
 
     TryInterruptByNeed();
 
+    // 첫 프레임: 시작 위치 배정
     if (!mHasStartPos)
     {
-        std::vector<std::pair<std::string, FVector3>> MarkerList;
-
-        if (!CollectTargetMarkers(MarkerList))
-        {
-            FVector3 FallbackStartPos = FVector3::Zero;
-
-            if (TryGetFallbackStartPos(FallbackStartPos))
-            {
-                SetWorldPos(FallbackStartPos);
-                mCurrentTargetName.clear();
-                mHasStartPos = true;
-#ifdef _DEBUG
-                mDebugMissingMarkerLogged = false;
-#endif
-                return;
-            }
-
-#ifdef _DEBUG
-            if (!mDebugMissingMarkerLogged)
-            {
-                DebugOrbLog(
-                    "[Orb] Marker unavailable. no valid target marker\n");
-                mDebugMissingMarkerLogged = true;
-            }
-#endif
-            return;
-        }
-
-#ifdef _DEBUG
-        mDebugMissingMarkerLogged = false;
-#endif
-
-        for (size_t i = 0; i < MarkerList.size(); ++i)
-        {
-            MarkerList[i].second.z = CurrentZ;
-        }
-
-        const int StartIndex = rand() % (int)MarkerList.size();
-        const std::string& StartName = MarkerList[StartIndex].first;
-        SetWorldPos(MarkerList[StartIndex].second);
-
-        if (mCitizenState == ECitizenState::Wander)
-            mCurrentTargetName = PickRandomTargetName(StartName);
-        else
-            mCurrentTargetName = ResolveTargetByState();
-
-        if (mCurrentTargetName.empty())
-            mCurrentTargetName = StartName;
-
-        // 즉시 경로를 요청하지 않는다.
-        // mPathRetryAccum을 음수로 설정해 orb마다 다른 시점에 첫 요청이 발생하게 한다.
-        // retry 로직(+mPathRetryInterval)이 더해지므로 실제 출발은 약 1초 내외로 분산된다.
-        mPathRetryAccum = -((float)(rand() % 20) / 100.f);
-
-#ifdef _DEBUG
-        DebugOrbLog(
-            "[Orb] Start at %s marker=(%.1f, %.1f) target=%s delay=%.2f\n",
-            StartName.c_str(),
-            MarkerList[StartIndex].second.x,
-            MarkerList[StartIndex].second.y,
-            mCurrentTargetName.c_str(),
-            -mPathRetryAccum);
-#endif
-
-        mHasStartPos = true;
+        TickInitialPosition(CurrentZ);
         return;
     }
 
@@ -634,83 +813,13 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         return;
     }
 
-    // TargetBuilding 포인터를 한 번 취득해 이동 감지 / 도착 판정 양쪽에 재사용한다.
     auto TargetBuilding =
         World->FindObject<CPlacementAreaObject>(mCurrentTargetName).lock();
 
+    // 목표 건물이 사라진 경우: 상태 정리 후 재경로
     if (!TargetBuilding)
     {
-        CancelCurrentPath();
-        switch (mCitizenState)
-        {
-        case ECitizenState::GoingToWork:
-        case ECitizenState::AtWork:
-            mWorkName.clear();
-            mTeamsterSourceName.clear();
-            mTeamsterHarborName.clear();
-            mTeamsterCarryAmount = 0;
-            ResetTeamsterSpeed();
-            break;
-        case ECitizenState::GoingHome:
-        case ECitizenState::AtHome:
-            mHomeName.clear();
-            break;
-        case ECitizenState::GoingToFood:
-        case ECitizenState::AtFood:
-            mFoodName.clear();
-            break;
-        case ECitizenState::GoingToFun:
-        case ECitizenState::AtFun:
-            mFunName.clear();
-            break;
-        case ECitizenState::GoingToTeamsterSource:
-            mTeamsterSourceName.clear();
-            mTeamsterCarryAmount = 0;
-            ResetTeamsterSpeed();
-            break;
-        case ECitizenState::GoingToTeamsterHarbor:
-            mTeamsterHarborName.clear();
-            mTeamsterCarryAmount = 0;
-            ResetTeamsterSpeed();
-            break;
-        case ECitizenState::GoingToTeamsterOffice:
-            mWorkName.clear();
-            mTeamsterSourceName.clear();
-            mTeamsterHarborName.clear();
-            mTeamsterCarryAmount = 0;
-            ResetTeamsterSpeed();
-            break;
-        default:
-            break;
-        }
-
-        if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
-        {
-            TransitionFsm(ECitizenState::Wander);
-        }
-        else if (mCitizenState == ECitizenState::GoingToFood ||
-            mCitizenState == ECitizenState::AtFood ||
-            mCitizenState == ECitizenState::GoingToFun ||
-            mCitizenState == ECitizenState::AtFun)
-        {
-            TransitionFsm(ResolveStateAfterService());
-        }
-        else if (IsTeamsterState(mCitizenState))
-        {
-            ResetTeamsterSpeed();
-            TransitionFsm(ECitizenState::GoingToWork);
-        }
-
-        if (mCitizenState == ECitizenState::Wander)
-            mCurrentTargetName = PickRandomTargetName(std::string());
-        else
-            mCurrentTargetName = ResolveTargetByState();
-
-        if (mCurrentTargetName.empty())
-            return;
-
-        RequestMoveTo(mCurrentTargetName);
-        mPathRetryAccum = 0.f;
+        HandleMissingTarget();
         return;
     }
 
@@ -730,10 +839,9 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 #endif
         CancelCurrentPath();
 
-        if (mCitizenState == ECitizenState::Wander)
-            mCurrentTargetName = PickRandomTargetName(std::string());
-        else
-            mCurrentTargetName = ResolveTargetByState();
+        mCurrentTargetName = (mCitizenState == ECitizenState::Wander)
+            ? PickRandomTargetName(std::string())
+            : ResolveTargetByState();
 
         if (mCurrentTargetName.empty())
             return;
@@ -749,44 +857,32 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     TargetMarker.z = CurrentZ;
 
-    // 건물 이동 감지: mLockedTargetPos와 건물의 현재 closest 마커가 멀어졌으면
-    // 경로를 즉시 취소하고 retry를 분산 스케줄해 nav 큐 폭주를 방지한다.
+    // 건물 이동 감지: 잠금 좌표와 현재 closest 마커가 멀어지면 경로 재시도
     if (mHasLockedTarget)
     {
-        if (TargetBuilding)
+        FVector3 ClosestToLocked;
+
+        if (TargetBuilding->GetClosestMarkerWorldPos(
+            mLockedTargetPos, ClosestToLocked))
         {
-            FVector3 ClosestToLocked;
+            ClosestToLocked.z = mLockedTargetPos.z;
 
-            if (TargetBuilding->GetClosestMarkerWorldPos(
-                mLockedTargetPos, ClosestToLocked))
-            {
-                ClosestToLocked.z = mLockedTargetPos.z;
-
-                if (mLockedTargetPos.Distance(ClosestToLocked) > 1.f)
-                {
-                    mHasLockedTarget = false;
-                    // 기존 경로(구 건물 위치로 향하는)를 즉시 취소한다.
-                    CancelCurrentPath();
-                    // 재시도 시점을 0.75~0.95 × interval 범위에 분산한다.
-                    // (실제 재요청 대기: 약 0.05~0.25 × interval)
-                    const float Jitter =
-                        (float)(rand() % 100) / 100.f *
-                        mPathRetryInterval * 0.2f;
-                    mPathRetryAccum =
-                        mPathRetryInterval * 0.75f + Jitter;
-                }
-            }
-            else
+            if (mLockedTargetPos.Distance(ClosestToLocked) > 1.f)
             {
                 mHasLockedTarget = false;
                 CancelCurrentPath();
-                mPathRetryAccum = mPathRetryInterval;
+                const float Jitter =
+                    (float)(rand() % 100) / 100.f *
+                    mPathRetryInterval * 0.2f;
+                mPathRetryAccum =
+                    mPathRetryInterval * 0.75f + Jitter;
             }
         }
         else
         {
             mHasLockedTarget = false;
             CancelCurrentPath();
+            mPathRetryAccum = mPathRetryInterval;
         }
     }
 
@@ -800,134 +896,19 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     bool ArrivedAtBuilding = (Dist <= mArrivalDistance);
 
-    // 잠금 좌표와 다른 마커(goal tile)에 도착하는 경우를 허용한다.
-    // 현재 위치 기준의 최근접 마커(TargetMarker)에 충분히 가까우면
-    // 동일 건물 도착으로 처리한다.
     if (!ArrivedAtBuilding && mHasLockedTarget)
-    {
-        ArrivedAtBuilding =
-            Current.Distance(TargetMarker) <= mArrivalDistance;
-    }
+        ArrivedAtBuilding = Current.Distance(TargetMarker) <= mArrivalDistance;
 
     if (ArrivedAtBuilding)
     {
-        // 구 경로를 즉시 클리어해 velocity가 다음 프레임에 0이 되도록 보장한다.
-        CancelCurrentPath();
-
-        if (mCitizenState == ECitizenState::GoingToWork)
-        {
-            TransitionFsm(ECitizenState::AtWork);
-        }
-        else if (mCitizenState == ECitizenState::GoingHome)
-        {
-            TransitionFsm(ECitizenState::AtHome);
-        }
-        else if (mCitizenState == ECitizenState::GoingToFood)
-        {
-            // 실제 도착한 건물명을 우선 고정한다.
-            // (주기 재배정으로 mFoodName이 바뀌어도 이번 방문은 유지)
-            mFoodVisitBuildingName = mCurrentTargetName;
-            TransitionFsm(ECitizenState::AtFood);
-        }
-        else if (mCitizenState == ECitizenState::GoingToFun)
-        {
-            TransitionFsm(ECitizenState::AtFun);
-        }
-        else if (mCitizenState == ECitizenState::GoingToTeamsterSource)
-        {
-            bool LoadedCargo = false;
-
-            if (World && !mCurrentTargetName.empty())
-            {
-                auto SourceBuilding =
-                    World->FindObject<CPlacementAreaObject>(
-                        mCurrentTargetName).lock();
-
-                const bool IsProductionOrFood =
-                    SourceBuilding &&
-                    !SourceBuilding->IsResidential() &&
-                    (!SourceBuilding->IsEntertainmentProvider() ||
-                        SourceBuilding->IsFoodProvider());
-
-                if (SourceBuilding &&
-                    IsProductionOrFood &&
-                    !SourceBuilding->IsTransportOffice() &&
-                    !SourceBuilding->IsHarbor() &&
-                    SourceBuilding->TryConsumeResource(GTeamsterTransferUnit))
-                {
-                    mTeamsterCarryAmount = GTeamsterTransferUnit;
-                    LoadedCargo = true;
-                }
-            }
-
-            if (LoadedCargo)
-            {
-                if (mTeamsterHarborName.empty())
-                    mTeamsterHarborName = FindHarborName();
-
-                if (!mTeamsterHarborName.empty())
-                    TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
-                else
-                    TransitionFsm(ECitizenState::GoingToTeamsterOffice);
-            }
-            else
-            {
-                mTeamsterCarryAmount = 0;
-                TransitionFsm(ECitizenState::GoingToTeamsterOffice);
-            }
-        }
-        else if (mCitizenState == ECitizenState::GoingToTeamsterHarbor)
-        {
-            if (World &&
-                mTeamsterCarryAmount > 0 &&
-                !mCurrentTargetName.empty())
-            {
-                auto HarborBuilding =
-                    World->FindObject<CPlacementAreaObject>(
-                        mCurrentTargetName).lock();
-
-                if (HarborBuilding && HarborBuilding->IsHarbor())
-                {
-                    HarborBuilding->AddResourceStock(mTeamsterCarryAmount);
-                }
-            }
-
-            mTeamsterCarryAmount = 0;
-            TransitionFsm(ECitizenState::GoingToTeamsterOffice);
-        }
-        else if (mCitizenState == ECitizenState::GoingToTeamsterOffice)
-        {
-            ResetTeamsterSpeed();
-            mTeamsterCarryAmount = 0;
-            TransitionFsm(ECitizenState::AtWork);
-        }
-        else
-        {
-            // Wander 모드: 기존 랜덤 타겟 선택
-            mCurrentTargetName = PickRandomTargetName(mCurrentTargetName);
-
-            if (mCurrentTargetName.empty())
-                return;
-
-#ifdef _DEBUG
-            DebugOrbLog(
-                "[Orb] Arrived. switch target=%s dist=%.2f arrival=%.2f\n",
-                mCurrentTargetName.c_str(),
-                Dist, mArrivalDistance);
-#endif
-        }
-
-        // 즉시 경로를 요청하지 않는다.
-        // 도착 후 대기는 짧게 유지해 정지 체감을 줄인다.
-        mPathRetryAccum = -((float)(rand() % 10) / 100.f);
+        HandleArrival(Dist);
         return;
     }
 
-    // 경로 대기 상태 관리:
-    // 경로 요청 후 velocity가 한 번이라도 non-zero가 되면 경로가 수신됐다고 판단한다.
+    // 경로 대기 상태 관리
     if (mWaitingForPath && !Movement->GetVelocity().IsZero())
     {
-        mWaitingForPath = false;
+        mWaitingForPath   = false;
         mWaitingPathAccum = 0.f;
     }
 
@@ -935,12 +916,11 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     {
         mWaitingPathAccum += DeltaTime;
 
-        // 응답이 너무 늦으면 대기를 강제로 해제해 즉시 재요청한다.
         if (mWaitingPathAccum >= 0.35f)
         {
-            mWaitingForPath = false;
+            mWaitingForPath   = false;
             mWaitingPathAccum = 0.f;
-            mPathRetryAccum = mPathRetryInterval;
+            mPathRetryAccum   = mPathRetryInterval;
         }
     }
     else
@@ -953,14 +933,14 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     if (!Velocity.IsZero())
     {
-        mStallAccum = 0.f;
+        mStallAccum      = 0.f;
         mLastProgressPos = Current;
     }
     else
     {
         if (Current.Distance(mLastProgressPos) > 2.f)
         {
-            mStallAccum = 0.f;
+            mStallAccum      = 0.f;
             mLastProgressPos = Current;
         }
         else
@@ -969,14 +949,13 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
         }
     }
 
-    // 일정 시간 정체되면 타겟을 바꿔 고착 상태를 해소한다.
+    // 정체 해소: 일정 시간 이상 이동 없으면 타겟 또는 경로 재시도
     if (mStallAccum >= 1.5f)
     {
         CancelCurrentPath();
 
         if (mCitizenState != ECitizenState::Wander)
         {
-            // FSM 모드: 같은 목표로 재시도 (경로 문제)
             RequestMoveTo(mCurrentTargetName);
         }
         else
@@ -990,14 +969,12 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
             RequestMoveTo(mCurrentTargetName);
         }
 
-        mPathRetryAccum = 0.f;
-        mStallAccum = 0.f;
+        mPathRetryAccum  = 0.f;
+        mStallAccum      = 0.f;
         mLastProgressPos = Current;
         return;
     }
 
-    // 대기 중이면 retry 간격을 약간만 늘려 큐 폭주를 방지한다.
-    // 대기 중이 아니면 표준 간격으로 retry한다.
     const float EffectiveRetryInterval = mWaitingForPath
         ? mPathRetryInterval * 1.2f
         : mPathRetryInterval;
@@ -1017,7 +994,7 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     {
         mDebugStatusLogAccum = 0.f;
 
-        const FVector3 Pos = GetWorldPos();
+        const FVector3 Pos           = GetWorldPos();
         const std::string& PathTarget = Movement->GetPathTargetObjectName();
 
         DebugOrbLog(
@@ -1111,142 +1088,13 @@ const char* CBuildingMarkerOrb::GetWalkAnimationNameByDir(
 
 void CBuildingMarkerOrb::InitPoliticalProfile()
 {
-    auto MakeRandomChoice = []() -> FNpcPoliticalChoice
-    {
-        FNpcPoliticalChoice Choice;
-        const int StanceRoll = rand() % 100;
-
-        if (StanceRoll < 34)
-            Choice.Stance = EPoliticalStance::Left;
-        else if (StanceRoll < 67)
-            Choice.Stance = EPoliticalStance::Neutral;
-        else
-            Choice.Stance = EPoliticalStance::Right;
-
-        const int SupportRoll = rand() % 100;
-
-        if (SupportRoll < 28)
-            Choice.Support = EPoliticalSupportLevel::Weak;
-        else if (SupportRoll < 76)
-            Choice.Support = EPoliticalSupportLevel::Normal;
-        else
-            Choice.Support = EPoliticalSupportLevel::Strong;
-
-        return Choice;
-    };
-
-    mPoliticalProfile.Economy = MakeRandomChoice();
-    mPoliticalProfile.ReligionMilitarism = MakeRandomChoice();
-    mPoliticalProfile.EnvironmentIndustry = MakeRandomChoice();
-    mPoliticalProfile.IntellectualConservative = MakeRandomChoice();
-
-    // 초기 갱신 타이밍을 분산시켜 한 프레임에 편향이 몰리지 않게 한다.
-    mPoliticalTickAccum =
-        static_cast<float>(rand() % 1000) / 1000.f * GPoliticalShiftInterval;
+    CitizenPolitics::Init(mPoliticalProfile, mPoliticalTickAccum);
 }
 
 void CBuildingMarkerOrb::UpdatePoliticalProfile(float DeltaTime)
 {
-    if (DeltaTime <= 0.f)
-        return;
-
-    mPoliticalTickAccum += DeltaTime;
-
-    while (mPoliticalTickAccum >= GPoliticalShiftInterval)
-    {
-        mPoliticalTickAccum -= GPoliticalShiftInterval;
-
-        const int AxisIndex = rand() %
-            static_cast<int>(EPoliticalAxis::Count);
-        const EPoliticalAxis Axis = static_cast<EPoliticalAxis>(AxisIndex);
-        UpdatePoliticalChoice(mPoliticalProfile.Get(Axis));
-    }
-}
-
-void CBuildingMarkerOrb::UpdatePoliticalChoice(FNpcPoliticalChoice& Choice)
-{
-    const float Overall = mSatisfaction.Overall;
-    const int Roll = rand() % 100;
-
-    int DriftBonus = 0;
-
-    if (Overall < 40.f)
-        DriftBonus = 10;
-    else if (Overall > 75.f)
-        DriftBonus = -6;
-
-    if (Choice.Stance == EPoliticalStance::Neutral)
-    {
-        int MoveToSideChance = 22;
-
-        if (Overall < 40.f)
-            MoveToSideChance += 8;
-        else if (Overall > 75.f)
-            MoveToSideChance -= 6;
-
-        MoveToSideChance = (std::max)(8, (std::min)(40, MoveToSideChance));
-
-        if (Roll < MoveToSideChance)
-        {
-            Choice.Stance = EPoliticalStance::Left;
-            Choice.Support = EPoliticalSupportLevel::Weak;
-            return;
-        }
-
-        if (Roll < MoveToSideChance * 2)
-        {
-            Choice.Stance = EPoliticalStance::Right;
-            Choice.Support = EPoliticalSupportLevel::Weak;
-            return;
-        }
-
-        int SupportValue = static_cast<int>(Choice.Support);
-
-        if (Roll >= 90)
-            ++SupportValue;
-        else if (Roll < 10)
-            --SupportValue;
-
-        Choice.Support = ClampPoliticalSupportLevel(SupportValue);
-        return;
-    }
-
-    int ToNeutralChance = 18 + DriftBonus;
-    int ToOppositeChance = 10 + DriftBonus / 2;
-    ToNeutralChance = (std::max)(5, (std::min)(40, ToNeutralChance));
-    ToOppositeChance = (std::max)(3, (std::min)(25, ToOppositeChance));
-
-    if (Roll < ToNeutralChance)
-    {
-        Choice.Stance = EPoliticalStance::Neutral;
-        Choice.Support = EPoliticalSupportLevel::Weak;
-        return;
-    }
-
-    if (Roll < ToNeutralChance + ToOppositeChance)
-    {
-        Choice.Stance = GetOppositePoliticalStance(Choice.Stance);
-        Choice.Support = EPoliticalSupportLevel::Weak;
-        return;
-    }
-
-    int SupportValue = static_cast<int>(Choice.Support);
-    int StrengthenThreshold = 70;
-
-    if (Overall > 65.f)
-        StrengthenThreshold -= 15;
-    else if (Overall < 35.f)
-        StrengthenThreshold += 8;
-
-    StrengthenThreshold =
-        (std::max)(35, (std::min)(90, StrengthenThreshold));
-
-    if (Roll >= StrengthenThreshold)
-        ++SupportValue;
-    else
-        --SupportValue;
-
-    Choice.Support = ClampPoliticalSupportLevel(SupportValue);
+    CitizenPolitics::Update(
+        mPoliticalProfile, mPoliticalTickAccum, DeltaTime, mSatisfaction.Overall);
 }
 
 void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
@@ -1372,30 +1220,7 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 
 void CBuildingMarkerOrb::RecalculateOverallSatisfaction()
 {
-    const float WeightedAverage =
-        mSatisfaction.Food * 0.18f +
-        mSatisfaction.Health * 0.14f +
-        mSatisfaction.Fun * 0.10f +
-        mSatisfaction.Faith * 0.10f +
-        mSatisfaction.Housing * 0.13f +
-        mSatisfaction.Job * 0.13f +
-        mSatisfaction.Freedom * 0.10f +
-        mSatisfaction.Security * 0.12f;
-
-    float MinimumNeed = mSatisfaction.Food;
-    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Health);
-    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Fun);
-    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Faith);
-    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Housing);
-    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Job);
-    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Freedom);
-    MinimumNeed = (std::min)(MinimumNeed, mSatisfaction.Security);
-
-    const float LowNeedPenalty =
-        (std::max)(0.f, 30.f - MinimumNeed) * 0.8f;
-
-    mSatisfaction.Overall =
-        Clamp<float>(WeightedAverage - LowNeedPenalty, 0.f, 100.f);
+    CitizenSatisfaction::RecalculateOverall(mSatisfaction);
 }
 
 void CBuildingMarkerOrb::ApplySoftSeparation(float DeltaTime)
@@ -1575,7 +1400,7 @@ void CBuildingMarkerOrb::RefreshBuildings()
 
     if (mTileMapObject.expired())
     {
-        mTileMapObject = World->FindObject<CTileMapObject>("TileMap");
+        mTileMapObject = World->FindObject<CTileMapObject>(GTileMapObjectName);
     }
 }
 

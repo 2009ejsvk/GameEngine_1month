@@ -119,9 +119,19 @@ bool CObjectMovementComponent::MovePathToObject(
 		StartPos.x, StartPos.y);
 #endif
 
-	return Nav->FindPath(UpdateComponent->GetWorldPos(),
-		UpdateComponent->GetWorldPos(), &mSelf,
-		TargetObjectName, RequestId);
+	const bool Requested = Nav->FindPath(
+		UpdateComponent->GetWorldPos(),
+		UpdateComponent->GetWorldPos(),
+		&mSelf,
+		TargetObjectName,
+		RequestId);
+
+	if (!Requested)
+	{
+		mPathTargetObjectName.clear();
+	}
+
+	return Requested;
 }
 
 void CObjectMovementComponent::StartPath()

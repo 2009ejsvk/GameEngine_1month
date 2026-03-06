@@ -1,46 +1,11 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include "../Building/BuildingTypes.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
-
-enum class EPlacementBuildingKind
-{
-    BuildingA,
-    BuildingB
-};
-
-enum class EPlacementTemplateType
-{
-    Diamond3x3SingleMarker,
-    Diamond5x5TwoMarker,
-    Diamond5x5FourMarker,
-    Diamond7x7ThreeMarker
-};
-
-struct FPlacementMarkerAnchor
-{
-    float LogicalOffsetX = 0.f;
-    float LogicalOffsetY = 0.f;
-};
-
-struct FPlacementTemplate
-{
-    EPlacementTemplateType Type =
-        EPlacementTemplateType::Diamond3x3SingleMarker;
-    int DiamondRadius = 1;
-    std::vector<FPlacementMarkerAnchor> MarkerAnchors;
-    FVector4 AreaColor = FVector4::Blue;
-    bool HasDirectionalGap = true;
-
-    int GetExpectedTileCount() const
-    {
-        const int Side = DiamondRadius * 2 + 1;
-        return Side * Side - (HasDirectionalGap ? 1 : 0);
-    }
-};
 
 class CPlacementAreaObject :
     public CGameObject
@@ -145,74 +110,7 @@ public:
         int FoodSatisfactionCap = 100,
         int FunSatisfactionCap = 100,
         int BaseMonthlyWage = -1,
-        int BaseMonthlyUpkeep = -1)
-    {
-        auto ClampTo100 = [](int Value)
-        {
-            return (std::max)(0, (std::min)(100, Value));
-        };
-
-        mBuildingDisplayName = DisplayName;
-        mBuildingCategoryName = CategoryName;
-        mResidential = Residential;
-        mCapacity = Capacity;
-        mFoodProvider = FoodProvider;
-        mEntertainmentProvider = EntertainmentProvider;
-        mHousingSatisfactionCap = ClampTo100(HousingSatisfactionCap);
-        mJobSatisfactionCap = ClampTo100(JobSatisfactionCap);
-        mFoodSatisfactionCap = ClampTo100(FoodSatisfactionCap);
-        mFunSatisfactionCap = ClampTo100(FunSatisfactionCap);
-        mBudgetLevel = 3;
-
-        const int SafeCapacity = (std::max)(0, mCapacity);
-
-        if (BaseMonthlyWage < 0)
-        {
-            if (mResidential)
-                mBaseMonthlyWage = 0;
-            else
-            {
-                int DerivedWage = (std::max)(1, SafeCapacity) * 120;
-
-                if (IsTransportOffice())
-                    DerivedWage = (std::max)(DerivedWage, 800);
-
-                if (IsHarbor())
-                    DerivedWage = (std::max)(DerivedWage, 1000);
-
-                mBaseMonthlyWage = DerivedWage;
-            }
-        }
-        else
-        {
-            mBaseMonthlyWage = (std::max)(0, BaseMonthlyWage);
-        }
-
-        if (BaseMonthlyUpkeep < 0)
-        {
-            int DerivedUpkeep = mResidential ?
-                (80 + SafeCapacity * 4) :
-                (110 + SafeCapacity * 5);
-
-            if (IsTransportOffice())
-                DerivedUpkeep += 300;
-
-            if (IsHarbor())
-                DerivedUpkeep += 450;
-
-            if (mEntertainmentProvider && !mFoodProvider)
-                DerivedUpkeep += 120;
-
-            if (mFoodProvider)
-                DerivedUpkeep += 90;
-
-            mBaseMonthlyUpkeep = (std::max)(0, DerivedUpkeep);
-        }
-        else
-        {
-            mBaseMonthlyUpkeep = (std::max)(0, BaseMonthlyUpkeep);
-        }
-    }
+        int BaseMonthlyUpkeep = -1);
 
     const std::string& GetBuildingDisplayName() const
     {
@@ -253,14 +151,12 @@ public:
 
     bool IsTransportOffice() const
     {
-        return mBuildingId == "build_1_5" ||
-            mBuildingId == "starter_teamster_office";
+        return mBuildingKind == EPlacementBuildingKind::TransportOffice;
     }
 
     bool IsHarbor() const
     {
-        return mBuildingId == "build_1_3" ||
-            mBuildingId == "starter_harbor";
+        return mBuildingKind == EPlacementBuildingKind::Harbor;
     }
 
     bool IsFoodProductionFacility() const

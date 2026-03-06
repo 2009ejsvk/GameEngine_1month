@@ -1,4 +1,5 @@
 #include "EditorPlayer.h"
+#include "../ObjectNames.h"
 #include "Component/CameraComponent.h"
 #include "Component/ObjectMovementComponent.h"
 #include "Device.h"
@@ -35,7 +36,7 @@ void CEditorPlayer::Begin()
 
 	auto	World = mWorld.lock();
 
-	mTileMap = World->FindObject<CTileMapObject>("TileMap");
+	mTileMap = World->FindObject<CTileMapObject>(GTileMapObjectName);
 
 	auto	UIManager = World->GetUIManager().lock();
 
