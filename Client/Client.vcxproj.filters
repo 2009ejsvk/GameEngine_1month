@@ -82,6 +82,9 @@
     <Filter Include="14. Economy">
       <UniqueIdentifier>{c3d4e5f6-a7b8-9012-cdef-012345678902}</UniqueIdentifier>
     </Filter>
+    <Filter Include="15. Politics">
+      <UniqueIdentifier>{d4e5f6a7-b8c9-0123-def0-123456789013}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -176,6 +179,15 @@
     </ClCompile>
     <ClCompile Include="UI\CitizenInfoWidget.cpp">
       <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\EdictWidget.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="Politics\EdictSystem.cpp">
+      <Filter>15. Politics</Filter>
+    </ClCompile>
+    <ClCompile Include="Politics\PoliticsSystem.cpp">
+      <Filter>15. Politics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -280,6 +292,18 @@
     </ClInclude>
     <ClInclude Include="UI\CitizenInfoWidget.h">
       <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\EdictWidget.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="Politics\EdictSystem.h">
+      <Filter>15. Politics</Filter>
+    </ClInclude>
+    <ClInclude Include="Politics\PoliticalTypes.h">
+      <Filter>15. Politics</Filter>
+    </ClInclude>
+    <ClInclude Include="Politics\PoliticsSystem.h">
+      <Filter>15. Politics</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

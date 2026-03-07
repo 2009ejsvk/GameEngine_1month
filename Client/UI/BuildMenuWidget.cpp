@@ -2,6 +2,7 @@
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementController.h"
+#include "../Politics/EdictSystem.h"
 #include "../World/MainWorld.h"
 #include "../ObjectNames.h"
 #include "UI/Button.h"
@@ -1100,6 +1101,16 @@ void CBuildMenuWidget::RefreshYearbookStatus()
     if (!YearbookBodyText || !World)
         return;
 
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    const FPoliticalWorldSnapshot* PoliticalSnapshot = nullptr;
+    const FGovernmentProfile* GovernmentProfile = nullptr;
+
+    if (MainWorld)
+    {
+        PoliticalSnapshot = &MainWorld->GetPoliticalSnapshot();
+        GovernmentProfile = &MainWorld->GetGovernmentProfile();
+    }
+
     std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
     int ActiveNpcCount = 0;
     int HomelessCount = 0;
@@ -1211,6 +1222,127 @@ void CBuildMenuWidget::RefreshYearbookStatus()
             L"치안: -\n"
             L"무주택자 수: 0명\n"
             L"실업자 수: 0명\n";
+    }
+
+    Body += L"\n정권 평가\n";
+
+    if (PoliticalSnapshot && PoliticalSnapshot->ActiveCitizenCount > 0)
+    {
+        wchar_t Buffer[256] = {};
+        swprintf_s(
+            Buffer,
+            L"현 정권 지지: %d명\n",
+            PoliticalSnapshot->IncumbentCount);
+        Body += Buffer;
+        swprintf_s(
+            Buffer,
+            L"야권 지지: %d명\n",
+            PoliticalSnapshot->OppositionCount);
+        Body += Buffer;
+        swprintf_s(
+            Buffer,
+            L"기권/부동층: %d명\n",
+            PoliticalSnapshot->AbstainCount);
+        Body += Buffer;
+        swprintf_s(
+            Buffer,
+            L"평균 지지 점수: %.1f / 100\n",
+            PoliticalSnapshot->AverageSupportScore);
+        Body += Buffer;
+        swprintf_s(
+            Buffer,
+            L"생활 평가: %.1f\n",
+            PoliticalSnapshot->AverageLifeScore);
+        Body += Buffer;
+        swprintf_s(
+            Buffer,
+            L"정부 이념 일치: %.1f\n",
+            PoliticalSnapshot->AverageGovernmentIdeologyScore);
+        Body += Buffer;
+        swprintf_s(
+            Buffer,
+            L"건물 선호 효과: %.1f\n",
+            PoliticalSnapshot->AverageBuildingScore);
+        Body += Buffer;
+        swprintf_s(
+            Buffer,
+            L"최근 행동 효과: %.1f\n",
+            PoliticalSnapshot->AverageActionScore);
+        Body += Buffer;
+    }
+    else
+    {
+        Body +=
+            L"현 정권 지지: 0명\n"
+            L"야권 지지: 0명\n"
+            L"기권/부동층: 0명\n"
+            L"평균 지지 점수: -\n"
+            L"생활 평가: -\n"
+            L"정부 이념 일치: -\n"
+            L"건물 선호 효과: -\n"
+            L"최근 행동 효과: -\n";
+    }
+
+    if (GovernmentProfile)
+    {
+        Body += L"\n정부 노선\n";
+
+        for (int AxisIndex = 0;
+            AxisIndex < static_cast<int>(EPoliticalAxis::Count);
+            ++AxisIndex)
+        {
+            const EPoliticalAxis Axis =
+                static_cast<EPoliticalAxis>(AxisIndex);
+            const FNpcPoliticalChoice& Choice =
+                GovernmentProfile->Ideology.Get(Axis);
+            wchar_t Buffer[256] = {};
+            swprintf_s(
+                Buffer,
+                L"%s: %s (%s)\n",
+                GetPoliticalAxisDisplayName(Axis),
+                GetPoliticalFactionDisplayName(Axis, Choice.Stance),
+                GetPoliticalSupportDisplayName(Choice.Support));
+            Body += Buffer;
+        }
+    }
+
+    if (MainWorld)
+    {
+        Body += L"\n활성 칙령\n";
+
+        bool HasActiveEdict = false;
+        const auto& EdictStates = MainWorld->GetGovernmentEdictStates();
+
+        for (size_t EdictIndex = 0;
+            EdictIndex < EdictStates.size();
+            ++EdictIndex)
+        {
+            if (!EdictStates[EdictIndex].Active)
+                continue;
+
+            const FGovernmentEdictDefinition* Definition =
+                EdictSystem::FindGovernmentEdictDefinition(
+                    EdictStates[EdictIndex].Type);
+
+            if (!Definition)
+                continue;
+
+            HasActiveEdict = true;
+            Body += L"- ";
+            Body += Definition->DisplayName;
+
+            if (Definition->Mode == EGovernmentEdictMode::Active)
+            {
+                Body += L" (";
+                Body += std::to_wstring(EdictStates[EdictIndex].RemainingDays);
+                Body += L"일 남음)";
+            }
+
+            Body += L"\n";
+        }
+
+        if (!HasActiveEdict)
+            Body += L"- 없음\n";
     }
 
     Body += L"\n정치 성향 인원\n";

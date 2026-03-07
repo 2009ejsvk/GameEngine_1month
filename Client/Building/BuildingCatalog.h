@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BuildingTypes.h"
+#include "../Politics/PoliticalTypes.h"
 #include <string>
 #include <vector>
 
@@ -63,6 +64,7 @@ struct FBuildingCatalogEntry
     // BuildingKind : PlacementController 가 생성할 비주얼 오브젝트 종류
     EPlacementTemplateType  TemplateType    = EPlacementTemplateType::Diamond3x3SingleMarker;
     EPlacementBuildingKind  BuildingKind    = EPlacementBuildingKind::BuildingB;
+    std::vector<FPoliticalSignalDef> PoliticalSignals;
 };
 
 // 전체 건물 카탈로그를 반환한다.

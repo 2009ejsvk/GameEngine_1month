@@ -38,6 +38,7 @@ private:
     void RefreshData();
     void RefreshLayout();
     void OnConstructionButtonClick();
+    void OnEdictsButtonClick();
     void OnAlmanacButtonClick();
     void OnAnyButtonClick();
 };

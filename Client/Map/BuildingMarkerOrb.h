@@ -105,6 +105,16 @@ public:
         return mPoliticalProfile;
     }
 
+    void ApplySatisfactionDelta(
+        float FoodDelta,
+        float HealthDelta,
+        float FunDelta,
+        float FaithDelta,
+        float HousingDelta,
+        float JobDelta,
+        float FreedomDelta,
+        float SecurityDelta);
+
     void SetBuildingNames(
         const std::string& BuildingAName,
         const std::string& BuildingBName)

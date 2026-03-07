@@ -3,6 +3,7 @@
 #include "../Citizen/CitizenPolitics.h"
 #include "../Citizen/CitizenSatisfaction.h"
 #include "../ObjectNames.h"
+#include "../World/MainWorld.h"
 #include "Component/Animation2DComponent.h"
 #include "Component/MeshComponent.h"
 #include "Component/ObjectMovementComponent.h"
@@ -1097,9 +1098,47 @@ void CBuildingMarkerOrb::UpdatePoliticalProfile(float DeltaTime)
         mPoliticalProfile, mPoliticalTickAccum, DeltaTime, mSatisfaction.Overall);
 }
 
+void CBuildingMarkerOrb::ApplySatisfactionDelta(
+    float FoodDelta,
+    float HealthDelta,
+    float FunDelta,
+    float FaithDelta,
+    float HousingDelta,
+    float JobDelta,
+    float FreedomDelta,
+    float SecurityDelta)
+{
+    auto ApplyDelta = [](float& Value, float Delta)
+    {
+        Value = (std::max)(0.f, (std::min)(100.f, Value + Delta));
+    };
+
+    ApplyDelta(mSatisfaction.Food, FoodDelta);
+    ApplyDelta(mSatisfaction.Health, HealthDelta);
+    ApplyDelta(mSatisfaction.Fun, FunDelta);
+    ApplyDelta(mSatisfaction.Faith, FaithDelta);
+    ApplyDelta(mSatisfaction.Housing, HousingDelta);
+    ApplyDelta(mSatisfaction.Job, JobDelta);
+    ApplyDelta(mSatisfaction.Freedom, FreedomDelta);
+    ApplyDelta(mSatisfaction.Security, SecurityDelta);
+    RecalculateOverallSatisfaction();
+}
+
 void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 {
     auto World = mWorld.lock();
+    const CMainWorld* MainWorld =
+        World ? dynamic_cast<CMainWorld*>(World.get()) : nullptr;
+    const FGovernmentEdictModifiers* EdictModifiers =
+        MainWorld ? &MainWorld->GetEdictModifiers() : nullptr;
+    const float FoodGainMultiplier =
+        EdictModifiers ? EdictModifiers->FoodGainMultiplier : 1.f;
+    const float ProductionMultiplier =
+        EdictModifiers ? EdictModifiers->ProductionMultiplier : 1.f;
+    const int FoodConsumptionPerVisit =
+        EdictModifiers ?
+        (std::max)(1, EdictModifiers->FoodConsumptionPerVisit) :
+        1;
 
     auto ResolveBuildingCap = [&](
         const std::string& BuildingName,
@@ -1167,11 +1206,11 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
                 float ProductionPerSec = 0.f;
 
                 if (WorkBuilding->IsFoodProductionFacility())
-                    ProductionPerSec = 40.f;
+                    ProductionPerSec = 40.f * ProductionMultiplier;
                 else if (!WorkBuilding->IsTransportOffice() &&
                     !WorkBuilding->IsHarbor())
                 {
-                    ProductionPerSec = 2.f;
+                    ProductionPerSec = 2.f * ProductionMultiplier;
                 }
 
                 WorkBuilding->AddProduction(ProductionPerSec, DeltaTime);
@@ -1193,12 +1232,18 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 
             if (FoodBuilding)
                 mFoodStockAvailableThisVisit =
-                    FoodBuilding->TryConsumeResource(1);
+                    FoodBuilding->TryConsumeResource(
+                        FoodConsumptionPerVisit);
         }
 
         // 재고가 있었을 때만 음식 만족도 회복
         if (mFoodStockAvailableThisVisit)
-            RecoverUnderCap(mSatisfaction.Food, 30.f, FoodCap);
+        {
+            RecoverUnderCap(
+                mSatisfaction.Food,
+                30.f * FoodGainMultiplier,
+                FoodCap);
+        }
         mSatisfaction.Health = (std::min)(
             100.f, mSatisfaction.Health + 3.f * DeltaTime);
         break;

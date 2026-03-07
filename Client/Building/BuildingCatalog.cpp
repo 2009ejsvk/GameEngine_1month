@@ -85,6 +85,265 @@ namespace
         return EPlacementTemplateType::Diamond3x3SingleMarker;
     }
 
+    bool NameContains(
+        const std::wstring& Name,
+        const wchar_t* Pattern)
+    {
+        return Pattern && Name.find(Pattern) != std::wstring::npos;
+    }
+
+    void AddPoliticalSignal(
+        FBuildingCatalogEntry& Entry,
+        EPoliticalAxis Axis,
+        EPoliticalStance FavoredStance,
+        float Strength,
+        EPoliticalScope Scope = EPoliticalScope::Global)
+    {
+        if (Strength <= 0.f)
+            return;
+
+        FPoliticalSignalDef Signal;
+        Signal.Axis = Axis;
+        Signal.FavoredStance = FavoredStance;
+        Signal.Strength = Strength;
+        Signal.Scope = Scope;
+        Entry.PoliticalSignals.push_back(Signal);
+    }
+
+    bool IsCollectiveHousingName(const std::wstring& Name)
+    {
+        return Name == L"판잣집" ||
+            Name == L"합숙소" ||
+            Name == L"간이 숙박소" ||
+            Name == L"서민 아파트" ||
+            Name == L"공동주택";
+    }
+
+    bool IsEliteHousingName(const std::wstring& Name)
+    {
+        return Name == L"시골 주택" ||
+            Name == L"저택" ||
+            Name == L"단독주택" ||
+            Name == L"현대식 저택" ||
+            Name == L"보안 저택";
+    }
+
+    bool IsEliteLeisureName(const std::wstring& Name)
+    {
+        return Name == L"카지노" ||
+            Name == L"칵테일 바" ||
+            Name == L"골프 코스" ||
+            Name == L"고급 레스토랑" ||
+            Name == L"나이트클럽" ||
+            Name == L"요트 클럽";
+    }
+
+    bool IsCulturalVenueName(const std::wstring& Name)
+    {
+        return Name == L"극장" ||
+            Name == L"오페라 극장" ||
+            Name == L"현대 미술관";
+    }
+
+    void AssignPoliticalSignals(FBuildingCatalogEntry& Entry)
+    {
+        Entry.PoliticalSignals.clear();
+
+        const std::wstring& Name = Entry.DisplayName;
+
+        switch (Entry.Category)
+        {
+        case EBuildingCategory::Infrastructure:
+            if (Name == L"항구" || Name == L"화물창고" || Name == L"창고")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Left, 5.0f);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::EnvironmentIndustry,
+                    EPoliticalStance::Right, 2.5f);
+            }
+            else if (Name == L"운송업자 사무소" || Name == L"건설 사무소")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Left, 3.0f, EPoliticalScope::Worker);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::EnvironmentIndustry,
+                    EPoliticalStance::Right, 2.0f);
+            }
+            else if (NameContains(Name, L"풍력") || NameContains(Name, L"태양광"))
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::EnvironmentIndustry,
+                    EPoliticalStance::Left, 3.5f);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::IntellectualConservative,
+                    EPoliticalStance::Left, 1.0f);
+            }
+            else if (NameContains(Name, L"발전소") || NameContains(Name, L"원자력"))
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::EnvironmentIndustry,
+                    EPoliticalStance::Right, 3.5f);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Left, 1.5f);
+            }
+            break;
+
+        case EBuildingCategory::FoodResource:
+            if (NameContains(Name, L"광산") ||
+                NameContains(Name, L"석유") ||
+                NameContains(Name, L"정유") ||
+                Name == L"벌목소")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::EnvironmentIndustry,
+                    EPoliticalStance::Right, 4.0f);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Left, 2.0f, EPoliticalScope::Worker);
+            }
+            else
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Right, 2.0f);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::EnvironmentIndustry,
+                    EPoliticalStance::Left, 1.5f);
+            }
+            break;
+
+        case EBuildingCategory::Industry:
+            AddPoliticalSignal(
+                Entry, EPoliticalAxis::Economy,
+                EPoliticalStance::Left, 3.5f);
+            AddPoliticalSignal(
+                Entry, EPoliticalAxis::EnvironmentIndustry,
+                EPoliticalStance::Right, 3.5f);
+            AddPoliticalSignal(
+                Entry, EPoliticalAxis::Economy,
+                EPoliticalStance::Left, 1.5f, EPoliticalScope::Worker);
+            break;
+
+        case EBuildingCategory::Housing:
+            if (IsCollectiveHousingName(Name))
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Right, 4.0f, EPoliticalScope::Resident);
+            }
+            else if (IsEliteHousingName(Name))
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Left, 3.5f, EPoliticalScope::Resident);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::IntellectualConservative,
+                    EPoliticalStance::Right, 2.0f, EPoliticalScope::Resident);
+            }
+            break;
+
+        case EBuildingCategory::Entertainment:
+            if (IsEliteLeisureName(Name))
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Left, 2.5f);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::IntellectualConservative,
+                    EPoliticalStance::Right, 1.5f);
+            }
+            else if (IsCulturalVenueName(Name))
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::IntellectualConservative,
+                    EPoliticalStance::Left, 3.0f);
+            }
+            break;
+
+        case EBuildingCategory::MediaEducation:
+            if (Name == L"영묘")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::ReligionMilitarism,
+                    EPoliticalStance::Left, 2.5f);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::IntellectualConservative,
+                    EPoliticalStance::Right, 1.5f);
+            }
+            else if (Name == L"격려용 광고판" || Name == L"격려용 동상")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::IntellectualConservative,
+                    EPoliticalStance::Right, 2.0f);
+            }
+            else if (Name == L"핵 개발 프로그램")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::ReligionMilitarism,
+                    EPoliticalStance::Right, 3.0f);
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::EnvironmentIndustry,
+                    EPoliticalStance::Right, 2.0f);
+            }
+            else
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::IntellectualConservative,
+                    EPoliticalStance::Left, 3.5f);
+            }
+            break;
+
+        case EBuildingCategory::Tourism:
+            AddPoliticalSignal(
+                Entry, EPoliticalAxis::Economy,
+                EPoliticalStance::Left, 2.5f);
+            AddPoliticalSignal(
+                Entry, EPoliticalAxis::IntellectualConservative,
+                EPoliticalStance::Right, 1.0f);
+            break;
+
+        case EBuildingCategory::PublicService:
+            if (Name == L"예배당" || Name == L"교회" || Name == L"성당")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::ReligionMilitarism,
+                    EPoliticalStance::Left, 3.5f);
+            }
+            else if (Name == L"소방서")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::ReligionMilitarism,
+                    EPoliticalStance::Right, 2.0f);
+            }
+            else if (Name == L"쇼핑몰")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Left, 3.0f);
+            }
+            else if (Name == L"쓰레기장" || Name == L"폐기물 처리장")
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::EnvironmentIndustry,
+                    EPoliticalStance::Left, 2.5f);
+            }
+            else
+            {
+                AddPoliticalSignal(
+                    Entry, EPoliticalAxis::Economy,
+                    EPoliticalStance::Right, 2.5f);
+            }
+            break;
+
+        default:
+            break;
+        }
+    }
+
     const TCHAR* const GInfrastructureIcons[] =
     {
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\T_ICO_Road.png"),
@@ -1995,6 +2254,8 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
                     Entry.EntertainmentProvider = true;
                     Entry.FunSatisfactionCap = 68;
                 }
+
+                AssignPoliticalSignals(Entry);
 
                 Entries.push_back(Entry);
             }

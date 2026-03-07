@@ -1,5 +1,6 @@
 #include "TopHudWidget.h"
 #include "BuildMenuWidget.h"
+#include "EdictWidget.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../World/MainWorld.h"
 #include "../ObjectNames.h"
@@ -19,6 +20,7 @@ namespace
     constexpr int GSpeedButtonCount = 4;
     constexpr int GMenuButtonCount = 8;
     constexpr int GMenuConstructionIndex = 1;
+    constexpr int GMenuEdictsIndex = 2;
     constexpr int GMenuAlmanacIndex = 7;
 
     constexpr const TCHAR* GSpeedPanelTexture = TEXT(
@@ -304,6 +306,8 @@ bool CTopHudWidget::Init()
 
         if (i == GMenuConstructionIndex)
             MenuCallback = &CTopHudWidget::OnConstructionButtonClick;
+        else if (i == GMenuEdictsIndex)
+            MenuCallback = &CTopHudWidget::OnEdictsButtonClick;
         else if (i == GMenuAlmanacIndex)
             MenuCallback = &CTopHudWidget::OnAlmanacButtonClick;
 
@@ -351,24 +355,9 @@ void CTopHudWidget::RefreshData()
             FormatCurrency(MainWorld->GetNationalBudget()).c_str());
     }
 
-    std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
-    int ActiveNpcCount = 0;
-    double TotalSupportValue = 0.0;
-
-    if (World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
-    {
-        for (size_t i = 0; i < OrbList.size(); ++i)
-        {
-            auto Orb = OrbList[i].lock();
-
-            if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
-                continue;
-
-            ++ActiveNpcCount;
-            TotalSupportValue +=
-                static_cast<double>(Orb->GetSatisfaction().Overall);
-        }
-    }
+    const FPoliticalWorldSnapshot& PoliticalSnapshot =
+        MainWorld->GetPoliticalSnapshot();
+    const int ActiveNpcCount = PoliticalSnapshot.ActiveCitizenCount;
 
     if (NpcText)
     {
@@ -384,7 +373,8 @@ void CTopHudWidget::RefreshData()
         if (ActiveNpcCount > 0)
         {
             SupportPercent = static_cast<int>(round(
-                TotalSupportValue / static_cast<double>(ActiveNpcCount)));
+                static_cast<double>(PoliticalSnapshot.IncumbentCount) /
+                static_cast<double>(ActiveNpcCount) * 100.0));
         }
 
         SupportPercent = (std::max)(0, (std::min)(100, SupportPercent));
@@ -619,6 +609,25 @@ void CTopHudWidget::OnAlmanacButtonClick()
 
     if (BuildMenu)
         BuildMenu->ToggleAlmanac();
+}
+
+void CTopHudWidget::OnEdictsButtonClick()
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return;
+
+    auto EdictWidget =
+        UIManager->FindWidget<CEdictWidget>(GEdictWidgetName).lock();
+
+    if (EdictWidget)
+        EdictWidget->ToggleOpen();
 }
 
 void CTopHudWidget::OnAnyButtonClick()

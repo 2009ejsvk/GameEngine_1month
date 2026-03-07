@@ -5,14 +5,18 @@
 #include "Component/ColliderBox2D.h"
 #include "../UI/TopHudWidget.h"
 #include "../UI/BuildMenuWidget.h"
+#include "../UI/EdictWidget.h"
 #include "../Building/BuildingCatalog.h"
 #include "World/WorldUIManager.h"
 #include "Render/RenderManager.h"
 #include "../Map/TileMapMain.h"
 #include "../Map/PlacementAreaObject.h"
+#include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementBuildingVisual.h"
 #include "../Player/MainCamera.h"
 #include "../Map/PlacementController.h"
+#include "../Politics/EdictSystem.h"
+#include "../Politics/PoliticsSystem.h"
 #include "../Citizen/CitizenSystem.h"
 #include "../Economy/EconomySystem.h"
 #include <Windows.h>
@@ -53,6 +57,7 @@ namespace
 	constexpr int GSimulationStartMonth = 1;
 	constexpr int GSimulationStartDay = 1;
 	constexpr float GSecondsPerSimulationDay = 2.f;
+	constexpr float GPoliticalSnapshotInterval = 1.f;
 	constexpr int GCitizenDirectionCount = 8;
 	constexpr float GCitizenFrameWidth = 16.f;
 	constexpr float GCitizenFrameHeight = 19.f;
@@ -448,12 +453,18 @@ bool CMainWorld::Init()
 	mLastDailyWageCost = 0;
 	mLastDailyUpkeepCost = 0;
 	mLastDailyExportIncome = 0;
+	mLastDailyEdictCost = 0;
 	mLastDailyNetChange = 0;
 	mSimulationYear = GSimulationStartYear;
 	mSimulationMonth = GSimulationStartMonth;
 	mSimulationDay = GSimulationStartDay;
 	mDayProgressAccum = 0.f;
 	mSecondsPerSimulationDay = GSecondsPerSimulationDay;
+	mPoliticalSnapshotAccum = 0.f;
+	PoliticsSystem::SetDefaultGovernmentProfile(mGovernmentProfile);
+	mPoliticalSnapshot = FPoliticalWorldSnapshot();
+	EdictSystem::InitializeGovernmentEdictStates(mGovernmentEdicts);
+	mEdictModifiers = FGovernmentEdictModifiers();
 
 	for (int i = 0; i < GInitialNpcCount; ++i)
 	{
@@ -461,6 +472,8 @@ bool CMainWorld::Init()
 	}
 
 	ReassignCitizenNeeds();
+	RefreshPoliticalSnapshot();
+	RefreshEdictModifiers();
 
 	return true;
 }
@@ -469,6 +482,14 @@ void CMainWorld::Update(float DeltaTime)
 {
 	CWorld::Update(DeltaTime);
 	AdvanceSimulationDate(DeltaTime);
+
+	mPoliticalSnapshotAccum += DeltaTime;
+
+	if (mPoliticalSnapshotAccum >= GPoliticalSnapshotInterval)
+	{
+		mPoliticalSnapshotAccum = 0.f;
+		RefreshPoliticalSnapshot();
+	}
 
 	mCitizenReassignAccum += DeltaTime;
 
@@ -538,6 +559,11 @@ void CMainWorld::AdvanceSimulationDate(float DeltaTime)
 void CMainWorld::AdvanceSimulationDay()
 {
 	ApplyDailyEconomySettlement();
+	ApplyDailyEdictCitizenEffects();
+	TickGovernmentEdicts();
+	PoliticsSystem::TickGovernmentActions(mGovernmentProfile);
+	RefreshEdictModifiers();
+	RefreshPoliticalSnapshot();
 
 	++mSimulationDay;
 	const int CurrentMonthDays =
@@ -588,11 +614,234 @@ void CMainWorld::ApplyDailyEconomySettlement()
 {
 	const int DaysInMonth = GetDaysInMonth(mSimulationYear, mSimulationMonth);
 	const auto Result = EconomySystem::ApplyDailySettlement(this, DaysInMonth);
+	const long long DailyEdictUpkeep =
+		EdictSystem::CalculateEdictDailyUpkeep(
+			mGovernmentEdicts,
+			DaysInMonth);
+	const long long DailyEdictBudgetDelta =
+		mEdictModifiers.DailyBudgetDelta;
 	mLastDailyWageCost     = Result.WageCost;
 	mLastDailyUpkeepCost   = Result.UpkeepCost;
 	mLastDailyExportIncome = Result.ExportIncome;
-	mLastDailyNetChange    = Result.NetChange;
-	mNationalBudget       += Result.NetChange;
+	mLastDailyEdictCost    = DailyEdictUpkeep - DailyEdictBudgetDelta;
+	mLastDailyNetChange    =
+		Result.NetChange - DailyEdictUpkeep + DailyEdictBudgetDelta;
+	mNationalBudget       += mLastDailyNetChange;
+}
+
+bool CMainWorld::TryApplyEdict(
+	EGovernmentEdictType Type,
+	std::wstring& OutMessage)
+{
+	const FGovernmentEdictDefinition* Definition =
+		EdictSystem::FindGovernmentEdictDefinition(Type);
+
+	if (!Definition)
+	{
+		OutMessage = L"정의되지 않은 칙령입니다.";
+		return false;
+	}
+
+	FGovernmentEdictState* TargetState = nullptr;
+
+	for (size_t i = 0; i < mGovernmentEdicts.size(); ++i)
+	{
+		if (mGovernmentEdicts[i].Type == Type)
+		{
+			TargetState = &mGovernmentEdicts[i];
+			break;
+		}
+	}
+
+	if (!TargetState)
+	{
+		OutMessage = L"칙령 상태를 찾을 수 없습니다.";
+		return false;
+	}
+
+	const int ActiveCitizenCount =
+		(std::max)(0, mPoliticalSnapshot.ActiveCitizenCount);
+
+	if (Definition->Mode == EGovernmentEdictMode::Passive &&
+		TargetState->Active)
+	{
+		TargetState->Active = false;
+		TargetState->RemainingDays = 0;
+		SyncGovernmentActionFromEdict(Type, false);
+		RefreshEdictModifiers();
+		RefreshPoliticalSnapshot();
+		OutMessage = Definition->DisplayName + L" 해제";
+		return true;
+	}
+
+	if (TargetState->Active)
+	{
+		OutMessage = Definition->DisplayName + L" 시행 중";
+		return false;
+	}
+
+	if (TargetState->CooldownDays > 0)
+	{
+		OutMessage = Definition->DisplayName + L" 재사용 대기 중";
+		return false;
+	}
+
+	const long long ActivationCost =
+		EdictSystem::ResolveEdictActivationCost(
+			*Definition,
+			ActiveCitizenCount);
+
+	if (ActivationCost > mNationalBudget)
+	{
+		OutMessage = L"예산이 부족합니다.";
+		return false;
+	}
+
+	mNationalBudget -= ActivationCost;
+	TargetState->Active = true;
+
+	if (Definition->Mode == EGovernmentEdictMode::Active)
+	{
+		TargetState->RemainingDays = (std::max)(1, Definition->DurationDays);
+		TargetState->CooldownDays = (std::max)(1, Definition->CooldownDays);
+	}
+	else
+	{
+		TargetState->RemainingDays = -1;
+		TargetState->CooldownDays = 0;
+	}
+
+	SyncGovernmentActionFromEdict(Type, true);
+	RefreshEdictModifiers();
+	RefreshPoliticalSnapshot();
+	OutMessage = Definition->DisplayName + L" 시행";
+	return true;
+}
+
+const FGovernmentEdictState* CMainWorld::GetGovernmentEdictState(
+	EGovernmentEdictType Type) const
+{
+	for (size_t i = 0; i < mGovernmentEdicts.size(); ++i)
+	{
+		if (mGovernmentEdicts[i].Type == Type)
+			return &mGovernmentEdicts[i];
+	}
+
+	return nullptr;
+}
+
+void CMainWorld::TickGovernmentEdicts()
+{
+	bool ModifiersChanged = false;
+
+	for (size_t i = 0; i < mGovernmentEdicts.size(); ++i)
+	{
+		FGovernmentEdictState& State = mGovernmentEdicts[i];
+		const FGovernmentEdictDefinition* Definition =
+			EdictSystem::FindGovernmentEdictDefinition(State.Type);
+
+		if (!Definition)
+			continue;
+
+		if (State.Active &&
+			Definition->Mode == EGovernmentEdictMode::Active &&
+			State.RemainingDays > 0)
+		{
+			--State.RemainingDays;
+
+			if (State.RemainingDays <= 0)
+			{
+				State.Active = false;
+				State.RemainingDays = 0;
+				SyncGovernmentActionFromEdict(State.Type, false);
+				ModifiersChanged = true;
+			}
+		}
+
+		if (!State.Active && State.CooldownDays > 0)
+			--State.CooldownDays;
+	}
+
+	if (ModifiersChanged)
+		RefreshEdictModifiers();
+}
+
+void CMainWorld::RefreshEdictModifiers()
+{
+	mEdictModifiers = EdictSystem::CalculateEdictModifiers(
+		mGovernmentEdicts,
+		mPoliticalSnapshot.ActiveCitizenCount);
+}
+
+void CMainWorld::ApplyDailyEdictCitizenEffects()
+{
+	const FGovernmentEdictModifiers& Modifiers = mEdictModifiers;
+
+	if (Modifiers.DailyFoodDelta == 0.f &&
+		Modifiers.DailyHousingDelta == 0.f &&
+		Modifiers.DailyJobDelta == 0.f &&
+		Modifiers.DailyFreedomDelta == 0.f &&
+		Modifiers.DailySecurityDelta == 0.f)
+	{
+		return;
+	}
+
+	std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+	if (!FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+		return;
+
+	for (size_t i = 0; i < OrbList.size(); ++i)
+	{
+		auto Orb = OrbList[i].lock();
+
+		if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+			continue;
+
+		Orb->ApplySatisfactionDelta(
+			Modifiers.DailyFoodDelta,
+			0.f,
+			0.f,
+			0.f,
+			Modifiers.DailyHousingDelta,
+			Modifiers.DailyJobDelta,
+			Modifiers.DailyFreedomDelta,
+			Modifiers.DailySecurityDelta);
+	}
+}
+
+void CMainWorld::SyncGovernmentActionFromEdict(
+	EGovernmentEdictType Type,
+	bool Active)
+{
+	const FGovernmentEdictDefinition* Definition =
+		EdictSystem::FindGovernmentEdictDefinition(Type);
+
+	if (!Definition || Definition->ActionType == EPoliticalActionType::None)
+		return;
+
+	mGovernmentProfile.ActiveActions.erase(
+		std::remove_if(
+			mGovernmentProfile.ActiveActions.begin(),
+			mGovernmentProfile.ActiveActions.end(),
+			[&](const FGovernmentActionRecord& Action)
+			{
+				return Action.Type == Definition->ActionType;
+			}),
+		mGovernmentProfile.ActiveActions.end());
+
+	if (!Active)
+		return;
+
+	mGovernmentProfile.ActiveActions.push_back(
+		EdictSystem::MakeGovernmentActionFromEdict(*Definition));
+}
+
+void CMainWorld::RefreshPoliticalSnapshot()
+{
+	mPoliticalSnapshot = PoliticsSystem::EvaluateWorld(
+		this,
+		mGovernmentProfile);
 }
 
 void CMainWorld::SpawnCitizenOrb()
@@ -801,6 +1050,8 @@ void CMainWorld::CreateUI()
 {
 	mUIManager->CreateWidget<CTopHudWidget>(
 		GTopHudWidgetName, 250);
+	mUIManager->CreateWidget<CEdictWidget>(
+		GEdictWidgetName, 280);
 	mUIManager->CreateWidget<CBuildMenuWidget>(
 		GBuildMenuWidgetName, 300);
 }
