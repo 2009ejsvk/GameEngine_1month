@@ -2,8 +2,12 @@
 #include "Component/CameraComponent.h"
 #include "Component/ObjectMovementComponent.h"
 #include "Device.h"
+#include "../ObjectNames.h"
+#include "../UI/BuildMenuWidget.h"
+#include "../UI/EdictWidget.h"
 #include "World/World.h"
 #include "World/Input.h"
+#include "World/WorldUIManager.h"
 #include <cmath>
 
 CMainCamera::CMainCamera()
@@ -97,6 +101,21 @@ void CMainCamera::Update(float DeltaTime)
         return;
 
     int WheelDelta = Input->GetMouseWheelDelta();
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (UIManager)
+    {
+        auto BuildMenu = UIManager->FindWidget<CBuildMenuWidget>(
+            GBuildMenuWidgetName).lock();
+        auto EdictWidget = UIManager->FindWidget<CEdictWidget>(
+            GEdictWidgetName).lock();
+
+        if (BuildMenu && BuildMenu->IsMouseOverOpenPanel(Input->GetMousePos()))
+            WheelDelta = 0;
+        if (EdictWidget && EdictWidget->IsMouseOverOpenPanel(Input->GetMousePos()))
+            WheelDelta = 0;
+    }
 
     if (WheelDelta != 0)
     {

@@ -182,7 +182,7 @@ namespace EdictSystem
                 L"긴축 예산",
                 L"국고 위기 경보에 대응해 긴급 자금을 투입하고 단기 긴축 체제로 전환합니다.",
                 L"국고 위기 발생 중에만 시행 가능, 즉시 자금 투입, 위기 즉시 진정, 4개월 동안 일일 재정 개선과 자유/직업 압박",
-                nullptr,
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_printMoney.png"),
                 4500,
                 4,
                 0,

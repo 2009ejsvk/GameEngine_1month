@@ -74,7 +74,13 @@ bool CButton::SetTexture(EButtonState::Type State,
 {
 	auto	World = mWorld.lock();
 
+	if (!World)
+		return false;
+
 	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr)
+		return false;
 
 	std::weak_ptr<CTexture>	Texture =
 		AssetMgr->FindTexture(Name);
@@ -90,7 +96,13 @@ bool CButton::SetTexture(EButtonState::Type State,
 {
 	auto	World = mWorld.lock();
 
+	if (!World)
+		return false;
+
 	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr)
+		return false;
 
 	if (!AssetMgr->LoadTexture(Name, FileName, PathName))
 		return false;
@@ -173,7 +185,13 @@ void CButton::SetSound(EButtonEventState::Type State,
 {
 	auto	World = mWorld.lock();
 
+	if (!World)
+		return;
+
 	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr)
+		return;
 
 	mSound[State] = AssetMgr->FindSound(Name);
 }
@@ -184,7 +202,13 @@ void CButton::SetSound(EButtonEventState::Type State,
 {
 	auto	World = mWorld.lock();
 
+	if (!World)
+		return;
+
 	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr)
+		return;
 
 	if (!AssetMgr->LoadSound(Name, "UI", false, FileName, PathName))
 		return;
@@ -229,7 +253,21 @@ void CButton::Update(float DeltaTime)
 		{
 			// 마우스가 올라온 상태에서 마우스 왼쪽 버튼을 누르게 되면
 			// Click으로 상태를 바꾼다.
-			auto	Input = mWorld.lock()->GetInput().lock();
+			auto	World = mWorld.lock();
+
+			if (!World)
+			{
+				mBrush[mState].PlayAnimation(DeltaTime);
+				return;
+			}
+
+			auto	Input = World->GetInput().lock();
+
+			if (!Input)
+			{
+				mBrush[mState].PlayAnimation(DeltaTime);
+				return;
+			}
 
 			if (Input->GetMouseState(EMouseType::LButton,
 				EInputType::Press))

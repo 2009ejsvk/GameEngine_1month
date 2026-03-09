@@ -34,7 +34,13 @@ bool CImage::SetTexture(const std::string& Name)
 {
 	auto	World = mWorld.lock();
 
+	if (!World)
+		return false;
+
 	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr)
+		return false;
 
 	std::weak_ptr<CTexture>	Texture =
 		AssetMgr->FindTexture(Name);
@@ -49,7 +55,13 @@ bool CImage::SetTexture(const std::string& Name, const TCHAR* FileName,
 {
 	auto	World = mWorld.lock();
 
+	if (!World)
+		return false;
+
 	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr)
+		return false;
 
 	if (!AssetMgr->LoadTexture(Name, FileName, PathName))
 		return false;

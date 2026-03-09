@@ -288,6 +288,12 @@ void CTextBlock::CreateTextLayout()
 
 	auto	Font = mFont.lock();
 
+	if (!Font)
+		return;
+
+	if (mSize.x <= 0.f || mSize.y <= 0.f)
+		return;
+
 	mLayout = Font->CreateLayout(mText.c_str(),
 		(int)mText.length(), mSize.x, mSize.y);
 
@@ -353,11 +359,20 @@ void CTextBlock::Render()
 {
 	CWidget::Render();
 
+	if (!mTarget || !mLayout || !mTextColor)
+		return;
+
 	mTarget->BeginDraw();
 
 	// 그림자를 출력할 경우
 	if (mShadow)
 	{
+		if (!mTextShadowColor)
+		{
+			mTarget->EndDraw();
+			return;
+		}
+
 		D2D1_POINT_2F	ShadowPoint;
 
 		ShadowPoint.x = mRenderPos.x + mShadowOffset.x;

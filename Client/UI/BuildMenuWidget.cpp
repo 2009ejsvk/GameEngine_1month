@@ -1239,33 +1239,8 @@ void CBuildMenuWidget::Update(float DeltaTime)
             {
                 const int WheelDelta = Input->GetMouseWheelDelta();
 
-                if (WheelDelta != 0)
-                {
-                    const FResolution& Resolution = CDevice::GetInst()->GetResolution();
-                    const float ScreenWidth = static_cast<float>(Resolution.Width);
-                    const float ScreenHeight = static_cast<float>(Resolution.Height);
-                    const float AvailableWidth = (std::max)(480.f, ScreenWidth - 80.f);
-                    const float AvailableHeight = (std::max)(420.f, ScreenHeight - 100.f);
-                    const float Scale =
-                        (std::min)(1.f,
-                            (std::min)(AvailableWidth / mPanelWidth,
-                                AvailableHeight / mPanelHeight));
-                    const float PanelWidth = mPanelWidth * Scale;
-                    const float PanelHeight = mPanelHeight * Scale;
-                    const float PanelLeft = (ScreenWidth - PanelWidth) * 0.5f;
-                    const float PanelTop = (ScreenHeight - PanelHeight) * 0.5f;
-                    const FVector2& MousePos = Input->GetMousePos();
-                    const bool MouseInsideMenu =
-                        MousePos.x >= PanelLeft &&
-                        MousePos.x <= PanelLeft + PanelWidth &&
-                        MousePos.y >= PanelTop &&
-                        MousePos.y <= PanelTop + PanelHeight;
-
-                    if (MouseInsideMenu)
-                    {
-                        MovePage(WheelDelta < 0 ? 1 : -1);
-                    }
-                }
+                if (WheelDelta != 0 && IsMouseOverOpenPanel(Input->GetMousePos()))
+                    MovePage(WheelDelta < 0 ? 1 : -1);
             }
         }
     }
@@ -1276,6 +1251,31 @@ void CBuildMenuWidget::Update(float DeltaTime)
 void CBuildMenuWidget::Render()
 {
     CWidgetContainer::Render();
+}
+
+bool CBuildMenuWidget::IsMouseOverOpenPanel(const FVector2& MousePos) const
+{
+    if (!mMenuOpen && !mYearbookOpen)
+        return false;
+
+    const FResolution& Resolution = CDevice::GetInst()->GetResolution();
+    const float ScreenWidth = static_cast<float>(Resolution.Width);
+    const float ScreenHeight = static_cast<float>(Resolution.Height);
+    const float AvailableWidth = (std::max)(480.f, ScreenWidth - 80.f);
+    const float AvailableHeight = (std::max)(420.f, ScreenHeight - 100.f);
+    const float Scale =
+        (std::min)(1.f,
+            (std::min)(AvailableWidth / mPanelWidth,
+                AvailableHeight / mPanelHeight));
+    const float PanelWidth = mPanelWidth * Scale;
+    const float PanelHeight = mPanelHeight * Scale;
+    const float PanelLeft = (ScreenWidth - PanelWidth) * 0.5f;
+    const float PanelTop = (ScreenHeight - PanelHeight) * 0.5f;
+
+    return MousePos.x >= PanelLeft &&
+        MousePos.x <= PanelLeft + PanelWidth &&
+        MousePos.y >= PanelTop &&
+        MousePos.y <= PanelTop + PanelHeight;
 }
 
 void CBuildMenuWidget::RefreshLayout()

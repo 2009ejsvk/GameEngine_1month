@@ -79,6 +79,7 @@ public:
     {
         return mYearbookOpen;
     }
+    bool IsMouseOverOpenPanel(const FVector2& MousePos) const;
 
 private:
     void RefreshLayout();
