@@ -240,6 +240,7 @@
     <ClCompile Include="World\MainWorldBootstrap.cpp" />
     <ClCompile Include="World\MainWorldPopulation.cpp" />
     <ClCompile Include="World\MainWorldSimulation.cpp" />
+    <ClCompile Include="World\WorldStatsSnapshot.cpp" />
     <ClCompile Include="World\StartWorld.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -282,10 +283,12 @@
     <ClInclude Include="UI\StartWidget.h" />
     <ClInclude Include="UI\WorldHUD.h" />
     <ClInclude Include="World\EditorWorld.h" />
+    <ClInclude Include="World\GovernmentCommandService.h" />
     <ClInclude Include="World\LoadingWorld.h" />
     <ClInclude Include="World\MainWorldAccess.h" />
     <ClInclude Include="World\MainWorldConfig.h" />
     <ClInclude Include="World\MainWorld.h" />
+    <ClInclude Include="World\WorldStatsSnapshot.h" />
     <ClInclude Include="World\StartWorld.h" />
   </ItemGroup>
   <ItemGroup>

@@ -1739,7 +1739,7 @@ void CBuildMenuWidget::RefreshEconomyStatus()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World);
 
     if (!MainWorld)
         return;
@@ -1794,7 +1794,7 @@ void CBuildMenuWidget::RefreshYearbookStatus()
     if (!YearbookBodyText || !World)
         return;
 
-    const auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    const auto MainWorld = std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World);
     const auto Snapshot = AlmanacDataProvider::BuildSnapshot(
         World,
         MainWorld);

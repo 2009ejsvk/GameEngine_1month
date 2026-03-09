@@ -73,7 +73,7 @@ namespace AlmanacDataProvider
 
     FAlmanacSnapshot BuildSnapshot(
         const std::shared_ptr<CWorld>& World,
-        const std::shared_ptr<IMainWorldAccess>& MainWorld);
+        const std::shared_ptr<IMainWorldAlmanacAccess>& MainWorld);
 
     std::wstring BuildYearbookSummaryText(
         const FAlmanacSnapshot& Snapshot);

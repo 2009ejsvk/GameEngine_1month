@@ -1534,7 +1534,7 @@ void CAlmanacWidget::RefreshData()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World);
     const AlmanacDataProvider::FAlmanacSnapshot Snapshot =
         AlmanacDataProvider::BuildSnapshot(World, MainWorld);
 

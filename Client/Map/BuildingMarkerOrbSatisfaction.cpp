@@ -70,8 +70,8 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     auto& FoodStockAvailableThisVisit =
         mCitizenProfileState.FoodStockAvailableThisVisit;
     auto World = mWorld.lock();
-    const IMainWorldAccess* MainWorld =
-        World ? dynamic_cast<IMainWorldAccess*>(World.get()) : nullptr;
+    const IMainWorldCitizenPolicyAccess* MainWorld =
+        World ? dynamic_cast<IMainWorldCitizenPolicyAccess*>(World.get()) : nullptr;
     const FGovernmentEdictModifiers* EdictModifiers =
         MainWorld ? &MainWorld->GetEdictModifiers() : nullptr;
     const FTaxPolicy* TaxPolicy =

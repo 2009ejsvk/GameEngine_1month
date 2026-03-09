@@ -569,7 +569,7 @@ void CCitizenInfoWidget::RefreshBuildingInfo()
         FoodProvider;
     int DaysInMonth = 30;
 
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World);
 
     if (MainWorld)
         DaysInMonth = (std::max)(1, MainWorld->GetSimulationMonthDayCount());

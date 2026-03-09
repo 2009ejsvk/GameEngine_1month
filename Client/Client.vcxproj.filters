@@ -102,6 +102,9 @@
     <ClCompile Include="World\MainWorldSimulation.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
+    <ClCompile Include="World\WorldStatsSnapshot.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
     <ClCompile Include="GlobalSetting.cpp">
       <Filter>06. Setting</Filter>
     </ClCompile>
@@ -239,7 +242,13 @@
     <ClInclude Include="World\MainWorldAccess.h">
       <Filter>02. World</Filter>
     </ClInclude>
+    <ClInclude Include="World\GovernmentCommandService.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
     <ClInclude Include="World\MainWorldConfig.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\WorldStatsSnapshot.h">
       <Filter>02. World</Filter>
     </ClInclude>
     <ClInclude Include="GlobalSetting.h">

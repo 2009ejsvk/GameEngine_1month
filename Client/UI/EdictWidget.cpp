@@ -1,6 +1,7 @@
 #include "EdictWidget.h"
 #include "TropicoUiStyle.h"
 #include "../Politics/EdictSystem.h"
+#include "../World/GovernmentCommandService.h"
 #include "../World/MainWorldAccess.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -353,7 +354,7 @@ namespace
     FEdictAvailabilityInfo EvaluateEdictAvailability(
         const FGovernmentEdictDefinition& Definition,
         const FGovernmentEdictState* State,
-        const IMainWorldAccess* MainWorld)
+        const IMainWorldEdictReadAccess* MainWorld)
     {
         FEdictAvailabilityInfo Info;
         Info.StatusText = L"상태 확인 중";
@@ -1818,7 +1819,7 @@ void CEdictWidget::RefreshEdictButtons()
     mVisibleEntryIndices.assign(GEdictSlotsPerPage, -1);
     const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
     auto World = mWorld.lock();
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldEdictReadAccess>(World);
     const int BeginIndex = mCurrentPage * GEdictSlotsPerPage;
     bool HasSelectedOnPage = false;
     bool HasPreviewOnPage = false;
@@ -1975,7 +1976,7 @@ void CEdictWidget::RefreshTaxPolicyControls()
     auto TaxPolicyTitleText = mTaxPolicyTitleText.lock();
     auto TaxPolicySummaryText = mTaxPolicySummaryText.lock();
     auto World = mWorld.lock();
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldEdictReadAccess>(World);
 
     if (TaxPolicyTitleText)
         TaxPolicyTitleText->SetText(TEXT("세금 정책"));
@@ -2109,7 +2110,7 @@ void CEdictWidget::ActivateSlot(int SlotIndex)
 void CEdictWidget::AdjustTaxPolicy(ETaxPolicyType Type, int DeltaPercent)
 {
     auto World = mWorld.lock();
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IGovernmentCommandService>(World);
 
     if (!MainWorld)
     {
@@ -2183,7 +2184,7 @@ void CEdictWidget::RefreshDetailPanel()
         ApplyButtonText->SetEnable(mOpen);
 
     auto World = mWorld.lock();
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldEdictReadAccess>(World);
     const FGovernmentEdictState* State = nullptr;
 
     if (MainWorld)
@@ -2390,7 +2391,7 @@ void CEdictWidget::OnApplyButtonClick()
     }
 
     auto World = mWorld.lock();
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IGovernmentCommandService>(World);
 
     if (!MainWorld)
     {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GovernmentCommandService.h"
 #include "MainWorldAccess.h"
 #include "World/World.h"
 #include <string>
@@ -7,7 +8,12 @@
 
 class CMainWorld :
     public CWorld,
-    public IMainWorldAccess
+    public IMainWorldBuildMenuAccess,
+    public IMainWorldHudAccess,
+    public IMainWorldAlmanacAccess,
+    public IMainWorldEdictReadAccess,
+    public IGovernmentCommandService,
+    public IMainWorldCitizenPolicyAccess
 {
 public:
 	CMainWorld();

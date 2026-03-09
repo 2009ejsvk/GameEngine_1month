@@ -567,7 +567,7 @@ void CTopHudWidget::RefreshData()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldHudAccess>(World);
 
     if (!MainWorld)
         return;
@@ -1165,7 +1165,7 @@ void CTopHudWidget::OnConstructionButtonClick()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldHudAccess>(World);
 
     if (MainWorld && MainWorld->GetElectionStatus().GameLost)
         return;
@@ -1191,7 +1191,7 @@ void CTopHudWidget::OnAlmanacButtonClick()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldHudAccess>(World);
 
     if (MainWorld && MainWorld->GetElectionStatus().GameLost)
         return;
@@ -1217,7 +1217,7 @@ void CTopHudWidget::OnEdictsButtonClick()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldHudAccess>(World);
 
     if (MainWorld && MainWorld->GetElectionStatus().GameLost)
         return;
