@@ -2,10 +2,14 @@
 
 #include "Object/GameObject.h"
 #include "../Building/BuildingTypes.h"
+#include "../Citizen/CitizenTypes.h"
+#include "PlacementAreaComponents.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
+
+struct FBuildingCatalogEntry;
 
 class CPlacementAreaObject :
     public CGameObject
@@ -43,24 +47,11 @@ private:
     std::string mBuildingDisplayName;
     std::string mBuildingCategoryName;
     std::string mBuildingSpriteTexturePath;
-    bool mResidential = false;
-    bool mFoodProvider = false;
-    bool mEntertainmentProvider = false;
-    int mHousingSatisfactionCap = 100;
-    int mJobSatisfactionCap = 100;
-    int mFoodSatisfactionCap = 100;
-    int mFunSatisfactionCap = 100;
-    int mBudgetLevel = 3;
-    int mCapacity = 0;
+    FBuildingServiceProfile mServiceProfile;
+    FBuildingOperationsState mOperations;
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
-    int mResourceStock = 0;
-    float mResourceProductionAccum = 0.f;
-    int mBaseMonthlyWage = 0;
-    int mBaseMonthlyUpkeep = 0;
-    float mHarborShipProgressMonths = 0.f;
-    static constexpr int GMaxResourceStock = 100000;
 
 public:
     void SetTileMapObject(
@@ -78,6 +69,11 @@ public:
     void SetBuildingKind(EPlacementBuildingKind Kind)
     {
         mBuildingKind = Kind;
+    }
+
+    void SetBuildingCategory(EBuildingCategory Category)
+    {
+        mServiceProfile.Category = Category;
     }
 
     void SetBuildingId(const std::string& Id)
@@ -111,6 +107,25 @@ public:
         int FunSatisfactionCap = 100,
         int BaseMonthlyWage = -1,
         int BaseMonthlyUpkeep = -1);
+    void ApplyCatalogEntry(const FBuildingCatalogEntry& Entry);
+
+    void SetRequiredEducationLevel(ECitizenEducationLevel Level)
+    {
+        mServiceProfile.RequiredEducationLevel = Level;
+    }
+
+    void SetResourceBehavior(
+        EResourceType ProducedResourceType,
+        EResourceType VisitConsumptionResourceType,
+        bool SupportsTeamsterPickup,
+        bool CanExportStoredResources)
+    {
+        mOperations.ConfigureResourceBehavior(
+            ProducedResourceType,
+            VisitConsumptionResourceType,
+            SupportsTeamsterPickup,
+            CanExportStoredResources);
+    }
 
     const std::string& GetBuildingDisplayName() const
     {
@@ -122,6 +137,11 @@ public:
     const std::string& GetBuildingCategoryName() const
     {
         return mBuildingCategoryName;
+    }
+
+    EBuildingCategory GetBuildingCategory() const
+    {
+        return mServiceProfile.Category;
     }
 
     void SetBuildingSpriteTexturePath(const std::string& TexturePath)
@@ -136,17 +156,17 @@ public:
 
     bool IsResidential() const
     {
-        return mResidential;
+        return mServiceProfile.Residential;
     }
 
     bool IsFoodProvider() const
     {
-        return mFoodProvider;
+        return mServiceProfile.FoodProvider;
     }
 
     bool IsEntertainmentProvider() const
     {
-        return mEntertainmentProvider;
+        return mServiceProfile.EntertainmentProvider;
     }
 
     bool IsTransportOffice() const
@@ -161,165 +181,188 @@ public:
 
     bool IsFoodProductionFacility() const
     {
-        return mFoodProvider &&
-            !mEntertainmentProvider &&
+        return mOperations.ProducedResourceType == EResourceType::Food &&
             !IsTransportOffice() &&
             !IsHarbor();
     }
 
+    bool CanGenerateWorkOutput() const
+    {
+        return mOperations.ProducedResourceType != EResourceType::None;
+    }
+
     int GetCapacity() const
     {
-        return mCapacity;
+        return mServiceProfile.Capacity;
     }
 
     int GetHousingSatisfactionCap() const
     {
-        return ApplyBudgetScale(mHousingSatisfactionCap);
+        return mOperations.ApplyBudgetScale(
+            mServiceProfile.HousingSatisfactionCap);
     }
 
     int GetJobSatisfactionCap() const
     {
-        return ApplyBudgetScale(mJobSatisfactionCap);
+        return mOperations.ApplyBudgetScale(
+            mServiceProfile.JobSatisfactionCap);
     }
 
     int GetFoodSatisfactionCap() const
     {
-        return ApplyBudgetScale(mFoodSatisfactionCap);
+        return mOperations.ApplyBudgetScale(
+            mServiceProfile.FoodSatisfactionCap);
     }
 
     int GetFunSatisfactionCap() const
     {
-        return ApplyBudgetScale(mFunSatisfactionCap);
+        return mOperations.ApplyBudgetScale(
+            mServiceProfile.FunSatisfactionCap);
     }
 
     int GetBudgetLevel() const
     {
-        return mBudgetLevel;
+        return mOperations.BudgetLevel;
     }
 
     void SetBudgetLevel(int Level)
     {
-        mBudgetLevel = (std::max)(1, (std::min)(5, Level));
+        mOperations.SetBudgetLevel(Level);
     }
 
     float GetBudgetSatisfactionScale() const
     {
-        switch (mBudgetLevel)
-        {
-        case 1: return 0.70f;
-        case 2: return 0.85f;
-        case 4: return 1.15f;
-        case 5: return 1.30f;
-        default: return 1.00f;
-        }
+        return mOperations.GetBudgetSatisfactionScale();
     }
 
     int GetBaseMonthlyWage() const
     {
-        return mBaseMonthlyWage;
+        return mOperations.BaseMonthlyWage;
     }
 
     int GetBaseMonthlyUpkeep() const
     {
-        return mBaseMonthlyUpkeep;
+        return mOperations.BaseMonthlyUpkeep;
+    }
+
+    ECitizenEducationLevel GetRequiredEducationLevel() const
+    {
+        return mServiceProfile.RequiredEducationLevel;
+    }
+
+    EResourceType GetProducedResourceType() const
+    {
+        return mOperations.ProducedResourceType;
+    }
+
+    EResourceType GetVisitConsumptionResourceType() const
+    {
+        return mOperations.VisitConsumptionResourceType;
+    }
+
+    bool SupportsTeamsterPickup() const
+    {
+        return mOperations.SupportsTeamsterPickup;
+    }
+
+    bool CanExportStoredResources() const
+    {
+        return mOperations.CanExportStoredResources;
     }
 
     int GetMonthlyWageCost() const
     {
-        return ApplyEconomyScale(mBaseMonthlyWage);
+        return mOperations.GetMonthlyWageCost();
     }
 
     int GetMonthlyUpkeepCost() const
     {
-        return ApplyEconomyScale(mBaseMonthlyUpkeep);
+        return mOperations.GetMonthlyUpkeepCost();
     }
 
     int GetDailyWageCost(int DaysInMonth) const
     {
-        const int SafeDays = (std::max)(1, DaysInMonth);
-        const float Daily = static_cast<float>(GetMonthlyWageCost()) /
-            static_cast<float>(SafeDays);
-        return (std::max)(0, static_cast<int>(roundf(Daily)));
+        return mOperations.GetDailyWageCost(DaysInMonth);
     }
 
     int GetDailyUpkeepCost(int DaysInMonth) const
     {
-        const int SafeDays = (std::max)(1, DaysInMonth);
-        const float Daily = static_cast<float>(GetMonthlyUpkeepCost()) /
-            static_cast<float>(SafeDays);
-        return (std::max)(0, static_cast<int>(roundf(Daily)));
+        return mOperations.GetDailyUpkeepCost(DaysInMonth);
     }
 
     bool AdvanceHarborShipProgressAndCheckArrival(int DaysInMonth)
     {
-        if (!IsHarbor())
-            return false;
-
-        const int SafeDays = (std::max)(1, DaysInMonth);
-        const float DailyProgress =
-            GetBudgetSatisfactionScale() /
-            static_cast<float>(SafeDays);
-        mHarborShipProgressMonths += DailyProgress;
-
-        constexpr float GBaseShipIntervalMonths = 3.f;
-
-        if (mHarborShipProgressMonths < GBaseShipIntervalMonths)
-            return false;
-
-        while (mHarborShipProgressMonths >= GBaseShipIntervalMonths)
-        {
-            mHarborShipProgressMonths -= GBaseShipIntervalMonths;
-        }
-
-        return true;
+        return mOperations.AdvanceHarborShipProgressAndCheckArrival(
+            IsHarbor(),
+            DaysInMonth);
     }
 
     float GetHarborShipProgressPercent() const
     {
-        if (!IsHarbor())
-            return 0.f;
-
-        constexpr float GBaseShipIntervalMonths = 3.f;
-        return Clamp<float>(
-            mHarborShipProgressMonths / GBaseShipIntervalMonths, 0.f, 1.f);
+        return mOperations.GetHarborShipProgressPercent(IsHarbor());
     }
 
-    int GetResourceStock() const { return mResourceStock; }
-    int GetMaxResourceStock() const { return GMaxResourceStock; }
+    int GetResourceStock() const { return mOperations.GetResourceStock(); }
+    int GetResourceStock(EResourceType Type) const
+    {
+        return mOperations.GetResourceStock(Type);
+    }
+    int GetExportableResourceStock() const
+    {
+        return mOperations.GetExportableResourceStock();
+    }
+    int GetMaxResourceStock() const
+    {
+        return FBuildingOperationsState::MaxResourceStock;
+    }
 
     void AddResourceStock(int Amount)
     {
-        if (Amount <= 0)
-            return;
+        AddResourceStock(
+            ResolvePrimaryResourceTypeForLegacy(),
+            Amount);
+    }
 
-        mResourceStock = (std::min)(
-            GMaxResourceStock, mResourceStock + Amount);
+    void AddResourceStock(EResourceType Type, int Amount)
+    {
+        mOperations.AddResourceStock(Type, Amount);
     }
 
     // AtWork 시민이 매 프레임 호출 - float 누적 후 int 단위로 재고에 추가
     void AddProduction(float UnitsPerSec, float DeltaTime)
     {
-        mResourceProductionAccum += UnitsPerSec * DeltaTime;
-        const int Whole = static_cast<int>(mResourceProductionAccum);
-        if (Whole > 0)
+        if (UnitsPerSec <= 0.f ||
+            mOperations.ProducedResourceType == EResourceType::None)
         {
-            mResourceProductionAccum -= static_cast<float>(Whole);
-            mResourceStock = (std::min)(GMaxResourceStock, mResourceStock + Whole);
+            return;
         }
+
+        mOperations.AddProduction(UnitsPerSec, DeltaTime);
     }
 
     // AtFood 진입 시 호출 - 재고 1단위 소비 시도, 성공하면 true
     bool TryConsumeResource(int Amount = 1)
     {
-        if (Amount <= 0)
-            return true;
+        return TryConsumeResource(
+            ResolvePrimaryResourceTypeForLegacy(),
+            Amount);
+    }
 
-        if (mResourceStock >= Amount)
-        {
-            mResourceStock -= Amount;
-            return true;
-        }
-        return false;
+    bool TryConsumeResource(EResourceType Type, int Amount = 1)
+    {
+        return mOperations.TryConsumeResource(Type, Amount);
+    }
+
+    bool TryConsumeAnyExportableResource(
+        int Amount,
+        EResourceType& OutType)
+    {
+        return mOperations.TryConsumeAnyExportableResource(Amount, OutType);
+    }
+
+    bool TryConsumeExportableResources(int Amount)
+    {
+        return mOperations.TryConsumeExportableResources(Amount);
     }
 
     bool HasPlacedArea() const
@@ -373,6 +416,11 @@ public:
     bool GetTileSize(FVector2& OutTileSize);
 
 private:
+    EResourceType ResolvePrimaryResourceTypeForLegacy() const
+    {
+        return mOperations.ResolvePrimaryResourceTypeForLegacy();
+    }
+
     static FPlacementTemplate CreateTemplateByType(
         EPlacementTemplateType Type);
     void EnsureTemplateValidity();
@@ -415,18 +463,4 @@ private:
     int GetIsoNeighborIndexByDir(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int TileIndex, int DirIndex) const;
-    int ApplyBudgetScale(int BaseCap) const
-    {
-        const float Scaled =
-            BaseCap * GetBudgetSatisfactionScale();
-        const int Rounded = static_cast<int>(roundf(Scaled));
-        return (std::max)(0, (std::min)(100, Rounded));
-    }
-
-    int ApplyEconomyScale(int BaseCost) const
-    {
-        const float Scaled =
-            static_cast<float>(BaseCost) * GetBudgetSatisfactionScale();
-        return (std::max)(0, static_cast<int>(roundf(Scaled)));
-    }
 };

@@ -237,6 +237,48 @@ struct FGovernmentProfile
     std::vector<FGovernmentActionRecord> ActiveActions;
 };
 
+struct FElectionStatus
+{
+    bool HasRecordedElection = false;
+    bool IncumbentWonLastElection = true;
+    bool GameLost = false;
+    int NextElectionYear = 0;
+    int NextElectionMonth = 0;
+    int NextElectionDay = 0;
+    int ElectionsWon = 0;
+    int LastElectionYear = 0;
+    int LastElectionMonth = 0;
+    int LastElectionDay = 0;
+    int LastIncumbentVotes = 0;
+    int LastOppositionVotes = 0;
+    int LastAbstainVotes = 0;
+    double LastVoteShare = 0.0;
+    double LastTurnoutPercent = 0.0;
+};
+
+enum class ETaxPolicyEventType
+{
+    None = 0,
+    WorkerTaxStrike,
+    PropertyTaxBacklash,
+    BudgetCrisis
+};
+
+struct FTaxPolicyEventStatus
+{
+    ETaxPolicyEventType Type = ETaxPolicyEventType::None;
+    bool Active = false;
+    int RemainingDays = 0;
+    int CooldownDays = 0;
+    int NotificationDays = 0;
+    int DaysActive = 0;
+    int TriggerYear = 0;
+    int TriggerMonth = 0;
+    int TriggerDay = 0;
+    std::wstring Title;
+    std::wstring Summary;
+};
+
 enum class EVoteIntent
 {
     Incumbent = 0,

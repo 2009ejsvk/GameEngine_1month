@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include "../Building/BuildingTypes.h"
 #include "../Citizen/CitizenTypes.h"
+#include "CitizenOrbComponents.h"
 #include <algorithm>
 #include <string>
 #include <utility>
@@ -40,25 +42,19 @@ private:
     float mPathRetryAccum = 0.f;
     float mWaitingPathAccum = 0.f;
     float mStallAccum = 0.f;
-    float mSatisfactionTickAccum = 0.f;
-    float mPoliticalTickAccum = 0.f;
     FVector3 mLockedTargetPos = FVector3::Zero;
     FVector3 mLastProgressPos = FVector3::Zero;
-    FNpcSatisfaction mSatisfaction;
-    FNpcPoliticalProfile mPoliticalProfile;
+    FCitizenWellbeingState mCitizenProfileState;
     std::string mHomeName;
     std::string mWorkName;
     std::string mFoodName;
     std::string mFoodVisitBuildingName;
     std::string mFunName;
-    std::string mTeamsterSourceName;
-    std::string mTeamsterHarborName;
-    int mTeamsterCarryAmount = 0;
+    FTeamsterDeliveryState mTeamsterDeliveryState;
     ECitizenState mCitizenState = ECitizenState::Wander;
     ECitizenState mResumeStateAfterService = ECitizenState::GoingToWork;
     float mDwellTimer = 0.f;
     float mDefaultMoveSpeed = 200.f;
-    bool mTeamsterSpeedBoostActive = false;
     static constexpr float GAtWorkDuration = 15.f;
     static constexpr float GAtHomeDuration = 10.f;
     static constexpr float GAtFoodDuration = 4.f;
@@ -73,11 +69,8 @@ private:
     bool mWaitingForPath = false;
     bool mScaleInitialized = false;
     bool mHasStartPos = false;
-    bool mFoodStockAvailableThisVisit = false;
     float mRuntimeTraceAccum = 0.f;
-    int mCurrentAnimationDirection = 0;
-    bool mWasMovingLastFrame = false;
-    bool mUseRedVariant = false;
+    FOrbAnimationState mAnimationState;
 #ifdef _DEBUG
     bool mDebugMissingDependencyLogged = false;
     bool mDebugMissingMarkerLogged = false;
@@ -97,12 +90,22 @@ public:
 
     const FNpcSatisfaction& GetSatisfaction() const
     {
-        return mSatisfaction;
+        return mCitizenProfileState.Satisfaction;
     }
 
     const FNpcPoliticalProfile& GetPoliticalProfile() const
     {
-        return mPoliticalProfile;
+        return mCitizenProfileState.PoliticalProfile;
+    }
+
+    const FCitizenIdentityProfile& GetIdentityProfile() const
+    {
+        return mCitizenProfileState.IdentityProfile;
+    }
+
+    void SetIdentityProfile(const FCitizenIdentityProfile& Profile)
+    {
+        mCitizenProfileState.IdentityProfile = Profile;
     }
 
     void ApplySatisfactionDelta(
@@ -186,7 +189,7 @@ public:
         mDefaultMoveSpeed = Speed;
         mMoveSpeed = Speed;
 
-        if (mTeamsterSpeedBoostActive)
+        if (mTeamsterDeliveryState.SpeedBoostActive)
             mMoveSpeed = mDefaultMoveSpeed * GTeamsterSpeedMultiplier;
     }
 
@@ -222,7 +225,7 @@ public:
     ECitizenState GetCitizenState() const { return mCitizenState; }
     bool IsConsumingFoodThisVisit() const
     {
-        return mFoodStockAvailableThisVisit;
+        return mCitizenProfileState.FoodStockAvailableThisVisit;
     }
     const std::string& GetFoodVisitBuilding() const
     {

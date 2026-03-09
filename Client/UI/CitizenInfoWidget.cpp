@@ -1,7 +1,7 @@
 #include "CitizenInfoWidget.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
-#include "../World/MainWorld.h"
+#include "../World/MainWorldAccess.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
@@ -235,6 +235,7 @@ void CCitizenInfoWidget::Update(float DeltaTime)
 
         SetCitizenSatisfaction(
             Citizen->GetSatisfaction(),
+            Citizen->GetIdentityProfile(),
             Citizen->GetPoliticalProfile());
         return;
     }
@@ -264,6 +265,7 @@ void CCitizenInfoWidget::OpenCitizen(
     SetTitle(L"Citizen: " + WideName);
 
     FNpcPoliticalProfile PoliticalProfile;
+    FCitizenIdentityProfile IdentityProfile;
     auto World = mWorld.lock();
 
     if (World)
@@ -272,10 +274,16 @@ void CCitizenInfoWidget::OpenCitizen(
             CitizenName).lock();
 
         if (Citizen && Citizen->GetAlive() && Citizen->GetEnable())
+        {
             PoliticalProfile = Citizen->GetPoliticalProfile();
+            IdentityProfile = Citizen->GetIdentityProfile();
+        }
     }
 
-    SetCitizenSatisfaction(Satisfaction, PoliticalProfile);
+    SetCitizenSatisfaction(
+        Satisfaction,
+        IdentityProfile,
+        PoliticalProfile);
     SetEnable(true);
 }
 
@@ -338,6 +346,7 @@ void CCitizenInfoWidget::SetTitle(const std::wstring& Title)
 
 void CCitizenInfoWidget::SetCitizenSatisfaction(
     const FNpcSatisfaction& Satisfaction,
+    const FCitizenIdentityProfile& IdentityProfile,
     const FNpcPoliticalProfile& PoliticalProfile)
 {
     auto ToPercent = [](float Value)
@@ -349,12 +358,15 @@ void CCitizenInfoWidget::SetCitizenSatisfaction(
     wchar_t Text[1024] = {};
 
     swprintf_s(Text,
+        L"학력: %s\n재산 계층: %s\n\n"
         L"Food: %d\nHealth: %d\nFun: %d\nFaith: %d\nHousing: %d\n"
         L"Job: %d\nFreedom: %d\nSecurity: %d\nOverall: %d\n\n"
         L"%s: %s (%s)\n"
         L"%s: %s (%s)\n"
         L"%s: %s (%s)\n"
         L"%s: %s (%s)",
+        GetCitizenEducationDisplayName(IdentityProfile.EducationLevel),
+        GetCitizenWealthDisplayName(IdentityProfile.WealthLevel),
         ToPercent(Satisfaction.Food),
         ToPercent(Satisfaction.Health),
         ToPercent(Satisfaction.Fun),
@@ -557,7 +569,7 @@ void CCitizenInfoWidget::RefreshBuildingInfo()
         FoodProvider;
     int DaysInMonth = 30;
 
-    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
 
     if (MainWorld)
         DaysInMonth = (std::max)(1, MainWorld->GetSimulationMonthDayCount());

@@ -5,7 +5,7 @@
 #include "Device.h"
 #include "Engine.h"
 #include "World/WorldManager.h"
-#include "../World/MainWorld.h"
+#include "../World/MainWorldAccess.h"
 
 CLoadingWidget::CLoadingWidget()
 {
@@ -50,4 +50,5 @@ void CLoadingWidget::Render()
 {
 	CWidgetContainer::Render();
 }
+
 

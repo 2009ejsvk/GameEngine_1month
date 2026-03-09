@@ -28,13 +28,17 @@ private:
     std::weak_ptr<class CTextBlock> mElectionText;
     std::weak_ptr<class CTextBlock> mTaxPolicyText;
     std::weak_ptr<class CTextBlock> mEventText;
+    std::weak_ptr<class CTextBlock> mBudgetLabelText;
     std::weak_ptr<class CTextBlock> mBudgetText;
+    std::weak_ptr<class CTextBlock> mNpcLabelText;
     std::weak_ptr<class CTextBlock> mNpcText;
+    std::weak_ptr<class CTextBlock> mSupportLabelText;
     std::weak_ptr<class CTextBlock> mSupportText;
     std::weak_ptr<class CTextBlock> mGameOverTitleText;
     std::weak_ptr<class CTextBlock> mGameOverBodyText;
     std::vector<std::weak_ptr<class CButton>> mSpeedButtons;
     std::vector<std::weak_ptr<class CButton>> mMenuButtons;
+    std::vector<std::weak_ptr<class CTextBlock>> mMenuButtonTexts;
     float mMonthProgress = 0.f;
     bool mGameOverMenusClosed = false;
 

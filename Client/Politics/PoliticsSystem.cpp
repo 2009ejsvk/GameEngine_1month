@@ -1,8 +1,8 @@
 #include "PoliticsSystem.h"
+#include "EdictSystem.h"
 #include "../Building/BuildingCatalog.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
-#include "../World/MainWorld.h"
 #include "World/World.h"
 #include <algorithm>
 #include <array>
@@ -416,6 +416,47 @@ namespace
 
         return Evaluation;
     }
+
+    int GetDaysInMonth(int Year, int Month)
+    {
+        switch (Month)
+        {
+        case 1:
+        case 3:
+        case 5:
+        case 7:
+        case 8:
+        case 10:
+        case 12:
+            return 31;
+        case 4:
+        case 6:
+        case 9:
+        case 11:
+            return 30;
+        case 2:
+        {
+            const bool IsLeapYear =
+                (Year % 400 == 0) || (Year % 4 == 0 && Year % 100 != 0);
+            return IsLeapYear ? 29 : 28;
+        }
+        default:
+            return 30;
+        }
+    }
+
+    void ScheduleNextElection(
+        FElectionStatus& InOutStatus,
+        int CurrentYear,
+        int YearsUntilElection,
+        int ElectionMonth,
+        int ElectionDay)
+    {
+        const int SafeYearsUntilElection = (std::max)(1, YearsUntilElection);
+        InOutStatus.NextElectionYear = CurrentYear + SafeYearsUntilElection;
+        InOutStatus.NextElectionMonth = ElectionMonth;
+        InOutStatus.NextElectionDay = ElectionDay;
+    }
 }
 
 namespace PoliticsSystem
@@ -460,17 +501,82 @@ namespace PoliticsSystem
             InOutProfile.ActiveActions.end());
     }
 
+    void SyncGovernmentActionFromEdict(
+        FGovernmentProfile& InOutProfile,
+        EGovernmentEdictType Type,
+        bool Active)
+    {
+        const FGovernmentEdictDefinition* Definition =
+            EdictSystem::FindGovernmentEdictDefinition(Type);
+
+        if (!Definition || Definition->ActionType == EPoliticalActionType::None)
+            return;
+
+        InOutProfile.ActiveActions.erase(
+            std::remove_if(
+                InOutProfile.ActiveActions.begin(),
+                InOutProfile.ActiveActions.end(),
+                [&](const FGovernmentActionRecord& Action)
+                {
+                    return Action.Type == Definition->ActionType;
+                }),
+            InOutProfile.ActiveActions.end());
+
+        if (!Active)
+            return;
+
+        InOutProfile.ActiveActions.push_back(
+            EdictSystem::MakeGovernmentActionFromEdict(*Definition));
+    }
+
+    void ApplyDailyEdictCitizenEffects(
+        CWorld* World,
+        const FGovernmentEdictModifiers& Modifiers)
+    {
+        if (!World)
+            return;
+
+        if (Modifiers.DailyFoodDelta == 0.f &&
+            Modifiers.DailyHousingDelta == 0.f &&
+            Modifiers.DailyJobDelta == 0.f &&
+            Modifiers.DailyFreedomDelta == 0.f &&
+            Modifiers.DailySecurityDelta == 0.f)
+        {
+            return;
+        }
+
+        std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+        if (!World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+            return;
+
+        for (size_t i = 0; i < OrbList.size(); ++i)
+        {
+            auto Orb = OrbList[i].lock();
+
+            if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+                continue;
+
+            Orb->ApplySatisfactionDelta(
+                Modifiers.DailyFoodDelta,
+                0.f,
+                0.f,
+                0.f,
+                Modifiers.DailyHousingDelta,
+                Modifiers.DailyJobDelta,
+                Modifiers.DailyFreedomDelta,
+                Modifiers.DailySecurityDelta);
+        }
+    }
+
     FCitizenPoliticalEvaluation EvaluateCitizen(
         CWorld* World,
         const CBuildingMarkerOrb& Citizen,
-        const FGovernmentProfile& GovernmentProfile)
+        const FGovernmentProfile& GovernmentProfile,
+        const FTaxPolicyEventStatus* TaxEventStatus)
     {
         const std::vector<FPlacedPoliticalSignal> PlacedSignals =
             CollectPlacedSignals(World);
-        const CMainWorld* MainWorld =
-            World ? dynamic_cast<CMainWorld*>(World) : nullptr;
-        const FTaxPolicyEventStatus* TaxEventStatus =
-            MainWorld ? &MainWorld->GetTaxPolicyEventStatus() : nullptr;
 
         return EvaluateCitizenInternal(
             Citizen,
@@ -481,7 +587,8 @@ namespace PoliticsSystem
 
     FPoliticalWorldSnapshot EvaluateWorld(
         CWorld* World,
-        const FGovernmentProfile& GovernmentProfile)
+        const FGovernmentProfile& GovernmentProfile,
+        const FTaxPolicyEventStatus* TaxEventStatus)
     {
         FPoliticalWorldSnapshot Snapshot;
 
@@ -490,10 +597,6 @@ namespace PoliticsSystem
 
         const std::vector<FPlacedPoliticalSignal> PlacedSignals =
             CollectPlacedSignals(World);
-        const CMainWorld* MainWorld =
-            World ? dynamic_cast<CMainWorld*>(World) : nullptr;
-        const FTaxPolicyEventStatus* TaxEventStatus =
-            MainWorld ? &MainWorld->GetTaxPolicyEventStatus() : nullptr;
 
         std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
 
@@ -554,6 +657,241 @@ namespace PoliticsSystem
         Snapshot.AverageActionScore = ActionScoreSum / Denominator;
         Snapshot.AverageSupportScore = SupportScoreSum / Denominator;
         return Snapshot;
+    }
+
+    void InitializeElectionSchedule(
+        FElectionStatus& OutStatus,
+        int CurrentYear,
+        int InitialLeadYears,
+        int ElectionMonth,
+        int ElectionDay)
+    {
+        OutStatus = FElectionStatus();
+        ScheduleNextElection(
+            OutStatus,
+            CurrentYear,
+            InitialLeadYears,
+            ElectionMonth,
+            ElectionDay);
+    }
+
+    void ResolveScheduledElection(
+        FElectionStatus& InOutStatus,
+        const FPoliticalWorldSnapshot& Snapshot,
+        int CurrentYear,
+        int CurrentMonth,
+        int CurrentDay,
+        int ElectionIntervalYears,
+        int ElectionMonth,
+        int ElectionDay)
+    {
+        if (InOutStatus.GameLost)
+            return;
+
+        if (CurrentYear != InOutStatus.NextElectionYear ||
+            CurrentMonth != InOutStatus.NextElectionMonth ||
+            CurrentDay != InOutStatus.NextElectionDay)
+        {
+            return;
+        }
+
+        const int ActiveCitizenCount =
+            (std::max)(0, Snapshot.ActiveCitizenCount);
+        const int IncumbentVotes =
+            (std::max)(0, Snapshot.IncumbentCount);
+        const int OppositionVotes =
+            (std::max)(0, Snapshot.OppositionCount);
+        const int AbstainVotes =
+            (std::max)(0, Snapshot.AbstainCount);
+        const int CastVotes = IncumbentVotes + OppositionVotes;
+        const bool IncumbentWon =
+            CastVotes > 0 && IncumbentVotes >= OppositionVotes;
+
+        InOutStatus.HasRecordedElection = true;
+        InOutStatus.IncumbentWonLastElection = IncumbentWon;
+        InOutStatus.LastElectionYear = CurrentYear;
+        InOutStatus.LastElectionMonth = CurrentMonth;
+        InOutStatus.LastElectionDay = CurrentDay;
+        InOutStatus.LastIncumbentVotes = IncumbentVotes;
+        InOutStatus.LastOppositionVotes = OppositionVotes;
+        InOutStatus.LastAbstainVotes = AbstainVotes;
+        InOutStatus.LastVoteShare =
+            CastVotes > 0 ?
+            static_cast<double>(IncumbentVotes) /
+                static_cast<double>(CastVotes) * 100.0 :
+            0.0;
+        InOutStatus.LastTurnoutPercent =
+            ActiveCitizenCount > 0 ?
+            static_cast<double>(CastVotes) /
+                static_cast<double>(ActiveCitizenCount) * 100.0 :
+            0.0;
+
+        if (IncumbentWon)
+        {
+            ++InOutStatus.ElectionsWon;
+            ScheduleNextElection(
+                InOutStatus,
+                CurrentYear,
+                ElectionIntervalYears,
+                ElectionMonth,
+                ElectionDay);
+            return;
+        }
+
+        InOutStatus.GameLost = true;
+        InOutStatus.NextElectionYear = 0;
+        InOutStatus.NextElectionMonth = 0;
+        InOutStatus.NextElectionDay = 0;
+    }
+
+    int GetDaysUntilNextElection(
+        const FElectionStatus& ElectionStatus,
+        int CurrentYear,
+        int CurrentMonth,
+        int CurrentDay)
+    {
+        if (ElectionStatus.GameLost ||
+            ElectionStatus.NextElectionYear <= 0 ||
+            ElectionStatus.NextElectionMonth <= 0 ||
+            ElectionStatus.NextElectionDay <= 0)
+        {
+            return -1;
+        }
+
+        if (CurrentYear > ElectionStatus.NextElectionYear ||
+            (CurrentYear == ElectionStatus.NextElectionYear &&
+                CurrentMonth > ElectionStatus.NextElectionMonth) ||
+            (CurrentYear == ElectionStatus.NextElectionYear &&
+                CurrentMonth == ElectionStatus.NextElectionMonth &&
+                CurrentDay >= ElectionStatus.NextElectionDay))
+        {
+            return 0;
+        }
+
+        int DaysUntilElection = 0;
+        int Year = CurrentYear;
+        int Month = CurrentMonth;
+        int Day = CurrentDay;
+
+        while (Year < ElectionStatus.NextElectionYear ||
+            (Year == ElectionStatus.NextElectionYear &&
+                Month < ElectionStatus.NextElectionMonth) ||
+            (Year == ElectionStatus.NextElectionYear &&
+                Month == ElectionStatus.NextElectionMonth &&
+                Day < ElectionStatus.NextElectionDay))
+        {
+            ++DaysUntilElection;
+            ++Day;
+
+            if (Day > GetDaysInMonth(Year, Month))
+            {
+                Day = 1;
+                ++Month;
+
+                if (Month > 12)
+                {
+                    Month = 1;
+                    ++Year;
+                }
+            }
+
+            if (DaysUntilElection > 3660)
+                break;
+        }
+
+        return DaysUntilElection;
+    }
+
+    double GetElectionWarningScore(
+        const FElectionStatus& ElectionStatus,
+        const FPoliticalWorldSnapshot& Snapshot,
+        const FTaxPolicyEventStatus& TaxEventStatus,
+        int CurrentYear,
+        int CurrentMonth,
+        int CurrentDay)
+    {
+        if (ElectionStatus.GameLost)
+            return 1.0;
+
+        const int DaysUntilElection = GetDaysUntilNextElection(
+            ElectionStatus,
+            CurrentYear,
+            CurrentMonth,
+            CurrentDay);
+
+        if (DaysUntilElection < 0)
+            return 0.0;
+
+        double ProximityPressure = 0.0;
+
+        if (DaysUntilElection <= 30)
+        {
+            ProximityPressure = 1.0;
+        }
+        else if (DaysUntilElection <= 90)
+        {
+            ProximityPressure =
+                0.75 +
+                static_cast<double>(90 - DaysUntilElection) / 60.0 * 0.25;
+        }
+        else if (DaysUntilElection <= 180)
+        {
+            ProximityPressure =
+                0.45 +
+                static_cast<double>(180 - DaysUntilElection) / 90.0 * 0.30;
+        }
+        else if (DaysUntilElection <= 365)
+        {
+            ProximityPressure =
+                0.15 +
+                static_cast<double>(365 - DaysUntilElection) / 185.0 * 0.30;
+        }
+
+        const int ActiveCitizenCount = (std::max)(1, Snapshot.ActiveCitizenCount);
+        const double SupportPercent =
+            static_cast<double>(Snapshot.IncumbentCount) /
+            static_cast<double>(ActiveCitizenCount) * 100.0;
+        const double OppositionPercent =
+            static_cast<double>(Snapshot.OppositionCount) /
+            static_cast<double>(ActiveCitizenCount) * 100.0;
+        const double AbstainPercent =
+            static_cast<double>(Snapshot.AbstainCount) /
+            static_cast<double>(ActiveCitizenCount) * 100.0;
+        const double SupportRisk =
+            Clamp<double>((52.0 - SupportPercent) / 22.0, 0.0, 1.0);
+        const double OppositionRisk =
+            Clamp<double>((OppositionPercent - 34.0) / 24.0, 0.0, 1.0);
+        const double AbstainRisk =
+            Clamp<double>((AbstainPercent - 18.0) / 25.0, 0.0, 1.0);
+
+        double EventPressure = 0.0;
+
+        if (TaxEventStatus.Active)
+        {
+            EventPressure =
+                0.40 +
+                Clamp<double>(
+                    static_cast<double>(TaxEventStatus.DaysActive + 1) / 6.0,
+                    0.0,
+                    1.0) * 0.35;
+
+            if (TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis)
+                EventPressure += 0.10;
+        }
+        else if (TaxEventStatus.NotificationDays > 0 &&
+            !TaxEventStatus.Summary.empty())
+        {
+            EventPressure = 0.18;
+        }
+
+        const double Score =
+            0.45 * ProximityPressure +
+            0.25 * SupportRisk +
+            0.12 * OppositionRisk +
+            0.08 * AbstainRisk +
+            0.20 * (ProximityPressure * Clamp<double>(EventPressure, 0.0, 1.0));
+
+        return Clamp<double>(Score, 0.0, 1.0);
     }
 
     const wchar_t* GetVoteIntentDisplayName(EVoteIntent VoteIntent)

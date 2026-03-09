@@ -4,6 +4,7 @@
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Citizen/CitizenTypes.h"
 #include <algorithm>
+#include <cstdlib>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -13,6 +14,47 @@ namespace
 {
     constexpr float GNpcSpeedBase     = 140.f;
     constexpr float GNpcSpeedVariance = 21.f;
+
+    FCitizenIdentityProfile BuildCitizenIdentityProfile()
+    {
+        FCitizenIdentityProfile Profile;
+        const int EducationRoll = rand() % 100;
+
+        if (EducationRoll < 62)
+            Profile.EducationLevel = ECitizenEducationLevel::Uneducated;
+        else if (EducationRoll < 88)
+            Profile.EducationLevel = ECitizenEducationLevel::HighSchool;
+        else
+            Profile.EducationLevel = ECitizenEducationLevel::College;
+
+        const int WealthRoll = rand() % 100;
+
+        if (Profile.EducationLevel == ECitizenEducationLevel::College)
+        {
+            Profile.WealthLevel =
+                WealthRoll < 35 ?
+                ECitizenWealthLevel::WellOff :
+                ECitizenWealthLevel::Rich;
+        }
+        else if (Profile.EducationLevel ==
+            ECitizenEducationLevel::HighSchool)
+        {
+            Profile.WealthLevel =
+                WealthRoll < 70 ?
+                ECitizenWealthLevel::Poor :
+                ECitizenWealthLevel::WellOff;
+        }
+        else
+        {
+            Profile.WealthLevel =
+                WealthRoll < 85 ?
+                ECitizenWealthLevel::Poor :
+                ECitizenWealthLevel::WellOff;
+        }
+
+        Profile.IsImmigrant = true;
+        return Profile;
+    }
 
     std::string PickRandomBuildingName(const std::vector<std::string>& Names)
     {
@@ -162,6 +204,8 @@ void CitizenSystem::SpawnCitizenOrb(CWorld* World, int& SpawnedNpcCount)
     if (!MarkerOrbObj)
         return;
 
+    MarkerOrbObj->SetIdentityProfile(BuildCitizenIdentityProfile());
+
     std::vector<std::string> AllNames;
     std::vector<std::string> HomeNames;
     std::vector<std::string> WorkNames;
@@ -209,6 +253,8 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         int  JobCap        = 0;
         int  Occupied      = 0;
         int  MinRequired   = 0;
+        ECitizenEducationLevel RequiredEducation =
+            ECitizenEducationLevel::Uneducated;
         bool IsFoodProvider = false;
     };
 
@@ -248,6 +294,8 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         Info.Name         = WorkNames[i];
         Info.Capacity     = (std::max)(0, WorkBuilding->GetCapacity());
         Info.JobCap       = WorkBuilding->GetJobSatisfactionCap();
+        Info.RequiredEducation =
+            WorkBuilding->GetRequiredEducationLevel();
         Info.IsFoodProvider = WorkBuilding->IsFoodProvider();
         WorkInfos.push_back(std::move(Info));
     }
@@ -569,6 +617,27 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         }
     }
 
+    auto CanOrbWorkAt = [&](int OrbIdx, int WorkIdx) -> bool
+    {
+        if (OrbIdx < 0 || WorkIdx < 0)
+            return false;
+
+        if (OrbIdx >= static_cast<int>(ActiveOrbs.size()) ||
+            WorkIdx >= static_cast<int>(WorkInfos.size()))
+        {
+            return false;
+        }
+
+        auto Orb = ActiveOrbs[OrbIdx];
+
+        if (!Orb)
+            return false;
+
+        const auto& Identity = Orb->GetIdentityProfile();
+        return static_cast<int>(Identity.EducationLevel) >=
+            static_cast<int>(WorkInfos[WorkIdx].RequiredEducation);
+    };
+
     auto AssignOrbToWork = [&](int OrbIdx, int WorkIdx) -> bool
     {
         if (OrbIdx < 0 || WorkIdx < 0)
@@ -583,6 +652,11 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         auto Orb = ActiveOrbs[OrbIdx];
 
         if (!Orb)
+            return false;
+
+        auto& TargetInfo = WorkInfos[WorkIdx];
+
+        if (!CanOrbWorkAt(OrbIdx, WorkIdx))
             return false;
 
         const int PrevWorkIdx = OrbWorkIndex[OrbIdx];
@@ -602,8 +676,6 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
                 --PrevInfo.Occupied;
         }
 
-        auto& TargetInfo = WorkInfos[WorkIdx];
-
         if (TargetInfo.Capacity <= 0 ||
             TargetInfo.Occupied >= TargetInfo.Capacity)
         {
@@ -621,8 +693,16 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         return true;
     };
 
-    auto FindBestVacancyWork = [&](int MinJobCapExclusive) -> int
+    auto FindBestVacancyWork = [&](int OrbIdx, int MinJobCapExclusive) -> int
     {
+        if (OrbIdx < 0 || OrbIdx >= static_cast<int>(ActiveOrbs.size()))
+            return -1;
+
+        auto Orb = ActiveOrbs[OrbIdx];
+
+        if (!Orb)
+            return -1;
+
         for (size_t i = 0; i < WorkInfos.size(); ++i)
         {
             const FWorkBuildingInfo& Info = WorkInfos[i];
@@ -631,6 +711,9 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
                 break;
 
             if (Info.Capacity <= 0)
+                continue;
+
+            if (!CanOrbWorkAt(OrbIdx, static_cast<int>(i)))
                 continue;
 
             if (Info.Occupied < Info.Capacity)
@@ -678,10 +761,17 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         return -1;
     };
 
-    auto FindOrbAssignedToWork = [&](int WorkIdx) -> int
+    auto FindOrbAssignedToWork = [&](int WorkIdx, int TargetWorkIdx) -> int
     {
         for (size_t i = 0; i < OrbWorkIndex.size(); ++i)
         {
+            if (OrbWorkIndex[i] != WorkIdx)
+                continue;
+
+            if (TargetWorkIdx >= 0 &&
+                !CanOrbWorkAt(static_cast<int>(i), TargetWorkIdx))
+                continue;
+
             if (OrbWorkIndex[i] == WorkIdx)
                 return static_cast<int>(i);
         }
@@ -714,6 +804,15 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         }
 
         const int WorkIdx = static_cast<int>(WorkIt->second);
+
+        if (static_cast<int>(Orb->GetIdentityProfile().EducationLevel) <
+            static_cast<int>(WorkInfos[WorkIdx].RequiredEducation))
+        {
+            Orb->SetWorkBuilding("");
+            UnemployedOrbIndices.push_back(static_cast<int>(i));
+            continue;
+        }
+
         OrbWorkIndex[i] = WorkIdx;
         OrbWorkCap[i]   = WorkInfos[WorkIdx].JobCap;
         ++WorkInfos[WorkIdx].Occupied;
@@ -792,7 +891,8 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         if (DonorWorkIdx < 0)
             break;
 
-        const int DonorOrbIdx = FindOrbAssignedToWork(DonorWorkIdx);
+        const int DonorOrbIdx =
+            FindOrbAssignedToWork(DonorWorkIdx, DeficitWorkIdx);
 
         if (DonorOrbIdx < 0)
             break;
@@ -814,7 +914,7 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         if (OrbWorkIndex[OrbIdx] >= 0)
             continue;
 
-        const int BestWorkIdx = FindBestVacancyWork(-1);
+        const int BestWorkIdx = FindBestVacancyWork(OrbIdx, -1);
 
         if (BestWorkIdx < 0)
             break;
@@ -841,7 +941,8 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             continue;
         }
 
-        const int BetterWorkIdx = FindBestVacancyWork(OrbWorkCap[i]);
+        const int BetterWorkIdx =
+            FindBestVacancyWork(static_cast<int>(i), OrbWorkCap[i]);
 
         if (BetterWorkIdx < 0)
             continue;

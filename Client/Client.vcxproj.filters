@@ -93,6 +93,15 @@
     <ClCompile Include="World\MainWorld.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
+    <ClCompile Include="World\MainWorldBootstrap.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\MainWorldPopulation.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\MainWorldSimulation.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
     <ClCompile Include="GlobalSetting.cpp">
       <Filter>06. Setting</Filter>
     </ClCompile>
@@ -150,7 +159,31 @@
     <ClCompile Include="Map\BuildingMarkerOrb.cpp">
       <Filter>11. Map</Filter>
     </ClCompile>
+    <ClCompile Include="Map\BuildingMarkerOrbAnimation.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\BuildingMarkerOrbNavigation.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\BuildingMarkerOrbSatisfaction.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\BuildingMarkerOrbSeparation.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\BuildingMarkerOrbTeamster.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
     <ClCompile Include="Map\PlacementAreaObject.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\PlacementAreaObjectNavigation.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\PlacementAreaObjectPlacement.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\PlacementAreaObjectVisual.cpp">
       <Filter>11. Map</Filter>
     </ClCompile>
     <ClCompile Include="Map\PlacementController.cpp">
@@ -173,6 +206,9 @@
     </ClCompile>
     <ClCompile Include="UI\BuildMenuWidget.cpp">
       <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacDataProvider.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="UI\AlmanacWidget.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
@@ -198,6 +234,12 @@
       <Filter>��� ����</Filter>
     </ClInclude>
     <ClInclude Include="World\MainWorld.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\MainWorldAccess.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\MainWorldConfig.h">
       <Filter>02. World</Filter>
     </ClInclude>
     <ClInclude Include="GlobalSetting.h">
@@ -290,6 +332,9 @@
     <ClInclude Include="UI\BuildMenuWidget.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
+    <ClInclude Include="UI\AlmanacDataProvider.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
     <ClInclude Include="UI\AlmanacWidget.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
@@ -301,6 +346,9 @@
     </ClInclude>
     <ClInclude Include="UI\EdictWidget.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TropicoUiStyle.h">
+      <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="Politics\EdictSystem.h">
       <Filter>15. Politics</Filter>

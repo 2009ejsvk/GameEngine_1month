@@ -28,11 +28,24 @@ struct FBuildingCatalogEntry
     std::wstring   DisplayName;         // UI에 표시되는 건물 이름
     std::wstring   CategoryName;        // 소속 카테고리 이름 (탭 레이블)
     std::wstring   DetailText;          // 건물 상세 설명 텍스트
+    EBuildingEra   UnlockEra            = EBuildingEra::Colonial;
+    ECitizenEducationLevel RequiredEducationLevel =
+        ECitizenEducationLevel::Uneducated;
+    EBuildingHousingClass HousingClass  = EBuildingHousingClass::None;
+    EBuildingLeisureClass LeisureClass  = EBuildingLeisureClass::None;
+    ETouristPreference PrimaryTouristPreference =
+        ETouristPreference::None;
+    EResourceType  ProducedResourceType = EResourceType::None;
+    EResourceType  VisitConsumptionResourceType =
+        EResourceType::None;
 
     // ── 건물 기능 플래그 ──────────────────────────────────────────────────
     bool           Residential              = false;  // 주거 기능 여부
     bool           FoodProvider             = false;  // 음식 공급 기능 여부
     bool           EntertainmentProvider    = false;  // 오락 제공 기능 여부
+    bool           SupportsTeamsterPickup   = false;  // 팀스터 운반 대상 여부
+    bool           CanExportStoredResources = false;  // 항구형 수출 허브 여부
+    bool           SupportsImmigration      = false;  // 이민/이주 처리 시설 여부
 
     // ── UI 동작 플래그 ────────────────────────────────────────────────────
     // IsDemolish          : 배치 대신 철거 모드를 활성화하는 특수 항목
@@ -64,6 +77,7 @@ struct FBuildingCatalogEntry
     // BuildingKind : PlacementController 가 생성할 비주얼 오브젝트 종류
     EPlacementTemplateType  TemplateType    = EPlacementTemplateType::Diamond3x3SingleMarker;
     EPlacementBuildingKind  BuildingKind    = EPlacementBuildingKind::BuildingB;
+    std::vector<std::wstring> UpgradeHints;
     std::vector<FPoliticalSignalDef> PoliticalSignals;
 };
 

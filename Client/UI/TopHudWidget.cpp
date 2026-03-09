@@ -3,7 +3,7 @@
 #include "BuildMenuWidget.h"
 #include "EdictWidget.h"
 #include "../Map/BuildingMarkerOrb.h"
-#include "../World/MainWorld.h"
+#include "../World/MainWorldAccess.h"
 #include "../ObjectNames.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -59,6 +59,18 @@ namespace
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Raids.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Research.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Almanac.png")
+    };
+
+    const wchar_t* const GMenuLabels[GMenuButtonCount] =
+    {
+        L"임무",
+        L"건설",
+        L"칙령",
+        L"헌법",
+        L"무역",
+        L"원정",
+        L"연구",
+        L"연감"
     };
 
     void ConfigureIconButtonStyle(const std::shared_ptr<CButton>& Button)
@@ -127,10 +139,17 @@ namespace
         return Buffer;
     }
 
+    std::wstring FormatHudDate(int Year, int Month, int Day)
+    {
+        wchar_t Buffer[64] = {};
+        swprintf_s(Buffer, L"%04d년 %d월 %d일", Year, Month, Day);
+        return Buffer;
+    }
+
     std::wstring FormatTaxPolicyCompact(const FTaxPolicy& TaxPolicy)
     {
         return
-            L"세율 " +
+            L"세금 " +
             std::to_wstring(TaxPolicy.ConsumptionRatePercent) +
             L"/" +
             std::to_wstring(TaxPolicy.IncomeRatePercent) +
@@ -205,8 +224,8 @@ bool CTopHudWidget::Init()
 
     if (DateText)
     {
-        DateText->SetText(TEXT("2월, 1959"));
-        DateText->SetFontSize(16.f);
+        DateText->SetText(TEXT("1959년 2월 1일"));
+        DateText->SetFontSize(20.f);
         DateText->SetAlignH(ETextAlignH::Left);
         DateText->SetAlignV(ETextAlignV::Middle);
         DateText->SetTextColor(245, 235, 210, 255);
@@ -222,7 +241,7 @@ bool CTopHudWidget::Init()
     if (BudgetText)
     {
         BudgetText->SetText(TEXT("$0"));
-        BudgetText->SetFontSize(15.f);
+        BudgetText->SetFontSize(20.f);
         BudgetText->SetAlignH(ETextAlignH::Left);
         BudgetText->SetAlignV(ETextAlignV::Middle);
         BudgetText->SetTextColor(245, 235, 210, 255);
@@ -232,15 +251,31 @@ bool CTopHudWidget::Init()
         mBudgetText = BudgetText;
     }
 
+    auto BudgetLabelText =
+        CreateWidget<CTextBlock>("TopHud_BudgetLabelText", 20).lock();
+
+    if (BudgetLabelText)
+    {
+        BudgetLabelText->SetText(TEXT("예산"));
+        BudgetLabelText->SetFontSize(12.f);
+        BudgetLabelText->SetAlignH(ETextAlignH::Left);
+        BudgetLabelText->SetAlignV(ETextAlignV::Middle);
+        BudgetLabelText->SetTextColor(172, 146, 98, 255);
+        BudgetLabelText->EnableShadow(true);
+        BudgetLabelText->SetShadowOffset(1.f, 1.f);
+        BudgetLabelText->SetShadowTextColor(22, 18, 12, 180);
+        mBudgetLabelText = BudgetLabelText;
+    }
+
     auto ElectionText =
         CreateWidget<CTextBlock>("TopHud_ElectionText", 17).lock();
 
     if (ElectionText)
     {
         ElectionText->SetText(TEXT("차기 선거 -"));
-        ElectionText->SetFontSize(13.f);
+        ElectionText->SetFontSize(15.f);
         ElectionText->SetAlignH(ETextAlignH::Left);
-        ElectionText->SetAlignV(ETextAlignV::Middle);
+        ElectionText->SetAlignV(ETextAlignV::Top);
         ElectionText->SetTextColor(245, 235, 210, 255);
         ElectionText->EnableShadow(true);
         ElectionText->SetShadowOffset(1.f, 1.f);
@@ -253,10 +288,10 @@ bool CTopHudWidget::Init()
 
     if (TaxPolicyText)
     {
-        TaxPolicyText->SetText(TEXT("세율 10/12/35%"));
-        TaxPolicyText->SetFontSize(12.f);
+        TaxPolicyText->SetText(TEXT("세금 10/12/35%"));
+        TaxPolicyText->SetFontSize(13.f);
         TaxPolicyText->SetAlignH(ETextAlignH::Left);
-        TaxPolicyText->SetAlignV(ETextAlignV::Middle);
+        TaxPolicyText->SetAlignV(ETextAlignV::Top);
         TaxPolicyText->SetTextColor(229, 220, 198, 255);
         TaxPolicyText->EnableShadow(true);
         TaxPolicyText->SetShadowOffset(1.f, 1.f);
@@ -269,10 +304,10 @@ bool CTopHudWidget::Init()
 
     if (EventText)
     {
-        EventText->SetText(TEXT("정치 경고 없음"));
-        EventText->SetFontSize(11.f);
+        EventText->SetText(TEXT("현재 상태 안정"));
+        EventText->SetFontSize(13.f);
         EventText->SetAlignH(ETextAlignH::Left);
-        EventText->SetAlignV(ETextAlignV::Middle);
+        EventText->SetAlignV(ETextAlignV::Top);
         EventText->SetTextColor(208, 226, 198, 255);
         EventText->EnableShadow(true);
         EventText->SetShadowOffset(1.f, 1.f);
@@ -329,7 +364,7 @@ bool CTopHudWidget::Init()
     if (NpcText)
     {
         NpcText->SetText(TEXT("0"));
-        NpcText->SetFontSize(15.f);
+        NpcText->SetFontSize(20.f);
         NpcText->SetAlignH(ETextAlignH::Left);
         NpcText->SetAlignV(ETextAlignV::Middle);
         NpcText->SetTextColor(245, 235, 210, 255);
@@ -339,13 +374,29 @@ bool CTopHudWidget::Init()
         mNpcText = NpcText;
     }
 
+    auto NpcLabelText =
+        CreateWidget<CTextBlock>("TopHud_StatusNpcLabelText", 20).lock();
+
+    if (NpcLabelText)
+    {
+        NpcLabelText->SetText(TEXT("인구"));
+        NpcLabelText->SetFontSize(12.f);
+        NpcLabelText->SetAlignH(ETextAlignH::Left);
+        NpcLabelText->SetAlignV(ETextAlignV::Middle);
+        NpcLabelText->SetTextColor(172, 146, 98, 255);
+        NpcLabelText->EnableShadow(true);
+        NpcLabelText->SetShadowOffset(1.f, 1.f);
+        NpcLabelText->SetShadowTextColor(22, 18, 12, 180);
+        mNpcLabelText = NpcLabelText;
+    }
+
     auto SupportText =
         CreateWidget<CTextBlock>("TopHud_StatusSupportText", 20).lock();
 
     if (SupportText)
     {
         SupportText->SetText(TEXT("0%"));
-        SupportText->SetFontSize(15.f);
+        SupportText->SetFontSize(20.f);
         SupportText->SetAlignH(ETextAlignH::Left);
         SupportText->SetAlignV(ETextAlignV::Middle);
         SupportText->SetTextColor(245, 235, 210, 255);
@@ -353,6 +404,22 @@ bool CTopHudWidget::Init()
         SupportText->SetShadowOffset(1.f, 1.f);
         SupportText->SetShadowTextColor(16, 16, 16, 220);
         mSupportText = SupportText;
+    }
+
+    auto SupportLabelText =
+        CreateWidget<CTextBlock>("TopHud_StatusSupportLabelText", 20).lock();
+
+    if (SupportLabelText)
+    {
+        SupportLabelText->SetText(TEXT("지지율"));
+        SupportLabelText->SetFontSize(12.f);
+        SupportLabelText->SetAlignH(ETextAlignH::Left);
+        SupportLabelText->SetAlignV(ETextAlignV::Middle);
+        SupportLabelText->SetTextColor(172, 146, 98, 255);
+        SupportLabelText->EnableShadow(true);
+        SupportLabelText->SetShadowOffset(1.f, 1.f);
+        SupportLabelText->SetShadowTextColor(22, 18, 12, 180);
+        mSupportLabelText = SupportLabelText;
     }
 
     auto GameOverDim =
@@ -435,6 +502,7 @@ bool CTopHudWidget::Init()
     }
 
     mMenuButtons.resize(GMenuButtonCount);
+    mMenuButtonTexts.resize(GMenuButtonCount);
 
     for (int i = 0; i < GMenuButtonCount; ++i)
     {
@@ -464,6 +532,22 @@ bool CTopHudWidget::Init()
             GMenuIcons[i]);
 
         mMenuButtons[i] = Button;
+
+        auto MenuText = CreateWidget<CTextBlock>(
+            "TopHud_MenuText_" + std::to_string(i + 1), 18).lock();
+
+        if (!MenuText)
+            continue;
+
+        MenuText->SetText(GMenuLabels[i]);
+        MenuText->SetFontSize(12.f);
+        MenuText->SetAlignH(ETextAlignH::Center);
+        MenuText->SetAlignV(ETextAlignV::Middle);
+        MenuText->SetTextColor(240, 228, 204, 255);
+        MenuText->EnableShadow(true);
+        MenuText->SetShadowOffset(1.f, 1.f);
+        MenuText->SetShadowTextColor(18, 16, 14, 210);
+        mMenuButtonTexts[i] = MenuText;
     }
 
     return true;
@@ -483,7 +567,7 @@ void CTopHudWidget::RefreshData()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
 
     if (!MainWorld)
         return;
@@ -543,14 +627,13 @@ void CTopHudWidget::RefreshData()
         SupportText->SetText(Buffer);
     }
 
+    const int Day = MainWorld->GetSimulationDay();
     const int Month = MainWorld->GetSimulationMonth();
     const int Year = MainWorld->GetSimulationYear();
 
     if (DateText)
     {
-        wchar_t Buffer[64] = {};
-        swprintf_s(Buffer, L"%d월, %04d", Month, Year);
-        DateText->SetText(Buffer);
+        DateText->SetText(FormatHudDate(Year, Month, Day).c_str());
     }
 
     if (ElectionText)
@@ -559,13 +642,13 @@ void CTopHudWidget::RefreshData()
 
         if (ElectionStatus.GameLost)
         {
-            ElectionLabel = L"정권 상실";
+            ElectionLabel = L"선거 패배";
             ElectionText->SetTextColor(232, 86, 72, 255);
         }
         else
         {
             ElectionLabel =
-                L"선거 " +
+                L"차기 선거 " +
                 FormatDate(
                     ElectionStatus.NextElectionYear,
                     ElectionStatus.NextElectionMonth,
@@ -573,24 +656,23 @@ void CTopHudWidget::RefreshData()
 
             if (DaysUntilElection >= 0)
             {
-                ElectionLabel +=
-                    L" / " +
-                    std::to_wstring(DaysUntilElection) +
-                    L"일";
+                ElectionLabel += L" | ";
+                ElectionLabel += std::to_wstring(DaysUntilElection);
+                ElectionLabel += L"일";
             }
 
             if (ElectionWarningActive)
             {
+                ElectionLabel += L" | ";
                 ElectionLabel +=
-                    L" / " +
                     std::wstring(
                         GetElectionWarningTierLabel(ElectionWarningScore));
             }
             else if (ElectionStatus.HasRecordedElection)
             {
                 ElectionLabel += ElectionStatus.IncumbentWonLastElection ?
-                    L" / 승리" :
-                    L" / 패배";
+                    L" | 직전 승리" :
+                    L" | 직전 패배";
             }
 
             if (ElectionWarningScore >= 0.78)
@@ -614,26 +696,23 @@ void CTopHudWidget::RefreshData()
 
     if (EventText)
     {
-        std::wstring EventLabel = L"정치 경고 없음";
+        std::wstring EventLabel = L"현재 상태 안정";
 
         if (TaxEventStatus.Active)
         {
+            EventLabel = std::wstring(L"경고 ") + TaxEventStatus.Title;
+
             if (ElectionWarningActive)
             {
-                EventLabel =
-                    L"선거 경고: " +
-                    TaxEventStatus.Title +
-                    L" / " +
-                    GetElectionWarningTierLabel(ElectionWarningScore);
+                EventLabel += L" | ";
+                EventLabel += GetElectionWarningTierLabel(ElectionWarningScore);
             }
             else
             {
-                EventLabel =
-                    L"경고: " +
-                    TaxEventStatus.Title +
-                    L" (" +
-                    std::to_wstring((std::max)(0, TaxEventStatus.RemainingDays)) +
-                    L"일)";
+                EventLabel += L" | ";
+                EventLabel +=
+                    std::to_wstring((std::max)(0, TaxEventStatus.RemainingDays));
+                EventLabel += L"일";
             }
 
             if (ElectionWarningScore >= 0.78 ||
@@ -653,10 +732,14 @@ void CTopHudWidget::RefreshData()
         }
         else if (ElectionWarningActive)
         {
-            EventLabel =
-                L"선거 경고: 지지 기반 흔들림 (" +
-                std::to_wstring(DaysUntilElection) +
-                L"일)";
+            EventLabel = L"선거 경고 | 지지 기반 흔들림";
+
+            if (DaysUntilElection >= 0)
+            {
+                EventLabel += L" | ";
+                EventLabel += std::to_wstring(DaysUntilElection);
+                EventLabel += L"일";
+            }
 
             if (ElectionWarningScore >= 0.78)
                 EventText->SetTextColor(238, 108, 90, 255);
@@ -668,7 +751,8 @@ void CTopHudWidget::RefreshData()
         else if (TaxEventStatus.NotificationDays > 0 &&
             !TaxEventStatus.Summary.empty())
         {
-            EventLabel = L"최근 경고: " + TaxEventStatus.Summary;
+            EventLabel = std::wstring(L"최근 경고 | ") +
+                TaxEventStatus.Summary;
             EventText->SetTextColor(228, 214, 188, 255);
         }
         else
@@ -752,19 +836,12 @@ void CTopHudWidget::RefreshLayout()
     const float ScreenWidth = static_cast<float>(Resolution.Width);
     const float ScreenHeight = static_cast<float>(Resolution.Height);
 
-    const float TopHudScale =
-        (std::max)(0.62f, (std::min)(1.f, ScreenWidth / 1920.f));
-    const float TopHudPanelX = 16.f;
-    const float TopHudPanelW = 303.f * TopHudScale;
-    const float TopHudPanelH = 156.f * TopHudScale;
-    const float TopHudPanelY = (std::max)(
-        12.f, ScreenHeight - TopHudPanelH - 18.f);
-
     auto SpeedPanel = mSpeedPanel.lock();
     auto TimeBarBack = mTimeBarBack.lock();
     auto TimeBarFill = mTimeBarFill.lock();
     auto DateText = mDateText.lock();
     auto BudgetText = mBudgetText.lock();
+    auto BudgetLabelText = mBudgetLabelText.lock();
     auto StatusBar = mStatusBar.lock();
     auto StatusMoneyIcon = mStatusMoneyIcon.lock();
     auto StatusNpcIcon = mStatusNpcIcon.lock();
@@ -772,27 +849,46 @@ void CTopHudWidget::RefreshLayout()
     auto ElectionText = mElectionText.lock();
     auto TaxPolicyText = mTaxPolicyText.lock();
     auto EventText = mEventText.lock();
+    auto NpcLabelText = mNpcLabelText.lock();
     auto NpcText = mNpcText.lock();
+    auto SupportLabelText = mSupportLabelText.lock();
     auto SupportText = mSupportText.lock();
     auto GameOverDim = mGameOverDim.lock();
     auto GameOverPanel = mGameOverPanel.lock();
     auto GameOverTitleText = mGameOverTitleText.lock();
     auto GameOverBodyText = mGameOverBodyText.lock();
+    const float TopHudScale =
+        (std::max)(0.72f, (std::min)(1.05f, ScreenWidth / 1920.f));
+    const float TopHudPanelX = 16.f;
+    const float TopHudPanelW = 388.f * TopHudScale;
+    const float TopHudPanelH = 182.f * TopHudScale;
+    const float TopHudPanelY = (std::max)(
+        12.f, ScreenHeight - TopHudPanelH - 18.f);
 
     const float StatusScale =
-        (std::max)(0.58f, (std::min)(0.78f, ScreenWidth / 2400.f));
+        (std::max)(0.72f, (std::min)(1.05f, ScreenWidth / 1920.f));
     const float StatusX = 14.f;
     const float StatusY = 10.f;
-    const float StatusW = 504.f * StatusScale;
-    const float StatusH = 76.f * StatusScale;
-    const float StatusIconSize = 50.f * StatusScale * 0.58f;
-    const float StatusIconY =
-        StatusY + (StatusH - StatusIconSize) * 0.5f - 1.f;
-    const float MoneyIconX = StatusX + 132.f * StatusScale;
-    const float NpcIconX = StatusX + 252.f * StatusScale;
-    const float SupportIconX = StatusX + 362.f * StatusScale;
-    const float StatusTextY = StatusY + 2.f * StatusScale;
-    const float StatusTextH = StatusH - 4.f * StatusScale;
+    const float StatusPaddingX = 20.f * StatusScale;
+    const float StatusBlockGap = 18.f * StatusScale;
+    const float StatusMoneyBlockW = 218.f * StatusScale;
+    const float StatusNpcBlockW = 128.f * StatusScale;
+    const float StatusSupportBlockW = 132.f * StatusScale;
+    const float StatusW =
+        StatusPaddingX * 2.f +
+        StatusMoneyBlockW +
+        StatusNpcBlockW +
+        StatusSupportBlockW +
+        StatusBlockGap * 2.f;
+    const float StatusH = 94.f * StatusScale;
+    const float StatusIconSize = 26.f * StatusScale;
+    const float StatusLabelY = StatusY + 12.f * StatusScale;
+    const float StatusValueY = StatusY + 30.f * StatusScale;
+    const float StatusBlockMoneyX = StatusX + StatusPaddingX;
+    const float StatusBlockNpcX =
+        StatusBlockMoneyX + StatusMoneyBlockW + StatusBlockGap;
+    const float StatusBlockSupportX =
+        StatusBlockNpcX + StatusNpcBlockW + StatusBlockGap;
 
     if (StatusBar)
     {
@@ -800,47 +896,56 @@ void CTopHudWidget::RefreshLayout()
         StatusBar->SetSize(StatusW, StatusH);
     }
 
-    if (StatusMoneyIcon)
-    {
-        StatusMoneyIcon->SetPos(MoneyIconX, StatusIconY);
-        StatusMoneyIcon->SetSize(StatusIconSize, StatusIconSize);
-    }
+    auto LayoutStatusBlock =
+        [StatusIconSize, StatusLabelY, StatusValueY, StatusScale](
+            const std::shared_ptr<CImage>& Icon,
+            const std::shared_ptr<CTextBlock>& LabelText,
+            const std::shared_ptr<CTextBlock>& ValueText,
+            float BlockX,
+            float BlockW)
+        {
+            if (Icon)
+            {
+                Icon->SetPos(BlockX, StatusValueY + 1.f * StatusScale);
+                Icon->SetSize(StatusIconSize, StatusIconSize);
+            }
 
-    if (StatusNpcIcon)
-    {
-        StatusNpcIcon->SetPos(NpcIconX, StatusIconY);
-        StatusNpcIcon->SetSize(StatusIconSize, StatusIconSize);
-    }
+            const float TextX = BlockX + StatusIconSize + 10.f * StatusScale;
+            const float TextW = BlockW - StatusIconSize - 10.f * StatusScale;
 
-    if (StatusSupportIcon)
-    {
-        StatusSupportIcon->SetPos(SupportIconX, StatusIconY);
-        StatusSupportIcon->SetSize(StatusIconSize, StatusIconSize);
-    }
+            if (LabelText)
+            {
+                LabelText->SetFontSize(12.f * StatusScale);
+                LabelText->SetPos(TextX, StatusLabelY);
+                LabelText->SetSize(TextW, 16.f * StatusScale);
+            }
 
-    if (BudgetText)
-    {
-        BudgetText->SetPos(
-            MoneyIconX + StatusIconSize + 5.f * StatusScale,
-            StatusTextY);
-        BudgetText->SetSize(108.f * StatusScale, StatusTextH);
-    }
+            if (ValueText)
+            {
+                ValueText->SetFontSize(22.f * StatusScale);
+                ValueText->SetPos(TextX, StatusValueY);
+                ValueText->SetSize(TextW, 30.f * StatusScale);
+            }
+        };
 
-    if (NpcText)
-    {
-        NpcText->SetPos(
-            NpcIconX + StatusIconSize + 5.f * StatusScale,
-            StatusTextY);
-        NpcText->SetSize(68.f * StatusScale, StatusTextH);
-    }
-
-    if (SupportText)
-    {
-        SupportText->SetPos(
-            SupportIconX + StatusIconSize + 5.f * StatusScale,
-            StatusTextY);
-        SupportText->SetSize(72.f * StatusScale, StatusTextH);
-    }
+    LayoutStatusBlock(
+        StatusMoneyIcon,
+        BudgetLabelText,
+        BudgetText,
+        StatusBlockMoneyX,
+        StatusMoneyBlockW);
+    LayoutStatusBlock(
+        StatusNpcIcon,
+        NpcLabelText,
+        NpcText,
+        StatusBlockNpcX,
+        StatusNpcBlockW);
+    LayoutStatusBlock(
+        StatusSupportIcon,
+        SupportLabelText,
+        SupportText,
+        StatusBlockSupportX,
+        StatusSupportBlockW);
 
     if (SpeedPanel)
     {
@@ -848,10 +953,10 @@ void CTopHudWidget::RefreshLayout()
         SpeedPanel->SetSize(TopHudPanelW, TopHudPanelH);
     }
 
-    const float TimeBarX = TopHudPanelX + 62.f * TopHudScale;
-    const float TimeBarY = TopHudPanelY + 10.f * TopHudScale;
-    const float TimeBarW = 177.f * TopHudScale;
-    const float TimeBarH = 13.f * TopHudScale;
+    const float TimeBarX = TopHudPanelX + 74.f * TopHudScale;
+    const float TimeBarY = TopHudPanelY + 16.f * TopHudScale;
+    const float TimeBarW = 226.f * TopHudScale;
+    const float TimeBarH = 14.f * TopHudScale;
 
     if (TimeBarBack)
     {
@@ -869,41 +974,45 @@ void CTopHudWidget::RefreshLayout()
 
     if (DateText)
     {
+        DateText->SetFontSize(22.f * TopHudScale);
         DateText->SetPos(
-            TopHudPanelX + 62.f * TopHudScale,
-            TopHudPanelY + 24.f * TopHudScale);
-        DateText->SetSize(170.f * TopHudScale, 20.f * TopHudScale);
+            TopHudPanelX + 74.f * TopHudScale,
+            TopHudPanelY + 34.f * TopHudScale);
+        DateText->SetSize(240.f * TopHudScale, 28.f * TopHudScale);
     }
 
     if (ElectionText)
     {
+        ElectionText->SetFontSize(15.f * TopHudScale);
         ElectionText->SetPos(
-            TopHudPanelX + 62.f * TopHudScale,
-            TopHudPanelY + 44.f * TopHudScale);
-        ElectionText->SetSize(182.f * TopHudScale, 18.f * TopHudScale);
+            TopHudPanelX + 74.f * TopHudScale,
+            TopHudPanelY + 68.f * TopHudScale);
+        ElectionText->SetSize(248.f * TopHudScale, 22.f * TopHudScale);
     }
 
     if (TaxPolicyText)
     {
+        TaxPolicyText->SetFontSize(13.f * TopHudScale);
         TaxPolicyText->SetPos(
-            TopHudPanelX + 62.f * TopHudScale,
-            TopHudPanelY + 60.f * TopHudScale);
-        TaxPolicyText->SetSize(182.f * TopHudScale, 16.f * TopHudScale);
+            TopHudPanelX + 74.f * TopHudScale,
+            TopHudPanelY + 92.f * TopHudScale);
+        TaxPolicyText->SetSize(248.f * TopHudScale, 18.f * TopHudScale);
     }
 
     if (EventText)
     {
+        EventText->SetFontSize(13.5f * TopHudScale);
         EventText->SetPos(
-            TopHudPanelX + 62.f * TopHudScale,
-            TopHudPanelY + 76.f * TopHudScale);
-        EventText->SetSize(206.f * TopHudScale, 16.f * TopHudScale);
+            TopHudPanelX + 74.f * TopHudScale,
+            TopHudPanelY + 114.f * TopHudScale);
+        EventText->SetSize(276.f * TopHudScale, 34.f * TopHudScale);
     }
 
-    const float SpeedButtonSize = 40.f * TopHudScale;
-    const float SpeedButtonGap = 44.f * TopHudScale;
+    const float SpeedButtonSize = 44.f * TopHudScale;
+    const float SpeedButtonStep = 52.f * TopHudScale;
     const float SpeedButtonY =
-        TopHudPanelY + TopHudPanelH - SpeedButtonSize - 14.f * TopHudScale;
-    const float SpeedButtonStartX = TopHudPanelX + 18.f * TopHudScale;
+        TopHudPanelY + TopHudPanelH - SpeedButtonSize - 18.f * TopHudScale;
+    const float SpeedButtonStartX = TopHudPanelX + 24.f * TopHudScale;
 
     for (int i = 0; i < static_cast<int>(mSpeedButtons.size()); ++i)
     {
@@ -913,42 +1022,60 @@ void CTopHudWidget::RefreshLayout()
             continue;
 
         SpeedButton->SetPos(
-            SpeedButtonStartX + SpeedButtonGap * static_cast<float>(i),
+            SpeedButtonStartX + SpeedButtonStep * static_cast<float>(i),
             SpeedButtonY);
         SpeedButton->SetSize(SpeedButtonSize, SpeedButtonSize);
     }
 
-    float MenuButtonSize = 48.f * TopHudScale;
-    float MenuButtonGap = 6.f * TopHudScale;
+    float MenuButtonSize = 60.f * TopHudScale;
+    float MenuButtonGap = 10.f * TopHudScale;
+    float MenuLabelGap = 8.f * TopHudScale;
     const float MenuStartX =
-        TopHudPanelX + TopHudPanelW + 24.f * TopHudScale;
-    const float MenuY = TopHudPanelY + 4.f * TopHudScale;
+        TopHudPanelX + TopHudPanelW + 26.f * TopHudScale;
+    const float MenuY = TopHudPanelY + 8.f * TopHudScale;
 
     const float WantedMenuWidth =
         MenuButtonSize * GMenuButtonCount +
         MenuButtonGap * static_cast<float>(GMenuButtonCount - 1);
     const float MaxMenuWidth =
-        (std::max)(80.f, ScreenWidth - MenuStartX - 14.f);
+        (std::max)(120.f, ScreenWidth - MenuStartX - 14.f);
 
     if (WantedMenuWidth > MaxMenuWidth)
     {
         const float MenuScale =
-            (std::max)(0.62f, MaxMenuWidth / WantedMenuWidth);
+            (std::max)(0.70f, MaxMenuWidth / WantedMenuWidth);
         MenuButtonSize *= MenuScale;
         MenuButtonGap *= MenuScale;
+        MenuLabelGap *= MenuScale;
     }
+
+    const float MenuTextFontSize = 12.5f * MenuButtonSize / 60.f;
+    const float MenuTextHeight = 18.f * MenuButtonSize / 60.f;
 
     for (int i = 0; i < static_cast<int>(mMenuButtons.size()); ++i)
     {
         auto MenuButton = mMenuButtons[i].lock();
+        auto MenuText = mMenuButtonTexts[i].lock();
+        const float MenuButtonX =
+            MenuStartX +
+            (MenuButtonSize + MenuButtonGap) * static_cast<float>(i);
 
-        if (!MenuButton)
-            continue;
+        if (MenuButton)
+        {
+            MenuButton->SetPos(MenuButtonX, MenuY);
+            MenuButton->SetSize(MenuButtonSize, MenuButtonSize);
+        }
 
-        MenuButton->SetPos(
-            MenuStartX + (MenuButtonSize + MenuButtonGap) * static_cast<float>(i),
-            MenuY);
-        MenuButton->SetSize(MenuButtonSize, MenuButtonSize);
+        if (MenuText)
+        {
+            MenuText->SetFontSize(MenuTextFontSize);
+            MenuText->SetPos(
+                MenuButtonX - MenuButtonSize * 0.10f,
+                MenuY + MenuButtonSize + MenuLabelGap);
+            MenuText->SetSize(
+                MenuButtonSize * 1.20f,
+                MenuTextHeight);
+        }
     }
 
     const float OverlayWidth = ScreenWidth;
@@ -1038,7 +1165,7 @@ void CTopHudWidget::OnConstructionButtonClick()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
 
     if (MainWorld && MainWorld->GetElectionStatus().GameLost)
         return;
@@ -1064,7 +1191,7 @@ void CTopHudWidget::OnAlmanacButtonClick()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
 
     if (MainWorld && MainWorld->GetElectionStatus().GameLost)
         return;
@@ -1090,7 +1217,7 @@ void CTopHudWidget::OnEdictsButtonClick()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
 
     if (MainWorld && MainWorld->GetElectionStatus().GameLost)
         return;
@@ -1112,3 +1239,4 @@ void CTopHudWidget::OnEdictsButtonClick()
 void CTopHudWidget::OnAnyButtonClick()
 {
 }
+

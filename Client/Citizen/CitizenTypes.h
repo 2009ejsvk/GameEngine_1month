@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 // 시민 FSM 상태
 enum class ECitizenState
 {
@@ -15,6 +17,55 @@ enum class ECitizenState
     GoingToTeamsterSource,
     GoingToTeamsterHarbor,
     GoingToTeamsterOffice
+};
+
+enum class ECitizenEducationLevel
+{
+    Uneducated = 0,
+    HighSchool,
+    College
+};
+
+inline const wchar_t* GetCitizenEducationDisplayName(
+    ECitizenEducationLevel Level)
+{
+    switch (Level)
+    {
+    case ECitizenEducationLevel::HighSchool:
+        return L"고졸";
+    case ECitizenEducationLevel::College:
+        return L"대졸";
+    default:
+        return L"무학력";
+    }
+}
+
+enum class ECitizenWealthLevel
+{
+    Poor = 0,
+    WellOff,
+    Rich
+};
+
+inline const wchar_t* GetCitizenWealthDisplayName(ECitizenWealthLevel Level)
+{
+    switch (Level)
+    {
+    case ECitizenWealthLevel::WellOff:
+        return L"유복";
+    case ECitizenWealthLevel::Rich:
+        return L"부유";
+    default:
+        return L"가난";
+    }
+}
+
+struct FCitizenIdentityProfile
+{
+    ECitizenEducationLevel EducationLevel =
+        ECitizenEducationLevel::Uneducated;
+    ECitizenWealthLevel WealthLevel = ECitizenWealthLevel::Poor;
+    bool IsImmigrant = true;
 };
 
 // 시민 만족도 (행복 5요소 + 부가 항목)
@@ -91,6 +142,29 @@ struct FNpcPoliticalProfile
         default: return Economy;
         }
     }
+};
+
+struct FCitizenAssignmentProfile
+{
+    std::string HomeBuildingName;
+    std::string WorkBuildingName;
+    std::string FoodBuildingName;
+    std::string FunBuildingName;
+
+    bool HasCoreAssignments() const
+    {
+        return !HomeBuildingName.empty() &&
+            !WorkBuildingName.empty() &&
+            !FoodBuildingName.empty();
+    }
+};
+
+struct FCitizenProfile
+{
+    FCitizenIdentityProfile Identity;
+    FCitizenAssignmentProfile Assignments;
+    FNpcSatisfaction Satisfaction;
+    FNpcPoliticalProfile Politics;
 };
 
 // 표시 이름 헬퍼

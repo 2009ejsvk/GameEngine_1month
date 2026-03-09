@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Vector4.h"
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <vector>
 
 // 건물 카탈로그 카테고리 번호.
@@ -16,6 +19,254 @@ enum class EBuildingCategory
     Tourism         = 6,  // 관광업
     PublicService   = 7,  // 공익 서비스
     Count           = 8
+};
+
+enum class EBuildingEra
+{
+    Colonial = 0,
+    WorldWars,
+    ColdWar,
+    Modern
+};
+
+inline const wchar_t* GetBuildingEraDisplayName(EBuildingEra Era)
+{
+    switch (Era)
+    {
+    case EBuildingEra::Colonial:
+        return L"식민지 시대";
+    case EBuildingEra::WorldWars:
+        return L"세계대전 시대";
+    case EBuildingEra::ColdWar:
+        return L"냉전 시대";
+    case EBuildingEra::Modern:
+        return L"현대 시대";
+    default:
+        return L"시대 미정";
+    }
+}
+
+enum class EBuildingHousingClass
+{
+    None = 0,
+    Collective,
+    Standard,
+    Elite
+};
+
+enum class EBuildingLeisureClass
+{
+    None = 0,
+    General,
+    Cultural,
+    Luxury
+};
+
+enum class ETouristPreference
+{
+    None = 0,
+    Cultural,
+    Family,
+    Backpacker,
+    Relaxation,
+    ThrillSeeker,
+    Celebrity
+};
+
+inline const wchar_t* GetTouristPreferenceDisplayName(
+    ETouristPreference Preference)
+{
+    switch (Preference)
+    {
+    case ETouristPreference::Cultural:
+        return L"문화";
+    case ETouristPreference::Family:
+        return L"아동";
+    case ETouristPreference::Backpacker:
+        return L"배낭여행";
+    case ETouristPreference::Relaxation:
+        return L"휴양";
+    case ETouristPreference::ThrillSeeker:
+        return L"스릴중독";
+    case ETouristPreference::Celebrity:
+        return L"유명인";
+    default:
+        return L"미기재";
+    }
+}
+
+enum class EResourceType
+{
+    None = 0,
+    Food,
+    RawGoods,
+    ManufacturedGoods,
+    LuxuryGoods,
+    Count
+};
+
+inline const wchar_t* GetResourceTypeDisplayName(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::Food:
+        return L"식량";
+    case EResourceType::RawGoods:
+        return L"원자재";
+    case EResourceType::ManufacturedGoods:
+        return L"공산품";
+    case EResourceType::LuxuryGoods:
+        return L"고급 상품";
+    default:
+        return L"없음";
+    }
+}
+
+inline bool IsExportableResourceType(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::Food:
+    case EResourceType::RawGoods:
+    case EResourceType::ManufacturedGoods:
+    case EResourceType::LuxuryGoods:
+        return true;
+    default:
+        return false;
+    }
+}
+
+struct FResourceInventory
+{
+    std::array<int, static_cast<size_t>(EResourceType::Count)> Amounts = {};
+
+    int Get(EResourceType Type) const
+    {
+        const size_t Index = static_cast<size_t>(Type);
+
+        if (Index >= Amounts.size())
+            return 0;
+
+        return Amounts[Index];
+    }
+
+    int GetTotal() const
+    {
+        int Total = 0;
+
+        for (size_t Index = 0; Index < Amounts.size(); ++Index)
+            Total += Amounts[Index];
+
+        return Total;
+    }
+
+    int GetExportableTotal() const
+    {
+        int Total = 0;
+
+        for (size_t Index = 0; Index < Amounts.size(); ++Index)
+        {
+            const EResourceType Type =
+                static_cast<EResourceType>(Index);
+
+            if (!IsExportableResourceType(Type))
+                continue;
+
+            Total += Amounts[Index];
+        }
+
+        return Total;
+    }
+
+    void Add(EResourceType Type, int Amount, int MaxPerType)
+    {
+        if (Amount <= 0 || Type == EResourceType::None)
+            return;
+
+        const size_t Index = static_cast<size_t>(Type);
+
+        if (Index >= Amounts.size())
+            return;
+
+        Amounts[Index] = (std::min)(MaxPerType, Amounts[Index] + Amount);
+    }
+
+    bool Consume(EResourceType Type, int Amount)
+    {
+        if (Amount <= 0)
+            return true;
+
+        if (Type == EResourceType::None)
+            return false;
+
+        const size_t Index = static_cast<size_t>(Type);
+
+        if (Index >= Amounts.size())
+            return false;
+
+        if (Amounts[Index] < Amount)
+            return false;
+
+        Amounts[Index] -= Amount;
+        return true;
+    }
+
+    bool ConsumeAnyExportable(int Amount, EResourceType& OutType)
+    {
+        if (Amount <= 0)
+        {
+            OutType = EResourceType::None;
+            return true;
+        }
+
+        for (size_t Index = 0; Index < Amounts.size(); ++Index)
+        {
+            const EResourceType Type =
+                static_cast<EResourceType>(Index);
+
+            if (!IsExportableResourceType(Type) ||
+                Amounts[Index] < Amount)
+            {
+                continue;
+            }
+
+            Amounts[Index] -= Amount;
+            OutType = Type;
+            return true;
+        }
+
+        OutType = EResourceType::None;
+        return false;
+    }
+
+    bool ConsumeExportableAmount(int Amount)
+    {
+        if (Amount <= 0)
+            return true;
+
+        if (GetExportableTotal() < Amount)
+            return false;
+
+        int Remaining = Amount;
+
+        for (size_t Index = 0; Index < Amounts.size() && Remaining > 0; ++Index)
+        {
+            const EResourceType Type =
+                static_cast<EResourceType>(Index);
+
+            if (!IsExportableResourceType(Type) ||
+                Amounts[Index] <= 0)
+            {
+                continue;
+            }
+
+            const int Consumed = (std::min)(Amounts[Index], Remaining);
+            Amounts[Index] -= Consumed;
+            Remaining -= Consumed;
+        }
+
+        return Remaining == 0;
+    }
 };
 
 // PlacementController 가 생성할 비주얼 오브젝트 종류.

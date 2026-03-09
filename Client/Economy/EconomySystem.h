@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Politics/PoliticalTypes.h"
+#include <string>
 
 class CWorld;
 
@@ -19,10 +20,67 @@ namespace EconomySystem
         long long NetChange             = 0;
     };
 
+    struct FWorldSettlementResult
+    {
+        FDailyResult BaseResult;
+        long long AdjustedTaxIncome = 0;
+        long long AdjustedConsumptionTaxIncome = 0;
+        long long AdjustedIncomeTaxIncome = 0;
+        long long AdjustedPropertyTaxIncome = 0;
+        long long DailyEdictCost = 0;
+        long long NetBudgetChange = 0;
+    };
+
     // 하루 경제 정산을 수행하고 결과를 반환한다.
     // Budget은 직접 갱신하지 않으며 호출자가 NetChange를 반영한다.
     FDailyResult ApplyDailySettlement(
         CWorld* World,
         int DaysInMonth,
-        const FGovernmentProfile& GovernmentProfile);
+        const FGovernmentProfile& GovernmentProfile,
+        const FTaxPolicyEventStatus* TaxEventStatus = nullptr);
+
+    FWorldSettlementResult ApplyDailyWorldSettlement(
+        CWorld* World,
+        int DaysInMonth,
+        const FGovernmentProfile& GovernmentProfile,
+        const FTaxPolicyEventStatus& TaxEventStatus,
+        const std::vector<FGovernmentEdictState>& GovernmentEdicts,
+        const FGovernmentEdictModifiers& EdictModifiers);
+
+    int ApplyTaxPolicyRateDelta(
+        FTaxPolicy& TaxPolicy,
+        ETaxPolicyType Type,
+        int DeltaPercent);
+
+    bool AdjustTaxPolicy(
+        FTaxPolicy& TaxPolicy,
+        ETaxPolicyType Type,
+        int DeltaPercent,
+        std::wstring& OutMessage);
+
+    ETaxPolicyEventType GetRequiredTaxPolicyEventForEdict(
+        EGovernmentEdictType Type);
+
+    const wchar_t* GetTaxPolicyEventTitle(ETaxPolicyEventType Type);
+
+    void ResolveTaxPolicyEvent(
+        FTaxPolicyEventStatus& InOutTaxEventStatus,
+        bool Success);
+
+    void ApplyDailyTaxPolicyEventEffects(
+        CWorld* World,
+        const FTaxPolicyEventStatus& TaxEventStatus);
+
+    void TickTaxPolicyEvents(
+        const FPoliticalWorldSnapshot& Snapshot,
+        const FGovernmentProfile& GovernmentProfile,
+        int SimulationYear,
+        int SimulationMonth,
+        int SimulationDay,
+        long long& InOutNationalBudget,
+        long long& InOutLastDailyNetChange,
+        int& InOutWorkerTaxPressureDays,
+        int& InOutPropertyTaxPressureDays,
+        int& InOutBudgetCrisisPressureDays,
+        FTaxPolicyEventStatus& InOutTaxEventStatus);
 }

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Widget.h"
+#include <functional>
+#include <utility>
 
 namespace EButtonState
 {
@@ -123,6 +125,13 @@ public:
 	virtual CButton* Clone()	const;
 
 public:
+    void SetEventCallback(
+        EButtonEventState::Type Type,
+        std::function<void()> Func)
+    {
+        mEventCallback[Type] = std::move(Func);
+    }
+
 	template <typename T>
 	void SetEventCallback(EButtonEventState::Type Type,
 		T* Obj, void(T::* Func)())

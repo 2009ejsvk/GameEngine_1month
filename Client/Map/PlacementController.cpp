@@ -14,31 +14,6 @@
 #include <cmath>
 #include <Windows.h>
 
-namespace
-{
-    std::string WideToUtf8(const std::wstring& Wide)
-    {
-        if (Wide.empty())
-            return {};
-
-        const int Len = WideCharToMultiByte(
-            CP_UTF8, 0,
-            Wide.c_str(), static_cast<int>(Wide.size()),
-            nullptr, 0, nullptr, nullptr);
-
-        if (Len <= 0)
-            return {};
-
-        std::string Result(static_cast<size_t>(Len), '\0');
-        WideCharToMultiByte(
-            CP_UTF8, 0,
-            Wide.c_str(), static_cast<int>(Wide.size()),
-            &Result[0], Len, nullptr, nullptr);
-
-        return Result;
-    }
-}
-
 CPlacementController::CPlacementController()
 {
     SetClassType<CPlacementController>();
@@ -175,21 +150,9 @@ bool CPlacementController::BeginBuildPlacement(
 
     PlacementObject->SetTileMapObject(TileMapObject);
     PlacementObject->SetAutoPlaceOnPrepare(false);
-    PlacementObject->SetBuildingId(SafeBuildingId);
     PlacementObject->SetBuildingSpriteTexturePath(SpriteTexturePath);
-    PlacementObject->SetBuildingKind(Entry.BuildingKind);
-    PlacementObject->SetBuildingDisplayInfo(
-        WideToUtf8(Entry.DisplayName),
-        WideToUtf8(Entry.CategoryName),
-        Entry.Residential,
-        Entry.Capacity,
-        Entry.FoodProvider,
-        Entry.EntertainmentProvider,
-        Entry.HousingSatisfactionCap,
-        Entry.JobSatisfactionCap,
-        Entry.FoodSatisfactionCap,
-        Entry.FunSatisfactionCap);
-    PlacementObject->SetPlacementTemplateType(Entry.TemplateType);
+    PlacementObject->SetBuildingId(SafeBuildingId);
+    PlacementObject->ApplyCatalogEntry(Entry);
 
     auto VisualWeak = World->CreateGameObject<CBuildingVisual>(
         PlacementName + "_Visual");

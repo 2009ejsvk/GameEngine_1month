@@ -1,11 +1,13 @@
 ﻿#include "BuildMenuWidget.h"
 #include "AlmanacWidget.h"
+#include "AlmanacDataProvider.h"
+#include "TropicoUiStyle.h"
 #include "../Map/PlacementAreaObject.h"
 #include "EdictWidget.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementController.h"
 #include "../Politics/EdictSystem.h"
-#include "../World/MainWorld.h"
+#include "../World/MainWorldAccess.h"
 #include "../ObjectNames.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -22,56 +24,15 @@
 
 namespace
 {
+    using namespace TropicoUiAssets;
+    using namespace TropicoUiStyle;
+
     constexpr int CategoryCount = 8;
     constexpr int SlotsPerPage = 15;
     constexpr int SlotColumnCount = 5;
     constexpr int SlotRowCount = 3;
-    constexpr const TCHAR* GBuildMenuPanelTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\5_MainMenu\\CenterPopUp\\T_center_popUp.png");
-    constexpr const TCHAR* GYearbookPanelTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\CenterPopUp\\T_center_popUp.png");
-    constexpr const TCHAR* GMenuTitleRibbonTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_title.png");
-    constexpr const TCHAR* GMenuGridFrameTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_frameContent.png");
-    constexpr const TCHAR* GMenuDetailFrameTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_frameDescription.png");
-    constexpr const TCHAR* GDetailInfoPanelTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\SmallPopup\\T_small_popUp.png");
-    constexpr const TCHAR* GCategoryTabTextureSelected = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\Tabs\\T_bookmark_standard.png");
-    constexpr const TCHAR* GCategoryTabTextureHidden = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\Tabs\\T_bookmark_hidden.png");
-    constexpr const TCHAR* GSlotCardTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg.png");
-    constexpr const TCHAR* GSlotCardHoverTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_hover.png");
-    constexpr const TCHAR* GSlotCardSelectedTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_selected.png");
-    constexpr const TCHAR* GSlotCardDisabledTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_disabled.png");
-    constexpr const TCHAR* GBigTextButtonTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_standard.png");
-    constexpr const TCHAR* GBigTextButtonHoverTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_hover.png");
-    constexpr const TCHAR* GBigTextButtonSelectedTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_selected.png");
-    constexpr const TCHAR* GBigTextButtonDisabledTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_deactivated.png");
-    constexpr const TCHAR* GRoundButtonTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_standard.png");
-    constexpr const TCHAR* GRoundButtonHoverTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_hover.png");
-    constexpr const TCHAR* GRoundButtonSelectedTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_selected.png");
-    constexpr const TCHAR* GScrollTrackTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\Sliderthumb\\T_scrollbar_bg.png");
-    constexpr const TCHAR* GScrollThumbTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\Sliderthumb\\T_scrollbar.png");
-    constexpr const TCHAR* GDropdownArrowTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow.png");
-    constexpr const TCHAR* GDropdownArrowHoverTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow_hover.png");
+    constexpr const TCHAR* GBuildMenuPanelTexture = GMainMenuPanelTexture;
+    constexpr const TCHAR* GYearbookPanelTexture = GModernPanelTexture;
     constexpr const TCHAR* GBlueprintCostIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_blueprint_cost.png");
     constexpr const TCHAR* GConstructionCostIconTexture = TEXT(
@@ -137,139 +98,6 @@ namespace
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_tourism.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_publicServices.png")
     };
-
-
-    void ConfigureDefaultButtonStyle(
-        const std::shared_ptr<CButton>& Button)
-    {
-        if (!Button)
-            return;
-
-        Button->SetTint(EButtonState::Normal,
-            FVector4(0.20f, 0.22f, 0.26f, 0.92f));
-        Button->SetTint(EButtonState::Hovered,
-            FVector4(0.26f, 0.30f, 0.35f, 0.95f));
-        Button->SetTint(EButtonState::Click,
-            FVector4(0.14f, 0.16f, 0.20f, 0.98f));
-        Button->SetTint(EButtonState::Disable,
-            FVector4(0.10f, 0.10f, 0.12f, 0.70f));
-    }
-
-    void ConfigureHighlightedButtonStyle(
-        const std::shared_ptr<CButton>& Button)
-    {
-        if (!Button)
-            return;
-
-        Button->SetTint(EButtonState::Normal,
-            FVector4(0.10f, 0.32f, 0.52f, 0.95f));
-        Button->SetTint(EButtonState::Hovered,
-            FVector4(0.16f, 0.40f, 0.62f, 0.98f));
-        Button->SetTint(EButtonState::Click,
-            FVector4(0.08f, 0.24f, 0.40f, 0.98f));
-        Button->SetTint(EButtonState::Disable,
-            FVector4(0.08f, 0.24f, 0.40f, 0.70f));
-    }
-
-    void ConfigureIconSlotButtonStyle(
-        const std::shared_ptr<CButton>& Button)
-    {
-        if (!Button)
-            return;
-
-        Button->SetTint(EButtonState::Normal,
-            FVector4(1.f, 1.f, 1.f, 0.96f));
-        Button->SetTint(EButtonState::Hovered,
-            FVector4(1.f, 1.f, 1.f, 1.f));
-        Button->SetTint(EButtonState::Click,
-            FVector4(0.80f, 0.80f, 0.80f, 1.f));
-        Button->SetTint(EButtonState::Disable,
-            FVector4(0.35f, 0.35f, 0.35f, 0.75f));
-    }
-
-    void ConfigureCategoryTabButtonStyle(
-        const std::shared_ptr<CButton>& Button,
-        bool Selected)
-    {
-        if (!Button)
-            return;
-
-        if (Selected)
-        {
-            Button->SetTint(EButtonState::Normal,
-                FVector4(1.f, 1.f, 1.f, 1.f));
-            Button->SetTint(EButtonState::Hovered,
-                FVector4(1.f, 1.f, 1.f, 1.f));
-            Button->SetTint(EButtonState::Click,
-                FVector4(0.90f, 0.90f, 0.90f, 1.f));
-            Button->SetTint(EButtonState::Disable,
-                FVector4(0.5f, 0.5f, 0.5f, 0.7f));
-            return;
-        }
-
-        Button->SetTint(EButtonState::Normal,
-            FVector4(0.74f, 0.84f, 0.98f, 0.96f));
-        Button->SetTint(EButtonState::Hovered,
-            FVector4(0.88f, 0.95f, 1.f, 1.f));
-        Button->SetTint(EButtonState::Click,
-            FVector4(0.62f, 0.74f, 0.92f, 1.f));
-        Button->SetTint(EButtonState::Disable,
-            FVector4(0.5f, 0.5f, 0.5f, 0.7f));
-    }
-
-    void ApplyTextureToAllButtonStates(
-        const std::shared_ptr<CButton>& Button,
-        const std::string& TextureKey,
-        const TCHAR* TextureFile)
-    {
-        if (!Button || !TextureFile)
-            return;
-
-        if (!Button->SetTexture(EButtonState::Normal, TextureKey, TextureFile))
-            return;
-
-        Button->SetTexture(EButtonState::Hovered, TextureKey);
-        Button->SetTexture(EButtonState::Click, TextureKey);
-        Button->SetTexture(EButtonState::Disable, TextureKey);
-    }
-
-    void ApplyButtonTextureSet(
-        const std::shared_ptr<CButton>& Button,
-        const std::string& TextureKeyBase,
-        const TCHAR* NormalTexture,
-        const TCHAR* HoverTexture = nullptr,
-        const TCHAR* ClickTexture = nullptr,
-        const TCHAR* DisableTexture = nullptr)
-    {
-        if (!Button || !NormalTexture)
-            return;
-
-        const TCHAR* ResolvedHover = HoverTexture ? HoverTexture : NormalTexture;
-        const TCHAR* ResolvedClick = ClickTexture ? ClickTexture : ResolvedHover;
-        const TCHAR* ResolvedDisable = DisableTexture ? DisableTexture : NormalTexture;
-
-        if (!Button->SetTexture(
-            EButtonState::Normal,
-            TextureKeyBase + "_normal",
-            NormalTexture))
-        {
-            return;
-        }
-
-        Button->SetTexture(
-            EButtonState::Hovered,
-            TextureKeyBase + "_hover",
-            ResolvedHover);
-        Button->SetTexture(
-            EButtonState::Click,
-            TextureKeyBase + "_click",
-            ResolvedClick);
-        Button->SetTexture(
-            EButtonState::Disable,
-            TextureKeyBase + "_disable",
-            ResolvedDisable);
-    }
-
     bool StartsWith(
         const std::wstring& Text,
         const wchar_t* Prefix)
@@ -336,10 +164,56 @@ namespace
         return Result;
     }
 
+    std::wstring BuildHighlightsBlockText(
+        const std::vector<std::wstring>& Highlights)
+    {
+        std::wstring Result = L"핵심 정보";
+
+        if (Highlights.empty())
+        {
+            Result += L"\n- 준비 중";
+            return Result;
+        }
+
+        for (size_t i = 0; i < Highlights.size(); ++i)
+        {
+            Result += L"\n- ";
+            Result += Highlights[i];
+        }
+
+        return Result;
+    }
+
     void AddHighlightFallbacks(
         const FBuildingCatalogEntry& Entry,
         std::vector<std::wstring>& Highlights)
     {
+        if (Highlights.size() < 3)
+        {
+            Highlights.push_back(
+                L"해금 시대: " +
+                std::wstring(GetBuildingEraDisplayName(Entry.UnlockEra)));
+        }
+
+        if (Highlights.size() < 3 &&
+            Entry.RequiredEducationLevel !=
+                ECitizenEducationLevel::Uneducated)
+        {
+            Highlights.push_back(
+                L"필요 학력: " +
+                std::wstring(GetCitizenEducationDisplayName(
+                    Entry.RequiredEducationLevel)));
+        }
+
+        if (Highlights.size() < 3 &&
+            Entry.ProducedResourceType != EResourceType::None)
+        {
+            Highlights.push_back(
+                L"생산 자원: " +
+                std::wstring(GetResourceTypeDisplayName(
+                    Entry.ProducedResourceType)));
+        }
+
         if (Entry.Residential && Highlights.size() < 3 &&
             Entry.HousingSatisfactionCap > 0)
         {
@@ -926,17 +800,6 @@ bool CBuildMenuWidget::Init()
 
     mCategoryButtons.resize(CategoryCount);
     mCategoryButtonIcons.resize(CategoryCount);
-    void (CBuildMenuWidget::* CategoryCallbacks[CategoryCount])() =
-    {
-        &CBuildMenuWidget::OnCategoryInfrastructureClick,
-        &CBuildMenuWidget::OnCategoryFoodResourceClick,
-        &CBuildMenuWidget::OnCategoryIndustryClick,
-        &CBuildMenuWidget::OnCategoryHousingClick,
-        &CBuildMenuWidget::OnCategoryEntertainmentClick,
-        &CBuildMenuWidget::OnCategoryMediaEducationClick,
-        &CBuildMenuWidget::OnCategoryTourismClick,
-        &CBuildMenuWidget::OnCategoryPublicServiceClick
-    };
 
     for (int i = 0; i < CategoryCount; ++i)
     {
@@ -954,8 +817,12 @@ bool CBuildMenuWidget::Init()
             GCategoryTabTextureSelected,
             GCategoryTabTextureHidden);
         ConfigureCategoryTabButtonStyle(Button, false);
-        Button->SetEventCallback<CBuildMenuWidget>(
-            EButtonEventState::Click, this, CategoryCallbacks[i]);
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [this, i]()
+            {
+                SelectCategory(static_cast<EBuildingCategory>(i));
+            });
 
         auto CategoryIcon = CWidget::CreateStaticWidget<CImage>(
             "BuildMenu_CategoryIcon_" + std::to_string(i + 1), mWorld);
@@ -977,43 +844,6 @@ bool CBuildMenuWidget::Init()
     mBuildingButtonIcons.resize(SlotsPerPage);
     mBuildingButtonTexts.resize(SlotsPerPage);
 
-    void (CBuildMenuWidget::* SlotCallbacks[SlotsPerPage])() =
-    {
-        &CBuildMenuWidget::OnSlot0Click,
-        &CBuildMenuWidget::OnSlot1Click,
-        &CBuildMenuWidget::OnSlot2Click,
-        &CBuildMenuWidget::OnSlot3Click,
-        &CBuildMenuWidget::OnSlot4Click,
-        &CBuildMenuWidget::OnSlot5Click,
-        &CBuildMenuWidget::OnSlot6Click,
-        &CBuildMenuWidget::OnSlot7Click,
-        &CBuildMenuWidget::OnSlot8Click,
-        &CBuildMenuWidget::OnSlot9Click,
-        &CBuildMenuWidget::OnSlot10Click,
-        &CBuildMenuWidget::OnSlot11Click,
-        &CBuildMenuWidget::OnSlot12Click,
-        &CBuildMenuWidget::OnSlot13Click,
-        &CBuildMenuWidget::OnSlot14Click
-    };
-    void (CBuildMenuWidget::* SlotHoverCallbacks[SlotsPerPage])() =
-    {
-        &CBuildMenuWidget::OnSlot0Hovered,
-        &CBuildMenuWidget::OnSlot1Hovered,
-        &CBuildMenuWidget::OnSlot2Hovered,
-        &CBuildMenuWidget::OnSlot3Hovered,
-        &CBuildMenuWidget::OnSlot4Hovered,
-        &CBuildMenuWidget::OnSlot5Hovered,
-        &CBuildMenuWidget::OnSlot6Hovered,
-        &CBuildMenuWidget::OnSlot7Hovered,
-        &CBuildMenuWidget::OnSlot8Hovered,
-        &CBuildMenuWidget::OnSlot9Hovered,
-        &CBuildMenuWidget::OnSlot10Hovered,
-        &CBuildMenuWidget::OnSlot11Hovered,
-        &CBuildMenuWidget::OnSlot12Hovered,
-        &CBuildMenuWidget::OnSlot13Hovered,
-        &CBuildMenuWidget::OnSlot14Hovered
-    };
-
     for (int i = 0; i < SlotsPerPage; ++i)
     {
         auto Button = CreateWidget<CButton>(
@@ -1030,10 +860,18 @@ bool CBuildMenuWidget::Init()
             GSlotCardSelectedTexture,
             GSlotCardDisabledTexture);
         ConfigureIconSlotButtonStyle(Button);
-        Button->SetEventCallback<CBuildMenuWidget>(
-            EButtonEventState::Click, this, SlotCallbacks[i]);
-        Button->SetEventCallback<CBuildMenuWidget>(
-            EButtonEventState::Hovered, this, SlotHoverCallbacks[i]);
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [this, i]()
+            {
+                StartPlacementBySlot(i);
+            });
+        Button->SetEventCallback(
+            EButtonEventState::Hovered,
+            [this, i]()
+            {
+                PreviewSlot(i);
+            });
 
         auto SlotContent =
             CWidget::CreateStaticWidget<CWidgetContainer>(
@@ -1073,7 +911,7 @@ bool CBuildMenuWidget::Init()
     {
         DetailTitleText->SetText(TEXT("건물 정보"));
         DetailTitleText->SetFontSize(26.f);
-        DetailTitleText->SetAlignH(ETextAlignH::Center);
+        DetailTitleText->SetAlignH(ETextAlignH::Left);
         DetailTitleText->SetAlignV(ETextAlignV::Middle);
         DetailTitleText->SetTextColor(100, 72, 28, 255);
         DetailTitleText->EnableShadow(true);
@@ -1143,8 +981,8 @@ bool CBuildMenuWidget::Init()
 
     if (DetailInfoText)
     {
-        DetailInfoText->SetText(TEXT("추가 정보\n없음"));
-        DetailInfoText->SetFontSize(18.f);
+        DetailInfoText->SetText(TEXT("핵심 정보\n- 준비 중"));
+        DetailInfoText->SetFontSize(16.f);
         DetailInfoText->SetAlignH(ETextAlignH::Left);
         DetailInfoText->SetAlignV(ETextAlignV::Top);
         DetailInfoText->SetTextColor(56, 56, 56, 255);
@@ -1159,8 +997,8 @@ bool CBuildMenuWidget::Init()
 
     if (DetailBodyText)
     {
-        DetailBodyText->SetText(TEXT("건물 아이콘에 마우스를 올리면 상세 정보가 표시됩니다."));
-        DetailBodyText->SetFontSize(16.f);
+        DetailBodyText->SetText(TEXT("건물을 선택하면 설명과 핵심 정보가 이 영역에 함께 표시됩니다."));
+        DetailBodyText->SetFontSize(15.f);
         DetailBodyText->SetAlignH(ETextAlignH::Left);
         DetailBodyText->SetAlignV(ETextAlignV::Top);
         DetailBodyText->SetTextColor(72, 62, 40, 255);
@@ -1303,12 +1141,12 @@ void CBuildMenuWidget::RefreshLayout()
     const float GridFrameLeft = PanelLeft + HorizontalMargin;
     const float GridFrameTop = PanelTop + HeaderTopPadding + HeaderHeight + 16.f * Scale;
     const float GridFrameWidth = PanelWidth - HorizontalMargin * 2.f;
-    const float GridFrameHeight = PanelHeight - 300.f * Scale;
+    const float GridFrameHeight = PanelHeight - 324.f * Scale;
     const float DetailFrameLeft = GridFrameLeft;
-    const float DetailFrameTop = GridFrameTop + GridFrameHeight + 22.f * Scale;
+    const float DetailFrameTop = GridFrameTop + GridFrameHeight + 18.f * Scale;
     const float DetailFrameWidth = GridFrameWidth;
     const float DetailFrameHeight =
-        PanelTop + PanelHeight - DetailFrameTop - 26.f * Scale;
+        PanelTop + PanelHeight - DetailFrameTop - 22.f * Scale;
 
     auto BuildButton = mBuildButton.lock();
     auto YearbookButton = mYearbookButton.lock();
@@ -1574,7 +1412,7 @@ void CBuildMenuWidget::RefreshLayout()
     }
 
     const float SlotGapX = 12.f * Scale;
-    const float SlotGapY = 16.f * Scale;
+    const float SlotGapY = 14.f * Scale;
     const float SlotLeft = GridFrameLeft + 20.f * Scale;
     const float SlotTop = GridFrameTop + 18.f * Scale;
     const float SlotAreaWidth =
@@ -1588,9 +1426,9 @@ void CBuildMenuWidget::RefreshLayout()
         static_cast<float>(SlotRowCount);
     const float SlotIconHorizontalPadding = 16.f * Scale;
     const float SlotIconTopPadding = 12.f * Scale;
-    const float SlotTextHeight = 40.f * Scale;
+    const float SlotTextHeight = 36.f * Scale;
     const float SlotIconHeight =
-        (std::max)(28.f * Scale, SlotHeight - SlotTextHeight - 22.f * Scale);
+        (std::max)(28.f * Scale, SlotHeight - SlotTextHeight - 20.f * Scale);
 
     for (int i = 0; i < SlotsPerPage; ++i)
     {
@@ -1635,26 +1473,44 @@ void CBuildMenuWidget::RefreshLayout()
     auto DetailConstructionCostText = mDetailConstructionCostText.lock();
     auto DetailInfoText = mDetailInfoText.lock();
     auto DetailBodyText = mDetailBodyText.lock();
-    const float DetailTitleTop = GridFrameTop + GridFrameHeight + 2.f * Scale;
-    const float CostTop = DetailTitleTop + 34.f * Scale;
-    const float CostIconSize = 24.f * Scale;
-    const float CostLeft =
-        PanelLeft + (PanelWidth - 340.f * Scale) * 0.5f;
-    const float DetailBodyLeft = DetailFrameLeft + 18.f * Scale;
-    const float DetailBodyTop = DetailFrameTop + 14.f * Scale;
-    const float DetailBodyWidth = DetailFrameWidth - 36.f * Scale;
-    const float DetailBodyHeight = DetailFrameHeight - 28.f * Scale;
-    const float DetailInfoWidth = 290.f * Scale;
-    const float DetailInfoHeight = 84.f * Scale;
+    const float DetailPadding = 18.f * Scale;
+    const float DetailColumnGap = 16.f * Scale;
+    const float DetailTitleTop = DetailFrameTop + 12.f * Scale;
+    const float DetailTitleHeight = 30.f * Scale;
+    const float CostTop = DetailTitleTop + DetailTitleHeight + 10.f * Scale;
+    const float CostIconSize = 22.f * Scale;
+    const float CostTextHeight = 26.f * Scale;
+    const float CostLabelGap = 6.f * Scale;
+    const float SecondaryCostOffset = 166.f * Scale;
+    const float DetailContentTop = CostTop + CostTextHeight + 12.f * Scale;
+    const float DetailContentHeight = (std::max)(
+        48.f * Scale,
+        DetailFrameHeight - (DetailContentTop - DetailFrameTop) - DetailPadding);
+    float DetailInfoWidth = (std::max)(
+        250.f * Scale,
+        DetailFrameWidth * 0.34f);
+    DetailInfoWidth = (std::min)(
+        DetailInfoWidth,
+        DetailFrameWidth - DetailPadding * 2.f - 220.f * Scale);
+    const float DetailBodyLeft = DetailFrameLeft + DetailPadding;
     const float DetailInfoLeft =
-        DetailFrameLeft + DetailFrameWidth - DetailInfoWidth - 4.f * Scale;
-    const float DetailInfoTop = DetailTitleTop + 8.f * Scale;
+        DetailFrameLeft + DetailFrameWidth - DetailPadding - DetailInfoWidth;
+    const float DetailBodyTop = DetailContentTop;
+    const float DetailInfoTop = DetailContentTop;
+    const float DetailInfoHeight = DetailContentHeight;
+    const float DetailBodyWidth = (std::max)(
+        200.f * Scale,
+        DetailInfoLeft - DetailBodyLeft - DetailColumnGap);
+    const float DetailBodyHeight = DetailContentHeight;
+    const float CostLeft = DetailFrameLeft + DetailPadding;
 
     if (DetailTitleText)
     {
-        DetailTitleText->SetFontSize(26.f * Scale);
-        DetailTitleText->SetPos(PanelLeft + HorizontalMargin, DetailTitleTop);
-        DetailTitleText->SetSize(ContentWidth, 30.f * Scale);
+        DetailTitleText->SetFontSize(24.f * Scale);
+        DetailTitleText->SetPos(DetailFrameLeft + DetailPadding, DetailTitleTop);
+        DetailTitleText->SetSize(
+            DetailFrameWidth - DetailPadding * 2.f,
+            DetailTitleHeight);
     }
 
     if (DetailBlueprintIcon)
@@ -1665,28 +1521,28 @@ void CBuildMenuWidget::RefreshLayout()
 
     if (DetailBlueprintCostText)
     {
-        DetailBlueprintCostText->SetFontSize(18.f * Scale);
+        DetailBlueprintCostText->SetFontSize(17.f * Scale);
         DetailBlueprintCostText->SetPos(
-            CostLeft + CostIconSize + 6.f * Scale,
-            CostTop - 2.f * Scale);
-        DetailBlueprintCostText->SetSize(110.f * Scale, 28.f * Scale);
+            CostLeft + CostIconSize + CostLabelGap,
+            CostTop - 1.f * Scale);
+        DetailBlueprintCostText->SetSize(132.f * Scale, CostTextHeight);
     }
 
     if (DetailConstructionIcon)
     {
         DetailConstructionIcon->SetPos(
-            CostLeft + 150.f * Scale,
+            CostLeft + SecondaryCostOffset,
             CostTop + 1.f * Scale);
         DetailConstructionIcon->SetSize(CostIconSize, CostIconSize);
     }
 
     if (DetailConstructionCostText)
     {
-        DetailConstructionCostText->SetFontSize(18.f * Scale);
+        DetailConstructionCostText->SetFontSize(17.f * Scale);
         DetailConstructionCostText->SetPos(
-            CostLeft + 150.f * Scale + CostIconSize + 6.f * Scale,
-            CostTop - 2.f * Scale);
-        DetailConstructionCostText->SetSize(160.f * Scale, 28.f * Scale);
+            CostLeft + SecondaryCostOffset + CostIconSize + CostLabelGap,
+            CostTop - 1.f * Scale);
+        DetailConstructionCostText->SetSize(180.f * Scale, CostTextHeight);
     }
 
     if (DetailInfoPanel)
@@ -1697,18 +1553,18 @@ void CBuildMenuWidget::RefreshLayout()
 
     if (DetailInfoText)
     {
-        DetailInfoText->SetFontSize(18.f * Scale);
+        DetailInfoText->SetFontSize(16.f * Scale);
         DetailInfoText->SetPos(
-            DetailInfoLeft + 14.f * Scale,
-            DetailInfoTop + 12.f * Scale);
+            DetailInfoLeft + 16.f * Scale,
+            DetailInfoTop + 14.f * Scale);
         DetailInfoText->SetSize(
-            DetailInfoWidth - 28.f * Scale,
-            DetailInfoHeight - 20.f * Scale);
+            DetailInfoWidth - 32.f * Scale,
+            DetailInfoHeight - 28.f * Scale);
     }
 
     if (DetailBodyText)
     {
-        DetailBodyText->SetFontSize(16.f * Scale);
+        DetailBodyText->SetFontSize(15.f * Scale);
         DetailBodyText->SetPos(DetailBodyLeft, DetailBodyTop);
         DetailBodyText->SetSize(DetailBodyWidth, DetailBodyHeight);
     }
@@ -1787,9 +1643,12 @@ void CBuildMenuWidget::ApplyMenuOpenState()
     for (size_t i = 0; i < mBuildingButtons.size(); ++i)
     {
         auto Button = mBuildingButtons[i].lock();
+        const bool HasEntry =
+            i < mVisibleEntryIndices.size() &&
+            mVisibleEntryIndices[i] >= 0;
 
         if (Button)
-            Button->SetEnable(mMenuOpen);
+            Button->SetEnable(mMenuOpen && HasEntry);
     }
 
     if (BuildButton)
@@ -1880,7 +1739,7 @@ void CBuildMenuWidget::RefreshEconomyStatus()
     if (!World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
 
     if (!MainWorld)
         return;
@@ -1935,272 +1794,12 @@ void CBuildMenuWidget::RefreshYearbookStatus()
     if (!YearbookBodyText || !World)
         return;
 
-    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
-    const FPoliticalWorldSnapshot* PoliticalSnapshot = nullptr;
-    const FGovernmentProfile* GovernmentProfile = nullptr;
-
-    if (MainWorld)
-    {
-        PoliticalSnapshot = &MainWorld->GetPoliticalSnapshot();
-        GovernmentProfile = &MainWorld->GetGovernmentProfile();
-    }
-
-    std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
-    int ActiveNpcCount = 0;
-    int HomelessCount = 0;
-    int UnemployedCount = 0;
-    int PoliticalCount[static_cast<int>(EPoliticalAxis::Count)][3] = {};
-    double FoodSum = 0.0;
-    double HealthSum = 0.0;
-    double FunSum = 0.0;
-    double FaithSum = 0.0;
-    double HousingSum = 0.0;
-    double JobSum = 0.0;
-    double FreedomSum = 0.0;
-    double SecuritySum = 0.0;
-    double OverallSatisfactionSum = 0.0;
-
-    if (World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
-    {
-        for (size_t i = 0; i < OrbList.size(); ++i)
-        {
-            auto Orb = OrbList[i].lock();
-
-            if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
-                continue;
-
-            const FNpcSatisfaction& Satisfaction = Orb->GetSatisfaction();
-            const FNpcPoliticalProfile& Political = Orb->GetPoliticalProfile();
-            ++ActiveNpcCount;
-            FoodSum += static_cast<double>(Satisfaction.Food);
-            HealthSum += static_cast<double>(Satisfaction.Health);
-            FunSum += static_cast<double>(Satisfaction.Fun);
-            FaithSum += static_cast<double>(Satisfaction.Faith);
-            HousingSum += static_cast<double>(Satisfaction.Housing);
-            JobSum += static_cast<double>(Satisfaction.Job);
-            FreedomSum += static_cast<double>(Satisfaction.Freedom);
-            SecuritySum += static_cast<double>(Satisfaction.Security);
-            OverallSatisfactionSum += static_cast<double>(Satisfaction.Overall);
-
-            if (Orb->GetHomeBuilding().empty())
-                ++HomelessCount;
-
-            if (Orb->GetWorkBuilding().empty())
-                ++UnemployedCount;
-
-            for (int AxisIndex = 0;
-                AxisIndex < static_cast<int>(EPoliticalAxis::Count);
-                ++AxisIndex)
-            {
-                const EPoliticalAxis Axis =
-                    static_cast<EPoliticalAxis>(AxisIndex);
-                const int StanceIndex =
-                    static_cast<int>(Political.Get(Axis).Stance);
-
-                if (StanceIndex >= 0 && StanceIndex < 3)
-                    ++PoliticalCount[AxisIndex][StanceIndex];
-            }
-        }
-    }
-
-    const double AverageSatisfaction =
-        ActiveNpcCount > 0 ?
-        OverallSatisfactionSum / static_cast<double>(ActiveNpcCount) :
-        0.0;
-    const double AverageFood =
-        ActiveNpcCount > 0 ? FoodSum / static_cast<double>(ActiveNpcCount) : 0.0;
-    const double AverageHealth =
-        ActiveNpcCount > 0 ? HealthSum / static_cast<double>(ActiveNpcCount) : 0.0;
-    const double AverageFun =
-        ActiveNpcCount > 0 ? FunSum / static_cast<double>(ActiveNpcCount) : 0.0;
-    const double AverageFaith =
-        ActiveNpcCount > 0 ? FaithSum / static_cast<double>(ActiveNpcCount) : 0.0;
-    const double AverageHousing =
-        ActiveNpcCount > 0 ? HousingSum / static_cast<double>(ActiveNpcCount) : 0.0;
-    const double AverageJob =
-        ActiveNpcCount > 0 ? JobSum / static_cast<double>(ActiveNpcCount) : 0.0;
-    const double AverageFreedom =
-        ActiveNpcCount > 0 ? FreedomSum / static_cast<double>(ActiveNpcCount) : 0.0;
-    const double AverageSecurity =
-        ActiveNpcCount > 0 ? SecuritySum / static_cast<double>(ActiveNpcCount) : 0.0;
-
-    std::wstring Body;
-
-    if (ActiveNpcCount > 0)
-    {
-        wchar_t Buffer[256] = {};
-        swprintf_s(Buffer, L"종합 만족도: %.1f / 100\n", AverageSatisfaction);
-        Body += Buffer;
-        swprintf_s(Buffer, L"음식: %.1f\n", AverageFood); Body += Buffer;
-        swprintf_s(Buffer, L"보건: %.1f\n", AverageHealth); Body += Buffer;
-        swprintf_s(Buffer, L"유흥: %.1f\n", AverageFun); Body += Buffer;
-        swprintf_s(Buffer, L"신앙: %.1f\n", AverageFaith); Body += Buffer;
-        swprintf_s(Buffer, L"주거: %.1f\n", AverageHousing); Body += Buffer;
-        swprintf_s(Buffer, L"직업: %.1f\n", AverageJob); Body += Buffer;
-        swprintf_s(Buffer, L"자유: %.1f\n", AverageFreedom); Body += Buffer;
-        swprintf_s(Buffer, L"치안: %.1f\n", AverageSecurity); Body += Buffer;
-        swprintf_s(Buffer, L"무주택자 수: %d명\n", HomelessCount); Body += Buffer;
-        swprintf_s(Buffer, L"실업자 수: %d명\n", UnemployedCount); Body += Buffer;
-    }
-    else
-    {
-        Body +=
-            L"종합 만족도: -\n"
-            L"음식: -\n"
-            L"보건: -\n"
-            L"유흥: -\n"
-            L"신앙: -\n"
-            L"주거: -\n"
-            L"직업: -\n"
-            L"자유: -\n"
-            L"치안: -\n"
-            L"무주택자 수: 0명\n"
-            L"실업자 수: 0명\n";
-    }
-
-    Body += L"\n정권 평가\n";
-
-    if (PoliticalSnapshot && PoliticalSnapshot->ActiveCitizenCount > 0)
-    {
-        wchar_t Buffer[256] = {};
-        swprintf_s(
-            Buffer,
-            L"현 정권 지지: %d명\n",
-            PoliticalSnapshot->IncumbentCount);
-        Body += Buffer;
-        swprintf_s(
-            Buffer,
-            L"야권 지지: %d명\n",
-            PoliticalSnapshot->OppositionCount);
-        Body += Buffer;
-        swprintf_s(
-            Buffer,
-            L"기권/부동층: %d명\n",
-            PoliticalSnapshot->AbstainCount);
-        Body += Buffer;
-        swprintf_s(
-            Buffer,
-            L"평균 지지 점수: %.1f / 100\n",
-            PoliticalSnapshot->AverageSupportScore);
-        Body += Buffer;
-        swprintf_s(
-            Buffer,
-            L"생활 평가: %.1f\n",
-            PoliticalSnapshot->AverageLifeScore);
-        Body += Buffer;
-        swprintf_s(
-            Buffer,
-            L"정부 이념 일치: %.1f\n",
-            PoliticalSnapshot->AverageGovernmentIdeologyScore);
-        Body += Buffer;
-        swprintf_s(
-            Buffer,
-            L"건물 선호 효과: %.1f\n",
-            PoliticalSnapshot->AverageBuildingScore);
-        Body += Buffer;
-        swprintf_s(
-            Buffer,
-            L"최근 행동 효과: %.1f\n",
-            PoliticalSnapshot->AverageActionScore);
-        Body += Buffer;
-    }
-    else
-    {
-        Body +=
-            L"현 정권 지지: 0명\n"
-            L"야권 지지: 0명\n"
-            L"기권/부동층: 0명\n"
-            L"평균 지지 점수: -\n"
-            L"생활 평가: -\n"
-            L"정부 이념 일치: -\n"
-            L"건물 선호 효과: -\n"
-            L"최근 행동 효과: -\n";
-    }
-
-    if (GovernmentProfile)
-    {
-        Body += L"\n정부 노선\n";
-
-        for (int AxisIndex = 0;
-            AxisIndex < static_cast<int>(EPoliticalAxis::Count);
-            ++AxisIndex)
-        {
-            const EPoliticalAxis Axis =
-                static_cast<EPoliticalAxis>(AxisIndex);
-            const FNpcPoliticalChoice& Choice =
-                GovernmentProfile->Ideology.Get(Axis);
-            wchar_t Buffer[256] = {};
-            swprintf_s(
-                Buffer,
-                L"%s: %s (%s)\n",
-                GetPoliticalAxisDisplayName(Axis),
-                GetPoliticalFactionDisplayName(Axis, Choice.Stance),
-                GetPoliticalSupportDisplayName(Choice.Support));
-            Body += Buffer;
-        }
-    }
-
-    if (MainWorld)
-    {
-        Body += L"\n활성 칙령\n";
-
-        bool HasActiveEdict = false;
-        const auto& EdictStates = MainWorld->GetGovernmentEdictStates();
-
-        for (size_t EdictIndex = 0;
-            EdictIndex < EdictStates.size();
-            ++EdictIndex)
-        {
-            if (!EdictStates[EdictIndex].Active)
-                continue;
-
-            const FGovernmentEdictDefinition* Definition =
-                EdictSystem::FindGovernmentEdictDefinition(
-                    EdictStates[EdictIndex].Type);
-
-            if (!Definition)
-                continue;
-
-            HasActiveEdict = true;
-            Body += L"- ";
-            Body += Definition->DisplayName;
-
-            if (Definition->Mode == EGovernmentEdictMode::Active)
-            {
-                Body += L" (";
-                Body += std::to_wstring(EdictStates[EdictIndex].RemainingDays);
-                Body += L"일 남음)";
-            }
-
-            Body += L"\n";
-        }
-
-        if (!HasActiveEdict)
-            Body += L"- 없음\n";
-    }
-
-    Body += L"\n정치 성향 인원\n";
-
-    for (int AxisIndex = 0;
-        AxisIndex < static_cast<int>(EPoliticalAxis::Count);
-        ++AxisIndex)
-    {
-        const EPoliticalAxis Axis =
-            static_cast<EPoliticalAxis>(AxisIndex);
-        wchar_t LineBuffer[384] = {};
-        swprintf_s(
-            LineBuffer,
-            L"%s: %s %d명 / %s %d명 / %s %d명\n",
-            GetPoliticalAxisDisplayName(Axis),
-            GetPoliticalFactionDisplayName(Axis, EPoliticalStance::Left),
-            PoliticalCount[AxisIndex][static_cast<int>(EPoliticalStance::Left)],
-            GetPoliticalFactionDisplayName(Axis, EPoliticalStance::Neutral),
-            PoliticalCount[AxisIndex][static_cast<int>(EPoliticalStance::Neutral)],
-            GetPoliticalFactionDisplayName(Axis, EPoliticalStance::Right),
-            PoliticalCount[AxisIndex][static_cast<int>(EPoliticalStance::Right)]);
-        Body += LineBuffer;
-    }
-
+    const auto MainWorld = std::dynamic_pointer_cast<IMainWorldAccess>(World);
+    const auto Snapshot = AlmanacDataProvider::BuildSnapshot(
+        World,
+        MainWorld);
+    const std::wstring Body =
+        AlmanacDataProvider::BuildYearbookSummaryText(Snapshot);
     YearbookBodyText->SetText(Body.c_str());
 }
 
@@ -2324,6 +1923,7 @@ void CBuildMenuWidget::RefreshBuildingButtons()
                 Previewed ? GSlotCardSelectedTexture : GSlotCardHoverTexture,
                 GSlotCardSelectedTexture,
                 GSlotCardDisabledTexture);
+            Button->SetEnable(true);
             Button->ButtonEnable(true);
             ButtonText->SetText(Entry.DisplayName.c_str());
 
@@ -2344,13 +1944,7 @@ void CBuildMenuWidget::RefreshBuildingButtons()
         }
         else
         {
-            ApplyButtonTextureSet(
-                Button,
-                "BuildMenuSlotCardEmpty_" + std::to_string(i),
-                GSlotCardDisabledTexture,
-                GSlotCardDisabledTexture,
-                GSlotCardDisabledTexture,
-                GSlotCardDisabledTexture);
+            Button->SetEnable(false);
             Button->ButtonEnable(false);
             ButtonText->SetText(TEXT(""));
 
@@ -2446,9 +2040,9 @@ void CBuildMenuWidget::RefreshDetailPanel()
         if (DetailConstructionCostText)
             DetailConstructionCostText->SetText(TEXT("-"));
         if (DetailInfoText)
-            DetailInfoText->SetText(TEXT("추가 정보\n없음"));
+            DetailInfoText->SetText(TEXT("핵심 정보\n- 건물을 선택하면 표시됩니다."));
         if (DetailBodyText)
-            DetailBodyText->SetText(TEXT("건물 아이콘에 마우스를 올리면 상세 정보가 표시됩니다."));
+            DetailBodyText->SetText(TEXT("왼쪽 카드에 마우스를 올리면 건물 설명과 핵심 정보가 함께 표시됩니다."));
         return;
     }
 
@@ -2483,22 +2077,8 @@ void CBuildMenuWidget::RefreshDetailPanel()
 
     if (DetailInfoText)
     {
-        std::wstring InfoBody = L"추가 정보";
-
-        if (!ParsedDetail.Highlights.empty())
-        {
-            for (size_t i = 0; i < ParsedDetail.Highlights.size(); ++i)
-            {
-                InfoBody += L"\n";
-                InfoBody += ParsedDetail.Highlights[i];
-            }
-        }
-        else
-        {
-            InfoBody += L"\n없음";
-        }
-
-        DetailInfoText->SetText(InfoBody.c_str());
+        DetailInfoText->SetText(
+            BuildHighlightsBlockText(ParsedDetail.Highlights).c_str());
     }
 
     if (DetailBodyText)
@@ -2659,46 +2239,6 @@ void CBuildMenuWidget::OnYearbookButtonClick()
     ApplyYearbookOpenState();
 }
 
-void CBuildMenuWidget::OnCategoryInfrastructureClick()
-{
-    SelectCategory(EBuildingCategory::Infrastructure);
-}
-
-void CBuildMenuWidget::OnCategoryFoodResourceClick()
-{
-    SelectCategory(EBuildingCategory::FoodResource);
-}
-
-void CBuildMenuWidget::OnCategoryIndustryClick()
-{
-    SelectCategory(EBuildingCategory::Industry);
-}
-
-void CBuildMenuWidget::OnCategoryHousingClick()
-{
-    SelectCategory(EBuildingCategory::Housing);
-}
-
-void CBuildMenuWidget::OnCategoryEntertainmentClick()
-{
-    SelectCategory(EBuildingCategory::Entertainment);
-}
-
-void CBuildMenuWidget::OnCategoryMediaEducationClick()
-{
-    SelectCategory(EBuildingCategory::MediaEducation);
-}
-
-void CBuildMenuWidget::OnCategoryTourismClick()
-{
-    SelectCategory(EBuildingCategory::Tourism);
-}
-
-void CBuildMenuWidget::OnCategoryPublicServiceClick()
-{
-    SelectCategory(EBuildingCategory::PublicService);
-}
-
 void CBuildMenuWidget::OnMenuCloseButtonClick()
 {
     SetBuildMenuOpen(false);
@@ -2717,156 +2257,6 @@ void CBuildMenuWidget::OnPrevPageClick()
 void CBuildMenuWidget::OnNextPageClick()
 {
     MovePage(1);
-}
-
-void CBuildMenuWidget::OnSlot0Click()
-{
-    StartPlacementBySlot(0);
-}
-
-void CBuildMenuWidget::OnSlot1Click()
-{
-    StartPlacementBySlot(1);
-}
-
-void CBuildMenuWidget::OnSlot2Click()
-{
-    StartPlacementBySlot(2);
-}
-
-void CBuildMenuWidget::OnSlot3Click()
-{
-    StartPlacementBySlot(3);
-}
-
-void CBuildMenuWidget::OnSlot4Click()
-{
-    StartPlacementBySlot(4);
-}
-
-void CBuildMenuWidget::OnSlot5Click()
-{
-    StartPlacementBySlot(5);
-}
-
-void CBuildMenuWidget::OnSlot6Click()
-{
-    StartPlacementBySlot(6);
-}
-
-void CBuildMenuWidget::OnSlot7Click()
-{
-    StartPlacementBySlot(7);
-}
-
-void CBuildMenuWidget::OnSlot8Click()
-{
-    StartPlacementBySlot(8);
-}
-
-void CBuildMenuWidget::OnSlot9Click()
-{
-    StartPlacementBySlot(9);
-}
-
-void CBuildMenuWidget::OnSlot10Click()
-{
-    StartPlacementBySlot(10);
-}
-
-void CBuildMenuWidget::OnSlot11Click()
-{
-    StartPlacementBySlot(11);
-}
-
-void CBuildMenuWidget::OnSlot12Click()
-{
-    StartPlacementBySlot(12);
-}
-
-void CBuildMenuWidget::OnSlot13Click()
-{
-    StartPlacementBySlot(13);
-}
-
-void CBuildMenuWidget::OnSlot14Click()
-{
-    StartPlacementBySlot(14);
-}
-
-void CBuildMenuWidget::OnSlot0Hovered()
-{
-    PreviewSlot(0);
-}
-
-void CBuildMenuWidget::OnSlot1Hovered()
-{
-    PreviewSlot(1);
-}
-
-void CBuildMenuWidget::OnSlot2Hovered()
-{
-    PreviewSlot(2);
-}
-
-void CBuildMenuWidget::OnSlot3Hovered()
-{
-    PreviewSlot(3);
-}
-
-void CBuildMenuWidget::OnSlot4Hovered()
-{
-    PreviewSlot(4);
-}
-
-void CBuildMenuWidget::OnSlot5Hovered()
-{
-    PreviewSlot(5);
-}
-
-void CBuildMenuWidget::OnSlot6Hovered()
-{
-    PreviewSlot(6);
-}
-
-void CBuildMenuWidget::OnSlot7Hovered()
-{
-    PreviewSlot(7);
-}
-
-void CBuildMenuWidget::OnSlot8Hovered()
-{
-    PreviewSlot(8);
-}
-
-void CBuildMenuWidget::OnSlot9Hovered()
-{
-    PreviewSlot(9);
-}
-
-void CBuildMenuWidget::OnSlot10Hovered()
-{
-    PreviewSlot(10);
-}
-
-void CBuildMenuWidget::OnSlot11Hovered()
-{
-    PreviewSlot(11);
-}
-
-void CBuildMenuWidget::OnSlot12Hovered()
-{
-    PreviewSlot(12);
-}
-
-void CBuildMenuWidget::OnSlot13Hovered()
-{
-    PreviewSlot(13);
-}
-
-void CBuildMenuWidget::OnSlot14Hovered()
-{
-    PreviewSlot(14);
 }
 
 void CBuildMenuWidget::ToggleBuildMenu()

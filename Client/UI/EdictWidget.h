@@ -7,10 +7,10 @@
 
 enum class EEdictUiCategory
 {
-    General = 0,
-    Interior,
-    Defense,
-    Education
+    Colonial = 0,
+    WorldWars,
+    ColdWar,
+    Modern
 };
 
 class CEdictWidget :
@@ -62,11 +62,11 @@ private:
     std::vector<std::weak_ptr<class CTextBlock>> mTaxPolicyRowTexts;
     std::vector<int> mVisibleEntryIndices;
     bool  mOpen = false;
-    EEdictUiCategory mSelectedCategory = EEdictUiCategory::General;
+    EEdictUiCategory mSelectedCategory = EEdictUiCategory::Colonial;
     int   mPreviewEntryIndex = -1;
     int   mSelectedEntryIndex = -1;
     int   mCurrentPage = 0;
-    float mPanelWidth = 1100.f;
+    float mPanelWidth = 1120.f;
     float mPanelHeight = 760.f;
     std::wstring mFeedbackMessage;
 
@@ -97,10 +97,6 @@ private:
     std::vector<int> CollectCategoryEntryIndices() const;
 
 private:
-    void OnCategoryGeneralClick();
-    void OnCategoryInteriorClick();
-    void OnCategoryDefenseClick();
-    void OnCategoryEducationClick();
     void OnPrevPageClick();
     void OnNextPageClick();
     void OnCloseButtonClick();
@@ -111,28 +107,4 @@ private:
     void OnIncomeTaxUpClick();
     void OnPropertyTaxDownClick();
     void OnPropertyTaxUpClick();
-    void OnSlot0Click();
-    void OnSlot1Click();
-    void OnSlot2Click();
-    void OnSlot3Click();
-    void OnSlot4Click();
-    void OnSlot5Click();
-    void OnSlot6Click();
-    void OnSlot7Click();
-    void OnSlot8Click();
-    void OnSlot9Click();
-    void OnSlot10Click();
-    void OnSlot11Click();
-    void OnSlot0Hovered();
-    void OnSlot1Hovered();
-    void OnSlot2Hovered();
-    void OnSlot3Hovered();
-    void OnSlot4Hovered();
-    void OnSlot5Hovered();
-    void OnSlot6Hovered();
-    void OnSlot7Hovered();
-    void OnSlot8Hovered();
-    void OnSlot9Hovered();
-    void OnSlot10Hovered();
-    void OnSlot11Hovered();
 };

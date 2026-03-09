@@ -6,6 +6,7 @@
 
 struct FNpcSatisfaction;
 struct FNpcPoliticalProfile;
+struct FCitizenIdentityProfile;
 
 class CCitizenInfoWidget :
     public CWidgetContainer
@@ -53,6 +54,7 @@ private:
     void SetTitle(const std::wstring& Title);
     void SetCitizenSatisfaction(
         const FNpcSatisfaction& Satisfaction,
+        const FCitizenIdentityProfile& IdentityProfile,
         const FNpcPoliticalProfile& PoliticalProfile);
     void SetBodyText(const std::wstring& Text);
     void SetPanelScreenPos(const FVector2& ScreenPos);

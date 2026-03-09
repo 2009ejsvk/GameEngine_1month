@@ -202,7 +202,15 @@
     <ClCompile Include="Economy\EconomySystem.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Map\BuildingMarkerOrb.cpp" />
+    <ClCompile Include="Map\BuildingMarkerOrbAnimation.cpp" />
+    <ClCompile Include="Map\BuildingMarkerOrbNavigation.cpp" />
+    <ClCompile Include="Map\BuildingMarkerOrbSatisfaction.cpp" />
+    <ClCompile Include="Map\BuildingMarkerOrbSeparation.cpp" />
+    <ClCompile Include="Map\BuildingMarkerOrbTeamster.cpp" />
     <ClCompile Include="Map\PlacementAreaObject.cpp" />
+    <ClCompile Include="Map\PlacementAreaObjectNavigation.cpp" />
+    <ClCompile Include="Map\PlacementAreaObjectPlacement.cpp" />
+    <ClCompile Include="Map\PlacementAreaObjectVisual.cpp" />
     <ClCompile Include="Map\PlacementController.cpp" />
     <ClCompile Include="Map\PlacementBuildingVisual.cpp" />
     <ClCompile Include="Map\TileMapMain.cpp" />
@@ -214,6 +222,7 @@
     <ClCompile Include="UI\EditorWidget.cpp" />
     <ClCompile Include="UI\BuildMenuWidget.cpp" />
     <ClCompile Include="UI\AlmanacWidget.cpp" />
+    <ClCompile Include="UI\AlmanacDataProvider.cpp" />
     <ClCompile Include="UI\EdictWidget.cpp" />
     <ClCompile Include="UI\TopHudWidget.cpp" />
     <ClCompile Include="UI\CitizenInfoWidget.cpp" />
@@ -228,6 +237,9 @@
     <ClCompile Include="World\EditorWorld.cpp" />
     <ClCompile Include="World\LoadingWorld.cpp" />
     <ClCompile Include="World\MainWorld.cpp" />
+    <ClCompile Include="World\MainWorldBootstrap.cpp" />
+    <ClCompile Include="World\MainWorldPopulation.cpp" />
+    <ClCompile Include="World\MainWorldSimulation.cpp" />
     <ClCompile Include="World\StartWorld.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -255,8 +267,10 @@
     <ClInclude Include="Thread\LoadingThread.h" />
     <ClInclude Include="UI\EditorWidget.h" />
     <ClInclude Include="UI\BuildMenuWidget.h" />
+    <ClInclude Include="UI\AlmanacDataProvider.h" />
     <ClInclude Include="UI\AlmanacWidget.h" />
     <ClInclude Include="UI\EdictWidget.h" />
+    <ClInclude Include="UI\TropicoUiStyle.h" />
     <ClInclude Include="UI\TopHudWidget.h" />
     <ClInclude Include="UI\CitizenInfoWidget.h" />
     <ClInclude Include="UI\Inventory.h" />
@@ -269,6 +283,8 @@
     <ClInclude Include="UI\WorldHUD.h" />
     <ClInclude Include="World\EditorWorld.h" />
     <ClInclude Include="World\LoadingWorld.h" />
+    <ClInclude Include="World\MainWorldAccess.h" />
+    <ClInclude Include="World\MainWorldConfig.h" />
     <ClInclude Include="World\MainWorld.h" />
     <ClInclude Include="World\StartWorld.h" />
   </ItemGroup>
