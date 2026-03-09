@@ -21,6 +21,7 @@ constexpr const char* GPlacedBuildingPrefix     = "PlacedBuilding_";
 
 // ── UI 위젯 ──────────────────────────────────────────────────────────────────
 constexpr const char* GBuildMenuWidgetName      = "BuildMenuWidget";
+constexpr const char* GAlmanacWidgetName        = "AlmanacWidget";
 constexpr const char* GEdictWidgetName          = "EdictWidget";
 constexpr const char* GTopHudWidgetName         = "TopHudWidget";
 constexpr const char* GCitizenInfoWidgetName    = "CitizenInfoWidget";

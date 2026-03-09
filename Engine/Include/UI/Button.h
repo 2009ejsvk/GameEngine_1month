@@ -51,7 +51,15 @@ public:
 	virtual void SetSize(float x, float y) override;
 	void ButtonEnable(bool Enable)
 	{
-		mState = Enable ? EButtonState::Normal : EButtonState::Disable;
+		if (Enable)
+		{
+			if (mState == EButtonState::Disable)
+				mState = EButtonState::Normal;
+		}
+		else
+		{
+			mState = EButtonState::Disable;
+		}
 	}
 
 	void SetChild(const std::weak_ptr<CWidget>& Child)

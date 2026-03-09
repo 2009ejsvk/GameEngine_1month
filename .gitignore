@@ -19,6 +19,7 @@ out/                   # CMake 등 빌드 출력
 *.ilk
 *.exp
 *.obj
+*.pdb
 *.pch
 *.gch
 *.idb
@@ -71,3 +72,4 @@ Obj/
 *.r[0-9]*
 *.svn-base
 /.vs
+.claude/

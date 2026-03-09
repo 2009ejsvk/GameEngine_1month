@@ -124,7 +124,7 @@ namespace
             --RefCount;
 
             // 아직 다른 객체가 사용 중이면 색을 지우지 않는다.
-            if (RefCount > 0)
+            if (RefCount > 0) 
                 continue;
 
             RefCount = 0;
@@ -796,114 +796,137 @@ void CPlacementAreaObject::ResetPlacementState()
 
 void CPlacementAreaObject::EnsurePlacementObject()
 {
-    // 준비가 끝났으면 다시 초기화하지 않는다.
-    if (mTileMapPrepared)
-        return;
+	// 준비가 끝났으면 다시 초기화하지 않는다.
+	// (Update/입력 이벤트에서 여러 번 호출돼도 1회만 실행되게 하는 가드)
+	if (mTileMapPrepared)
+		return;
 
-    EnsureTemplateValidity();
+	// 템플릿 값(반지름, 마커 기준점)이 비정상인 경우를 보정.
+	// 이후 면적 계산(BuildDiamondAreaIndices)이 안전하게 동작하도록 선행 보장.
+	EnsureTemplateValidity();
 
-    std::shared_ptr<CTileMapComponent> TileMap;
+	// 실제 배치/색상 변경을 적용할 대상 타일맵 핸들.
+	std::shared_ptr<CTileMapComponent> TileMap;
 
-    if (!AcquireTileMap(TileMap))
-        return;
+	// 월드/타일맵 오브젝트가 아직 준비되지 않았으면 지금은 아무것도 하지 않는다.
+	// (다음 프레임에 다시 들어와 재시도)
+	if (!AcquireTileMap(TileMap))
+		return;
 
-    const int CountX = TileMap->GetTileCountX();
-    const int CountY = TileMap->GetTileCountY();
+	const int CountX = TileMap->GetTileCountX();
+	const int CountY = TileMap->GetTileCountY();
 
-    if (CountX <= 0 || CountY <= 0)
-        return;
+	// 맵 크기가 0이면 배치 자체가 불가능.
+	if (CountX <= 0 || CountY <= 0)
+		return;
 
-    // 여러 배치 오브젝트가 있어도 동일 타일맵에 대해서만 1회 초기화한다.
-    static CTileMapComponent* sInitializedTileMap = nullptr;
+	// 여러 배치 오브젝트가 있어도 동일 타일맵에 대해서만 1회 초기화한다.
+	// static 지역변수:
+	// - 함수가 끝나도 값이 유지됨
+	// - "마지막으로 정리한 타일맵 주소"를 기억해 중복 전체 초기화를 막음
+	static CTileMapComponent* sInitializedTileMap = nullptr;
 
-    if (sInitializedTileMap != TileMap.get())
-    {
-        // 타일 타입에 맞춰 최초 외곽선 색을 정리한다.
+	if (sInitializedTileMap != TileMap.get())
+	{
+		// 타일 타입에 맞춰 최초 외곽선 색을 정리한다.
         // (UnableToMove=Blue, 그 외=White)
         const int TileCount = CountX * CountY;
 
         for (int i = 0; i < TileCount; ++i)
-        {
-            auto Tile = TileMap->GetTile(i).lock();
+		{
+			auto Tile = TileMap->GetTile(i).lock();
 
-            if (!Tile)
-                continue;
+			if (!Tile)
+				continue;
 
-            if (Tile->GetType() == ETileType::UnableToMove)
-                Tile->SetOutLineColor(FVector4::Blue);
+			// 이미 막힌 타일은 파랑, 그 외는 흰색으로 통일.
+			// (이후 배치 색/프리뷰 색 적용의 기준 상태)
+			if (Tile->GetType() == ETileType::UnableToMove)
+				Tile->SetOutLineColor(FVector4::Blue);
 
-            else
-                Tile->SetOutLineColor(FVector4::White);
+			else
+				Tile->SetOutLineColor(FVector4::White);
         }
 
-        sInitializedTileMap = TileMap.get();
-    }
+		sInitializedTileMap = TileMap.get();
+	}
 
-    // 자동 배치를 끄면 "준비 완료"만 하고 실제 점유는 하지 않는다.
-    if (!mAutoPlaceOnPrepare)
-    {
-        mPrimaryPlacedIndices.clear();
-        mMarkerTileIndices.clear();
-        mPreviewIndices.clear();
-        mPlacedCenterIndex = -1;
-        mPreviewCenterIndex = -1;
+	// 자동 배치를 끄면 "준비 완료"만 하고 실제 점유는 하지 않는다.
+	// 즉, 사용자가 직접 프리뷰/확정을 하기 전까지는 맵 타일 타입을 변경하지 않음.
+	if (!mAutoPlaceOnPrepare)
+	{
+		// 배치 관련 캐시/상태값만 초기화하고 종료.
+		mPrimaryPlacedIndices.clear();
+		mMarkerTileIndices.clear();
+		mPreviewIndices.clear();
+		mPlacedCenterIndex = -1;
+		mPreviewCenterIndex = -1;
         mPreviewCanPlace = false;
         mTileMapPrepared = true;
         return;
     }
 
-    std::vector<int> StartPrimaryIndices;
-    int StartCenterIndex = -1;
+	std::vector<int> StartPrimaryIndices;
+	int StartCenterIndex = -1;
 
-    // 우선 맵 중심(오프셋 포함)에서 배치 가능 여부 확인.
-    const int CenterX = Clamp<int>(
-        CountX / 2 + mInitialCenterOffsetX, 0, CountX - 1);
-    const int CenterY = Clamp<int>(
-        CountY / 2 + mInitialCenterOffsetY, 0, CountY - 1);
-    const int CenterIndex = CenterY * CountX + CenterX;
+	// 우선 맵 중심(오프셋 포함)에서 배치 가능 여부 확인.
+	// Clamp: 오프셋이 커도 인덱스가 맵 밖으로 나가지 않게 보정.
+	const int CenterX = Clamp<int>(
+		CountX / 2 + mInitialCenterOffsetX, 0, CountX - 1);
+	const int CenterY = Clamp<int>(
+		CountY / 2 + mInitialCenterOffsetY, 0, CountY - 1);
+	const int CenterIndex = CenterY * CountX + CenterX;
 
-    bool Found = BuildDiamondAreaIndices(TileMap,
-        CenterIndex, StartPrimaryIndices) &&
-        (int)StartPrimaryIndices.size() == mTemplate.GetExpectedTileCount() &&
-        IsAreaPlaceable(TileMap, StartPrimaryIndices);
+	// Found 조건(모두 만족해야 true):
+	// 1) 다이아몬드 영역 인덱스 계산 성공
+	// 2) 계산된 타일 개수가 템플릿 기대 개수와 동일
+	// 3) 해당 영역이 실제 배치 가능 상태
+	bool Found = BuildDiamondAreaIndices(TileMap,
+		CenterIndex, StartPrimaryIndices) &&
+		(int)StartPrimaryIndices.size() == mTemplate.GetExpectedTileCount() &&
+		IsAreaPlaceable(TileMap, StartPrimaryIndices);
 
     if (Found)
     {
         StartCenterIndex = CenterIndex;
     }
 
-    if (!Found)
-    {
-        // 중심 배치 실패 시 맵 전체를 훑어서 첫 유효 위치를 찾는다.
-        for (int y = 0; y < CountY && !Found; ++y)
-        {
-            for (int x = 0; x < CountX; ++x)
-            {
-                const int Index = y * CountX + x;
+	if (!Found)
+	{
+		// 중심 배치 실패 시 맵 전체를 훑어서 첫 유효 위치를 찾는다.
+		// 스캔 순서: 위->아래(y), 왼쪽->오른쪽(x)
+		// 따라서 "가장 먼저 발견된 유효 위치"가 시작 배치 위치가 된다.
+		for (int y = 0; y < CountY && !Found; ++y)
+		{
+			for (int x = 0; x < CountX; ++x)
+			{
+				const int Index = y * CountX + x;
 
                 if (!BuildDiamondAreaIndices(TileMap, Index, StartPrimaryIndices) ||
                     (int)StartPrimaryIndices.size() != mTemplate.GetExpectedTileCount())
                 {
-                    continue;
-                }
+					continue;
+				}
 
-                if (IsAreaPlaceable(TileMap, StartPrimaryIndices))
-                {
-                    Found = true;
-                    StartCenterIndex = Index;
-                    // 첫 성공 지점을 사용하고 종료.
-                    break;
-                }
-            }
-        }
-    }
+				if (IsAreaPlaceable(TileMap, StartPrimaryIndices))
+				{
+					// 유효한 첫 위치 발견.
+					Found = true;
+					StartCenterIndex = Index;
+					// 첫 성공 지점을 사용하고 종료.
+					break;
+				}
+			}
+		}
+	}
 
-    if (Found)
-    {
-        // 시작 배치 확정: 해당 타일을 이동 불가로 지정.
-        for (size_t i = 0; i < StartPrimaryIndices.size(); ++i)
-        {
-            auto Tile = TileMap->GetTile(StartPrimaryIndices[i]).lock();
+	if (Found)
+	{
+		// 시작 배치 확정: 해당 타일을 이동 불가로 지정.
+		// (이 오브젝트가 점유한 영역으로 취급되어 다른 배치/내비게이션에서 사용)
+		for (size_t i = 0; i < StartPrimaryIndices.size(); ++i)
+		{
+			auto Tile = TileMap->GetTile(StartPrimaryIndices[i]).lock();
 
             if (!Tile)
                 continue;
@@ -911,16 +934,19 @@ void CPlacementAreaObject::EnsurePlacementObject()
             Tile->SetTileType(ETileType::UnableToMove);
         }
 
-        mPrimaryPlacedIndices = StartPrimaryIndices;
-        mPlacedCenterIndex = StartCenterIndex;
-        ApplyPlacedAreaColor(TileMap);
-        // 오브젝트 월드 위치를 "배치 중심 타일 중심"에 맞춘다.
-        SyncWorldPosFromCenter(TileMap, mPlacedCenterIndex);
-    }
+		mPrimaryPlacedIndices = StartPrimaryIndices;
+		mPlacedCenterIndex = StartCenterIndex;
+		// 점유 영역 색/마커 표시 반영.
+		ApplyPlacedAreaColor(TileMap);
+		// 오브젝트 월드 위치를 "배치 중심 타일 중심"에 맞춘다.
+		SyncWorldPosFromCenter(TileMap, mPlacedCenterIndex);
+	}
+	// Found가 false여도 함수는 실패로 끊지 않고 "준비 완료"로 마무리한다.
+	// (맵 상태가 바뀌면 이후 프리뷰/재배치 로직으로 복구 가능)
 
-    // 프리뷰 상태는 초기화한 뒤 준비 완료 플래그를 세운다.
-    mPreviewIndices.clear();
-    mPreviewCenterIndex = -1;
+	// 프리뷰 상태는 초기화한 뒤 준비 완료 플래그를 세운다.
+	mPreviewIndices.clear();
+	mPreviewCenterIndex = -1;
     mPreviewCanPlace = false;
     mTileMapPrepared = true;
 }

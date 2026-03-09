@@ -2,6 +2,7 @@
 #include "../Building/BuildingCatalog.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
+#include "../World/MainWorld.h"
 #include "World/World.h"
 #include <algorithm>
 #include <array>
@@ -130,10 +131,144 @@ namespace
         return Result;
     }
 
+    float EvaluateTaxPolicyActionScore(
+        const CBuildingMarkerOrb& Citizen,
+        const FGovernmentProfile& GovernmentProfile)
+    {
+        const bool IsWorker = !Citizen.GetWorkBuilding().empty();
+        const bool IsResident = !Citizen.GetHomeBuilding().empty();
+        const float TaxBurden = GetCitizenTaxBurdenNormalized(
+            GovernmentProfile.TaxPolicy,
+            IsWorker,
+            IsResident);
+
+        if (TaxBurden == 0.f)
+            return 0.f;
+
+        const FNpcPoliticalProfile& PoliticalProfile =
+            Citizen.GetPoliticalProfile();
+        const FNpcPoliticalChoice& EconomyChoice =
+            PoliticalProfile.Get(EPoliticalAxis::Economy);
+        const float SupportWeight =
+            GetSupportLevelWeight(EconomyChoice.Support);
+        const float TaxStress = (std::max)(0.f, TaxBurden);
+        const float TaxRelief = (std::max)(0.f, -TaxBurden);
+        float Score =
+            -TaxStress * (IsWorker ? 1.8f : 1.2f) +
+            TaxRelief * 0.6f;
+
+        switch (EconomyChoice.Stance)
+        {
+        case EPoliticalStance::Left:
+            Score += -TaxBurden * SupportWeight * 8.5f;
+            break;
+        case EPoliticalStance::Right:
+            Score += TaxBurden * SupportWeight * 4.8f;
+            break;
+        default:
+            Score += -TaxStress * 1.4f + TaxRelief * 0.5f;
+            break;
+        }
+
+        return Score;
+    }
+
+    float EvaluateTaxEventActionScore(
+        const CBuildingMarkerOrb& Citizen,
+        const FTaxPolicyEventStatus* TaxEventStatus)
+    {
+        if (!TaxEventStatus ||
+            !TaxEventStatus->Active ||
+            TaxEventStatus->Type == ETaxPolicyEventType::None)
+        {
+            return 0.f;
+        }
+
+        const bool IsWorker = !Citizen.GetWorkBuilding().empty();
+        const bool IsResident = !Citizen.GetHomeBuilding().empty();
+        const FNpcPoliticalProfile& PoliticalProfile =
+            Citizen.GetPoliticalProfile();
+        const float Severity =
+            0.55f +
+            (std::min)(
+                1.10f,
+                static_cast<float>(TaxEventStatus->DaysActive) / 4.5f);
+        float Score = -2.5f * Severity;
+        const auto ApplyDemandPressure =
+            [&](EPoliticalAxis Axis,
+                EPoliticalStance DemandingStance,
+                float Strength)
+        {
+            const FNpcPoliticalChoice& Choice = PoliticalProfile.Get(Axis);
+            const float Alignment = GetStanceAlignment(
+                Choice.Stance,
+                DemandingStance);
+            const float Weight = GetSupportLevelWeight(Choice.Support);
+
+            if (Alignment > 0.f)
+                return -Weight * Strength;
+
+            if (Alignment < 0.f)
+                return Weight * Strength * 0.35f;
+
+            return 0.f;
+        };
+
+        switch (TaxEventStatus->Type)
+        {
+        case ETaxPolicyEventType::WorkerTaxStrike:
+            Score += (IsWorker ? -11.5f : -4.0f) * Severity;
+
+            if (IsResident)
+                Score += -1.8f * Severity;
+
+            Score += ApplyDemandPressure(
+                EPoliticalAxis::Economy,
+                EPoliticalStance::Left,
+                4.6f * Severity);
+            Score += ApplyDemandPressure(
+                EPoliticalAxis::IntellectualConservative,
+                EPoliticalStance::Left,
+                2.8f * Severity);
+            break;
+        case ETaxPolicyEventType::PropertyTaxBacklash:
+            Score += (IsResident ? -11.0f : -3.5f) * Severity;
+
+            if (IsWorker)
+                Score += -1.5f * Severity;
+
+            Score += ApplyDemandPressure(
+                EPoliticalAxis::IntellectualConservative,
+                EPoliticalStance::Right,
+                4.4f * Severity);
+            Score += ApplyDemandPressure(
+                EPoliticalAxis::Economy,
+                EPoliticalStance::Left,
+                3.2f * Severity);
+            break;
+        case ETaxPolicyEventType::BudgetCrisis:
+            Score += (IsWorker || IsResident ? -9.0f : -6.5f) * Severity;
+            Score += ApplyDemandPressure(
+                EPoliticalAxis::IntellectualConservative,
+                EPoliticalStance::Right,
+                4.2f * Severity);
+            Score += ApplyDemandPressure(
+                EPoliticalAxis::Economy,
+                EPoliticalStance::Right,
+                3.6f * Severity);
+            break;
+        default:
+            break;
+        }
+
+        return Score;
+    }
+
     FCitizenPoliticalEvaluation EvaluateCitizenInternal(
         const CBuildingMarkerOrb& Citizen,
         const FGovernmentProfile& GovernmentProfile,
-        const std::vector<FPlacedPoliticalSignal>& PlacedSignals)
+        const std::vector<FPlacedPoliticalSignal>& PlacedSignals,
+        const FTaxPolicyEventStatus* TaxEventStatus)
     {
         FCitizenPoliticalEvaluation Evaluation;
 
@@ -226,6 +361,13 @@ namespace
                     Action.Strength;
             }
         }
+
+        Evaluation.ActionScore += EvaluateTaxPolicyActionScore(
+            Citizen,
+            GovernmentProfile);
+        Evaluation.ActionScore += EvaluateTaxEventActionScore(
+            Citizen,
+            TaxEventStatus);
 
         const FNpcPoliticalChoice& ReligionMilitarismChoice =
             PoliticalProfile.Get(EPoliticalAxis::ReligionMilitarism);
@@ -325,11 +467,16 @@ namespace PoliticsSystem
     {
         const std::vector<FPlacedPoliticalSignal> PlacedSignals =
             CollectPlacedSignals(World);
+        const CMainWorld* MainWorld =
+            World ? dynamic_cast<CMainWorld*>(World) : nullptr;
+        const FTaxPolicyEventStatus* TaxEventStatus =
+            MainWorld ? &MainWorld->GetTaxPolicyEventStatus() : nullptr;
 
         return EvaluateCitizenInternal(
             Citizen,
             GovernmentProfile,
-            PlacedSignals);
+            PlacedSignals,
+            TaxEventStatus);
     }
 
     FPoliticalWorldSnapshot EvaluateWorld(
@@ -343,6 +490,10 @@ namespace PoliticsSystem
 
         const std::vector<FPlacedPoliticalSignal> PlacedSignals =
             CollectPlacedSignals(World);
+        const CMainWorld* MainWorld =
+            World ? dynamic_cast<CMainWorld*>(World) : nullptr;
+        const FTaxPolicyEventStatus* TaxEventStatus =
+            MainWorld ? &MainWorld->GetTaxPolicyEventStatus() : nullptr;
 
         std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
 
@@ -366,7 +517,8 @@ namespace PoliticsSystem
                 EvaluateCitizenInternal(
                     *Orb,
                     GovernmentProfile,
-                    PlacedSignals);
+                    PlacedSignals,
+                    TaxEventStatus);
 
             ++Snapshot.ActiveCitizenCount;
             LifeScoreSum += Evaluation.LifeScore;

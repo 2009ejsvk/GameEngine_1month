@@ -1,4 +1,5 @@
 #include "TopHudWidget.h"
+#include "AlmanacWidget.h"
 #include "BuildMenuWidget.h"
 #include "EdictWidget.h"
 #include "../Map/BuildingMarkerOrb.h"
@@ -31,6 +32,8 @@ namespace
         "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Gamespeed\\T_gamespeed_timeBar.png");
     constexpr const TCHAR* GStatusBarTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Notifications\\T_staticData_bg.png");
+    constexpr const TCHAR* GCenterPopupTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\5_MainMenu\\CenterPopUp\\T_center_popUp.png");
     constexpr const TCHAR* GStatusMoneyIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_money.png");
     constexpr const TCHAR* GStatusNpcIconTexture = TEXT(
@@ -116,6 +119,43 @@ namespace
 
         return L"$" + Digits;
     }
+
+    std::wstring FormatDate(int Year, int Month, int Day)
+    {
+        wchar_t Buffer[64] = {};
+        swprintf_s(Buffer, L"%04d.%02d.%02d", Year, Month, Day);
+        return Buffer;
+    }
+
+    std::wstring FormatTaxPolicyCompact(const FTaxPolicy& TaxPolicy)
+    {
+        return
+            L"세율 " +
+            std::to_wstring(TaxPolicy.ConsumptionRatePercent) +
+            L"/" +
+            std::to_wstring(TaxPolicy.IncomeRatePercent) +
+            L"/" +
+            std::to_wstring(TaxPolicy.PropertyRatePercent) +
+            L"%";
+    }
+
+    const wchar_t* GetElectionWarningTierLabel(double Score)
+    {
+        if (Score >= 0.78)
+            return L"재선 위험 높음";
+        if (Score >= 0.52)
+            return L"재선 주의";
+        if (Score >= 0.32)
+            return L"선거 점검";
+        return L"안정";
+    }
+
+    bool HasElectionWarning(int DaysUntilElection, double Score)
+    {
+        return DaysUntilElection >= 0 &&
+            DaysUntilElection <= 180 &&
+            Score >= 0.32;
+    }
 }
 
 CTopHudWidget::CTopHudWidget()
@@ -192,6 +232,54 @@ bool CTopHudWidget::Init()
         mBudgetText = BudgetText;
     }
 
+    auto ElectionText =
+        CreateWidget<CTextBlock>("TopHud_ElectionText", 17).lock();
+
+    if (ElectionText)
+    {
+        ElectionText->SetText(TEXT("차기 선거 -"));
+        ElectionText->SetFontSize(13.f);
+        ElectionText->SetAlignH(ETextAlignH::Left);
+        ElectionText->SetAlignV(ETextAlignV::Middle);
+        ElectionText->SetTextColor(245, 235, 210, 255);
+        ElectionText->EnableShadow(true);
+        ElectionText->SetShadowOffset(1.f, 1.f);
+        ElectionText->SetShadowTextColor(16, 16, 16, 220);
+        mElectionText = ElectionText;
+    }
+
+    auto TaxPolicyText =
+        CreateWidget<CTextBlock>("TopHud_TaxPolicyText", 17).lock();
+
+    if (TaxPolicyText)
+    {
+        TaxPolicyText->SetText(TEXT("세율 10/12/35%"));
+        TaxPolicyText->SetFontSize(12.f);
+        TaxPolicyText->SetAlignH(ETextAlignH::Left);
+        TaxPolicyText->SetAlignV(ETextAlignV::Middle);
+        TaxPolicyText->SetTextColor(229, 220, 198, 255);
+        TaxPolicyText->EnableShadow(true);
+        TaxPolicyText->SetShadowOffset(1.f, 1.f);
+        TaxPolicyText->SetShadowTextColor(16, 16, 16, 220);
+        mTaxPolicyText = TaxPolicyText;
+    }
+
+    auto EventText =
+        CreateWidget<CTextBlock>("TopHud_EventText", 17).lock();
+
+    if (EventText)
+    {
+        EventText->SetText(TEXT("정치 경고 없음"));
+        EventText->SetFontSize(11.f);
+        EventText->SetAlignH(ETextAlignH::Left);
+        EventText->SetAlignV(ETextAlignV::Middle);
+        EventText->SetTextColor(208, 226, 198, 255);
+        EventText->EnableShadow(true);
+        EventText->SetShadowOffset(1.f, 1.f);
+        EventText->SetShadowTextColor(16, 16, 16, 220);
+        mEventText = EventText;
+    }
+
     auto StatusBar =
         CreateWidget<CImage>("TopHud_StatusBar", 19).lock();
 
@@ -265,6 +353,62 @@ bool CTopHudWidget::Init()
         SupportText->SetShadowOffset(1.f, 1.f);
         SupportText->SetShadowTextColor(16, 16, 16, 220);
         mSupportText = SupportText;
+    }
+
+    auto GameOverDim =
+        CreateWidget<CImage>("TopHud_GameOverDim", 90).lock();
+
+    if (GameOverDim)
+    {
+        GameOverDim->SetTexture("TopHudGameOverDim", GStatusBarTexture);
+        GameOverDim->SetTint(0.03f, 0.03f, 0.03f, 0.72f);
+        GameOverDim->SetEnable(false);
+        mGameOverDim = GameOverDim;
+    }
+
+    auto GameOverPanel =
+        CreateWidget<CImage>("TopHud_GameOverPanel", 91).lock();
+
+    if (GameOverPanel)
+    {
+        GameOverPanel->SetTexture("TopHudGameOverPanel", GCenterPopupTexture);
+        GameOverPanel->SetTint(1.f, 1.f, 1.f, 1.f);
+        GameOverPanel->SetEnable(false);
+        mGameOverPanel = GameOverPanel;
+    }
+
+    auto GameOverTitleText =
+        CreateWidget<CTextBlock>("TopHud_GameOverTitleText", 92).lock();
+
+    if (GameOverTitleText)
+    {
+        GameOverTitleText->SetText(TEXT("정권 상실"));
+        GameOverTitleText->SetFontSize(26.f);
+        GameOverTitleText->SetAlignH(ETextAlignH::Center);
+        GameOverTitleText->SetAlignV(ETextAlignV::Middle);
+        GameOverTitleText->SetTextColor(244, 229, 201, 255);
+        GameOverTitleText->EnableShadow(true);
+        GameOverTitleText->SetShadowOffset(1.f, 1.f);
+        GameOverTitleText->SetShadowTextColor(20, 18, 16, 220);
+        GameOverTitleText->SetEnable(false);
+        mGameOverTitleText = GameOverTitleText;
+    }
+
+    auto GameOverBodyText =
+        CreateWidget<CTextBlock>("TopHud_GameOverBodyText", 92).lock();
+
+    if (GameOverBodyText)
+    {
+        GameOverBodyText->SetText(TEXT(""));
+        GameOverBodyText->SetFontSize(18.f);
+        GameOverBodyText->SetAlignH(ETextAlignH::Center);
+        GameOverBodyText->SetAlignV(ETextAlignV::Middle);
+        GameOverBodyText->SetTextColor(236, 225, 198, 255);
+        GameOverBodyText->EnableShadow(true);
+        GameOverBodyText->SetShadowOffset(1.f, 1.f);
+        GameOverBodyText->SetShadowTextColor(16, 16, 16, 200);
+        GameOverBodyText->SetEnable(false);
+        mGameOverBodyText = GameOverBodyText;
     }
 
     mSpeedButtons.resize(GSpeedButtonCount);
@@ -344,10 +488,25 @@ void CTopHudWidget::RefreshData()
     if (!MainWorld)
         return;
 
+    const FElectionStatus& ElectionStatus =
+        MainWorld->GetElectionStatus();
+    const FTaxPolicyEventStatus& TaxEventStatus =
+        MainWorld->GetTaxPolicyEventStatus();
+    const int DaysUntilElection = MainWorld->GetDaysUntilNextElection();
+    const double ElectionWarningScore = MainWorld->GetElectionWarningScore();
+    const bool ElectionWarningActive =
+        HasElectionWarning(DaysUntilElection, ElectionWarningScore);
     auto BudgetText = mBudgetText.lock();
     auto DateText = mDateText.lock();
+    auto ElectionText = mElectionText.lock();
+    auto TaxPolicyText = mTaxPolicyText.lock();
+    auto EventText = mEventText.lock();
     auto NpcText = mNpcText.lock();
     auto SupportText = mSupportText.lock();
+    auto GameOverDim = mGameOverDim.lock();
+    auto GameOverPanel = mGameOverPanel.lock();
+    auto GameOverTitleText = mGameOverTitleText.lock();
+    auto GameOverBodyText = mGameOverBodyText.lock();
 
     if (BudgetText)
     {
@@ -394,6 +553,195 @@ void CTopHudWidget::RefreshData()
         DateText->SetText(Buffer);
     }
 
+    if (ElectionText)
+    {
+        std::wstring ElectionLabel;
+
+        if (ElectionStatus.GameLost)
+        {
+            ElectionLabel = L"정권 상실";
+            ElectionText->SetTextColor(232, 86, 72, 255);
+        }
+        else
+        {
+            ElectionLabel =
+                L"선거 " +
+                FormatDate(
+                    ElectionStatus.NextElectionYear,
+                    ElectionStatus.NextElectionMonth,
+                    ElectionStatus.NextElectionDay);
+
+            if (DaysUntilElection >= 0)
+            {
+                ElectionLabel +=
+                    L" / " +
+                    std::to_wstring(DaysUntilElection) +
+                    L"일";
+            }
+
+            if (ElectionWarningActive)
+            {
+                ElectionLabel +=
+                    L" / " +
+                    std::wstring(
+                        GetElectionWarningTierLabel(ElectionWarningScore));
+            }
+            else if (ElectionStatus.HasRecordedElection)
+            {
+                ElectionLabel += ElectionStatus.IncumbentWonLastElection ?
+                    L" / 승리" :
+                    L" / 패배";
+            }
+
+            if (ElectionWarningScore >= 0.78)
+                ElectionText->SetTextColor(232, 86, 72, 255);
+            else if (ElectionWarningScore >= 0.52)
+                ElectionText->SetTextColor(238, 178, 88, 255);
+            else if (ElectionWarningActive)
+                ElectionText->SetTextColor(240, 214, 124, 255);
+            else
+                ElectionText->SetTextColor(245, 235, 210, 255);
+        }
+
+        ElectionText->SetText(ElectionLabel.c_str());
+    }
+
+    if (TaxPolicyText)
+    {
+        TaxPolicyText->SetText(
+            FormatTaxPolicyCompact(MainWorld->GetTaxPolicy()).c_str());
+    }
+
+    if (EventText)
+    {
+        std::wstring EventLabel = L"정치 경고 없음";
+
+        if (TaxEventStatus.Active)
+        {
+            if (ElectionWarningActive)
+            {
+                EventLabel =
+                    L"선거 경고: " +
+                    TaxEventStatus.Title +
+                    L" / " +
+                    GetElectionWarningTierLabel(ElectionWarningScore);
+            }
+            else
+            {
+                EventLabel =
+                    L"경고: " +
+                    TaxEventStatus.Title +
+                    L" (" +
+                    std::to_wstring((std::max)(0, TaxEventStatus.RemainingDays)) +
+                    L"일)";
+            }
+
+            if (ElectionWarningScore >= 0.78 ||
+                TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis ||
+                TaxEventStatus.DaysActive >= 4)
+            {
+                EventText->SetTextColor(238, 108, 90, 255);
+            }
+            else if (ElectionWarningActive)
+            {
+                EventText->SetTextColor(238, 178, 88, 255);
+            }
+            else
+            {
+                EventText->SetTextColor(236, 182, 94, 255);
+            }
+        }
+        else if (ElectionWarningActive)
+        {
+            EventLabel =
+                L"선거 경고: 지지 기반 흔들림 (" +
+                std::to_wstring(DaysUntilElection) +
+                L"일)";
+
+            if (ElectionWarningScore >= 0.78)
+                EventText->SetTextColor(238, 108, 90, 255);
+            else if (ElectionWarningScore >= 0.52)
+                EventText->SetTextColor(238, 178, 88, 255);
+            else
+                EventText->SetTextColor(240, 214, 124, 255);
+        }
+        else if (TaxEventStatus.NotificationDays > 0 &&
+            !TaxEventStatus.Summary.empty())
+        {
+            EventLabel = L"최근 경고: " + TaxEventStatus.Summary;
+            EventText->SetTextColor(228, 214, 188, 255);
+        }
+        else
+        {
+            EventText->SetTextColor(208, 226, 198, 255);
+        }
+
+        EventText->SetText(EventLabel.c_str());
+    }
+
+    if (GameOverTitleText)
+        GameOverTitleText->SetText(TEXT("정권 상실"));
+
+    if (ElectionStatus.GameLost && !mGameOverMenusClosed)
+    {
+        CloseMenus(true, true, true);
+        mGameOverMenusClosed = true;
+    }
+    else if (!ElectionStatus.GameLost)
+    {
+        mGameOverMenusClosed = false;
+    }
+
+    for (size_t i = 0; i < mSpeedButtons.size(); ++i)
+    {
+        auto Button = mSpeedButtons[i].lock();
+
+        if (Button)
+            Button->ButtonEnable(!ElectionStatus.GameLost);
+    }
+
+    for (size_t i = 0; i < mMenuButtons.size(); ++i)
+    {
+        auto Button = mMenuButtons[i].lock();
+
+        if (Button)
+            Button->ButtonEnable(!ElectionStatus.GameLost);
+    }
+
+    if (GameOverDim)
+        GameOverDim->SetEnable(ElectionStatus.GameLost);
+
+    if (GameOverPanel)
+        GameOverPanel->SetEnable(ElectionStatus.GameLost);
+
+    if (GameOverTitleText)
+        GameOverTitleText->SetEnable(ElectionStatus.GameLost);
+
+    if (GameOverBodyText)
+    {
+        GameOverBodyText->SetEnable(ElectionStatus.GameLost);
+
+        if (ElectionStatus.GameLost)
+        {
+            wchar_t Buffer[512] = {};
+            swprintf_s(
+                Buffer,
+                L"%04d.%02d.%02d 선거에서 재집권에 실패했습니다.\n"
+                L"지지 %d / 야당 %d / 기권 %d\n"
+                L"득표율 %.1f%% / 투표율 %.1f%%\n"
+                L"시뮬레이션이 정지되었습니다.",
+                ElectionStatus.LastElectionYear,
+                ElectionStatus.LastElectionMonth,
+                ElectionStatus.LastElectionDay,
+                ElectionStatus.LastIncumbentVotes,
+                ElectionStatus.LastOppositionVotes,
+                ElectionStatus.LastAbstainVotes,
+                ElectionStatus.LastVoteShare,
+                ElectionStatus.LastTurnoutPercent);
+            GameOverBodyText->SetText(Buffer);
+        }
+    }
+
     const float MonthProgress = MainWorld->GetSimulationMonthProgress();
     mMonthProgress = (std::max)(0.f, (std::min)(1.f, MonthProgress));
 }
@@ -408,7 +756,7 @@ void CTopHudWidget::RefreshLayout()
         (std::max)(0.62f, (std::min)(1.f, ScreenWidth / 1920.f));
     const float TopHudPanelX = 16.f;
     const float TopHudPanelW = 303.f * TopHudScale;
-    const float TopHudPanelH = 130.f * TopHudScale;
+    const float TopHudPanelH = 156.f * TopHudScale;
     const float TopHudPanelY = (std::max)(
         12.f, ScreenHeight - TopHudPanelH - 18.f);
 
@@ -421,8 +769,15 @@ void CTopHudWidget::RefreshLayout()
     auto StatusMoneyIcon = mStatusMoneyIcon.lock();
     auto StatusNpcIcon = mStatusNpcIcon.lock();
     auto StatusSupportIcon = mStatusSupportIcon.lock();
+    auto ElectionText = mElectionText.lock();
+    auto TaxPolicyText = mTaxPolicyText.lock();
+    auto EventText = mEventText.lock();
     auto NpcText = mNpcText.lock();
     auto SupportText = mSupportText.lock();
+    auto GameOverDim = mGameOverDim.lock();
+    auto GameOverPanel = mGameOverPanel.lock();
+    auto GameOverTitleText = mGameOverTitleText.lock();
+    auto GameOverBodyText = mGameOverBodyText.lock();
 
     const float StatusScale =
         (std::max)(0.58f, (std::min)(0.78f, ScreenWidth / 2400.f));
@@ -520,6 +875,30 @@ void CTopHudWidget::RefreshLayout()
         DateText->SetSize(170.f * TopHudScale, 20.f * TopHudScale);
     }
 
+    if (ElectionText)
+    {
+        ElectionText->SetPos(
+            TopHudPanelX + 62.f * TopHudScale,
+            TopHudPanelY + 44.f * TopHudScale);
+        ElectionText->SetSize(182.f * TopHudScale, 18.f * TopHudScale);
+    }
+
+    if (TaxPolicyText)
+    {
+        TaxPolicyText->SetPos(
+            TopHudPanelX + 62.f * TopHudScale,
+            TopHudPanelY + 60.f * TopHudScale);
+        TaxPolicyText->SetSize(182.f * TopHudScale, 16.f * TopHudScale);
+    }
+
+    if (EventText)
+    {
+        EventText->SetPos(
+            TopHudPanelX + 62.f * TopHudScale,
+            TopHudPanelY + 76.f * TopHudScale);
+        EventText->SetSize(206.f * TopHudScale, 16.f * TopHudScale);
+    }
+
     const float SpeedButtonSize = 40.f * TopHudScale;
     const float SpeedButtonGap = 44.f * TopHudScale;
     const float SpeedButtonY =
@@ -571,6 +950,85 @@ void CTopHudWidget::RefreshLayout()
             MenuY);
         MenuButton->SetSize(MenuButtonSize, MenuButtonSize);
     }
+
+    const float OverlayWidth = ScreenWidth;
+    const float OverlayHeight = ScreenHeight;
+    const float PanelScale =
+        (std::max)(0.72f, (std::min)(1.05f, ScreenWidth / 1920.f));
+    const float PanelWidth = 720.f * PanelScale;
+    const float PanelHeight = 390.f * PanelScale;
+    const float PanelX = (ScreenWidth - PanelWidth) * 0.5f;
+    const float PanelY = (ScreenHeight - PanelHeight) * 0.5f;
+
+    if (GameOverDim)
+    {
+        GameOverDim->SetPos(0.f, 0.f);
+        GameOverDim->SetSize(OverlayWidth, OverlayHeight);
+    }
+
+    if (GameOverPanel)
+    {
+        GameOverPanel->SetPos(PanelX, PanelY);
+        GameOverPanel->SetSize(PanelWidth, PanelHeight);
+    }
+
+    if (GameOverTitleText)
+    {
+        GameOverTitleText->SetPos(
+            PanelX + 70.f * PanelScale,
+            PanelY + 70.f * PanelScale);
+        GameOverTitleText->SetSize(
+            PanelWidth - 140.f * PanelScale,
+            48.f * PanelScale);
+    }
+
+    if (GameOverBodyText)
+    {
+        GameOverBodyText->SetPos(
+            PanelX + 84.f * PanelScale,
+            PanelY + 138.f * PanelScale);
+        GameOverBodyText->SetSize(
+            PanelWidth - 168.f * PanelScale,
+            PanelHeight - 210.f * PanelScale);
+    }
+}
+
+void CTopHudWidget::CloseMenus(
+    bool CloseBuildMenu,
+    bool CloseAlmanac,
+    bool CloseEdicts)
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return;
+
+    auto BuildMenu =
+        UIManager->FindWidget<CBuildMenuWidget>(GBuildMenuWidgetName).lock();
+    auto AlmanacWidget =
+        UIManager->FindWidget<CAlmanacWidget>(GAlmanacWidgetName).lock();
+    auto EdictWidget =
+        UIManager->FindWidget<CEdictWidget>(GEdictWidgetName).lock();
+
+    if (BuildMenu)
+    {
+        if (CloseBuildMenu)
+            BuildMenu->SetBuildMenuOpen(false);
+
+        if (CloseAlmanac)
+            BuildMenu->SetAlmanacOpen(false);
+    }
+
+    if (AlmanacWidget && CloseAlmanac)
+        AlmanacWidget->SetOpen(false);
+
+    if (EdictWidget && CloseEdicts)
+        EdictWidget->SetOpen(false);
 }
 
 void CTopHudWidget::OnConstructionButtonClick()
@@ -579,6 +1037,13 @@ void CTopHudWidget::OnConstructionButtonClick()
 
     if (!World)
         return;
+
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+
+    if (MainWorld && MainWorld->GetElectionStatus().GameLost)
+        return;
+
+    CloseMenus(false, true, true);
 
     auto UIManager = World->GetUIManager().lock();
 
@@ -599,16 +1064,23 @@ void CTopHudWidget::OnAlmanacButtonClick()
     if (!World)
         return;
 
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+
+    if (MainWorld && MainWorld->GetElectionStatus().GameLost)
+        return;
+
+    CloseMenus(true, false, true);
+
     auto UIManager = World->GetUIManager().lock();
 
     if (!UIManager)
         return;
 
-    auto BuildMenu =
-        UIManager->FindWidget<CBuildMenuWidget>(GBuildMenuWidgetName).lock();
+    auto AlmanacWidget =
+        UIManager->FindWidget<CAlmanacWidget>(GAlmanacWidgetName).lock();
 
-    if (BuildMenu)
-        BuildMenu->ToggleAlmanac();
+    if (AlmanacWidget)
+        AlmanacWidget->ToggleOpen();
 }
 
 void CTopHudWidget::OnEdictsButtonClick()
@@ -617,6 +1089,13 @@ void CTopHudWidget::OnEdictsButtonClick()
 
     if (!World)
         return;
+
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+
+    if (MainWorld && MainWorld->GetElectionStatus().GameLost)
+        return;
+
+    CloseMenus(true, true, false);
 
     auto UIManager = World->GetUIManager().lock();
 

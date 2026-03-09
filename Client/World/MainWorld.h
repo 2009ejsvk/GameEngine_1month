@@ -5,6 +5,48 @@
 #include <string>
 #include <vector>
 
+struct FElectionStatus
+{
+	bool HasRecordedElection = false;
+	bool IncumbentWonLastElection = true;
+	bool GameLost = false;
+	int NextElectionYear = 0;
+	int NextElectionMonth = 0;
+	int NextElectionDay = 0;
+	int ElectionsWon = 0;
+	int LastElectionYear = 0;
+	int LastElectionMonth = 0;
+	int LastElectionDay = 0;
+	int LastIncumbentVotes = 0;
+	int LastOppositionVotes = 0;
+	int LastAbstainVotes = 0;
+	double LastVoteShare = 0.0;
+	double LastTurnoutPercent = 0.0;
+};
+
+enum class ETaxPolicyEventType
+{
+	None = 0,
+	WorkerTaxStrike,
+	PropertyTaxBacklash,
+	BudgetCrisis
+};
+
+struct FTaxPolicyEventStatus
+{
+	ETaxPolicyEventType Type = ETaxPolicyEventType::None;
+	bool Active = false;
+	int RemainingDays = 0;
+	int CooldownDays = 0;
+	int NotificationDays = 0;
+	int DaysActive = 0;
+	int TriggerYear = 0;
+	int TriggerMonth = 0;
+	int TriggerDay = 0;
+	std::wstring Title;
+	std::wstring Summary;
+};
+
 class CMainWorld :
     public CWorld
 {
@@ -37,9 +79,17 @@ public:
 	bool TryApplyEdict(
 		EGovernmentEdictType Type,
 		std::wstring& OutMessage);
+	bool AdjustTaxPolicy(
+		ETaxPolicyType Type,
+		int DeltaPercent,
+		std::wstring& OutMessage);
 	const FGovernmentProfile& GetGovernmentProfile() const
 	{
 		return mGovernmentProfile;
+	}
+	const FTaxPolicy& GetTaxPolicy() const
+	{
+		return mGovernmentProfile.TaxPolicy;
 	}
 	const FPoliticalWorldSnapshot& GetPoliticalSnapshot() const
 	{
@@ -59,6 +109,44 @@ public:
 	{
 		return mLastDailyEdictCost;
 	}
+	long long GetLastDailyExportIncome() const
+	{
+		return mLastDailyExportIncome;
+	}
+	long long GetLastDailyTaxIncome() const
+	{
+		return mLastDailyTaxIncome;
+	}
+	long long GetLastDailyConsumptionTaxIncome() const
+	{
+		return mLastDailyConsumptionTaxIncome;
+	}
+	long long GetLastDailyIncomeTaxIncome() const
+	{
+		return mLastDailyIncomeTaxIncome;
+	}
+	long long GetLastDailyPropertyTaxIncome() const
+	{
+		return mLastDailyPropertyTaxIncome;
+	}
+	double GetLastDailyTaxCollectionEfficiency() const
+	{
+		return mLastDailyTaxCollectionEfficiency;
+	}
+	long long GetLastDailyNetChange() const
+	{
+		return mLastDailyNetChange;
+	}
+	const FElectionStatus& GetElectionStatus() const
+	{
+		return mElectionStatus;
+	}
+	int GetDaysUntilNextElection() const;
+	double GetElectionWarningScore() const;
+	const FTaxPolicyEventStatus& GetTaxPolicyEventStatus() const
+	{
+		return mTaxEventStatus;
+	}
 
 private:
 	int mSpawnedNpcCount = 0;
@@ -68,16 +156,26 @@ private:
 	long long mLastDailyWageCost = 0;
 	long long mLastDailyUpkeepCost = 0;
 	long long mLastDailyExportIncome = 0;
+	long long mLastDailyTaxIncome = 0;
+	long long mLastDailyConsumptionTaxIncome = 0;
+	long long mLastDailyIncomeTaxIncome = 0;
+	long long mLastDailyPropertyTaxIncome = 0;
 	long long mLastDailyEdictCost = 0;
 	long long mLastDailyNetChange = 0;
+	double mLastDailyTaxCollectionEfficiency = 0.0;
 	int mSimulationYear = 2000;
 	int mSimulationMonth = 1;
 	int mSimulationDay = 1;
 	float mDayProgressAccum = 0.f;
 	float mSecondsPerSimulationDay = 2.f;
 	float mPoliticalSnapshotAccum = 0.f;
+	int mWorkerTaxPressureDays = 0;
+	int mPropertyTaxPressureDays = 0;
+	int mBudgetCrisisPressureDays = 0;
 	FGovernmentProfile mGovernmentProfile;
 	FPoliticalWorldSnapshot mPoliticalSnapshot;
+	FElectionStatus mElectionStatus;
+	FTaxPolicyEventStatus mTaxEventStatus;
 	std::vector<FGovernmentEdictState> mGovernmentEdicts;
 	FGovernmentEdictModifiers mEdictModifiers;
 
@@ -92,9 +190,21 @@ private:
 	void AdvanceSimulationDay();
 	int GetDaysInMonth(int Year, int Month) const;
 	void ApplyDailyEconomySettlement();
+	void InitializeElectionSchedule();
+	void ResolveScheduledElection();
+	void ScheduleNextElection(int YearsUntilElection);
 	void TickGovernmentEdicts();
 	void RefreshEdictModifiers();
 	void ApplyDailyEdictCitizenEffects();
+	void ApplyDailyTaxPolicyEventEffects();
+	void TickTaxPolicyEvents();
+	void StartTaxPolicyEvent(
+		ETaxPolicyEventType Type,
+		const std::wstring& Summary,
+		long long ImmediateBudgetDelta = 0);
+	void ResolveTaxPolicyEvent(
+		const std::wstring& Summary,
+		bool Success);
 	void SyncGovernmentActionFromEdict(
 		EGovernmentEdictType Type,
 		bool Active);

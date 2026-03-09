@@ -130,6 +130,72 @@ namespace EdictSystem
                     MakeSignal(EPoliticalAxis::Economy,
                         EPoliticalStance::Left, 3.0f)
                 }
+            },
+            {
+                EGovernmentEdictType::LaborTaxRelief,
+                EGovernmentEdictMode::Active,
+                EPoliticalActionType::LaborTaxRelief,
+                L"근로세 경감",
+                L"근로층 세금 파업에 대응해 소득세를 즉시 낮추고 고용 불만을 진정시킵니다.",
+                L"근로층 세금 파업 발생 중에만 시행 가능, 소득세 4%p 인하, 파업 즉시 진정, 4개월 동안 직업/자유 완화",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_taxCut.png"),
+                2500,
+                6,
+                0,
+                120,
+                360,
+                {
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Left, 6.0f),
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Right, -2.5f),
+                    MakeSignal(EPoliticalAxis::IntellectualConservative,
+                        EPoliticalStance::Left, 1.5f)
+                }
+            },
+            {
+                EGovernmentEdictType::PropertyTaxRelief,
+                EGovernmentEdictMode::Active,
+                EPoliticalActionType::PropertyTaxRelief,
+                L"재산세 유예",
+                L"주거층 재산세 반발에 대응해 재산세를 낮추고 주거 불만을 완화합니다.",
+                L"재산세 반발 발생 중에만 시행 가능, 재산세 10%p 인하, 반발 즉시 진정, 4개월 동안 주거 완화",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_freeHousing.png"),
+                3200,
+                5,
+                0,
+                120,
+                420,
+                {
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Left, 7.0f),
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Right, -3.0f),
+                    MakeSignal(EPoliticalAxis::IntellectualConservative,
+                        EPoliticalStance::Right, 2.0f)
+                }
+            },
+            {
+                EGovernmentEdictType::EmergencyAusterity,
+                EGovernmentEdictMode::Active,
+                EPoliticalActionType::AusterityProgram,
+                L"긴축 예산",
+                L"국고 위기 경보에 대응해 긴급 자금을 투입하고 단기 긴축 체제로 전환합니다.",
+                L"국고 위기 발생 중에만 시행 가능, 즉시 자금 투입, 위기 즉시 진정, 4개월 동안 일일 재정 개선과 자유/직업 압박",
+                nullptr,
+                4500,
+                4,
+                0,
+                120,
+                480,
+                {
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Left, 2.0f),
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Right, -4.5f),
+                    MakeSignal(EPoliticalAxis::IntellectualConservative,
+                        EPoliticalStance::Right, 5.5f)
+                }
             }
         };
 
@@ -224,8 +290,7 @@ namespace EdictSystem
                 break;
             case EGovernmentEdictType::TaxCut:
                 Modifiers.DailyFreedomDelta += 1.5f;
-                Modifiers.DailyBudgetDelta -=
-                    static_cast<long long>((std::max)(120, SafeCitizenCount * 2));
+                Modifiers.TaxRevenueMultiplier *= 0.65f;
                 break;
             case EGovernmentEdictType::MartialLaw:
                 Modifiers.DailyFreedomDelta -= 4.0f;
@@ -239,6 +304,20 @@ namespace EdictSystem
             case EGovernmentEdictType::EmployeeOfTheMonth:
                 Modifiers.ProductionMultiplier *= 1.35f;
                 Modifiers.DailyJobDelta += 1.5f;
+                break;
+            case EGovernmentEdictType::LaborTaxRelief:
+                Modifiers.DailyJobDelta += 1.25f;
+                Modifiers.DailyFreedomDelta += 0.75f;
+                break;
+            case EGovernmentEdictType::PropertyTaxRelief:
+                Modifiers.DailyHousingDelta += 1.40f;
+                Modifiers.DailyFreedomDelta += 0.35f;
+                break;
+            case EGovernmentEdictType::EmergencyAusterity:
+                Modifiers.DailyBudgetDelta += 450;
+                Modifiers.DailyJobDelta -= 1.00f;
+                Modifiers.DailyFreedomDelta -= 0.85f;
+                Modifiers.DailySecurityDelta += 0.45f;
                 break;
             default:
                 break;

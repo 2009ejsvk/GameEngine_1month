@@ -27,6 +27,32 @@ namespace
 {
     constexpr int GNpcDirectionCount = 8;
 
+    float ResolveTaxEventProductionMultiplier(
+        const FTaxPolicyEventStatus* TaxEventStatus)
+    {
+        if (!TaxEventStatus ||
+            !TaxEventStatus->Active ||
+            TaxEventStatus->Type == ETaxPolicyEventType::None)
+        {
+            return 1.f;
+        }
+
+        const float Severity = Clamp<float>(
+            static_cast<float>(TaxEventStatus->DaysActive + 1) / 6.f,
+            0.f,
+            1.f);
+
+        switch (TaxEventStatus->Type)
+        {
+        case ETaxPolicyEventType::WorkerTaxStrike:
+            return 0.74f - 0.30f * Severity;
+        case ETaxPolicyEventType::BudgetCrisis:
+            return 0.92f - 0.18f * Severity;
+        default:
+            return 1.f;
+        }
+    }
+
     constexpr const char* GNpcWalkAnimationNamesBlue[GNpcDirectionCount] =
     {
         "CitizenBlueWalk_Dir0",
@@ -1131,10 +1157,16 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         World ? dynamic_cast<CMainWorld*>(World.get()) : nullptr;
     const FGovernmentEdictModifiers* EdictModifiers =
         MainWorld ? &MainWorld->GetEdictModifiers() : nullptr;
+    const FTaxPolicy* TaxPolicy =
+        MainWorld ? &MainWorld->GetTaxPolicy() : nullptr;
+    const FTaxPolicyEventStatus* TaxEventStatus =
+        MainWorld ? &MainWorld->GetTaxPolicyEventStatus() : nullptr;
     const float FoodGainMultiplier =
         EdictModifiers ? EdictModifiers->FoodGainMultiplier : 1.f;
     const float ProductionMultiplier =
         EdictModifiers ? EdictModifiers->ProductionMultiplier : 1.f;
+    const float TaxEventProductionMultiplier =
+        ResolveTaxEventProductionMultiplier(TaxEventStatus);
     const int FoodConsumptionPerVisit =
         EdictModifiers ?
         (std::max)(1, EdictModifiers->FoodConsumptionPerVisit) :
@@ -1167,6 +1199,24 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         FoodCapBuildingName, &CPlacementAreaObject::GetFoodSatisfactionCap);
     const float FunCap = ResolveBuildingCap(
         mFunName, &CPlacementAreaObject::GetFunSatisfactionCap);
+    const float ConsumptionTaxDeviation =
+        TaxPolicy ?
+        GetTaxPolicyDeviationNormalized(
+            *TaxPolicy,
+            ETaxPolicyType::Consumption) :
+        0.f;
+    const float IncomeTaxDeviation =
+        TaxPolicy ?
+        GetTaxPolicyDeviationNormalized(
+            *TaxPolicy,
+            ETaxPolicyType::Income) :
+        0.f;
+    const float PropertyTaxDeviation =
+        TaxPolicy ?
+        GetTaxPolicyDeviationNormalized(
+            *TaxPolicy,
+            ETaxPolicyType::Property) :
+        0.f;
 
     auto RecoverUnderCap = [&](float& Value, float GainPerSec, float Cap)
     {
@@ -1206,11 +1256,17 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
                 float ProductionPerSec = 0.f;
 
                 if (WorkBuilding->IsFoodProductionFacility())
-                    ProductionPerSec = 40.f * ProductionMultiplier;
+                    ProductionPerSec =
+                        40.f *
+                        ProductionMultiplier *
+                        TaxEventProductionMultiplier;
                 else if (!WorkBuilding->IsTransportOffice() &&
                     !WorkBuilding->IsHarbor())
                 {
-                    ProductionPerSec = 2.f * ProductionMultiplier;
+                    ProductionPerSec =
+                        2.f *
+                        ProductionMultiplier *
+                        TaxEventProductionMultiplier;
                 }
 
                 WorkBuilding->AddProduction(ProductionPerSec, DeltaTime);
@@ -1252,6 +1308,54 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         break;
     default:
         break;
+    }
+
+    if (TaxPolicy)
+    {
+        const float ConsumptionTaxStress =
+            (std::max)(0.f, ConsumptionTaxDeviation);
+        const float ConsumptionTaxRelief =
+            (std::max)(0.f, -ConsumptionTaxDeviation);
+        const float IncomeTaxStress =
+            (std::max)(0.f, IncomeTaxDeviation);
+        const float IncomeTaxRelief =
+            (std::max)(0.f, -IncomeTaxDeviation);
+        const float PropertyTaxStress =
+            (std::max)(0.f, PropertyTaxDeviation);
+        const float PropertyTaxRelief =
+            (std::max)(0.f, -PropertyTaxDeviation);
+
+        auto ApplyNeedDrift = [&](float& Value, float DeltaPerSecond)
+        {
+            Value = (std::max)(
+                0.f,
+                (std::min)(100.f, Value + DeltaPerSecond * DeltaTime));
+        };
+
+        ApplyNeedDrift(
+            mSatisfaction.Food,
+            -0.10f * ConsumptionTaxStress +
+            0.04f * ConsumptionTaxRelief);
+        ApplyNeedDrift(
+            mSatisfaction.Fun,
+            -0.14f * ConsumptionTaxStress +
+            0.06f * ConsumptionTaxRelief);
+        ApplyNeedDrift(
+            mSatisfaction.Job,
+            -0.13f * IncomeTaxStress +
+            0.05f * IncomeTaxRelief);
+        ApplyNeedDrift(
+            mSatisfaction.Housing,
+            -0.15f * PropertyTaxStress +
+            0.06f * PropertyTaxRelief);
+        ApplyNeedDrift(
+            mSatisfaction.Freedom,
+            -(0.06f * ConsumptionTaxStress +
+                0.08f * IncomeTaxStress +
+                0.07f * PropertyTaxStress) +
+            (0.03f * ConsumptionTaxRelief +
+                0.04f * IncomeTaxRelief +
+                0.03f * PropertyTaxRelief));
     }
 
     // 1초 틱으로 Overall 재계산 (매 프레임 불필요)

@@ -5,6 +5,7 @@
 #include "Component/ColliderBox2D.h"
 #include "../UI/TopHudWidget.h"
 #include "../UI/BuildMenuWidget.h"
+#include "../UI/AlmanacWidget.h"
 #include "../UI/EdictWidget.h"
 #include "../Building/BuildingCatalog.h"
 #include "World/WorldUIManager.h"
@@ -38,7 +39,21 @@ namespace
 			nullptr, 0, nullptr, nullptr);
 
 		if (RequiredBytes <= 0)
-			return std::string(Text.begin(), Text.end());
+		{
+			std::string Fallback;
+			Fallback.reserve(Text.size());
+
+			for (size_t Index = 0; Index < Text.size(); ++Index)
+			{
+				const wchar_t Character = Text[Index];
+				Fallback.push_back(
+					Character >= 0 && Character <= 0x7f ?
+					static_cast<char>(Character) :
+					'?');
+			}
+
+			return Fallback;
+		}
 
 		std::string Utf8;
 		Utf8.resize(RequiredBytes);
@@ -48,11 +63,153 @@ namespace
 		return Utf8;
 	}
 
+	int* ResolveTaxRatePercent(
+		FTaxPolicy& TaxPolicy,
+		ETaxPolicyType Type)
+	{
+		switch (Type)
+		{
+		case ETaxPolicyType::Consumption:
+			return &TaxPolicy.ConsumptionRatePercent;
+		case ETaxPolicyType::Income:
+			return &TaxPolicy.IncomeRatePercent;
+		case ETaxPolicyType::Property:
+			return &TaxPolicy.PropertyRatePercent;
+		default:
+			return nullptr;
+		}
+	}
+
+	ETaxPolicyEventType GetRequiredTaxPolicyEventForEdict(
+		EGovernmentEdictType Type)
+	{
+		switch (Type)
+		{
+		case EGovernmentEdictType::LaborTaxRelief:
+			return ETaxPolicyEventType::WorkerTaxStrike;
+		case EGovernmentEdictType::PropertyTaxRelief:
+			return ETaxPolicyEventType::PropertyTaxBacklash;
+		case EGovernmentEdictType::EmergencyAusterity:
+			return ETaxPolicyEventType::BudgetCrisis;
+		default:
+			return ETaxPolicyEventType::None;
+		}
+	}
+
+	int ApplyTaxPolicyRateDelta(
+		FTaxPolicy& TaxPolicy,
+		ETaxPolicyType Type,
+		int DeltaPercent)
+	{
+		int* TargetRatePercent = ResolveTaxRatePercent(TaxPolicy, Type);
+
+		if (!TargetRatePercent)
+			return 0;
+
+		const int PreviousRatePercent = *TargetRatePercent;
+		const int NewRatePercent = (std::max)(
+			GetTaxPolicyMinPercent(Type),
+			(std::min)(
+				GetTaxPolicyMaxPercent(Type),
+				PreviousRatePercent + DeltaPercent));
+		*TargetRatePercent = NewRatePercent;
+		return NewRatePercent - PreviousRatePercent;
+	}
+
+	const wchar_t* GetTaxPolicyEventTitle(ETaxPolicyEventType Type)
+	{
+		switch (Type)
+		{
+		case ETaxPolicyEventType::WorkerTaxStrike:
+			return L"자본주의자·지식인 조세 시위";
+		case ETaxPolicyEventType::PropertyTaxBacklash:
+			return L"보수주의자·자본주의자 재산권 반발";
+		case ETaxPolicyEventType::BudgetCrisis:
+			return L"보수주의자·공산주의자 재정 압박";
+		default:
+			return L"정치 경고";
+		}
+	}
+
+	std::wstring BuildTaxPolicyEventWarningSummary(
+		ETaxPolicyEventType Type,
+		int DaysActive)
+	{
+		const bool Escalated = DaysActive >= 4;
+
+		switch (Type)
+		{
+		case ETaxPolicyEventType::WorkerTaxStrike:
+			return Escalated ?
+				L"자본주의자와 지식인이 근로세 경감을 최후통첩합니다." :
+				L"자본주의자와 지식인이 근로세 경감을 요구합니다.";
+		case ETaxPolicyEventType::PropertyTaxBacklash:
+			return Escalated ?
+				L"보수주의자와 자본주의자가 재산세 유예를 강하게 압박합니다." :
+				L"보수주의자와 자본주의자가 재산세 유예를 요구합니다.";
+		case ETaxPolicyEventType::BudgetCrisis:
+			return Escalated ?
+				L"보수주의자와 공산주의자가 재정 안정 대책을 최후통첩합니다." :
+				L"보수주의자와 공산주의자가 재정 안정 대책을 요구합니다.";
+		default:
+			return L"정치 경고가 감지되었습니다.";
+		}
+	}
+
+	std::wstring BuildTaxPolicyEventResolvedSummary(
+		ETaxPolicyEventType Type,
+		bool Success)
+	{
+		switch (Type)
+		{
+		case ETaxPolicyEventType::WorkerTaxStrike:
+			return Success ?
+				L"자본주의자와 지식인이 한발 물러섰습니다." :
+				L"자본주의자와 지식인의 조세 시위가 소강 상태로 돌아섰습니다.";
+		case ETaxPolicyEventType::PropertyTaxBacklash:
+			return Success ?
+				L"보수주의자와 자본주의자의 재산권 압박이 진정되었습니다." :
+				L"보수주의자와 자본주의자의 반발이 소강 상태에 들어갔습니다.";
+		case ETaxPolicyEventType::BudgetCrisis:
+			return Success ?
+				L"보수주의자와 공산주의자의 재정 압박이 진정되었습니다." :
+				L"재정 압박 연대가 일단락되었지만 경계는 남아 있습니다.";
+		default:
+			return Success ?
+				L"정치 경고가 진정되었습니다." :
+				L"정치 경고가 일단락되었습니다.";
+		}
+	}
+
+	int GetTaxPolicyEventDurationDays(ETaxPolicyEventType Type)
+	{
+		switch (Type)
+		{
+		case ETaxPolicyEventType::WorkerTaxStrike:
+			return 8;
+		case ETaxPolicyEventType::PropertyTaxBacklash:
+			return 7;
+		case ETaxPolicyEventType::BudgetCrisis:
+			return 9;
+		default:
+			return 0;
+		}
+	}
+
+	int GetTaxPolicyEventCooldownDays(bool Success)
+	{
+		return Success ? 18 : 24;
+	}
+
 	constexpr int GInitialNpcCount = 10;
 	constexpr int GMaxNpcCount = 2000;
 	constexpr float GNpcSpawnInterval = 5.f;
 	constexpr float GCitizenReassignInterval = 0.5f;
 	constexpr long long GInitialNationalBudget = 500000;
+	constexpr int GInitialElectionLeadYears = 2;
+	constexpr int GElectionIntervalYears = 4;
+	constexpr int GElectionMonth = 1;
+	constexpr int GElectionDay = 1;
 	constexpr int GSimulationStartYear = 2000;
 	constexpr int GSimulationStartMonth = 1;
 	constexpr int GSimulationStartDay = 1;
@@ -453,18 +610,29 @@ bool CMainWorld::Init()
 	mLastDailyWageCost = 0;
 	mLastDailyUpkeepCost = 0;
 	mLastDailyExportIncome = 0;
+	mLastDailyTaxIncome = 0;
+	mLastDailyConsumptionTaxIncome = 0;
+	mLastDailyIncomeTaxIncome = 0;
+	mLastDailyPropertyTaxIncome = 0;
 	mLastDailyEdictCost = 0;
 	mLastDailyNetChange = 0;
+	mLastDailyTaxCollectionEfficiency = 0.0;
 	mSimulationYear = GSimulationStartYear;
 	mSimulationMonth = GSimulationStartMonth;
 	mSimulationDay = GSimulationStartDay;
 	mDayProgressAccum = 0.f;
 	mSecondsPerSimulationDay = GSecondsPerSimulationDay;
 	mPoliticalSnapshotAccum = 0.f;
+	mWorkerTaxPressureDays = 0;
+	mPropertyTaxPressureDays = 0;
+	mBudgetCrisisPressureDays = 0;
 	PoliticsSystem::SetDefaultGovernmentProfile(mGovernmentProfile);
 	mPoliticalSnapshot = FPoliticalWorldSnapshot();
+	mElectionStatus = FElectionStatus();
+	mTaxEventStatus = FTaxPolicyEventStatus();
 	EdictSystem::InitializeGovernmentEdictStates(mGovernmentEdicts);
 	mEdictModifiers = FGovernmentEdictModifiers();
+	InitializeElectionSchedule();
 
 	for (int i = 0; i < GInitialNpcCount; ++i)
 	{
@@ -481,6 +649,10 @@ bool CMainWorld::Init()
 void CMainWorld::Update(float DeltaTime)
 {
 	CWorld::Update(DeltaTime);
+
+	if (mElectionStatus.GameLost)
+		return;
+
 	AdvanceSimulationDate(DeltaTime);
 
 	mPoliticalSnapshotAccum += DeltaTime;
@@ -560,26 +732,238 @@ void CMainWorld::AdvanceSimulationDay()
 {
 	ApplyDailyEconomySettlement();
 	ApplyDailyEdictCitizenEffects();
+	ApplyDailyTaxPolicyEventEffects();
 	TickGovernmentEdicts();
 	PoliticsSystem::TickGovernmentActions(mGovernmentProfile);
 	RefreshEdictModifiers();
 	RefreshPoliticalSnapshot();
+	TickTaxPolicyEvents();
 
 	++mSimulationDay;
 	const int CurrentMonthDays =
 		GetDaysInMonth(mSimulationYear, mSimulationMonth);
 
-	if (mSimulationDay <= CurrentMonthDays)
+	if (mSimulationDay > CurrentMonthDays)
+	{
+		mSimulationDay = 1;
+		++mSimulationMonth;
+
+		if (mSimulationMonth > 12)
+		{
+			mSimulationMonth = 1;
+			++mSimulationYear;
+		}
+	}
+
+	ResolveScheduledElection();
+}
+
+void CMainWorld::InitializeElectionSchedule()
+{
+	mElectionStatus = FElectionStatus();
+	ScheduleNextElection(GInitialElectionLeadYears);
+}
+
+void CMainWorld::ScheduleNextElection(int YearsUntilElection)
+{
+	const int SafeYearsUntilElection = (std::max)(1, YearsUntilElection);
+	mElectionStatus.NextElectionYear = mSimulationYear + SafeYearsUntilElection;
+	mElectionStatus.NextElectionMonth = GElectionMonth;
+	mElectionStatus.NextElectionDay = GElectionDay;
+}
+
+void CMainWorld::ResolveScheduledElection()
+{
+	if (mElectionStatus.GameLost)
 		return;
 
-	mSimulationDay = 1;
-	++mSimulationMonth;
-
-	if (mSimulationMonth <= 12)
+	if (mSimulationYear != mElectionStatus.NextElectionYear ||
+		mSimulationMonth != mElectionStatus.NextElectionMonth ||
+		mSimulationDay != mElectionStatus.NextElectionDay)
+	{
 		return;
+	}
 
-	mSimulationMonth = 1;
-	++mSimulationYear;
+	RefreshPoliticalSnapshot();
+
+	const int ActiveCitizenCount =
+		(std::max)(0, mPoliticalSnapshot.ActiveCitizenCount);
+	const int IncumbentVotes =
+		(std::max)(0, mPoliticalSnapshot.IncumbentCount);
+	const int OppositionVotes =
+		(std::max)(0, mPoliticalSnapshot.OppositionCount);
+	const int AbstainVotes =
+		(std::max)(0, mPoliticalSnapshot.AbstainCount);
+	const int CastVotes = IncumbentVotes + OppositionVotes;
+	const bool IncumbentWon =
+		CastVotes > 0 && IncumbentVotes >= OppositionVotes;
+
+	mElectionStatus.HasRecordedElection = true;
+	mElectionStatus.IncumbentWonLastElection = IncumbentWon;
+	mElectionStatus.LastElectionYear = mSimulationYear;
+	mElectionStatus.LastElectionMonth = mSimulationMonth;
+	mElectionStatus.LastElectionDay = mSimulationDay;
+	mElectionStatus.LastIncumbentVotes = IncumbentVotes;
+	mElectionStatus.LastOppositionVotes = OppositionVotes;
+	mElectionStatus.LastAbstainVotes = AbstainVotes;
+	mElectionStatus.LastVoteShare =
+		CastVotes > 0 ?
+		static_cast<double>(IncumbentVotes) /
+			static_cast<double>(CastVotes) * 100.0 :
+		0.0;
+	mElectionStatus.LastTurnoutPercent =
+		ActiveCitizenCount > 0 ?
+		static_cast<double>(CastVotes) /
+			static_cast<double>(ActiveCitizenCount) * 100.0 :
+		0.0;
+
+	if (IncumbentWon)
+	{
+		++mElectionStatus.ElectionsWon;
+		ScheduleNextElection(GElectionIntervalYears);
+		return;
+	}
+
+	mElectionStatus.GameLost = true;
+	mElectionStatus.NextElectionYear = 0;
+	mElectionStatus.NextElectionMonth = 0;
+	mElectionStatus.NextElectionDay = 0;
+}
+
+int CMainWorld::GetDaysUntilNextElection() const
+{
+	if (mElectionStatus.GameLost ||
+		mElectionStatus.NextElectionYear <= 0 ||
+		mElectionStatus.NextElectionMonth <= 0 ||
+		mElectionStatus.NextElectionDay <= 0)
+	{
+		return -1;
+	}
+
+	if (mSimulationYear > mElectionStatus.NextElectionYear ||
+		(mSimulationYear == mElectionStatus.NextElectionYear &&
+			mSimulationMonth > mElectionStatus.NextElectionMonth) ||
+		(mSimulationYear == mElectionStatus.NextElectionYear &&
+			mSimulationMonth == mElectionStatus.NextElectionMonth &&
+			mSimulationDay >= mElectionStatus.NextElectionDay))
+	{
+		return 0;
+	}
+
+	int DaysUntilElection = 0;
+	int Year = mSimulationYear;
+	int Month = mSimulationMonth;
+	int Day = mSimulationDay;
+
+	while (Year < mElectionStatus.NextElectionYear ||
+		(Year == mElectionStatus.NextElectionYear &&
+			Month < mElectionStatus.NextElectionMonth) ||
+		(Year == mElectionStatus.NextElectionYear &&
+			Month == mElectionStatus.NextElectionMonth &&
+			Day < mElectionStatus.NextElectionDay))
+	{
+		++DaysUntilElection;
+		++Day;
+
+		if (Day > GetDaysInMonth(Year, Month))
+		{
+			Day = 1;
+			++Month;
+
+			if (Month > 12)
+			{
+				Month = 1;
+				++Year;
+			}
+		}
+
+		if (DaysUntilElection > 3660)
+			break;
+	}
+
+	return DaysUntilElection;
+}
+
+double CMainWorld::GetElectionWarningScore() const
+{
+	if (mElectionStatus.GameLost)
+		return 1.0;
+
+	const int DaysUntilElection = GetDaysUntilNextElection();
+
+	if (DaysUntilElection < 0)
+		return 0.0;
+
+	double ProximityPressure = 0.0;
+
+	if (DaysUntilElection <= 30)
+	{
+		ProximityPressure = 1.0;
+	}
+	else if (DaysUntilElection <= 90)
+	{
+		ProximityPressure =
+			0.75 +
+			static_cast<double>(90 - DaysUntilElection) / 60.0 * 0.25;
+	}
+	else if (DaysUntilElection <= 180)
+	{
+		ProximityPressure =
+			0.45 +
+			static_cast<double>(180 - DaysUntilElection) / 90.0 * 0.30;
+	}
+	else if (DaysUntilElection <= 365)
+	{
+		ProximityPressure =
+			0.15 +
+			static_cast<double>(365 - DaysUntilElection) / 185.0 * 0.30;
+	}
+
+	const int ActiveCitizenCount = (std::max)(1, mPoliticalSnapshot.ActiveCitizenCount);
+	const double SupportPercent =
+		static_cast<double>(mPoliticalSnapshot.IncumbentCount) /
+		static_cast<double>(ActiveCitizenCount) * 100.0;
+	const double OppositionPercent =
+		static_cast<double>(mPoliticalSnapshot.OppositionCount) /
+		static_cast<double>(ActiveCitizenCount) * 100.0;
+	const double AbstainPercent =
+		static_cast<double>(mPoliticalSnapshot.AbstainCount) /
+		static_cast<double>(ActiveCitizenCount) * 100.0;
+	const double SupportRisk =
+		Clamp<double>((52.0 - SupportPercent) / 22.0, 0.0, 1.0);
+	const double OppositionRisk =
+		Clamp<double>((OppositionPercent - 34.0) / 24.0, 0.0, 1.0);
+	const double AbstainRisk =
+		Clamp<double>((AbstainPercent - 18.0) / 25.0, 0.0, 1.0);
+
+	double EventPressure = 0.0;
+
+	if (mTaxEventStatus.Active)
+	{
+		EventPressure =
+			0.40 +
+			Clamp<double>(
+				static_cast<double>(mTaxEventStatus.DaysActive + 1) / 6.0,
+				0.0,
+				1.0) * 0.35;
+
+		if (mTaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis)
+			EventPressure += 0.10;
+	}
+	else if (mTaxEventStatus.NotificationDays > 0 &&
+		!mTaxEventStatus.Summary.empty())
+	{
+		EventPressure = 0.18;
+	}
+
+	const double Score =
+		0.45 * ProximityPressure +
+		0.25 * SupportRisk +
+		0.12 * OppositionRisk +
+		0.08 * AbstainRisk +
+		0.20 * (ProximityPressure * Clamp<double>(EventPressure, 0.0, 1.0));
+
+	return Clamp<double>(Score, 0.0, 1.0);
 }
 
 int CMainWorld::GetDaysInMonth(int Year, int Month) const
@@ -613,7 +997,34 @@ int CMainWorld::GetDaysInMonth(int Year, int Month) const
 void CMainWorld::ApplyDailyEconomySettlement()
 {
 	const int DaysInMonth = GetDaysInMonth(mSimulationYear, mSimulationMonth);
-	const auto Result = EconomySystem::ApplyDailySettlement(this, DaysInMonth);
+	const auto Result = EconomySystem::ApplyDailySettlement(
+		this,
+		DaysInMonth,
+		mGovernmentProfile);
+	const long long AdjustedTaxIncome = static_cast<long long>(std::llround(
+		static_cast<double>(Result.TaxIncome) *
+		static_cast<double>(mEdictModifiers.TaxRevenueMultiplier)));
+	long long AdjustedConsumptionTaxIncome = 0;
+	long long AdjustedIncomeTaxIncome = 0;
+	long long AdjustedPropertyTaxIncome = 0;
+
+	if (Result.TaxIncome > 0 && AdjustedTaxIncome > 0)
+	{
+		const double BaseTaxIncome = static_cast<double>(Result.TaxIncome);
+		AdjustedConsumptionTaxIncome = static_cast<long long>(std::llround(
+			static_cast<double>(AdjustedTaxIncome) *
+			static_cast<double>(Result.ConsumptionTaxIncome) /
+			BaseTaxIncome));
+		AdjustedIncomeTaxIncome = static_cast<long long>(std::llround(
+			static_cast<double>(AdjustedTaxIncome) *
+			static_cast<double>(Result.IncomeTaxIncome) /
+			BaseTaxIncome));
+		AdjustedPropertyTaxIncome =
+			AdjustedTaxIncome -
+			AdjustedConsumptionTaxIncome -
+			AdjustedIncomeTaxIncome;
+	}
+	const long long TaxRevenueDelta = AdjustedTaxIncome - Result.TaxIncome;
 	const long long DailyEdictUpkeep =
 		EdictSystem::CalculateEdictDailyUpkeep(
 			mGovernmentEdicts,
@@ -623,9 +1034,15 @@ void CMainWorld::ApplyDailyEconomySettlement()
 	mLastDailyWageCost     = Result.WageCost;
 	mLastDailyUpkeepCost   = Result.UpkeepCost;
 	mLastDailyExportIncome = Result.ExportIncome;
+	mLastDailyTaxIncome    = AdjustedTaxIncome;
+	mLastDailyConsumptionTaxIncome = AdjustedConsumptionTaxIncome;
+	mLastDailyIncomeTaxIncome = AdjustedIncomeTaxIncome;
+	mLastDailyPropertyTaxIncome = AdjustedPropertyTaxIncome;
 	mLastDailyEdictCost    = DailyEdictUpkeep - DailyEdictBudgetDelta;
+	mLastDailyTaxCollectionEfficiency = Result.TaxCollectionEfficiency;
 	mLastDailyNetChange    =
-		Result.NetChange - DailyEdictUpkeep + DailyEdictBudgetDelta;
+		Result.NetChange + TaxRevenueDelta -
+		DailyEdictUpkeep + DailyEdictBudgetDelta;
 	mNationalBudget       += mLastDailyNetChange;
 }
 
@@ -661,6 +1078,21 @@ bool CMainWorld::TryApplyEdict(
 
 	const int ActiveCitizenCount =
 		(std::max)(0, mPoliticalSnapshot.ActiveCitizenCount);
+	const ETaxPolicyEventType RequiredTaxEvent =
+		GetRequiredTaxPolicyEventForEdict(Type);
+
+	if (RequiredTaxEvent != ETaxPolicyEventType::None)
+	{
+		if (!mTaxEventStatus.Active || mTaxEventStatus.Type != RequiredTaxEvent)
+		{
+			OutMessage =
+				Definition->DisplayName +
+				L"은(는) " +
+				GetTaxPolicyEventTitle(RequiredTaxEvent) +
+				L" 발생 중에만 시행할 수 있습니다.";
+			return false;
+		}
+	}
 
 	if (Definition->Mode == EGovernmentEdictMode::Passive &&
 		TargetState->Active)
@@ -711,10 +1143,109 @@ bool CMainWorld::TryApplyEdict(
 		TargetState->CooldownDays = 0;
 	}
 
+	std::wstring ResponseMessage;
+
+	switch (Type)
+	{
+	case EGovernmentEdictType::LaborTaxRelief:
+	{
+		const int RateDelta = ApplyTaxPolicyRateDelta(
+			mGovernmentProfile.TaxPolicy,
+			ETaxPolicyType::Income,
+			-4);
+		ResolveTaxPolicyEvent(
+			L"근로세 경감과 함께 근로층 세금 파업이 진정되었습니다.",
+			true);
+		ResponseMessage =
+			L"소득세 " +
+			std::to_wstring((std::max)(0, -RateDelta)) +
+			L"%p 인하";
+		break;
+	}
+	case EGovernmentEdictType::PropertyTaxRelief:
+	{
+		const int RateDelta = ApplyTaxPolicyRateDelta(
+			mGovernmentProfile.TaxPolicy,
+			ETaxPolicyType::Property,
+			-10);
+		ResolveTaxPolicyEvent(
+			L"재산세 유예와 함께 주거층 반발이 진정되었습니다.",
+			true);
+		ResponseMessage =
+			L"재산세 " +
+			std::to_wstring((std::max)(0, -RateDelta)) +
+			L"%p 인하";
+		break;
+	}
+	case EGovernmentEdictType::EmergencyAusterity:
+	{
+		const long long EmergencyFunds = 12000;
+		mNationalBudget += EmergencyFunds;
+		mLastDailyNetChange += EmergencyFunds;
+		ResolveTaxPolicyEvent(
+			L"긴축 예산이 발동되어 국고 위기 경보가 진정되었습니다.",
+			true);
+		ResponseMessage = L"긴급 자금 $12,000 투입";
+		break;
+	}
+	default:
+		break;
+	}
+
 	SyncGovernmentActionFromEdict(Type, true);
 	RefreshEdictModifiers();
 	RefreshPoliticalSnapshot();
+
 	OutMessage = Definition->DisplayName + L" 시행";
+
+	if (!ResponseMessage.empty())
+	{
+		OutMessage += L" / ";
+		OutMessage += ResponseMessage;
+	}
+
+	return true;
+}
+
+bool CMainWorld::AdjustTaxPolicy(
+	ETaxPolicyType Type,
+	int DeltaPercent,
+	std::wstring& OutMessage)
+{
+	int* TargetRatePercent =
+		ResolveTaxRatePercent(mGovernmentProfile.TaxPolicy, Type);
+
+	if (!TargetRatePercent)
+	{
+		OutMessage = L"정의되지 않은 세율 정책입니다.";
+		return false;
+	}
+
+	const int PreviousRatePercent = *TargetRatePercent;
+	const int NewRatePercent = (std::max)(
+		GetTaxPolicyMinPercent(Type),
+		(std::min)(
+			GetTaxPolicyMaxPercent(Type),
+			PreviousRatePercent + DeltaPercent));
+
+	if (PreviousRatePercent == NewRatePercent)
+	{
+		OutMessage =
+			std::wstring(GetTaxPolicyDisplayName(Type)) +
+			(DeltaPercent < 0 ?
+				L"는 이미 최저 세율입니다." :
+				L"는 이미 최고 세율입니다.");
+		return false;
+	}
+
+	*TargetRatePercent = NewRatePercent;
+	OutMessage =
+		std::wstring(GetTaxPolicyDisplayName(Type)) +
+		L" " +
+		std::to_wstring(PreviousRatePercent) +
+		L"% -> " +
+		std::to_wstring(NewRatePercent) +
+		L"%";
 	return true;
 }
 
@@ -808,6 +1339,321 @@ void CMainWorld::ApplyDailyEdictCitizenEffects()
 			Modifiers.DailyFreedomDelta,
 			Modifiers.DailySecurityDelta);
 	}
+}
+
+void CMainWorld::ApplyDailyTaxPolicyEventEffects()
+{
+	if (!mTaxEventStatus.Active ||
+		mTaxEventStatus.Type == ETaxPolicyEventType::None)
+	{
+		return;
+	}
+
+	const float Escalation =
+		1.0f +
+		(std::min)(1.35f,
+			static_cast<float>(mTaxEventStatus.DaysActive) / 4.0f);
+	const float ControlBreakdown =
+		1.0f +
+		(std::min)(0.80f,
+			static_cast<float>(mTaxEventStatus.DaysActive) / 6.0f);
+	float FoodDelta = 0.f;
+	float HealthDelta = 0.f;
+	float FunDelta = 0.f;
+	float FaithDelta = 0.f;
+	float HousingDelta = 0.f;
+	float JobDelta = 0.f;
+	float FreedomDelta = 0.f;
+	float SecurityDelta = 0.f;
+
+	switch (mTaxEventStatus.Type)
+	{
+	case ETaxPolicyEventType::WorkerTaxStrike:
+		JobDelta = -0.80f * Escalation;
+		FreedomDelta = -0.55f * ControlBreakdown;
+		SecurityDelta = -0.25f * ControlBreakdown;
+		FunDelta = -0.16f * Escalation;
+		break;
+	case ETaxPolicyEventType::PropertyTaxBacklash:
+		HousingDelta = -0.85f * Escalation;
+		FreedomDelta = -0.45f * ControlBreakdown;
+		SecurityDelta = -0.20f * ControlBreakdown;
+		HealthDelta = -0.10f * Escalation;
+		break;
+	case ETaxPolicyEventType::BudgetCrisis:
+		FoodDelta = -0.70f * Escalation;
+		JobDelta = -0.55f * Escalation;
+		SecurityDelta = -0.40f * ControlBreakdown;
+		HealthDelta = -0.18f * Escalation;
+		FunDelta = -0.18f * Escalation;
+		break;
+	default:
+		return;
+	}
+
+	std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+	if (!FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+		return;
+
+	for (size_t i = 0; i < OrbList.size(); ++i)
+	{
+		auto Orb = OrbList[i].lock();
+
+		if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+			continue;
+
+		Orb->ApplySatisfactionDelta(
+			FoodDelta,
+			HealthDelta,
+			FunDelta,
+			FaithDelta,
+			HousingDelta,
+			JobDelta,
+			FreedomDelta,
+			SecurityDelta);
+	}
+}
+
+void CMainWorld::TickTaxPolicyEvents()
+{
+	if (mTaxEventStatus.NotificationDays > 0)
+		--mTaxEventStatus.NotificationDays;
+
+	if (!mTaxEventStatus.Active && mTaxEventStatus.CooldownDays > 0)
+		--mTaxEventStatus.CooldownDays;
+
+	const int ActiveCitizenCount =
+		(std::max)(0, mPoliticalSnapshot.ActiveCitizenCount);
+	const double SupportPercent =
+		ActiveCitizenCount > 0 ?
+		static_cast<double>(mPoliticalSnapshot.IncumbentCount) /
+			static_cast<double>(ActiveCitizenCount) * 100.0 :
+		50.0;
+	const float WorkerTaxBurden = GetCitizenTaxBurdenNormalized(
+		mGovernmentProfile.TaxPolicy,
+		true,
+		false);
+	const float ResidentTaxBurden = GetCitizenTaxBurdenNormalized(
+		mGovernmentProfile.TaxPolicy,
+		false,
+		true);
+	const float OverallTaxBurden = GetCitizenTaxBurdenNormalized(
+		mGovernmentProfile.TaxPolicy,
+		true,
+		true);
+	const bool WorkerPressure =
+		WorkerTaxBurden >= 0.45f ||
+		(WorkerTaxBurden >= 0.30f && SupportPercent <= 48.0);
+	const bool PropertyPressure =
+		ResidentTaxBurden >= 0.50f ||
+		(ResidentTaxBurden >= 0.35f && SupportPercent <= 50.0);
+	const bool BudgetPressure =
+		OverallTaxBurden <= -0.35f &&
+		mLastDailyNetChange <= -5000;
+
+	if (WorkerPressure)
+		++mWorkerTaxPressureDays;
+	else
+		mWorkerTaxPressureDays = (std::max)(0, mWorkerTaxPressureDays - 2);
+
+	if (PropertyPressure)
+		++mPropertyTaxPressureDays;
+	else
+		mPropertyTaxPressureDays =
+			(std::max)(0, mPropertyTaxPressureDays - 2);
+
+	if (BudgetPressure)
+		++mBudgetCrisisPressureDays;
+	else
+		mBudgetCrisisPressureDays =
+			(std::max)(0, mBudgetCrisisPressureDays - 2);
+
+	if (mTaxEventStatus.Active)
+	{
+		++mTaxEventStatus.DaysActive;
+		mTaxEventStatus.Summary = BuildTaxPolicyEventWarningSummary(
+			mTaxEventStatus.Type,
+			mTaxEventStatus.DaysActive);
+
+		if (mTaxEventStatus.RemainingDays > 0)
+			--mTaxEventStatus.RemainingDays;
+
+		const bool CanResolveEarly = mTaxEventStatus.DaysActive >= 3;
+
+		switch (mTaxEventStatus.Type)
+		{
+		case ETaxPolicyEventType::WorkerTaxStrike:
+			if (CanResolveEarly && !WorkerPressure)
+			{
+				ResolveTaxPolicyEvent(
+					L"근로층 세금 파업이 진정되었습니다.",
+					true);
+				return;
+			}
+			break;
+		case ETaxPolicyEventType::PropertyTaxBacklash:
+			if (CanResolveEarly && !PropertyPressure)
+			{
+				ResolveTaxPolicyEvent(
+					L"재산세 반발이 잦아들었습니다.",
+					true);
+				return;
+			}
+			break;
+		case ETaxPolicyEventType::BudgetCrisis:
+			if (CanResolveEarly && !BudgetPressure)
+			{
+				ResolveTaxPolicyEvent(
+					L"국고 위기 경보가 완화되었습니다.",
+					true);
+				return;
+			}
+			break;
+		default:
+			break;
+		}
+
+		if (mTaxEventStatus.RemainingDays <= 0)
+		{
+			switch (mTaxEventStatus.Type)
+			{
+			case ETaxPolicyEventType::WorkerTaxStrike:
+				ResolveTaxPolicyEvent(
+					L"근로층 세금 파업이 소강 상태에 접어들었습니다.",
+					false);
+				return;
+			case ETaxPolicyEventType::PropertyTaxBacklash:
+				ResolveTaxPolicyEvent(
+					L"재산세 반발이 소강 상태에 접어들었습니다.",
+					false);
+				return;
+			case ETaxPolicyEventType::BudgetCrisis:
+				ResolveTaxPolicyEvent(
+					L"국고 위기 경보가 일단락되었습니다.",
+					false);
+				return;
+			default:
+				break;
+			}
+		}
+
+		long long DailyEventPenalty = 0;
+		const float Escalation =
+			1.0f +
+			(std::min)(1.50f,
+				static_cast<float>(mTaxEventStatus.DaysActive) / 4.0f);
+
+		switch (mTaxEventStatus.Type)
+		{
+		case ETaxPolicyEventType::WorkerTaxStrike:
+			DailyEventPenalty = static_cast<long long>(std::llround(
+				900.0 + 450.0 * static_cast<double>(Escalation)));
+			break;
+		case ETaxPolicyEventType::PropertyTaxBacklash:
+			DailyEventPenalty = static_cast<long long>(std::llround(
+				750.0 + 360.0 * static_cast<double>(Escalation)));
+			break;
+		case ETaxPolicyEventType::BudgetCrisis:
+			DailyEventPenalty = static_cast<long long>(std::llround(
+				1400.0 + 650.0 * static_cast<double>(Escalation)));
+			break;
+		default:
+			break;
+		}
+
+		if (DailyEventPenalty > 0)
+		{
+			mNationalBudget -= DailyEventPenalty;
+			mLastDailyNetChange -= DailyEventPenalty;
+		}
+
+		return;
+	}
+
+	if (mTaxEventStatus.CooldownDays > 0)
+		return;
+
+	if (mBudgetCrisisPressureDays >= 4)
+	{
+		StartTaxPolicyEvent(
+			ETaxPolicyEventType::BudgetCrisis,
+			L"감세 장기화와 적자가 겹쳐 국고 위기 경보가 발령되었습니다.",
+			-6000);
+		mBudgetCrisisPressureDays = 0;
+		return;
+	}
+
+	if (mWorkerTaxPressureDays >= 5 &&
+		mWorkerTaxPressureDays >= mPropertyTaxPressureDays)
+	{
+		StartTaxPolicyEvent(
+			ETaxPolicyEventType::WorkerTaxStrike,
+			L"근로층 과세 압박이 누적되어 작업장 불만이 확산되고 있습니다.",
+			-4000);
+		mWorkerTaxPressureDays = 0;
+		return;
+	}
+
+	if (mPropertyTaxPressureDays >= 5)
+	{
+		StartTaxPolicyEvent(
+			ETaxPolicyEventType::PropertyTaxBacklash,
+			L"주거층의 재산세 반발이 커지며 정권 불만이 높아지고 있습니다.",
+			-3500);
+		mPropertyTaxPressureDays = 0;
+	}
+}
+
+void CMainWorld::StartTaxPolicyEvent(
+	ETaxPolicyEventType Type,
+	const std::wstring& Summary,
+	long long ImmediateBudgetDelta)
+{
+	(void)Summary;
+
+	if (Type == ETaxPolicyEventType::None || mTaxEventStatus.Active)
+		return;
+
+	mTaxEventStatus = FTaxPolicyEventStatus();
+	mTaxEventStatus.Type = Type;
+	mTaxEventStatus.Active = true;
+	mTaxEventStatus.RemainingDays = GetTaxPolicyEventDurationDays(Type);
+	mTaxEventStatus.NotificationDays = 6;
+	mTaxEventStatus.DaysActive = 0;
+	mTaxEventStatus.TriggerYear = mSimulationYear;
+	mTaxEventStatus.TriggerMonth = mSimulationMonth;
+	mTaxEventStatus.TriggerDay = mSimulationDay;
+	mTaxEventStatus.Title = GetTaxPolicyEventTitle(Type);
+	mTaxEventStatus.Summary = BuildTaxPolicyEventWarningSummary(Type, 0);
+	mWorkerTaxPressureDays = 0;
+	mPropertyTaxPressureDays = 0;
+	mBudgetCrisisPressureDays = 0;
+
+	if (ImmediateBudgetDelta != 0)
+	{
+		mNationalBudget += ImmediateBudgetDelta;
+		mLastDailyNetChange += ImmediateBudgetDelta;
+	}
+}
+
+void CMainWorld::ResolveTaxPolicyEvent(
+	const std::wstring& Summary,
+	bool Success)
+{
+	(void)Summary;
+
+	if (mTaxEventStatus.Type == ETaxPolicyEventType::None)
+		return;
+
+	mTaxEventStatus.Active = false;
+	mTaxEventStatus.RemainingDays = 0;
+	mTaxEventStatus.CooldownDays = GetTaxPolicyEventCooldownDays(Success);
+	mTaxEventStatus.NotificationDays = 8;
+	mTaxEventStatus.Summary = BuildTaxPolicyEventResolvedSummary(
+		mTaxEventStatus.Type,
+		Success);
+	mTaxEventStatus.DaysActive = 0;
 }
 
 void CMainWorld::SyncGovernmentActionFromEdict(
@@ -1054,4 +1900,6 @@ void CMainWorld::CreateUI()
 		GEdictWidgetName, 280);
 	mUIManager->CreateWidget<CBuildMenuWidget>(
 		GBuildMenuWidgetName, 300);
+	mUIManager->CreateWidget<CAlmanacWidget>(
+		GAlmanacWidgetName, 320);
 }

@@ -1,5 +1,7 @@
 ﻿#include "BuildMenuWidget.h"
+#include "AlmanacWidget.h"
 #include "../Map/PlacementAreaObject.h"
+#include "EdictWidget.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementController.h"
 #include "../Politics/EdictSystem.h"
@@ -15,22 +17,73 @@
 #include <algorithm>
 #include <cmath>
 #include <cwchar>
+#include <cwctype>
 #include <string>
 
 namespace
 {
     constexpr int CategoryCount = 8;
-    constexpr int SlotsPerPage = 12;
-    constexpr int SlotColumnCount = 4;
+    constexpr int SlotsPerPage = 15;
+    constexpr int SlotColumnCount = 5;
     constexpr int SlotRowCount = 3;
     constexpr const TCHAR* GBuildMenuPanelTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\5_MainMenu\\CenterPopUp\\T_center_popUp.png");
     constexpr const TCHAR* GYearbookPanelTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\CenterPopUp\\T_center_popUp.png");
-    constexpr const TCHAR* GEmptySlotTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_standard.png");
-    constexpr const TCHAR* GCategoryTabBackgroundTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\IconBackground\\T_icon_background.png");
+    constexpr const TCHAR* GMenuTitleRibbonTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_title.png");
+    constexpr const TCHAR* GMenuGridFrameTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_frameContent.png");
+    constexpr const TCHAR* GMenuDetailFrameTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_frameDescription.png");
+    constexpr const TCHAR* GDetailInfoPanelTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\SmallPopup\\T_small_popUp.png");
+    constexpr const TCHAR* GCategoryTabTextureSelected = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\Tabs\\T_bookmark_standard.png");
+    constexpr const TCHAR* GCategoryTabTextureHidden = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\Tabs\\T_bookmark_hidden.png");
+    constexpr const TCHAR* GSlotCardTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg.png");
+    constexpr const TCHAR* GSlotCardHoverTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_hover.png");
+    constexpr const TCHAR* GSlotCardSelectedTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_selected.png");
+    constexpr const TCHAR* GSlotCardDisabledTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_disabled.png");
+    constexpr const TCHAR* GBigTextButtonTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_standard.png");
+    constexpr const TCHAR* GBigTextButtonHoverTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_hover.png");
+    constexpr const TCHAR* GBigTextButtonSelectedTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_selected.png");
+    constexpr const TCHAR* GBigTextButtonDisabledTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_deactivated.png");
+    constexpr const TCHAR* GRoundButtonTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_standard.png");
+    constexpr const TCHAR* GRoundButtonHoverTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_hover.png");
+    constexpr const TCHAR* GRoundButtonSelectedTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_selected.png");
+    constexpr const TCHAR* GScrollTrackTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\Sliderthumb\\T_scrollbar_bg.png");
+    constexpr const TCHAR* GScrollThumbTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\Sliderthumb\\T_scrollbar.png");
+    constexpr const TCHAR* GDropdownArrowTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow.png");
+    constexpr const TCHAR* GDropdownArrowHoverTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow_hover.png");
+    constexpr const TCHAR* GBlueprintCostIconTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_blueprint_cost.png");
+    constexpr const TCHAR* GConstructionCostIconTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_money.png");
+
+    struct FParsedDetailInfo
+    {
+        std::wstring BlueprintCost;
+        std::wstring ConstructionCost;
+        std::vector<std::wstring> Highlights;
+        std::wstring Description;
+    };
 
     EPlacementTemplateType ResolveTemplateTypeByBuildingId(
         const std::string& BuildingId)
@@ -75,7 +128,7 @@ namespace
 
     const TCHAR* const GCategoryTabIcons[CategoryCount] =
     {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_traffic.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_infrastructure.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_raw_resources.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_industry.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_housing.png"),
@@ -180,6 +233,226 @@ namespace
         Button->SetTexture(EButtonState::Disable, TextureKey);
     }
 
+    void ApplyButtonTextureSet(
+        const std::shared_ptr<CButton>& Button,
+        const std::string& TextureKeyBase,
+        const TCHAR* NormalTexture,
+        const TCHAR* HoverTexture = nullptr,
+        const TCHAR* ClickTexture = nullptr,
+        const TCHAR* DisableTexture = nullptr)
+    {
+        if (!Button || !NormalTexture)
+            return;
+
+        const TCHAR* ResolvedHover = HoverTexture ? HoverTexture : NormalTexture;
+        const TCHAR* ResolvedClick = ClickTexture ? ClickTexture : ResolvedHover;
+        const TCHAR* ResolvedDisable = DisableTexture ? DisableTexture : NormalTexture;
+
+        if (!Button->SetTexture(
+            EButtonState::Normal,
+            TextureKeyBase + "_normal",
+            NormalTexture))
+        {
+            return;
+        }
+
+        Button->SetTexture(
+            EButtonState::Hovered,
+            TextureKeyBase + "_hover",
+            ResolvedHover);
+        Button->SetTexture(
+            EButtonState::Click,
+            TextureKeyBase + "_click",
+            ResolvedClick);
+        Button->SetTexture(
+            EButtonState::Disable,
+            TextureKeyBase + "_disable",
+            ResolvedDisable);
+    }
+
+    bool StartsWith(
+        const std::wstring& Text,
+        const wchar_t* Prefix)
+    {
+        if (!Prefix)
+            return false;
+
+        const size_t PrefixLength = wcslen(Prefix);
+        return Text.size() >= PrefixLength &&
+            Text.compare(0, PrefixLength, Prefix) == 0;
+    }
+
+    std::wstring TrimCopy(const std::wstring& Text)
+    {
+        size_t Begin = 0;
+        size_t End = Text.size();
+
+        while (Begin < End && iswspace(Text[Begin]))
+            ++Begin;
+
+        while (End > Begin && iswspace(Text[End - 1]))
+            --End;
+
+        return Text.substr(Begin, End - Begin);
+    }
+
+    std::vector<std::wstring> SplitLines(const std::wstring& Text)
+    {
+        std::vector<std::wstring> Lines;
+        size_t Start = 0;
+
+        while (Start <= Text.size())
+        {
+            const size_t End = Text.find(L'\n', Start);
+
+            if (End == std::wstring::npos)
+            {
+                Lines.push_back(Text.substr(Start));
+                break;
+            }
+
+            Lines.push_back(Text.substr(Start, End - Start));
+            Start = End + 1;
+        }
+
+        return Lines;
+    }
+
+    std::wstring JoinLines(const std::vector<std::wstring>& Lines)
+    {
+        std::wstring Result;
+
+        for (size_t i = 0; i < Lines.size(); ++i)
+        {
+            if (Lines[i].empty())
+                continue;
+
+            if (!Result.empty())
+                Result += L"\n";
+
+            Result += Lines[i];
+        }
+
+        return Result;
+    }
+
+    void AddHighlightFallbacks(
+        const FBuildingCatalogEntry& Entry,
+        std::vector<std::wstring>& Highlights)
+    {
+        if (Entry.Residential && Highlights.size() < 3 &&
+            Entry.HousingSatisfactionCap > 0)
+        {
+            Highlights.push_back(
+                L"주거 품질: " +
+                std::to_wstring(Entry.HousingSatisfactionCap));
+        }
+
+        if (Highlights.size() < 3 && Entry.JobSatisfactionCap > 0 &&
+            Entry.JobSatisfactionCap < 100)
+        {
+            Highlights.push_back(
+                L"직업 품질: " +
+                std::to_wstring(Entry.JobSatisfactionCap));
+        }
+
+        if (Highlights.size() < 3 && Entry.FoodSatisfactionCap > 0 &&
+            Entry.FoodSatisfactionCap < 100)
+        {
+            Highlights.push_back(
+                L"음식 품질: " +
+                std::to_wstring(Entry.FoodSatisfactionCap));
+        }
+
+        if (Highlights.size() < 3 && Entry.FunSatisfactionCap > 0 &&
+            Entry.FunSatisfactionCap < 100)
+        {
+            Highlights.push_back(
+                L"서비스 품질: " +
+                std::to_wstring(Entry.FunSatisfactionCap));
+        }
+
+        if (Highlights.size() < 3 && Entry.Capacity > 0)
+        {
+            Highlights.push_back(
+                L"수용 인원: " +
+                std::to_wstring(Entry.Capacity));
+        }
+    }
+
+    FParsedDetailInfo ParseDetailInfo(
+        const FBuildingCatalogEntry& Entry)
+    {
+        FParsedDetailInfo Result;
+        std::vector<std::wstring> DescriptionLines;
+        const std::vector<std::wstring> Lines = SplitLines(Entry.DetailText);
+        static const wchar_t* HighlightPrefixes[] =
+        {
+            L"주거 품질:",
+            L"직업 품질:",
+            L"음식 품질:",
+            L"오락 품질:",
+            L"서비스 품질:",
+            L"수용 인원:",
+            L"수용 가구:",
+            L"생산 전력:",
+            L"발전량:",
+            L"필요 전력:",
+            L"방문객:",
+            L"미관:",
+            L"효과:"
+        };
+
+        for (size_t i = 0; i < Lines.size(); ++i)
+        {
+            const std::wstring Line = TrimCopy(Lines[i]);
+
+            if (Line.empty())
+                continue;
+
+            if (StartsWith(Line, L"설계도 비용:"))
+            {
+                Result.BlueprintCost =
+                    TrimCopy(Line.substr(wcslen(L"설계도 비용:")));
+                continue;
+            }
+
+            if (StartsWith(Line, L"건설 비용:"))
+            {
+                Result.ConstructionCost =
+                    TrimCopy(Line.substr(wcslen(L"건설 비용:")));
+                continue;
+            }
+
+            bool HighlightLine = false;
+
+            for (size_t PrefixIndex = 0;
+                PrefixIndex < sizeof(HighlightPrefixes) / sizeof(HighlightPrefixes[0]);
+                ++PrefixIndex)
+            {
+                if (!StartsWith(Line, HighlightPrefixes[PrefixIndex]))
+                    continue;
+
+                if (Result.Highlights.size() < 3)
+                    Result.Highlights.push_back(Line);
+
+                HighlightLine = true;
+                break;
+            }
+
+            if (!HighlightLine)
+                DescriptionLines.push_back(Line);
+        }
+
+        AddHighlightFallbacks(Entry, Result.Highlights);
+        Result.Description = JoinLines(DescriptionLines);
+
+        if (Result.Description.empty())
+            Result.Description = L"세부 데이터 준비 중";
+
+        return Result;
+    }
+
     std::wstring FormatCurrency(long long Value)
     {
         bool Negative = false;
@@ -227,7 +500,14 @@ bool CBuildMenuWidget::Init()
 
     if (BuildButton)
     {
-        ConfigureHighlightedButtonStyle(BuildButton);
+        ApplyButtonTextureSet(
+            BuildButton,
+            "BuildMenuOpenButton",
+            GBigTextButtonTexture,
+            GBigTextButtonHoverTexture,
+            GBigTextButtonSelectedTexture,
+            GBigTextButtonDisabledTexture);
+        ConfigureIconSlotButtonStyle(BuildButton);
         BuildButton->SetEventCallback<CBuildMenuWidget>(
             EButtonEventState::Click, this,
             &CBuildMenuWidget::OnBuildButtonClick);
@@ -242,10 +522,10 @@ bool CBuildMenuWidget::Init()
             BuildButtonText->SetFontSize(24.f);
             BuildButtonText->SetAlignH(ETextAlignH::Center);
             BuildButtonText->SetAlignV(ETextAlignV::Middle);
-            BuildButtonText->SetTextColor(255, 255, 255, 255);
+            BuildButtonText->SetTextColor(95, 68, 18, 255);
             BuildButtonText->EnableShadow(true);
             BuildButtonText->SetShadowOffset(1.f, 1.f);
-            BuildButtonText->SetShadowTextColor(40, 40, 40, 255);
+            BuildButtonText->SetShadowTextColor(246, 225, 170, 170);
             BuildButton->SetChild(BuildButtonText);
         }
 
@@ -257,7 +537,14 @@ bool CBuildMenuWidget::Init()
 
     if (YearbookButton)
     {
-        ConfigureDefaultButtonStyle(YearbookButton);
+        ApplyButtonTextureSet(
+            YearbookButton,
+            "BuildMenuYearbookButton",
+            GBigTextButtonTexture,
+            GBigTextButtonHoverTexture,
+            GBigTextButtonSelectedTexture,
+            GBigTextButtonDisabledTexture);
+        ConfigureIconSlotButtonStyle(YearbookButton);
         YearbookButton->SetEventCallback<CBuildMenuWidget>(
             EButtonEventState::Click, this,
             &CBuildMenuWidget::OnYearbookButtonClick);
@@ -272,10 +559,10 @@ bool CBuildMenuWidget::Init()
             YearbookButtonText->SetFontSize(24.f);
             YearbookButtonText->SetAlignH(ETextAlignH::Center);
             YearbookButtonText->SetAlignV(ETextAlignV::Middle);
-            YearbookButtonText->SetTextColor(255, 255, 255, 255);
+            YearbookButtonText->SetTextColor(95, 68, 18, 255);
             YearbookButtonText->EnableShadow(true);
             YearbookButtonText->SetShadowOffset(1.f, 1.f);
-            YearbookButtonText->SetShadowTextColor(40, 40, 40, 255);
+            YearbookButtonText->SetShadowTextColor(246, 225, 170, 170);
             YearbookButton->SetChild(YearbookButtonText);
             mYearbookButtonText = YearbookButtonText;
         }
@@ -388,6 +675,42 @@ bool CBuildMenuWidget::Init()
         mYearbookTitleText = YearbookTitleText;
     }
 
+    auto YearbookCloseButton =
+        CreateWidget<CButton>("BuildMenu_YearbookClose", 13).lock();
+
+    if (YearbookCloseButton)
+    {
+        ApplyButtonTextureSet(
+            YearbookCloseButton,
+            "BuildMenuYearbookClose",
+            GRoundButtonTexture,
+            GRoundButtonHoverTexture,
+            GRoundButtonSelectedTexture,
+            GRoundButtonTexture);
+        ConfigureIconSlotButtonStyle(YearbookCloseButton);
+        YearbookCloseButton->SetEventCallback<CBuildMenuWidget>(
+            EButtonEventState::Click, this,
+            &CBuildMenuWidget::OnYearbookCloseButtonClick);
+
+        auto CloseText = CWidget::CreateStaticWidget<CTextBlock>(
+            "BuildMenu_YearbookCloseText", mWorld);
+
+        if (CloseText)
+        {
+            CloseText->SetText(TEXT("X"));
+            CloseText->SetFontSize(22.f);
+            CloseText->SetAlignH(ETextAlignH::Center);
+            CloseText->SetAlignV(ETextAlignV::Middle);
+            CloseText->SetTextColor(95, 68, 18, 255);
+            CloseText->EnableShadow(true);
+            CloseText->SetShadowOffset(1.f, 1.f);
+            CloseText->SetShadowTextColor(246, 219, 117, 150);
+            YearbookCloseButton->SetChild(CloseText);
+        }
+
+        mYearbookCloseButton = YearbookCloseButton;
+    }
+
     auto YearbookBodyText =
         CreateWidget<CTextBlock>("BuildMenu_YearbookBody", 13).lock();
 
@@ -425,18 +748,90 @@ bool CBuildMenuWidget::Init()
         mMenuBackground = MenuBackground;
     }
 
+    auto MenuTitleRibbon =
+        CreateWidget<CImage>("BuildMenu_TitleRibbon", 7).lock();
+
+    if (MenuTitleRibbon)
+    {
+        MenuTitleRibbon->SetTexture(
+            "BuildMenuTitleRibbonTexture",
+            GMenuTitleRibbonTexture);
+        MenuTitleRibbon->SetTint(1.f, 1.f, 1.f, 1.f);
+        mMenuTitleRibbon = MenuTitleRibbon;
+    }
+
+    auto MenuGridFrame =
+        CreateWidget<CImage>("BuildMenu_GridFrame", 7).lock();
+
+    if (MenuGridFrame)
+    {
+        MenuGridFrame->SetTexture(
+            "BuildMenuGridFrameTexture",
+            GMenuGridFrameTexture);
+        MenuGridFrame->SetTint(1.f, 1.f, 1.f, 0.98f);
+        mMenuGridFrame = MenuGridFrame;
+    }
+
+    auto MenuDetailFrame =
+        CreateWidget<CImage>("BuildMenu_DetailFrame", 7).lock();
+
+    if (MenuDetailFrame)
+    {
+        MenuDetailFrame->SetTexture(
+            "BuildMenuDetailFrameTexture",
+            GMenuDetailFrameTexture);
+        MenuDetailFrame->SetTint(1.f, 1.f, 1.f, 0.98f);
+        mMenuDetailFrame = MenuDetailFrame;
+    }
+
+    auto DetailInfoPanel =
+        CreateWidget<CImage>("BuildMenu_DetailInfoPanel", 7).lock();
+
+    if (DetailInfoPanel)
+    {
+        DetailInfoPanel->SetTexture(
+            "BuildMenuDetailInfoPanelTexture",
+            GDetailInfoPanelTexture);
+        DetailInfoPanel->SetTint(1.f, 1.f, 1.f, 0.96f);
+        mDetailInfoPanel = DetailInfoPanel;
+    }
+
+    auto ScrollTrack =
+        CreateWidget<CImage>("BuildMenu_ScrollTrack", 7).lock();
+
+    if (ScrollTrack)
+    {
+        ScrollTrack->SetTexture(
+            "BuildMenuScrollTrackTexture",
+            GScrollTrackTexture);
+        ScrollTrack->SetTint(1.f, 1.f, 1.f, 0.95f);
+        mScrollTrack = ScrollTrack;
+    }
+
+    auto ScrollThumb =
+        CreateWidget<CImage>("BuildMenu_ScrollThumb", 8).lock();
+
+    if (ScrollThumb)
+    {
+        ScrollThumb->SetTexture(
+            "BuildMenuScrollThumbTexture",
+            GScrollThumbTexture);
+        ScrollThumb->SetTint(1.f, 1.f, 1.f, 1.f);
+        mScrollThumb = ScrollThumb;
+    }
+
     auto TitleText = CreateWidget<CTextBlock>("BuildMenu_Title", 7).lock();
 
     if (TitleText)
     {
         TitleText->SetText(CategoryLabels[static_cast<int>(EBuildingCategory::Infrastructure)]);
-        TitleText->SetFontSize(28.f);
+        TitleText->SetFontSize(32.f);
         TitleText->SetAlignH(ETextAlignH::Center);
         TitleText->SetAlignV(ETextAlignV::Middle);
-        TitleText->SetTextColor(245, 245, 245, 255);
+        TitleText->SetTextColor(78, 60, 28, 255);
         TitleText->EnableShadow(true);
         TitleText->SetShadowOffset(1.f, 1.f);
-        TitleText->SetShadowTextColor(20, 20, 20, 255);
+        TitleText->SetShadowTextColor(235, 220, 180, 180);
         mTitleText = TitleText;
     }
 
@@ -445,34 +840,67 @@ bool CBuildMenuWidget::Init()
     if (PageText)
     {
         PageText->SetText(TEXT("1 / 1"));
-        PageText->SetFontSize(18.f);
+        PageText->SetFontSize(16.f);
         PageText->SetAlignH(ETextAlignH::Center);
         PageText->SetAlignV(ETextAlignV::Middle);
-        PageText->SetTextColor(220, 220, 220, 255);
+        PageText->SetTextColor(102, 82, 46, 255);
+        PageText->EnableShadow(true);
+        PageText->SetShadowOffset(1.f, 1.f);
+        PageText->SetShadowTextColor(235, 220, 180, 180);
         mPageText = PageText;
+    }
+
+    auto MenuCloseButton = CreateWidget<CButton>("BuildMenu_Close", 7).lock();
+
+    if (MenuCloseButton)
+    {
+        ApplyButtonTextureSet(
+            MenuCloseButton,
+            "BuildMenuClose",
+            GRoundButtonTexture,
+            GRoundButtonHoverTexture,
+            GRoundButtonSelectedTexture,
+            GRoundButtonTexture);
+        ConfigureIconSlotButtonStyle(MenuCloseButton);
+        MenuCloseButton->SetEventCallback<CBuildMenuWidget>(
+            EButtonEventState::Click, this,
+            &CBuildMenuWidget::OnMenuCloseButtonClick);
+
+        auto CloseText = CWidget::CreateStaticWidget<CTextBlock>(
+            "BuildMenu_CloseText", mWorld);
+
+        if (CloseText)
+        {
+            CloseText->SetText(TEXT("X"));
+            CloseText->SetFontSize(22.f);
+            CloseText->SetAlignH(ETextAlignH::Center);
+            CloseText->SetAlignV(ETextAlignV::Middle);
+            CloseText->SetTextColor(95, 68, 18, 255);
+            CloseText->EnableShadow(true);
+            CloseText->SetShadowOffset(1.f, 1.f);
+            CloseText->SetShadowTextColor(246, 219, 117, 150);
+            MenuCloseButton->SetChild(CloseText);
+        }
+
+        mMenuCloseButton = MenuCloseButton;
     }
 
     auto PrevPageButton = CreateWidget<CButton>("BuildMenu_PrevPage", 7).lock();
 
     if (PrevPageButton)
     {
-        ConfigureDefaultButtonStyle(PrevPageButton);
+        ApplyButtonTextureSet(
+            PrevPageButton,
+            "BuildMenuPrevPage",
+            GDropdownArrowTexture,
+            GDropdownArrowHoverTexture,
+            GDropdownArrowTexture,
+            GDropdownArrowTexture);
+        ConfigureIconSlotButtonStyle(PrevPageButton);
+        PrevPageButton->SetAngle(180.f);
         PrevPageButton->SetEventCallback<CBuildMenuWidget>(
             EButtonEventState::Click, this,
             &CBuildMenuWidget::OnPrevPageClick);
-
-        auto PrevText = CWidget::CreateStaticWidget<CTextBlock>(
-            "BuildMenu_PrevText", mWorld);
-
-        if (PrevText)
-        {
-            PrevText->SetText(TEXT("<"));
-            PrevText->SetFontSize(20.f);
-            PrevText->SetAlignH(ETextAlignH::Center);
-            PrevText->SetAlignV(ETextAlignV::Middle);
-            PrevText->SetTextColor(255, 255, 255, 255);
-            PrevPageButton->SetChild(PrevText);
-        }
 
         mPrevPageButton = PrevPageButton;
     }
@@ -481,28 +909,23 @@ bool CBuildMenuWidget::Init()
 
     if (NextPageButton)
     {
-        ConfigureDefaultButtonStyle(NextPageButton);
+        ApplyButtonTextureSet(
+            NextPageButton,
+            "BuildMenuNextPage",
+            GDropdownArrowTexture,
+            GDropdownArrowHoverTexture,
+            GDropdownArrowTexture,
+            GDropdownArrowTexture);
+        ConfigureIconSlotButtonStyle(NextPageButton);
         NextPageButton->SetEventCallback<CBuildMenuWidget>(
             EButtonEventState::Click, this,
             &CBuildMenuWidget::OnNextPageClick);
-
-        auto NextText = CWidget::CreateStaticWidget<CTextBlock>(
-            "BuildMenu_NextText", mWorld);
-
-        if (NextText)
-        {
-            NextText->SetText(TEXT(">"));
-            NextText->SetFontSize(20.f);
-            NextText->SetAlignH(ETextAlignH::Center);
-            NextText->SetAlignV(ETextAlignV::Middle);
-            NextText->SetTextColor(255, 255, 255, 255);
-            NextPageButton->SetChild(NextText);
-        }
 
         mNextPageButton = NextPageButton;
     }
 
     mCategoryButtons.resize(CategoryCount);
+    mCategoryButtonIcons.resize(CategoryCount);
     void (CBuildMenuWidget::* CategoryCallbacks[CategoryCount])() =
     {
         &CBuildMenuWidget::OnCategoryInfrastructureClick,
@@ -523,11 +946,14 @@ bool CBuildMenuWidget::Init()
         if (!Button)
             continue;
 
-        ConfigureCategoryTabButtonStyle(Button, false);
-        ApplyTextureToAllButtonStates(
+        ApplyButtonTextureSet(
             Button,
-            "BuildMenuCategoryTabBackground",
-            GCategoryTabBackgroundTexture);
+            "BuildMenuCategoryTab_" + std::to_string(i),
+            GCategoryTabTextureHidden,
+            GCategoryTabTextureSelected,
+            GCategoryTabTextureSelected,
+            GCategoryTabTextureHidden);
+        ConfigureCategoryTabButtonStyle(Button, false);
         Button->SetEventCallback<CBuildMenuWidget>(
             EButtonEventState::Click, this, CategoryCallbacks[i]);
 
@@ -541,12 +967,14 @@ bool CBuildMenuWidget::Init()
                 GCategoryTabIcons[i]);
             CategoryIcon->SetTint(1.f, 1.f, 1.f, 1.f);
             Button->SetChild(CategoryIcon);
+            mCategoryButtonIcons[i] = CategoryIcon;
         }
 
         mCategoryButtons[i] = Button;
     }
 
     mBuildingButtons.resize(SlotsPerPage);
+    mBuildingButtonIcons.resize(SlotsPerPage);
     mBuildingButtonTexts.resize(SlotsPerPage);
 
     void (CBuildMenuWidget::* SlotCallbacks[SlotsPerPage])() =
@@ -562,7 +990,10 @@ bool CBuildMenuWidget::Init()
         &CBuildMenuWidget::OnSlot8Click,
         &CBuildMenuWidget::OnSlot9Click,
         &CBuildMenuWidget::OnSlot10Click,
-        &CBuildMenuWidget::OnSlot11Click
+        &CBuildMenuWidget::OnSlot11Click,
+        &CBuildMenuWidget::OnSlot12Click,
+        &CBuildMenuWidget::OnSlot13Click,
+        &CBuildMenuWidget::OnSlot14Click
     };
     void (CBuildMenuWidget::* SlotHoverCallbacks[SlotsPerPage])() =
     {
@@ -577,7 +1008,10 @@ bool CBuildMenuWidget::Init()
         &CBuildMenuWidget::OnSlot8Hovered,
         &CBuildMenuWidget::OnSlot9Hovered,
         &CBuildMenuWidget::OnSlot10Hovered,
-        &CBuildMenuWidget::OnSlot11Hovered
+        &CBuildMenuWidget::OnSlot11Hovered,
+        &CBuildMenuWidget::OnSlot12Hovered,
+        &CBuildMenuWidget::OnSlot13Hovered,
+        &CBuildMenuWidget::OnSlot14Hovered
     };
 
     for (int i = 0; i < SlotsPerPage; ++i)
@@ -588,26 +1022,44 @@ bool CBuildMenuWidget::Init()
         if (!Button)
             continue;
 
+        ApplyButtonTextureSet(
+            Button,
+            "BuildMenuSlotCard_" + std::to_string(i),
+            GSlotCardTexture,
+            GSlotCardHoverTexture,
+            GSlotCardSelectedTexture,
+            GSlotCardDisabledTexture);
         ConfigureIconSlotButtonStyle(Button);
         Button->SetEventCallback<CBuildMenuWidget>(
             EButtonEventState::Click, this, SlotCallbacks[i]);
         Button->SetEventCallback<CBuildMenuWidget>(
             EButtonEventState::Hovered, this, SlotHoverCallbacks[i]);
 
+        auto SlotContent =
+            CWidget::CreateStaticWidget<CWidgetContainer>(
+                "BuildMenu_SlotContent_" + std::to_string(i + 1),
+                mWorld);
+        auto SlotIcon = CWidget::CreateStaticWidget<CImage>(
+            "BuildMenu_SlotIcon_" + std::to_string(i + 1), mWorld);
         auto ButtonText = CWidget::CreateStaticWidget<CTextBlock>(
             "BuildMenu_SlotText_" + std::to_string(i + 1), mWorld);
 
-        if (ButtonText)
+        if (SlotContent && SlotIcon && ButtonText)
         {
-            ButtonText->SetText(TEXT("-"));
+            SlotIcon->SetTint(1.f, 1.f, 1.f, 1.f);
+            SlotContent->AddWidget(SlotIcon);
+
+            ButtonText->SetText(TEXT(""));
             ButtonText->SetFontSize(14.f);
             ButtonText->SetAlignH(ETextAlignH::Center);
             ButtonText->SetAlignV(ETextAlignV::Bottom);
-            ButtonText->SetTextColor(240, 240, 240, 255);
+            ButtonText->SetTextColor(58, 47, 31, 255);
             ButtonText->EnableShadow(true);
             ButtonText->SetShadowOffset(1.f, 1.f);
-            ButtonText->SetShadowTextColor(16, 16, 16, 220);
-            Button->SetChild(ButtonText);
+            ButtonText->SetShadowTextColor(240, 229, 205, 190);
+            SlotContent->AddWidget(ButtonText);
+            Button->SetChild(SlotContent);
+            mBuildingButtonIcons[i] = SlotIcon;
         }
 
         mBuildingButtons[i] = Button;
@@ -620,14 +1072,86 @@ bool CBuildMenuWidget::Init()
     if (DetailTitleText)
     {
         DetailTitleText->SetText(TEXT("건물 정보"));
-        DetailTitleText->SetFontSize(20.f);
-        DetailTitleText->SetAlignH(ETextAlignH::Left);
+        DetailTitleText->SetFontSize(26.f);
+        DetailTitleText->SetAlignH(ETextAlignH::Center);
         DetailTitleText->SetAlignV(ETextAlignV::Middle);
-        DetailTitleText->SetTextColor(235, 235, 235, 255);
+        DetailTitleText->SetTextColor(100, 72, 28, 255);
         DetailTitleText->EnableShadow(true);
         DetailTitleText->SetShadowOffset(1.f, 1.f);
-        DetailTitleText->SetShadowTextColor(18, 18, 18, 220);
+        DetailTitleText->SetShadowTextColor(245, 235, 205, 180);
         mDetailTitleText = DetailTitleText;
+    }
+
+    auto DetailBlueprintIcon =
+        CreateWidget<CImage>("BuildMenu_DetailBlueprintIcon", 8).lock();
+
+    if (DetailBlueprintIcon)
+    {
+        DetailBlueprintIcon->SetTexture(
+            "BuildMenu_DetailBlueprintIconTexture",
+            GBlueprintCostIconTexture);
+        DetailBlueprintIcon->SetTint(1.f, 1.f, 1.f, 1.f);
+        mDetailBlueprintIcon = DetailBlueprintIcon;
+    }
+
+    auto DetailBlueprintCostText =
+        CreateWidget<CTextBlock>("BuildMenu_DetailBlueprintCost", 8).lock();
+
+    if (DetailBlueprintCostText)
+    {
+        DetailBlueprintCostText->SetText(TEXT("-"));
+        DetailBlueprintCostText->SetFontSize(18.f);
+        DetailBlueprintCostText->SetAlignH(ETextAlignH::Left);
+        DetailBlueprintCostText->SetAlignV(ETextAlignV::Middle);
+        DetailBlueprintCostText->SetTextColor(62, 116, 204, 255);
+        DetailBlueprintCostText->EnableShadow(true);
+        DetailBlueprintCostText->SetShadowOffset(1.f, 1.f);
+        DetailBlueprintCostText->SetShadowTextColor(240, 240, 240, 170);
+        mDetailBlueprintCostText = DetailBlueprintCostText;
+    }
+
+    auto DetailConstructionIcon =
+        CreateWidget<CImage>("BuildMenu_DetailConstructionIcon", 8).lock();
+
+    if (DetailConstructionIcon)
+    {
+        DetailConstructionIcon->SetTexture(
+            "BuildMenu_DetailConstructionIconTexture",
+            GConstructionCostIconTexture);
+        DetailConstructionIcon->SetTint(1.f, 1.f, 1.f, 1.f);
+        mDetailConstructionIcon = DetailConstructionIcon;
+    }
+
+    auto DetailConstructionCostText =
+        CreateWidget<CTextBlock>("BuildMenu_DetailConstructionCost", 8).lock();
+
+    if (DetailConstructionCostText)
+    {
+        DetailConstructionCostText->SetText(TEXT("-"));
+        DetailConstructionCostText->SetFontSize(18.f);
+        DetailConstructionCostText->SetAlignH(ETextAlignH::Left);
+        DetailConstructionCostText->SetAlignV(ETextAlignV::Middle);
+        DetailConstructionCostText->SetTextColor(168, 120, 28, 255);
+        DetailConstructionCostText->EnableShadow(true);
+        DetailConstructionCostText->SetShadowOffset(1.f, 1.f);
+        DetailConstructionCostText->SetShadowTextColor(240, 240, 240, 170);
+        mDetailConstructionCostText = DetailConstructionCostText;
+    }
+
+    auto DetailInfoText =
+        CreateWidget<CTextBlock>("BuildMenu_DetailInfoText", 8).lock();
+
+    if (DetailInfoText)
+    {
+        DetailInfoText->SetText(TEXT("추가 정보\n없음"));
+        DetailInfoText->SetFontSize(18.f);
+        DetailInfoText->SetAlignH(ETextAlignH::Left);
+        DetailInfoText->SetAlignV(ETextAlignV::Top);
+        DetailInfoText->SetTextColor(56, 56, 56, 255);
+        DetailInfoText->EnableShadow(true);
+        DetailInfoText->SetShadowOffset(1.f, 1.f);
+        DetailInfoText->SetShadowTextColor(255, 255, 255, 150);
+        mDetailInfoText = DetailInfoText;
     }
 
     auto DetailBodyText =
@@ -636,13 +1160,13 @@ bool CBuildMenuWidget::Init()
     if (DetailBodyText)
     {
         DetailBodyText->SetText(TEXT("건물 아이콘에 마우스를 올리면 상세 정보가 표시됩니다."));
-        DetailBodyText->SetFontSize(13.f);
+        DetailBodyText->SetFontSize(16.f);
         DetailBodyText->SetAlignH(ETextAlignH::Left);
         DetailBodyText->SetAlignV(ETextAlignV::Top);
-        DetailBodyText->SetTextColor(230, 230, 230, 255);
+        DetailBodyText->SetTextColor(72, 62, 40, 255);
         DetailBodyText->EnableShadow(true);
         DetailBodyText->SetShadowOffset(1.f, 1.f);
-        DetailBodyText->SetShadowTextColor(16, 16, 16, 220);
+        DetailBodyText->SetShadowTextColor(242, 235, 219, 170);
         mDetailBodyText = DetailBodyText;
     }
 
@@ -660,6 +1184,28 @@ bool CBuildMenuWidget::Init()
         DayProgressText->SetEnable(false);
     if (DayProgressBar)
         DayProgressBar->SetEnable(false);
+    if (MenuTitleRibbon)
+        MenuTitleRibbon->SetEnable(false);
+    if (MenuGridFrame)
+        MenuGridFrame->SetEnable(false);
+    if (MenuDetailFrame)
+        MenuDetailFrame->SetEnable(false);
+    if (DetailInfoPanel)
+        DetailInfoPanel->SetEnable(false);
+    if (ScrollTrack)
+        ScrollTrack->SetEnable(false);
+    if (ScrollThumb)
+        ScrollThumb->SetEnable(false);
+    if (DetailBlueprintIcon)
+        DetailBlueprintIcon->SetEnable(false);
+    if (DetailBlueprintCostText)
+        DetailBlueprintCostText->SetEnable(false);
+    if (DetailConstructionIcon)
+        DetailConstructionIcon->SetEnable(false);
+    if (DetailConstructionCostText)
+        DetailConstructionCostText->SetEnable(false);
+    if (DetailInfoText)
+        DetailInfoText->SetEnable(false);
 
     mMenuOpen = false;
     mYearbookOpen = false;
@@ -693,8 +1239,8 @@ void CBuildMenuWidget::RefreshLayout()
     const FResolution& Resolution = CDevice::GetInst()->GetResolution();
     const float ScreenWidth = static_cast<float>(Resolution.Width);
     const float ScreenHeight = static_cast<float>(Resolution.Height);
-    const float AvailableWidth = (std::max)(320.f, ScreenWidth - 80.f);
-    const float AvailableHeight = (std::max)(320.f, ScreenHeight - 180.f);
+    const float AvailableWidth = (std::max)(480.f, ScreenWidth - 80.f);
+    const float AvailableHeight = (std::max)(420.f, ScreenHeight - 100.f);
     const float Scale =
         (std::min)(1.f,
             (std::min)(AvailableWidth / mPanelWidth,
@@ -703,10 +1249,22 @@ void CBuildMenuWidget::RefreshLayout()
     const float PanelHeight = mPanelHeight * Scale;
     const float PanelLeft = (ScreenWidth - PanelWidth) * 0.5f;
     const float PanelTop = (ScreenHeight - PanelHeight) * 0.5f;
-    const float HorizontalMargin = 24.f * Scale;
+    const float HorizontalMargin = 30.f * Scale;
     const float ContentWidth = PanelWidth - HorizontalMargin * 2.f;
-    const float HeaderTopPadding = 14.f * Scale;
-    const float HeaderHeight = 36.f * Scale;
+    const float HeaderTopPadding = 18.f * Scale;
+    const float HeaderHeight = 56.f * Scale;
+    const float TitleRibbonWidth = PanelWidth - 140.f * Scale;
+    const float TitleRibbonLeft =
+        PanelLeft + (PanelWidth - TitleRibbonWidth) * 0.5f;
+    const float GridFrameLeft = PanelLeft + HorizontalMargin;
+    const float GridFrameTop = PanelTop + HeaderTopPadding + HeaderHeight + 16.f * Scale;
+    const float GridFrameWidth = PanelWidth - HorizontalMargin * 2.f;
+    const float GridFrameHeight = PanelHeight - 300.f * Scale;
+    const float DetailFrameLeft = GridFrameLeft;
+    const float DetailFrameTop = GridFrameTop + GridFrameHeight + 22.f * Scale;
+    const float DetailFrameWidth = GridFrameWidth;
+    const float DetailFrameHeight =
+        PanelTop + PanelHeight - DetailFrameTop - 26.f * Scale;
 
     auto BuildButton = mBuildButton.lock();
     auto YearbookButton = mYearbookButton.lock();
@@ -779,6 +1337,7 @@ void CBuildMenuWidget::RefreshLayout()
     auto YearbookPanel = mYearbookPanel.lock();
     auto YearbookTitleText = mYearbookTitleText.lock();
     auto YearbookBodyText = mYearbookBodyText.lock();
+    auto YearbookCloseButton = mYearbookCloseButton.lock();
 
     const float YearbookPanelWidth = PanelWidth;
     const float YearbookPanelHeight = PanelHeight;
@@ -803,6 +1362,14 @@ void CBuildMenuWidget::RefreshLayout()
         YearbookTitleText->SetSize(ContentWidth, HeaderHeight);
     }
 
+    if (YearbookCloseButton)
+    {
+        YearbookCloseButton->SetPos(
+            YearbookLeft + YearbookPanelWidth - HorizontalMargin - 44.f * Scale,
+            YearbookTop + HeaderTopPadding - 4.f * Scale);
+        YearbookCloseButton->SetSize(40.f * Scale, 40.f * Scale);
+    }
+
     if (YearbookBodyText)
     {
         YearbookBodyText->SetPos(
@@ -811,6 +1378,12 @@ void CBuildMenuWidget::RefreshLayout()
     }
 
     auto MenuBackground = mMenuBackground.lock();
+    auto MenuTitleRibbon = mMenuTitleRibbon.lock();
+    auto MenuGridFrame = mMenuGridFrame.lock();
+    auto MenuDetailFrame = mMenuDetailFrame.lock();
+    auto DetailInfoPanel = mDetailInfoPanel.lock();
+    auto ScrollTrack = mScrollTrack.lock();
+    auto ScrollThumb = mScrollThumb.lock();
 
     if (MenuBackground)
     {
@@ -818,53 +1391,127 @@ void CBuildMenuWidget::RefreshLayout()
         MenuBackground->SetSize(PanelWidth, PanelHeight);
     }
 
+    if (MenuTitleRibbon)
+    {
+        MenuTitleRibbon->SetPos(TitleRibbonLeft, PanelTop + HeaderTopPadding);
+        MenuTitleRibbon->SetSize(TitleRibbonWidth, HeaderHeight);
+    }
+
+    if (MenuGridFrame)
+    {
+        MenuGridFrame->SetPos(GridFrameLeft, GridFrameTop);
+        MenuGridFrame->SetSize(GridFrameWidth, GridFrameHeight);
+    }
+
+    if (MenuDetailFrame)
+    {
+        MenuDetailFrame->SetPos(DetailFrameLeft, DetailFrameTop);
+        MenuDetailFrame->SetSize(DetailFrameWidth, DetailFrameHeight);
+    }
+
     auto TitleText = mTitleText.lock();
+    auto MenuCloseButton = mMenuCloseButton.lock();
 
     if (TitleText)
     {
-        TitleText->SetPos(
-            PanelLeft + HorizontalMargin,
-            PanelTop + HeaderTopPadding);
-        TitleText->SetSize(280.f * Scale, HeaderHeight);
+        TitleText->SetFontSize(32.f * Scale);
+        TitleText->SetPos(TitleRibbonLeft + 32.f * Scale, PanelTop + HeaderTopPadding);
+        TitleText->SetSize(TitleRibbonWidth - 64.f * Scale, HeaderHeight);
+    }
+
+    if (MenuCloseButton)
+    {
+        MenuCloseButton->SetPos(
+            PanelLeft + PanelWidth - HorizontalMargin - 44.f * Scale,
+            PanelTop + HeaderTopPadding - 4.f * Scale);
+        MenuCloseButton->SetSize(40.f * Scale, 40.f * Scale);
     }
 
     auto PrevPageButton = mPrevPageButton.lock();
     auto NextPageButton = mNextPageButton.lock();
     auto PageText = mPageText.lock();
+    const std::vector<int> CategoryEntries = CollectCategoryEntryIndices();
+    const int EntryCount = static_cast<int>(CategoryEntries.size());
+    const int PageCount = (std::max)(
+        1, (EntryCount + SlotsPerPage - 1) / SlotsPerPage);
+    const bool ShowPageControls = PageCount > 1;
+    const float ScrollTrackLeft =
+        GridFrameLeft + GridFrameWidth - 20.f * Scale;
+    const float ScrollTrackTop = GridFrameTop + 46.f * Scale;
+    const float ScrollTrackHeight = GridFrameHeight - 92.f * Scale;
+    const float ScrollTrackWidth = 12.f * Scale;
 
     if (PrevPageButton)
     {
         PrevPageButton->SetPos(
-            PanelLeft + PanelWidth - HorizontalMargin - 136.f * Scale,
-            PanelTop + HeaderTopPadding);
-        PrevPageButton->SetSize(36.f * Scale, HeaderHeight);
+            ScrollTrackLeft - 7.f * Scale,
+            GridFrameTop + 10.f * Scale);
+        PrevPageButton->SetSize(26.f * Scale, 20.f * Scale);
+        PrevPageButton->SetEnable(mMenuOpen && ShowPageControls);
     }
 
     if (PageText)
     {
+        PageText->SetFontSize(15.f * Scale);
         PageText->SetPos(
-            PanelLeft + PanelWidth - HorizontalMargin - 96.f * Scale,
-            PanelTop + HeaderTopPadding);
-        PageText->SetSize(56.f * Scale, HeaderHeight);
+            ScrollTrackLeft - 52.f * Scale,
+            GridFrameTop + GridFrameHeight - 30.f * Scale);
+        PageText->SetSize(82.f * Scale, 20.f * Scale);
+        PageText->SetEnable(mMenuOpen && ShowPageControls);
     }
 
     if (NextPageButton)
     {
         NextPageButton->SetPos(
-            PanelLeft + PanelWidth - HorizontalMargin - 36.f * Scale,
-            PanelTop + HeaderTopPadding);
-        NextPageButton->SetSize(36.f * Scale, HeaderHeight);
+            ScrollTrackLeft - 7.f * Scale,
+            GridFrameTop + GridFrameHeight - 28.f * Scale);
+        NextPageButton->SetSize(26.f * Scale, 20.f * Scale);
+        NextPageButton->SetEnable(mMenuOpen && ShowPageControls);
     }
 
-    const float CategoryTop = PanelTop - 34.f * Scale;
-    const float CategoryGap = 8.f * Scale;
-    const float CategoryWidth = 64.f * Scale;
-    const float CategoryHeight = 64.f * Scale;
-    const float CategoryStartX = PanelLeft + 12.f * Scale;
+    if (ScrollTrack)
+    {
+        ScrollTrack->SetPos(ScrollTrackLeft, ScrollTrackTop);
+        ScrollTrack->SetSize(ScrollTrackWidth, ScrollTrackHeight);
+        ScrollTrack->SetEnable(mMenuOpen && ShowPageControls);
+    }
+
+    if (ScrollThumb)
+    {
+        const float ThumbHeight = (std::max)(
+            30.f * Scale,
+            ShowPageControls ?
+            ScrollTrackHeight / static_cast<float>(PageCount) :
+            ScrollTrackHeight);
+        const float ThumbTravel =
+            (std::max)(0.f, ScrollTrackHeight - ThumbHeight);
+        const float ThumbRatio =
+            PageCount > 1 ?
+            static_cast<float>(mCurrentPage) /
+            static_cast<float>(PageCount - 1) :
+            0.f;
+
+        ScrollThumb->SetPos(
+            ScrollTrackLeft,
+            ScrollTrackTop + ThumbTravel * ThumbRatio);
+        ScrollThumb->SetSize(ScrollTrackWidth, ThumbHeight);
+        ScrollThumb->SetEnable(mMenuOpen && ShowPageControls);
+    }
+
+    const float CategoryTop = PanelTop - 64.f * Scale;
+    const float CategoryGap = 10.f * Scale;
+    const float CategoryWidth = 78.f * Scale;
+    const float CategoryHeight = 90.f * Scale;
+    const float CategoryTotalWidth =
+        CategoryWidth * CategoryCount +
+        CategoryGap * static_cast<float>(CategoryCount - 1);
+    const float CategoryStartX =
+        PanelLeft + (PanelWidth - CategoryTotalWidth) * 0.5f;
 
     for (int i = 0; i < CategoryCount; ++i)
     {
         auto CategoryButton = mCategoryButtons[i].lock();
+        auto CategoryIcon = mCategoryButtonIcons[i].lock();
 
         if (!CategoryButton)
             continue;
@@ -874,28 +1521,32 @@ void CBuildMenuWidget::RefreshLayout()
             (CategoryWidth + CategoryGap) * static_cast<float>(i),
             CategoryTop);
         CategoryButton->SetSize(CategoryWidth, CategoryHeight);
+
+        if (CategoryIcon)
+        {
+            CategoryIcon->SetPos(18.f * Scale, 10.f * Scale);
+            CategoryIcon->SetSize(42.f * Scale, 42.f * Scale);
+        }
     }
 
     const float SlotGapX = 12.f * Scale;
-    const float SlotGapY = 12.f * Scale;
-    const float SlotTop =
-        PanelTop + HeaderTopPadding + HeaderHeight + 52.f * Scale;
-    const float DetailGap = 10.f * Scale;
-    const float DetailTopPadding = 4.f * Scale;
-    const float DetailBottomPadding = 12.f * Scale;
-    const float DetailTitleHeight = 28.f * Scale;
-    const float DetailHeight = 152.f * Scale;
-    const float SlotBottom =
-        PanelTop + PanelHeight - DetailHeight - DetailGap;
-    const float SlotAreaHeight = (std::max)(
-        96.f * Scale,
-        SlotBottom - SlotTop);
+    const float SlotGapY = 16.f * Scale;
+    const float SlotLeft = GridFrameLeft + 20.f * Scale;
+    const float SlotTop = GridFrameTop + 18.f * Scale;
+    const float SlotAreaWidth =
+        GridFrameWidth - 56.f * Scale - ScrollTrackWidth;
+    const float SlotAreaHeight = GridFrameHeight - 36.f * Scale;
     const float SlotWidth =
-        (ContentWidth - SlotGapX * (SlotColumnCount - 1)) /
+        (SlotAreaWidth - SlotGapX * (SlotColumnCount - 1)) /
         static_cast<float>(SlotColumnCount);
     const float SlotHeight =
         (SlotAreaHeight - SlotGapY * (SlotRowCount - 1)) /
         static_cast<float>(SlotRowCount);
+    const float SlotIconHorizontalPadding = 16.f * Scale;
+    const float SlotIconTopPadding = 12.f * Scale;
+    const float SlotTextHeight = 40.f * Scale;
+    const float SlotIconHeight =
+        (std::max)(28.f * Scale, SlotHeight - SlotTextHeight - 22.f * Scale);
 
     for (int i = 0; i < SlotsPerPage; ++i)
     {
@@ -903,51 +1554,169 @@ void CBuildMenuWidget::RefreshLayout()
         const int Col = i % SlotColumnCount;
 
         auto SlotButton = mBuildingButtons[i].lock();
+        auto SlotIcon = mBuildingButtonIcons[i].lock();
+        auto SlotText = mBuildingButtonTexts[i].lock();
 
         if (!SlotButton)
             continue;
 
         SlotButton->SetPos(
-            PanelLeft + HorizontalMargin +
+            SlotLeft +
             (SlotWidth + SlotGapX) * static_cast<float>(Col),
             SlotTop + (SlotHeight + SlotGapY) * static_cast<float>(Row));
         SlotButton->SetSize(SlotWidth, SlotHeight);
+
+        if (SlotIcon)
+        {
+            SlotIcon->SetPos(
+                SlotIconHorizontalPadding,
+                SlotIconTopPadding);
+            SlotIcon->SetSize(
+                SlotWidth - SlotIconHorizontalPadding * 2.f,
+                SlotIconHeight);
+        }
+
+        if (SlotText)
+        {
+            SlotText->SetFontSize(15.f * Scale);
+            SlotText->SetPos(10.f * Scale, SlotHeight - SlotTextHeight);
+            SlotText->SetSize(SlotWidth - 20.f * Scale, SlotTextHeight - 4.f * Scale);
+        }
     }
 
     auto DetailTitleText = mDetailTitleText.lock();
+    auto DetailBlueprintIcon = mDetailBlueprintIcon.lock();
+    auto DetailBlueprintCostText = mDetailBlueprintCostText.lock();
+    auto DetailConstructionIcon = mDetailConstructionIcon.lock();
+    auto DetailConstructionCostText = mDetailConstructionCostText.lock();
+    auto DetailInfoText = mDetailInfoText.lock();
     auto DetailBodyText = mDetailBodyText.lock();
-    const float DetailTop = SlotBottom + DetailTopPadding;
+    const float DetailTitleTop = GridFrameTop + GridFrameHeight + 2.f * Scale;
+    const float CostTop = DetailTitleTop + 34.f * Scale;
+    const float CostIconSize = 24.f * Scale;
+    const float CostLeft =
+        PanelLeft + (PanelWidth - 340.f * Scale) * 0.5f;
+    const float DetailBodyLeft = DetailFrameLeft + 18.f * Scale;
+    const float DetailBodyTop = DetailFrameTop + 14.f * Scale;
+    const float DetailBodyWidth = DetailFrameWidth - 36.f * Scale;
+    const float DetailBodyHeight = DetailFrameHeight - 28.f * Scale;
+    const float DetailInfoWidth = 290.f * Scale;
+    const float DetailInfoHeight = 84.f * Scale;
+    const float DetailInfoLeft =
+        DetailFrameLeft + DetailFrameWidth - DetailInfoWidth - 4.f * Scale;
+    const float DetailInfoTop = DetailTitleTop + 8.f * Scale;
 
     if (DetailTitleText)
     {
-        DetailTitleText->SetPos(PanelLeft + HorizontalMargin, DetailTop);
-        DetailTitleText->SetSize(ContentWidth, DetailTitleHeight);
+        DetailTitleText->SetFontSize(26.f * Scale);
+        DetailTitleText->SetPos(PanelLeft + HorizontalMargin, DetailTitleTop);
+        DetailTitleText->SetSize(ContentWidth, 30.f * Scale);
+    }
+
+    if (DetailBlueprintIcon)
+    {
+        DetailBlueprintIcon->SetPos(CostLeft, CostTop);
+        DetailBlueprintIcon->SetSize(CostIconSize, CostIconSize);
+    }
+
+    if (DetailBlueprintCostText)
+    {
+        DetailBlueprintCostText->SetFontSize(18.f * Scale);
+        DetailBlueprintCostText->SetPos(
+            CostLeft + CostIconSize + 6.f * Scale,
+            CostTop - 2.f * Scale);
+        DetailBlueprintCostText->SetSize(110.f * Scale, 28.f * Scale);
+    }
+
+    if (DetailConstructionIcon)
+    {
+        DetailConstructionIcon->SetPos(
+            CostLeft + 150.f * Scale,
+            CostTop + 1.f * Scale);
+        DetailConstructionIcon->SetSize(CostIconSize, CostIconSize);
+    }
+
+    if (DetailConstructionCostText)
+    {
+        DetailConstructionCostText->SetFontSize(18.f * Scale);
+        DetailConstructionCostText->SetPos(
+            CostLeft + 150.f * Scale + CostIconSize + 6.f * Scale,
+            CostTop - 2.f * Scale);
+        DetailConstructionCostText->SetSize(160.f * Scale, 28.f * Scale);
+    }
+
+    if (DetailInfoPanel)
+    {
+        DetailInfoPanel->SetPos(DetailInfoLeft, DetailInfoTop);
+        DetailInfoPanel->SetSize(DetailInfoWidth, DetailInfoHeight);
+    }
+
+    if (DetailInfoText)
+    {
+        DetailInfoText->SetFontSize(18.f * Scale);
+        DetailInfoText->SetPos(
+            DetailInfoLeft + 14.f * Scale,
+            DetailInfoTop + 12.f * Scale);
+        DetailInfoText->SetSize(
+            DetailInfoWidth - 28.f * Scale,
+            DetailInfoHeight - 20.f * Scale);
     }
 
     if (DetailBodyText)
     {
-        DetailBodyText->SetPos(
-            PanelLeft + HorizontalMargin,
-            DetailTop + DetailTitleHeight);
-        DetailBodyText->SetSize(
-            ContentWidth,
-            PanelTop + PanelHeight - (DetailTop + DetailTitleHeight) -
-            DetailBottomPadding);
+        DetailBodyText->SetFontSize(16.f * Scale);
+        DetailBodyText->SetPos(DetailBodyLeft, DetailBodyTop);
+        DetailBodyText->SetSize(DetailBodyWidth, DetailBodyHeight);
     }
 }
 
 void CBuildMenuWidget::ApplyMenuOpenState()
 {
+    auto BuildButton = mBuildButton.lock();
     auto MenuBackground = mMenuBackground.lock();
+    auto MenuTitleRibbon = mMenuTitleRibbon.lock();
+    auto MenuGridFrame = mMenuGridFrame.lock();
+    auto MenuDetailFrame = mMenuDetailFrame.lock();
+    auto DetailInfoPanel = mDetailInfoPanel.lock();
+    auto DetailBlueprintIcon = mDetailBlueprintIcon.lock();
+    auto DetailConstructionIcon = mDetailConstructionIcon.lock();
+    auto DetailBlueprintCostText = mDetailBlueprintCostText.lock();
+    auto DetailConstructionCostText = mDetailConstructionCostText.lock();
+    auto DetailInfoText = mDetailInfoText.lock();
+    auto ScrollTrack = mScrollTrack.lock();
+    auto ScrollThumb = mScrollThumb.lock();
     auto TitleText = mTitleText.lock();
     auto PageText = mPageText.lock();
     auto DetailTitleText = mDetailTitleText.lock();
     auto DetailBodyText = mDetailBodyText.lock();
+    auto MenuCloseButton = mMenuCloseButton.lock();
     auto PrevPageButton = mPrevPageButton.lock();
     auto NextPageButton = mNextPageButton.lock();
 
     if (MenuBackground)
         MenuBackground->SetEnable(mMenuOpen);
+    if (MenuTitleRibbon)
+        MenuTitleRibbon->SetEnable(mMenuOpen);
+    if (MenuGridFrame)
+        MenuGridFrame->SetEnable(mMenuOpen);
+    if (MenuDetailFrame)
+        MenuDetailFrame->SetEnable(mMenuOpen);
+    if (DetailInfoPanel)
+        DetailInfoPanel->SetEnable(mMenuOpen);
+    if (DetailBlueprintIcon)
+        DetailBlueprintIcon->SetEnable(mMenuOpen);
+    if (DetailConstructionIcon)
+        DetailConstructionIcon->SetEnable(mMenuOpen);
+    if (DetailBlueprintCostText)
+        DetailBlueprintCostText->SetEnable(mMenuOpen);
+    if (DetailConstructionCostText)
+        DetailConstructionCostText->SetEnable(mMenuOpen);
+    if (DetailInfoText)
+        DetailInfoText->SetEnable(mMenuOpen);
+    if (ScrollTrack)
+        ScrollTrack->SetEnable(mMenuOpen);
+    if (ScrollThumb)
+        ScrollThumb->SetEnable(mMenuOpen);
     if (TitleText)
         TitleText->SetEnable(mMenuOpen);
     if (PageText)
@@ -956,6 +1725,8 @@ void CBuildMenuWidget::ApplyMenuOpenState()
         DetailTitleText->SetEnable(mMenuOpen);
     if (DetailBodyText)
         DetailBodyText->SetEnable(mMenuOpen);
+    if (MenuCloseButton)
+        MenuCloseButton->SetEnable(mMenuOpen);
     if (PrevPageButton)
         PrevPageButton->SetEnable(mMenuOpen);
     if (NextPageButton)
@@ -977,6 +1748,18 @@ void CBuildMenuWidget::ApplyMenuOpenState()
             Button->SetEnable(mMenuOpen);
     }
 
+    if (BuildButton)
+    {
+        ApplyButtonTextureSet(
+            BuildButton,
+            "BuildMenuOpenButtonState",
+            mMenuOpen ? GBigTextButtonSelectedTexture : GBigTextButtonTexture,
+            GBigTextButtonHoverTexture,
+            GBigTextButtonSelectedTexture,
+            GBigTextButtonDisabledTexture);
+        ConfigureIconSlotButtonStyle(BuildButton);
+    }
+
 }
 
 void CBuildMenuWidget::ApplyYearbookOpenState()
@@ -984,6 +1767,7 @@ void CBuildMenuWidget::ApplyYearbookOpenState()
     auto YearbookPanel = mYearbookPanel.lock();
     auto YearbookTitleText = mYearbookTitleText.lock();
     auto YearbookBodyText = mYearbookBodyText.lock();
+    auto YearbookCloseButton = mYearbookCloseButton.lock();
     auto YearbookButton = mYearbookButton.lock();
     auto YearbookButtonText = mYearbookButtonText.lock();
 
@@ -993,13 +1777,19 @@ void CBuildMenuWidget::ApplyYearbookOpenState()
         YearbookTitleText->SetEnable(mYearbookOpen);
     if (YearbookBodyText)
         YearbookBodyText->SetEnable(mYearbookOpen);
+    if (YearbookCloseButton)
+        YearbookCloseButton->SetEnable(mYearbookOpen);
 
     if (YearbookButton)
     {
-        if (mYearbookOpen)
-            ConfigureHighlightedButtonStyle(YearbookButton);
-        else
-            ConfigureDefaultButtonStyle(YearbookButton);
+        ApplyButtonTextureSet(
+            YearbookButton,
+            "BuildMenuYearbookButtonState",
+            mYearbookOpen ? GBigTextButtonSelectedTexture : GBigTextButtonTexture,
+            GBigTextButtonHoverTexture,
+            GBigTextButtonSelectedTexture,
+            GBigTextButtonDisabledTexture);
+        ConfigureIconSlotButtonStyle(YearbookButton);
     }
 
     if (YearbookButtonText)
@@ -1379,9 +2169,17 @@ void CBuildMenuWidget::RefreshCategoryButtons()
         if (!CategoryButton)
             continue;
 
+        const bool Selected = i == static_cast<int>(mSelectedCategory);
+        ApplyButtonTextureSet(
+            CategoryButton,
+            "BuildMenuCategoryRefresh_" + std::to_string(i),
+            Selected ? GCategoryTabTextureSelected : GCategoryTabTextureHidden,
+            GCategoryTabTextureSelected,
+            GCategoryTabTextureSelected,
+            GCategoryTabTextureHidden);
         ConfigureCategoryTabButtonStyle(
             CategoryButton,
-            i == static_cast<int>(mSelectedCategory));
+            Selected);
     }
 
     auto TitleText = mTitleText.lock();
@@ -1430,65 +2228,11 @@ void CBuildMenuWidget::RefreshBuildingButtons()
     for (int i = 0; i < SlotsPerPage; ++i)
     {
         const int CategoryListIndex = BeginIndex + i;
-        auto Button = mBuildingButtons[i].lock();
-        auto ButtonText = mBuildingButtonTexts[i].lock();
-
-        if (!Button || !ButtonText)
-            continue;
-
         if (CategoryListIndex >= 0 && CategoryListIndex < EntryCount)
         {
-            const int EntryIndex = CategoryEntries[CategoryListIndex];
-            const auto& Entry = GetBuildingCatalog()[EntryIndex];
-            const TCHAR* IconPath = GetCatalogEntryIconPath(
-                Entry.Category, Entry.CategoryLocalIndex);
-            const std::string TextureKey = "BuildMenuSlotIcon_" +
-                std::to_string(static_cast<int>(Entry.Category)) + "_" +
-                std::to_string(Entry.CategoryLocalIndex);
-
-            mVisibleEntryIndices[i] = EntryIndex;
-            Button->ButtonEnable(true);
-            ButtonText->SetText(Entry.DisplayName.c_str());
-
-            if (IconPath)
-            {
-                ApplyTextureToAllButtonStates(Button, TextureKey, IconPath);
-            }
-            else
-            {
-                ApplyTextureToAllButtonStates(
-                    Button,
-                    "BuildMenuSlotEmptyTexture",
-                    GEmptySlotTexture);
-            }
-        }
-        else
-        {
-            Button->ButtonEnable(false);
-            ButtonText->SetText(TEXT("-"));
-            ApplyTextureToAllButtonStates(
-                Button,
-                "BuildMenuSlotEmptyTexture",
-                GEmptySlotTexture);
+            mVisibleEntryIndices[i] = CategoryEntries[CategoryListIndex];
         }
     }
-
-    auto PageText = mPageText.lock();
-
-    if (PageText)
-    {
-        wchar_t PageBuffer[64] = {};
-        swprintf_s(PageBuffer, L"%d / %d", mCurrentPage + 1, PageCount);
-        PageText->SetText(PageBuffer);
-    }
-
-    auto PrevPageButton = mPrevPageButton.lock();
-    auto NextPageButton = mNextPageButton.lock();
-
-    if (PrevPageButton)
-        PrevPageButton->ButtonEnable(mCurrentPage > 0);
-    if (NextPageButton)
-        NextPageButton->ButtonEnable(mCurrentPage < PageCount - 1);
 
     bool HasPreviewOnPage = false;
 
@@ -1517,6 +2261,87 @@ void CBuildMenuWidget::RefreshBuildingButtons()
             }
         }
     }
+
+    for (int i = 0; i < SlotsPerPage; ++i)
+    {
+        auto Button = mBuildingButtons[i].lock();
+        auto ButtonIcon = mBuildingButtonIcons[i].lock();
+        auto ButtonText = mBuildingButtonTexts[i].lock();
+
+        if (!Button || !ButtonText)
+            continue;
+
+        const int EntryIndex = mVisibleEntryIndices[i];
+
+        if (EntryIndex >= 0 &&
+            EntryIndex < static_cast<int>(GetBuildingCatalog().size()))
+        {
+            const auto& Entry = GetBuildingCatalog()[EntryIndex];
+            const bool Previewed = EntryIndex == mPreviewEntryIndex;
+            const TCHAR* IconPath = GetCatalogEntryIconPath(
+                Entry.Category, Entry.CategoryLocalIndex);
+            const std::string TextureKey = "BuildMenuSlotCardRefresh_" +
+                std::to_string(static_cast<int>(Entry.Category)) + "_" +
+                std::to_string(Entry.CategoryLocalIndex);
+
+            ApplyButtonTextureSet(
+                Button,
+                TextureKey,
+                Previewed ? GSlotCardSelectedTexture : GSlotCardTexture,
+                Previewed ? GSlotCardSelectedTexture : GSlotCardHoverTexture,
+                GSlotCardSelectedTexture,
+                GSlotCardDisabledTexture);
+            Button->ButtonEnable(true);
+            ButtonText->SetText(Entry.DisplayName.c_str());
+
+            if (ButtonIcon && IconPath)
+            {
+                ButtonIcon->SetTexture(
+                    "BuildMenuSlotIcon_" +
+                    std::to_string(static_cast<int>(Entry.Category)) + "_" +
+                    std::to_string(Entry.CategoryLocalIndex),
+                    IconPath);
+                ButtonIcon->SetEnable(true);
+                ButtonIcon->SetTint(1.f, 1.f, 1.f, 1.f);
+            }
+            else if (ButtonIcon)
+            {
+                ButtonIcon->SetEnable(false);
+            }
+        }
+        else
+        {
+            ApplyButtonTextureSet(
+                Button,
+                "BuildMenuSlotCardEmpty_" + std::to_string(i),
+                GSlotCardDisabledTexture,
+                GSlotCardDisabledTexture,
+                GSlotCardDisabledTexture,
+                GSlotCardDisabledTexture);
+            Button->ButtonEnable(false);
+            ButtonText->SetText(TEXT(""));
+
+            if (ButtonIcon)
+                ButtonIcon->SetEnable(false);
+        }
+    }
+
+    auto PageText = mPageText.lock();
+
+    if (PageText)
+    {
+        wchar_t PageBuffer[64] = {};
+        swprintf_s(PageBuffer, L"%d / %d", mCurrentPage + 1, PageCount);
+        PageText->SetText(PageBuffer);
+    }
+
+    auto PrevPageButton = mPrevPageButton.lock();
+    auto NextPageButton = mNextPageButton.lock();
+
+    if (PrevPageButton)
+        PrevPageButton->ButtonEnable(mCurrentPage > 0);
+    if (NextPageButton)
+        NextPageButton->ButtonEnable(mCurrentPage < PageCount - 1);
 
     RefreshDetailPanel();
 }
@@ -1554,12 +2379,18 @@ void CBuildMenuWidget::PreviewSlot(int SlotIndex)
         return;
 
     mPreviewEntryIndex = EntryIndex;
-    RefreshDetailPanel();
+    RefreshBuildingButtons();
 }
 
 void CBuildMenuWidget::RefreshDetailPanel()
 {
     auto DetailTitleText = mDetailTitleText.lock();
+    auto DetailBlueprintIcon = mDetailBlueprintIcon.lock();
+    auto DetailBlueprintCostText = mDetailBlueprintCostText.lock();
+    auto DetailConstructionIcon = mDetailConstructionIcon.lock();
+    auto DetailConstructionCostText = mDetailConstructionCostText.lock();
+    auto DetailInfoPanel = mDetailInfoPanel.lock();
+    auto DetailInfoText = mDetailInfoText.lock();
     auto DetailBodyText = mDetailBodyText.lock();
 
     if (!DetailTitleText && !DetailBodyText)
@@ -1572,22 +2403,69 @@ void CBuildMenuWidget::RefreshDetailPanel()
     {
         if (DetailTitleText)
             DetailTitleText->SetText(TEXT("건물 정보"));
+        if (DetailBlueprintCostText)
+            DetailBlueprintCostText->SetText(TEXT("-"));
+        if (DetailConstructionCostText)
+            DetailConstructionCostText->SetText(TEXT("-"));
+        if (DetailInfoText)
+            DetailInfoText->SetText(TEXT("추가 정보\n없음"));
         if (DetailBodyText)
             DetailBodyText->SetText(TEXT("건물 아이콘에 마우스를 올리면 상세 정보가 표시됩니다."));
         return;
     }
 
     const auto& Entry = Catalog[mPreviewEntryIndex];
+    const FParsedDetailInfo ParsedDetail = ParseDetailInfo(Entry);
 
     if (DetailTitleText)
         DetailTitleText->SetText(Entry.DisplayName.c_str());
 
+    if (DetailBlueprintIcon)
+        DetailBlueprintIcon->SetEnable(true);
+    if (DetailConstructionIcon)
+        DetailConstructionIcon->SetEnable(true);
+    if (DetailInfoPanel)
+        DetailInfoPanel->SetEnable(true);
+
+    if (DetailBlueprintCostText)
+    {
+        DetailBlueprintCostText->SetText(
+            ParsedDetail.BlueprintCost.empty() ?
+            TEXT("-") :
+            ParsedDetail.BlueprintCost.c_str());
+    }
+
+    if (DetailConstructionCostText)
+    {
+        DetailConstructionCostText->SetText(
+            ParsedDetail.ConstructionCost.empty() ?
+            TEXT("-") :
+            ParsedDetail.ConstructionCost.c_str());
+    }
+
+    if (DetailInfoText)
+    {
+        std::wstring InfoBody = L"추가 정보";
+
+        if (!ParsedDetail.Highlights.empty())
+        {
+            for (size_t i = 0; i < ParsedDetail.Highlights.size(); ++i)
+            {
+                InfoBody += L"\n";
+                InfoBody += ParsedDetail.Highlights[i];
+            }
+        }
+        else
+        {
+            InfoBody += L"\n없음";
+        }
+
+        DetailInfoText->SetText(InfoBody.c_str());
+    }
+
     if (DetailBodyText)
     {
-        if (!Entry.DetailText.empty())
-            DetailBodyText->SetText(Entry.DetailText.c_str());
-        else
-            DetailBodyText->SetText(TEXT("세부 데이터 준비 중"));
+        DetailBodyText->SetText(ParsedDetail.Description.c_str());
     }
 }
 
@@ -1650,7 +2528,31 @@ void CBuildMenuWidget::OnBuildButtonClick()
     mMenuOpen = NextOpen;
 
     if (NextOpen)
+    {
         mYearbookOpen = false;
+
+        auto World = mWorld.lock();
+
+        if (World)
+        {
+            auto UIManager = World->GetUIManager().lock();
+
+            if (UIManager)
+            {
+                auto EdictWidget =
+                    UIManager->FindWidget<CEdictWidget>(GEdictWidgetName).lock();
+                auto AlmanacWidget =
+                    UIManager->FindWidget<CAlmanacWidget>(
+                        GAlmanacWidgetName).lock();
+
+                if (EdictWidget)
+                    EdictWidget->SetOpen(false);
+
+                if (AlmanacWidget)
+                    AlmanacWidget->SetOpen(false);
+            }
+        }
+    }
 
     ApplyMenuOpenState();
     ApplyYearbookOpenState();
@@ -1658,11 +2560,60 @@ void CBuildMenuWidget::OnBuildButtonClick()
 
 void CBuildMenuWidget::OnYearbookButtonClick()
 {
+    auto World = mWorld.lock();
+
+    if (World)
+    {
+        auto UIManager = World->GetUIManager().lock();
+
+        if (UIManager)
+        {
+            auto AlmanacWidget =
+                UIManager->FindWidget<CAlmanacWidget>(
+                    GAlmanacWidgetName).lock();
+            auto EdictWidget =
+                UIManager->FindWidget<CEdictWidget>(
+                    GEdictWidgetName).lock();
+
+            if (AlmanacWidget)
+            {
+                mMenuOpen = false;
+                mYearbookOpen = false;
+
+                if (EdictWidget)
+                    EdictWidget->SetOpen(false);
+
+                ApplyMenuOpenState();
+                ApplyYearbookOpenState();
+                AlmanacWidget->ToggleOpen();
+                return;
+            }
+        }
+    }
+
     const bool NextOpen = !mYearbookOpen;
     mYearbookOpen = NextOpen;
 
     if (NextOpen)
+    {
         mMenuOpen = false;
+
+        auto World = mWorld.lock();
+
+        if (World)
+        {
+            auto UIManager = World->GetUIManager().lock();
+
+            if (UIManager)
+            {
+                auto EdictWidget =
+                    UIManager->FindWidget<CEdictWidget>(GEdictWidgetName).lock();
+
+                if (EdictWidget)
+                    EdictWidget->SetOpen(false);
+            }
+        }
+    }
 
     ApplyMenuOpenState();
     ApplyYearbookOpenState();
@@ -1706,6 +2657,16 @@ void CBuildMenuWidget::OnCategoryTourismClick()
 void CBuildMenuWidget::OnCategoryPublicServiceClick()
 {
     SelectCategory(EBuildingCategory::PublicService);
+}
+
+void CBuildMenuWidget::OnMenuCloseButtonClick()
+{
+    SetBuildMenuOpen(false);
+}
+
+void CBuildMenuWidget::OnYearbookCloseButtonClick()
+{
+    SetAlmanacOpen(false);
 }
 
 void CBuildMenuWidget::OnPrevPageClick()
@@ -1778,6 +2739,21 @@ void CBuildMenuWidget::OnSlot11Click()
     StartPlacementBySlot(11);
 }
 
+void CBuildMenuWidget::OnSlot12Click()
+{
+    StartPlacementBySlot(12);
+}
+
+void CBuildMenuWidget::OnSlot13Click()
+{
+    StartPlacementBySlot(13);
+}
+
+void CBuildMenuWidget::OnSlot14Click()
+{
+    StartPlacementBySlot(14);
+}
+
 void CBuildMenuWidget::OnSlot0Hovered()
 {
     PreviewSlot(0);
@@ -1838,6 +2814,21 @@ void CBuildMenuWidget::OnSlot11Hovered()
     PreviewSlot(11);
 }
 
+void CBuildMenuWidget::OnSlot12Hovered()
+{
+    PreviewSlot(12);
+}
+
+void CBuildMenuWidget::OnSlot13Hovered()
+{
+    PreviewSlot(13);
+}
+
+void CBuildMenuWidget::OnSlot14Hovered()
+{
+    PreviewSlot(14);
+}
+
 void CBuildMenuWidget::ToggleBuildMenu()
 {
     OnBuildButtonClick();
@@ -1846,4 +2837,53 @@ void CBuildMenuWidget::ToggleBuildMenu()
 void CBuildMenuWidget::ToggleAlmanac()
 {
     OnYearbookButtonClick();
+}
+
+void CBuildMenuWidget::SetBuildMenuOpen(bool Open)
+{
+    mMenuOpen = Open;
+
+    if (Open)
+        mYearbookOpen = false;
+
+    ApplyMenuOpenState();
+    ApplyYearbookOpenState();
+}
+
+void CBuildMenuWidget::SetAlmanacOpen(bool Open)
+{
+    auto World = mWorld.lock();
+
+    if (World)
+    {
+        auto UIManager = World->GetUIManager().lock();
+
+        if (UIManager)
+        {
+            auto AlmanacWidget =
+                UIManager->FindWidget<CAlmanacWidget>(
+                    GAlmanacWidgetName).lock();
+
+            if (AlmanacWidget)
+            {
+                mYearbookOpen = false;
+
+                if (Open)
+                    mMenuOpen = false;
+
+                ApplyMenuOpenState();
+                ApplyYearbookOpenState();
+                AlmanacWidget->SetOpen(Open);
+                return;
+            }
+        }
+    }
+
+    mYearbookOpen = Open;
+
+    if (Open)
+        mMenuOpen = false;
+
+    ApplyMenuOpenState();
+    ApplyYearbookOpenState();
 }

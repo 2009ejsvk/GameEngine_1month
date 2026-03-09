@@ -22,6 +22,7 @@ private:
     std::weak_ptr<class CImage> mPanelImage;
     std::weak_ptr<class CTextBlock> mTitleText;
     std::weak_ptr<class CTextBlock> mBodyText;
+    std::weak_ptr<class CButton> mCloseButton;
     std::string mTrackedCitizenName;
     std::string mTrackedBuildingName;
     std::weak_ptr<class CTextBlock> mBudgetText;
@@ -58,6 +59,7 @@ private:
     void SetBudgetControlsVisible(bool Visible);
     void RefreshBuildingInfo();
     void SetBuildingBudgetLevel(int Level);
+    void OnCloseButtonClick();
     void OnBudgetLevel1Click();
     void OnBudgetLevel2Click();
     void OnBudgetLevel3Click();

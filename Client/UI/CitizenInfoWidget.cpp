@@ -102,6 +102,31 @@ bool CCitizenInfoWidget::Init()
         mTitleText = TitleText;
     }
 
+    auto CloseButton = CreateWidget<CButton>("CitizenCloseButton", 1).lock();
+
+    if (CloseButton)
+    {
+        ConfigureBudgetButtonStyle(CloseButton, false);
+        CloseButton->SetEventCallback<CCitizenInfoWidget>(
+            EButtonEventState::Click, this,
+            &CCitizenInfoWidget::OnCloseButtonClick);
+
+        auto CloseText = CWidget::CreateStaticWidget<CTextBlock>(
+            "CitizenCloseButtonText", mWorld);
+
+        if (CloseText)
+        {
+            CloseText->SetText(TEXT("X"));
+            CloseText->SetFontSize(16.f);
+            CloseText->SetAlignH(ETextAlignH::Center);
+            CloseText->SetAlignV(ETextAlignV::Middle);
+            CloseText->SetTextColor(245, 245, 245, 255);
+            CloseButton->SetChild(CloseText);
+        }
+
+        mCloseButton = CloseButton;
+    }
+
     auto BodyText = CreateWidget<CTextBlock>("CitizenBody", 1).lock();
 
     if (BodyText)
@@ -397,7 +422,14 @@ void CCitizenInfoWidget::SetPanelScreenPos(const FVector2& ScreenPos)
     if (TitleText)
     {
         TitleText->SetPos(20.f, 18.f);
-        TitleText->SetSize(mPanelWidth - 40.f, 34.f);
+        TitleText->SetSize(mPanelWidth - 80.f, 34.f);
+    }
+
+    auto CloseButton = mCloseButton.lock();
+    if (CloseButton)
+    {
+        CloseButton->SetPos(mPanelWidth - 52.f, 14.f);
+        CloseButton->SetSize(32.f, 32.f);
     }
 
     auto BudgetText = mBudgetText.lock();
@@ -754,6 +786,13 @@ void CCitizenInfoWidget::SetBuildingBudgetLevel(int Level)
 
     Building->SetBudgetLevel(Level);
     RefreshBuildingInfo();
+}
+
+void CCitizenInfoWidget::OnCloseButtonClick()
+{
+    mTrackedCitizenName.clear();
+    mTrackedBuildingName.clear();
+    SetEnable(false);
 }
 
 void CCitizenInfoWidget::OnBudgetLevel1Click()

@@ -9,44 +9,173 @@
 #include <Windows.h>
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 namespace
 {
-    constexpr const TCHAR* GEdictPanelTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\3_ColdWar\\CenterPopUp\\T_center_popUp.png");
-    constexpr const TCHAR* GEdictDetailFrameTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\3_ColdWar\\CenterPopUp\\T_center_popUp_frameDescription.png");
-    constexpr const TCHAR* GEdictButtonTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_standard.png");
+    constexpr int GEdictCategoryCount = 4;
+    constexpr int GEdictSlotsPerPage = 12;
+    constexpr int GEdictSlotColumnCount = 4;
+    constexpr int GEdictSlotRowCount = 3;
+    constexpr int GTaxPolicyRowCount = 3;
 
-    void ConfigureDefaultButtonStyle(const std::shared_ptr<CButton>& Button)
+    constexpr const TCHAR* GEdictMenuPanelTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\5_MainMenu\\CenterPopUp\\T_center_popUp.png");
+    constexpr const TCHAR* GEmptySlotTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_standard.png");
+    constexpr const TCHAR* GCategoryTabBackgroundTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\IconBackground\\T_icon_background.png");
+
+    const wchar_t* GCategoryLabels[GEdictCategoryCount] =
+    {
+        L"일반 칙령",
+        L"내정 칙령",
+        L"국방 칙령",
+        L"교육 칙령"
+    };
+
+    const TCHAR* const GCategoryTabIcons[GEdictCategoryCount] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\EdictCategories\\T_ICO_general.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\EdictCategories\\T_ICO_interior.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\EdictCategories\\T_ICO_defense.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\EdictCategories\\T_ICO_education.png")
+    };
+
+    const ETaxPolicyType GTaxPolicyTypes[GTaxPolicyRowCount] =
+    {
+        ETaxPolicyType::Consumption,
+        ETaxPolicyType::Income,
+        ETaxPolicyType::Property
+    };
+
+    void ConfigureDefaultButtonStyle(
+        const std::shared_ptr<CButton>& Button)
     {
         if (!Button)
             return;
 
         Button->SetTint(EButtonState::Normal,
-            FVector4(0.20f, 0.22f, 0.26f, 0.95f));
+            FVector4(0.20f, 0.22f, 0.26f, 0.92f));
         Button->SetTint(EButtonState::Hovered,
-            FVector4(0.28f, 0.31f, 0.36f, 1.f));
+            FVector4(0.26f, 0.30f, 0.35f, 0.95f));
         Button->SetTint(EButtonState::Click,
-            FVector4(0.14f, 0.16f, 0.20f, 1.f));
+            FVector4(0.14f, 0.16f, 0.20f, 0.98f));
         Button->SetTint(EButtonState::Disable,
             FVector4(0.10f, 0.10f, 0.12f, 0.70f));
     }
 
-    void ConfigureSelectedButtonStyle(const std::shared_ptr<CButton>& Button)
+    void ConfigureHighlightedButtonStyle(
+        const std::shared_ptr<CButton>& Button)
     {
         if (!Button)
             return;
 
         Button->SetTint(EButtonState::Normal,
-            FVector4(0.16f, 0.37f, 0.60f, 0.98f));
+            FVector4(0.10f, 0.32f, 0.52f, 0.95f));
         Button->SetTint(EButtonState::Hovered,
-            FVector4(0.22f, 0.47f, 0.74f, 1.f));
+            FVector4(0.16f, 0.40f, 0.62f, 0.98f));
         Button->SetTint(EButtonState::Click,
-            FVector4(0.12f, 0.30f, 0.48f, 1.f));
+            FVector4(0.08f, 0.24f, 0.40f, 0.98f));
         Button->SetTint(EButtonState::Disable,
-            FVector4(0.10f, 0.18f, 0.28f, 0.72f));
+            FVector4(0.08f, 0.24f, 0.40f, 0.70f));
+    }
+
+    void ConfigureIconSlotButtonStyle(
+        const std::shared_ptr<CButton>& Button)
+    {
+        if (!Button)
+            return;
+
+        Button->SetTint(EButtonState::Normal,
+            FVector4(1.f, 1.f, 1.f, 0.96f));
+        Button->SetTint(EButtonState::Hovered,
+            FVector4(1.f, 1.f, 1.f, 1.f));
+        Button->SetTint(EButtonState::Click,
+            FVector4(0.80f, 0.80f, 0.80f, 1.f));
+        Button->SetTint(EButtonState::Disable,
+            FVector4(0.35f, 0.35f, 0.35f, 0.75f));
+    }
+
+    void ConfigureEdictSlotButtonStyle(
+        const std::shared_ptr<CButton>& Button,
+        bool Selected,
+        bool Active,
+        bool CoolingDown)
+    {
+        if (!Button)
+            return;
+
+        if (Selected)
+        {
+            Button->SetTint(EButtonState::Normal,
+                FVector4(1.00f, 0.94f, 0.72f, 1.f));
+            Button->SetTint(EButtonState::Hovered,
+                FVector4(1.00f, 0.98f, 0.84f, 1.f));
+            Button->SetTint(EButtonState::Click,
+                FVector4(0.88f, 0.82f, 0.60f, 1.f));
+            Button->SetTint(EButtonState::Disable,
+                FVector4(0.50f, 0.50f, 0.50f, 0.75f));
+            return;
+        }
+
+        if (Active)
+        {
+            Button->SetTint(EButtonState::Normal,
+                FVector4(0.82f, 1.00f, 0.84f, 0.98f));
+            Button->SetTint(EButtonState::Hovered,
+                FVector4(0.92f, 1.00f, 0.92f, 1.f));
+            Button->SetTint(EButtonState::Click,
+                FVector4(0.68f, 0.90f, 0.72f, 1.f));
+            Button->SetTint(EButtonState::Disable,
+                FVector4(0.50f, 0.50f, 0.50f, 0.75f));
+            return;
+        }
+
+        if (CoolingDown)
+        {
+            Button->SetTint(EButtonState::Normal,
+                FVector4(0.78f, 0.84f, 0.92f, 0.96f));
+            Button->SetTint(EButtonState::Hovered,
+                FVector4(0.88f, 0.92f, 0.98f, 1.f));
+            Button->SetTint(EButtonState::Click,
+                FVector4(0.66f, 0.72f, 0.84f, 1.f));
+            Button->SetTint(EButtonState::Disable,
+                FVector4(0.50f, 0.50f, 0.50f, 0.75f));
+            return;
+        }
+
+        ConfigureIconSlotButtonStyle(Button);
+    }
+
+    void ConfigureCategoryTabButtonStyle(
+        const std::shared_ptr<CButton>& Button,
+        bool Selected)
+    {
+        if (!Button)
+            return;
+
+        if (Selected)
+        {
+            Button->SetTint(EButtonState::Normal,
+                FVector4(1.f, 1.f, 1.f, 1.f));
+            Button->SetTint(EButtonState::Hovered,
+                FVector4(1.f, 1.f, 1.f, 1.f));
+            Button->SetTint(EButtonState::Click,
+                FVector4(0.90f, 0.90f, 0.90f, 1.f));
+            Button->SetTint(EButtonState::Disable,
+                FVector4(0.5f, 0.5f, 0.5f, 0.7f));
+            return;
+        }
+
+        Button->SetTint(EButtonState::Normal,
+            FVector4(0.74f, 0.84f, 0.98f, 0.96f));
+        Button->SetTint(EButtonState::Hovered,
+            FVector4(0.88f, 0.95f, 1.f, 1.f));
+        Button->SetTint(EButtonState::Click,
+            FVector4(0.62f, 0.74f, 0.92f, 1.f));
+        Button->SetTint(EButtonState::Disable,
+            FVector4(0.5f, 0.5f, 0.5f, 0.7f));
     }
 
     void ApplyTextureToAllButtonStates(
@@ -93,44 +222,89 @@ namespace
         return L"$" + Digits;
     }
 
-    std::wstring FormatDaysAsYearsMonths(int Days)
+    std::wstring FormatPercentValue(int Value)
     {
-        const int SafeDays = (std::max)(0, Days);
-        const int Years = SafeDays / 365;
-        const int Months = (SafeDays % 365) / 30;
-
-        if (Years <= 0 && Months <= 0)
-            return L"-";
-
-        if (Years > 0 && Months > 0)
-            return std::to_wstring(Years) + L"년 " +
-                std::to_wstring(Months) + L"개월";
-
-        if (Years > 0)
-            return std::to_wstring(Years) + L"년";
-
-        return std::to_wstring(Months) + L"개월";
+        return std::to_wstring(Value) + L"%";
     }
 
-    std::wstring BuildStateText(
-        const FGovernmentEdictState* State,
-        const FGovernmentEdictDefinition& Definition)
+    EEdictUiCategory ResolveEdictUiCategory(EGovernmentEdictType Type)
+    {
+        switch (Type)
+        {
+        case EGovernmentEdictType::FoodForThePeople:
+        case EGovernmentEdictType::TaxCut:
+        case EGovernmentEdictType::LaborTaxRelief:
+        case EGovernmentEdictType::EmergencyAusterity:
+            return EEdictUiCategory::General;
+        case EGovernmentEdictType::FreeHousing:
+        case EGovernmentEdictType::PropertyTaxRelief:
+            return EEdictUiCategory::Interior;
+        case EGovernmentEdictType::MartialLaw:
+            return EEdictUiCategory::Defense;
+        case EGovernmentEdictType::EmployeeOfTheMonth:
+            return EEdictUiCategory::Education;
+        default:
+            return EEdictUiCategory::General;
+        }
+    }
+
+    const wchar_t* GetCategoryLabel(EEdictUiCategory Category)
+    {
+        const int Index = static_cast<int>(Category);
+
+        if (Index < 0 || Index >= GEdictCategoryCount)
+            return L"칙령";
+
+        return GCategoryLabels[Index];
+    }
+
+    std::wstring BuildEdictSlotStatusText(
+        const FGovernmentEdictDefinition& Definition,
+        const FGovernmentEdictState* State)
     {
         if (!State)
-            return L"준비";
+            return L"정보 없음";
+
+        if (Definition.Mode == EGovernmentEdictMode::Passive)
+            return State->Active ? L"활성" : L"사용 가능";
 
         if (State->Active)
-        {
-            if (Definition.Mode == EGovernmentEdictMode::Passive)
-                return L"활성";
-
-            return L"활성 " + FormatDaysAsYearsMonths(State->RemainingDays);
-        }
+            return L"시행중";
 
         if (State->CooldownDays > 0)
-            return L"대기 " + FormatDaysAsYearsMonths(State->CooldownDays);
+            return L"대기 " + std::to_wstring(State->CooldownDays) + L"일";
 
-        return L"준비";
+        return L"사용 가능";
+    }
+
+    ETaxPolicyEventType ResolveRequiredTaxPolicyEvent(EGovernmentEdictType Type)
+    {
+        switch (Type)
+        {
+        case EGovernmentEdictType::LaborTaxRelief:
+            return ETaxPolicyEventType::WorkerTaxStrike;
+        case EGovernmentEdictType::PropertyTaxRelief:
+            return ETaxPolicyEventType::PropertyTaxBacklash;
+        case EGovernmentEdictType::EmergencyAusterity:
+            return ETaxPolicyEventType::BudgetCrisis;
+        default:
+            return ETaxPolicyEventType::None;
+        }
+    }
+
+    const wchar_t* GetTaxPolicyEventDisplayName(ETaxPolicyEventType Type)
+    {
+        switch (Type)
+        {
+        case ETaxPolicyEventType::WorkerTaxStrike:
+            return L"근로층 세금 파업";
+        case ETaxPolicyEventType::PropertyTaxBacklash:
+            return L"재산세 반발";
+        case ETaxPolicyEventType::BudgetCrisis:
+            return L"국고 위기";
+        default:
+            return L"세금 사건";
+        }
     }
 }
 
@@ -146,272 +320,415 @@ bool CEdictWidget::Init()
 {
     CWidgetContainer::Init();
 
-    const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
-    mEdictTypes.reserve(Definitions.size());
+    mVisibleEntryIndices.assign(GEdictSlotsPerPage, -1);
 
-    for (size_t i = 0; i < Definitions.size(); ++i)
-        mEdictTypes.push_back(Definitions[i].Type);
+    auto MenuBackground = CreateWidget<CImage>("EdictMenu_Background", 6).lock();
 
-    if (!mEdictTypes.empty())
-        mSelectedEdict = mEdictTypes[0];
-
-    auto Background = CreateWidget<CImage>("Edict_Background", 20).lock();
-
-    if (Background)
+    if (MenuBackground)
     {
-        Background->SetTexture("EdictPanelTexture", GEdictPanelTexture);
-        Background->SetTint(1.f, 1.f, 1.f, 1.f);
-        mBackground = Background;
+        MenuBackground->SetTexture("EdictMenuBackground", GEdictMenuPanelTexture);
+        MenuBackground->SetTint(1.f, 1.f, 1.f, 1.f);
+        mMenuBackground = MenuBackground;
     }
 
-    auto DetailFrame = CreateWidget<CImage>("Edict_DetailFrame", 21).lock();
-
-    if (DetailFrame)
-    {
-        DetailFrame->SetTexture(
-            "EdictDetailFrameTexture",
-            GEdictDetailFrameTexture);
-        DetailFrame->SetTint(1.f, 1.f, 1.f, 1.f);
-        mDetailFrame = DetailFrame;
-    }
-
-    auto TitleText = CreateWidget<CTextBlock>("Edict_TitleText", 22).lock();
+    auto TitleText = CreateWidget<CTextBlock>("EdictMenu_Title", 7).lock();
 
     if (TitleText)
     {
-        TitleText->SetText(TEXT("칙령"));
-        TitleText->SetFontSize(24.f);
-        TitleText->SetAlignH(ETextAlignH::Left);
+        TitleText->SetText(GetCategoryLabel(mSelectedCategory));
+        TitleText->SetFontSize(28.f);
+        TitleText->SetAlignH(ETextAlignH::Center);
         TitleText->SetAlignV(ETextAlignV::Middle);
-        TitleText->SetTextColor(245, 242, 232, 255);
+        TitleText->SetTextColor(245, 245, 245, 255);
         TitleText->EnableShadow(true);
         TitleText->SetShadowOffset(1.f, 1.f);
-        TitleText->SetShadowTextColor(20, 20, 20, 220);
+        TitleText->SetShadowTextColor(20, 20, 20, 255);
         mTitleText = TitleText;
     }
 
-    auto SubtitleText =
-        CreateWidget<CTextBlock>("Edict_SubtitleText", 22).lock();
+    auto PageText = CreateWidget<CTextBlock>("EdictMenu_PageText", 7).lock();
 
-    if (SubtitleText)
+    if (PageText)
     {
-        SubtitleText->SetFontSize(14.f);
-        SubtitleText->SetAlignH(ETextAlignH::Left);
-        SubtitleText->SetAlignV(ETextAlignV::Middle);
-        SubtitleText->SetTextColor(220, 220, 220, 255);
-        SubtitleText->EnableShadow(true);
-        SubtitleText->SetShadowOffset(1.f, 1.f);
-        SubtitleText->SetShadowTextColor(20, 20, 20, 220);
-        mSubtitleText = SubtitleText;
+        PageText->SetText(TEXT("1 / 1"));
+        PageText->SetFontSize(18.f);
+        PageText->SetAlignH(ETextAlignH::Center);
+        PageText->SetAlignV(ETextAlignV::Middle);
+        PageText->SetTextColor(220, 220, 220, 255);
+        mPageText = PageText;
     }
 
-    auto DetailIcon = CreateWidget<CImage>("Edict_DetailIcon", 23).lock();
+    auto CloseButton = CreateWidget<CButton>("EdictMenu_CloseButton", 7).lock();
 
-    if (DetailIcon)
+    if (CloseButton)
     {
-        DetailIcon->SetTint(1.f, 1.f, 1.f, 1.f);
-        mDetailIcon = DetailIcon;
+        ConfigureDefaultButtonStyle(CloseButton);
+        CloseButton->SetEventCallback<CEdictWidget>(
+            EButtonEventState::Click, this,
+            &CEdictWidget::OnCloseButtonClick);
+
+        auto CloseText = CWidget::CreateStaticWidget<CTextBlock>(
+            "EdictMenu_CloseText", mWorld);
+
+        if (CloseText)
+        {
+            CloseText->SetText(TEXT("X"));
+            CloseText->SetFontSize(18.f);
+            CloseText->SetAlignH(ETextAlignH::Center);
+            CloseText->SetAlignV(ETextAlignV::Middle);
+            CloseText->SetTextColor(255, 255, 255, 255);
+            CloseButton->SetChild(CloseText);
+        }
+
+        mCloseButton = CloseButton;
     }
 
-    auto DetailTitle =
-        CreateWidget<CTextBlock>("Edict_DetailTitle", 23).lock();
+    auto PrevPageButton = CreateWidget<CButton>("EdictMenu_PrevPage", 7).lock();
 
-    if (DetailTitle)
+    if (PrevPageButton)
     {
-        DetailTitle->SetFontSize(22.f);
-        DetailTitle->SetAlignH(ETextAlignH::Left);
-        DetailTitle->SetAlignV(ETextAlignV::Middle);
-        DetailTitle->SetTextColor(245, 245, 245, 255);
-        DetailTitle->EnableShadow(true);
-        DetailTitle->SetShadowOffset(1.f, 1.f);
-        DetailTitle->SetShadowTextColor(16, 16, 16, 220);
-        mDetailTitleText = DetailTitle;
+        ConfigureDefaultButtonStyle(PrevPageButton);
+        PrevPageButton->SetEventCallback<CEdictWidget>(
+            EButtonEventState::Click, this,
+            &CEdictWidget::OnPrevPageClick);
+
+        auto PrevText = CWidget::CreateStaticWidget<CTextBlock>(
+            "EdictMenu_PrevText", mWorld);
+
+        if (PrevText)
+        {
+            PrevText->SetText(TEXT("<"));
+            PrevText->SetFontSize(20.f);
+            PrevText->SetAlignH(ETextAlignH::Center);
+            PrevText->SetAlignV(ETextAlignV::Middle);
+            PrevText->SetTextColor(255, 255, 255, 255);
+            PrevPageButton->SetChild(PrevText);
+        }
+
+        mPrevPageButton = PrevPageButton;
     }
 
-    auto DetailBody = CreateWidget<CTextBlock>("Edict_DetailBody", 23).lock();
+    auto NextPageButton = CreateWidget<CButton>("EdictMenu_NextPage", 7).lock();
 
-    if (DetailBody)
+    if (NextPageButton)
     {
-        DetailBody->SetFontSize(14.f);
-        DetailBody->SetAlignH(ETextAlignH::Left);
-        DetailBody->SetAlignV(ETextAlignV::Top);
-        DetailBody->SetTextColor(226, 226, 226, 255);
-        DetailBody->EnableShadow(true);
-        DetailBody->SetShadowOffset(1.f, 1.f);
-        DetailBody->SetShadowTextColor(16, 16, 16, 220);
-        mDetailBodyText = DetailBody;
+        ConfigureDefaultButtonStyle(NextPageButton);
+        NextPageButton->SetEventCallback<CEdictWidget>(
+            EButtonEventState::Click, this,
+            &CEdictWidget::OnNextPageClick);
+
+        auto NextText = CWidget::CreateStaticWidget<CTextBlock>(
+            "EdictMenu_NextText", mWorld);
+
+        if (NextText)
+        {
+            NextText->SetText(TEXT(">"));
+            NextText->SetFontSize(20.f);
+            NextText->SetAlignH(ETextAlignH::Center);
+            NextText->SetAlignV(ETextAlignV::Middle);
+            NextText->SetTextColor(255, 255, 255, 255);
+            NextPageButton->SetChild(NextText);
+        }
+
+        mNextPageButton = NextPageButton;
+    }
+
+    mCategoryButtons.resize(GEdictCategoryCount);
+    void (CEdictWidget::* CategoryCallbacks[GEdictCategoryCount])() =
+    {
+        &CEdictWidget::OnCategoryGeneralClick,
+        &CEdictWidget::OnCategoryInteriorClick,
+        &CEdictWidget::OnCategoryDefenseClick,
+        &CEdictWidget::OnCategoryEducationClick
+    };
+
+    for (int i = 0; i < GEdictCategoryCount; ++i)
+    {
+        auto Button = CreateWidget<CButton>(
+            "EdictMenu_Category_" + std::to_string(i + 1), 7).lock();
+
+        if (!Button)
+            continue;
+
+        ConfigureCategoryTabButtonStyle(Button, false);
+        ApplyTextureToAllButtonStates(
+            Button,
+            "EdictCategoryTabBackground",
+            GCategoryTabBackgroundTexture);
+        Button->SetEventCallback<CEdictWidget>(
+            EButtonEventState::Click, this, CategoryCallbacks[i]);
+
+        auto CategoryIcon = CWidget::CreateStaticWidget<CImage>(
+            "EdictMenu_CategoryIcon_" + std::to_string(i + 1), mWorld);
+
+        if (CategoryIcon)
+        {
+            CategoryIcon->SetTexture(
+                "EdictMenuCategoryIconTex_" + std::to_string(i + 1),
+                GCategoryTabIcons[i]);
+            CategoryIcon->SetTint(1.f, 1.f, 1.f, 1.f);
+            Button->SetChild(CategoryIcon);
+        }
+
+        mCategoryButtons[i] = Button;
+    }
+
+    mEdictButtons.resize(GEdictSlotsPerPage);
+    mEdictButtonTexts.resize(GEdictSlotsPerPage);
+
+    void (CEdictWidget::* SlotCallbacks[GEdictSlotsPerPage])() =
+    {
+        &CEdictWidget::OnSlot0Click,
+        &CEdictWidget::OnSlot1Click,
+        &CEdictWidget::OnSlot2Click,
+        &CEdictWidget::OnSlot3Click,
+        &CEdictWidget::OnSlot4Click,
+        &CEdictWidget::OnSlot5Click,
+        &CEdictWidget::OnSlot6Click,
+        &CEdictWidget::OnSlot7Click,
+        &CEdictWidget::OnSlot8Click,
+        &CEdictWidget::OnSlot9Click,
+        &CEdictWidget::OnSlot10Click,
+        &CEdictWidget::OnSlot11Click
+    };
+    for (int i = 0; i < GEdictSlotsPerPage; ++i)
+    {
+        auto Button = CreateWidget<CButton>(
+            "EdictMenu_Slot_" + std::to_string(i + 1), 7).lock();
+
+        if (!Button)
+            continue;
+
+        ConfigureIconSlotButtonStyle(Button);
+        Button->SetEventCallback<CEdictWidget>(
+            EButtonEventState::Click, this, SlotCallbacks[i]);
+
+        auto ButtonText = CWidget::CreateStaticWidget<CTextBlock>(
+            "EdictMenu_SlotText_" + std::to_string(i + 1), mWorld);
+
+        if (ButtonText)
+        {
+            ButtonText->SetText(TEXT("-"));
+            ButtonText->SetFontSize(12.f);
+            ButtonText->SetAlignH(ETextAlignH::Center);
+            ButtonText->SetAlignV(ETextAlignV::Bottom);
+            ButtonText->SetTextColor(240, 240, 240, 255);
+            ButtonText->EnableShadow(true);
+            ButtonText->SetShadowOffset(1.f, 1.f);
+            ButtonText->SetShadowTextColor(16, 16, 16, 220);
+            Button->SetChild(ButtonText);
+        }
+
+        mEdictButtons[i] = Button;
+        mEdictButtonTexts[i] = ButtonText;
+    }
+
+    auto DetailTitleText =
+        CreateWidget<CTextBlock>("EdictMenu_DetailTitle", 7).lock();
+
+    if (DetailTitleText)
+    {
+        DetailTitleText->SetText(TEXT("칙령 정보"));
+        DetailTitleText->SetFontSize(20.f);
+        DetailTitleText->SetAlignH(ETextAlignH::Left);
+        DetailTitleText->SetAlignV(ETextAlignV::Middle);
+        DetailTitleText->SetTextColor(235, 235, 235, 255);
+        DetailTitleText->EnableShadow(true);
+        DetailTitleText->SetShadowOffset(1.f, 1.f);
+        DetailTitleText->SetShadowTextColor(18, 18, 18, 220);
+        mDetailTitleText = DetailTitleText;
     }
 
     auto FeedbackText =
-        CreateWidget<CTextBlock>("Edict_FeedbackText", 23).lock();
+        CreateWidget<CTextBlock>("EdictMenu_FeedbackText", 7).lock();
 
     if (FeedbackText)
     {
-        FeedbackText->SetFontSize(14.f);
+        FeedbackText->SetText(TEXT(""));
+        FeedbackText->SetFontSize(12.f);
         FeedbackText->SetAlignH(ETextAlignH::Left);
         FeedbackText->SetAlignV(ETextAlignV::Middle);
-        FeedbackText->SetTextColor(238, 220, 160, 255);
+        FeedbackText->SetTextColor(255, 230, 150, 255);
         FeedbackText->EnableShadow(true);
         FeedbackText->SetShadowOffset(1.f, 1.f);
         FeedbackText->SetShadowTextColor(16, 16, 16, 220);
         mFeedbackText = FeedbackText;
     }
 
-    auto ApplyButton = CreateWidget<CButton>("Edict_ApplyButton", 24).lock();
+    auto DetailBodyText =
+        CreateWidget<CTextBlock>("EdictMenu_DetailBody", 7).lock();
+
+    if (DetailBodyText)
+    {
+        DetailBodyText->SetText(TEXT("칙령을 클릭하면 상세 정보가 표시됩니다."));
+        DetailBodyText->SetFontSize(13.f);
+        DetailBodyText->SetAlignH(ETextAlignH::Left);
+        DetailBodyText->SetAlignV(ETextAlignV::Top);
+        DetailBodyText->SetTextColor(230, 230, 230, 255);
+        DetailBodyText->EnableShadow(true);
+        DetailBodyText->SetShadowOffset(1.f, 1.f);
+        DetailBodyText->SetShadowTextColor(16, 16, 16, 220);
+        mDetailBodyText = DetailBodyText;
+    }
+
+    auto ApplyButton = CreateWidget<CButton>("EdictMenu_ApplyButton", 7).lock();
 
     if (ApplyButton)
     {
-        ConfigureSelectedButtonStyle(ApplyButton);
+        ConfigureHighlightedButtonStyle(ApplyButton);
         ApplyButton->SetEventCallback<CEdictWidget>(
             EButtonEventState::Click, this,
             &CEdictWidget::OnApplyButtonClick);
-        ApplyTextureToAllButtonStates(
-            ApplyButton,
-            "EdictApplyButtonTexture",
-            GEdictButtonTexture);
 
-        auto ApplyText =
-            CWidget::CreateStaticWidget<CTextBlock>(
-                "Edict_ApplyButtonText", mWorld);
+        auto ApplyButtonText = CWidget::CreateStaticWidget<CTextBlock>(
+            "EdictMenu_ApplyButtonText", mWorld);
 
-        if (ApplyText)
+        if (ApplyButtonText)
         {
-            ApplyText->SetText(TEXT("시행"));
-            ApplyText->SetFontSize(18.f);
-            ApplyText->SetAlignH(ETextAlignH::Center);
-            ApplyText->SetAlignV(ETextAlignV::Middle);
-            ApplyText->SetTextColor(255, 255, 255, 255);
-            ApplyText->EnableShadow(true);
-            ApplyText->SetShadowOffset(1.f, 1.f);
-            ApplyText->SetShadowTextColor(20, 20, 20, 220);
-            ApplyButton->SetChild(ApplyText);
-            mApplyButtonText = ApplyText;
+            ApplyButtonText->SetText(TEXT("시행"));
+            ApplyButtonText->SetFontSize(18.f);
+            ApplyButtonText->SetAlignH(ETextAlignH::Center);
+            ApplyButtonText->SetAlignV(ETextAlignV::Middle);
+            ApplyButtonText->SetTextColor(255, 255, 255, 255);
+            ApplyButtonText->EnableShadow(true);
+            ApplyButtonText->SetShadowOffset(1.f, 1.f);
+            ApplyButtonText->SetShadowTextColor(40, 40, 40, 255);
+            ApplyButton->SetChild(ApplyButtonText);
+            mApplyButtonText = ApplyButtonText;
         }
 
         mApplyButton = ApplyButton;
     }
 
-    mEdictButtons.resize(mEdictTypes.size());
-    mEdictIcons.resize(mEdictTypes.size());
-    mEdictLabels.resize(mEdictTypes.size());
-    mEdictStatuses.resize(mEdictTypes.size());
+    auto TaxPolicyTitleText =
+        CreateWidget<CTextBlock>("EdictMenu_TaxPolicyTitle", 7).lock();
 
-    for (size_t i = 0; i < mEdictTypes.size(); ++i)
+    if (TaxPolicyTitleText)
     {
-        auto Button = CreateWidget<CButton>(
-            "Edict_ListButton_" + std::to_string(i), 24).lock();
+        TaxPolicyTitleText->SetText(TEXT("세금 정책"));
+        TaxPolicyTitleText->SetFontSize(15.f);
+        TaxPolicyTitleText->SetAlignH(ETextAlignH::Left);
+        TaxPolicyTitleText->SetAlignV(ETextAlignV::Middle);
+        TaxPolicyTitleText->SetTextColor(235, 235, 235, 255);
+        TaxPolicyTitleText->EnableShadow(true);
+        TaxPolicyTitleText->SetShadowOffset(1.f, 1.f);
+        TaxPolicyTitleText->SetShadowTextColor(16, 16, 16, 220);
+        mTaxPolicyTitleText = TaxPolicyTitleText;
+    }
 
-        if (!Button)
-            continue;
+    auto TaxPolicySummaryText =
+        CreateWidget<CTextBlock>("EdictMenu_TaxPolicySummary", 7).lock();
 
-        ConfigureDefaultButtonStyle(Button);
-        ApplyTextureToAllButtonStates(
-            Button,
-            "EdictListButtonTexture_" + std::to_string(i),
-            GEdictButtonTexture);
+    if (TaxPolicySummaryText)
+    {
+        TaxPolicySummaryText->SetText(TEXT("다음 일일 정산부터 반영"));
+        TaxPolicySummaryText->SetFontSize(11.f);
+        TaxPolicySummaryText->SetAlignH(ETextAlignH::Left);
+        TaxPolicySummaryText->SetAlignV(ETextAlignV::Top);
+        TaxPolicySummaryText->SetTextColor(214, 214, 214, 255);
+        TaxPolicySummaryText->EnableShadow(true);
+        TaxPolicySummaryText->SetShadowOffset(1.f, 1.f);
+        TaxPolicySummaryText->SetShadowTextColor(16, 16, 16, 220);
+        mTaxPolicySummaryText = TaxPolicySummaryText;
+    }
 
-        switch (i)
+    mTaxPolicyRowTexts.resize(GTaxPolicyRowCount);
+    mTaxDecreaseButtons.resize(GTaxPolicyRowCount);
+    mTaxIncreaseButtons.resize(GTaxPolicyRowCount);
+
+    void (CEdictWidget::* TaxDecreaseCallbacks[GTaxPolicyRowCount])() =
+    {
+        &CEdictWidget::OnConsumptionTaxDownClick,
+        &CEdictWidget::OnIncomeTaxDownClick,
+        &CEdictWidget::OnPropertyTaxDownClick
+    };
+    void (CEdictWidget::* TaxIncreaseCallbacks[GTaxPolicyRowCount])() =
+    {
+        &CEdictWidget::OnConsumptionTaxUpClick,
+        &CEdictWidget::OnIncomeTaxUpClick,
+        &CEdictWidget::OnPropertyTaxUpClick
+    };
+
+    for (int i = 0; i < GTaxPolicyRowCount; ++i)
+    {
+        auto RowText = CreateWidget<CTextBlock>(
+            "EdictMenu_TaxPolicyRow_" + std::to_string(i + 1), 7).lock();
+
+        if (RowText)
         {
-        case 0:
-            Button->SetEventCallback<CEdictWidget>(
-                EButtonEventState::Click, this,
-                &CEdictWidget::OnEdictButton0Click);
-            break;
-        case 1:
-            Button->SetEventCallback<CEdictWidget>(
-                EButtonEventState::Click, this,
-                &CEdictWidget::OnEdictButton1Click);
-            break;
-        case 2:
-            Button->SetEventCallback<CEdictWidget>(
-                EButtonEventState::Click, this,
-                &CEdictWidget::OnEdictButton2Click);
-            break;
-        case 3:
-            Button->SetEventCallback<CEdictWidget>(
-                EButtonEventState::Click, this,
-                &CEdictWidget::OnEdictButton3Click);
-            break;
-        case 4:
-            Button->SetEventCallback<CEdictWidget>(
-                EButtonEventState::Click, this,
-                &CEdictWidget::OnEdictButton4Click);
-            break;
-        default:
-            break;
+            RowText->SetText(TEXT("-"));
+            RowText->SetFontSize(12.f);
+            RowText->SetAlignH(ETextAlignH::Left);
+            RowText->SetAlignV(ETextAlignV::Middle);
+            RowText->SetTextColor(232, 232, 232, 255);
+            RowText->EnableShadow(true);
+            RowText->SetShadowOffset(1.f, 1.f);
+            RowText->SetShadowTextColor(16, 16, 16, 220);
+            mTaxPolicyRowTexts[i] = RowText;
         }
 
-        auto Content =
-            CWidget::CreateStaticWidget<CWidgetContainer>(
-                "Edict_ListButtonContent_" + std::to_string(i),
-                mWorld);
+        auto DecreaseButton = CreateWidget<CButton>(
+            "EdictMenu_TaxDown_" + std::to_string(i + 1), 7).lock();
 
-        if (Content)
+        if (DecreaseButton)
         {
-            Button->SetChild(Content);
+            ConfigureDefaultButtonStyle(DecreaseButton);
+            DecreaseButton->SetEventCallback<CEdictWidget>(
+                EButtonEventState::Click, this, TaxDecreaseCallbacks[i]);
 
-            auto Icon = CWidget::CreateStaticWidget<CImage>(
-                "Edict_ListIcon_" + std::to_string(i),
-                mWorld, 1);
+            auto DecreaseText = CWidget::CreateStaticWidget<CTextBlock>(
+                "EdictMenu_TaxDownText_" + std::to_string(i + 1), mWorld);
 
-            if (Icon)
+            if (DecreaseText)
             {
-                Icon->SetTint(1.f, 1.f, 1.f, 1.f);
-                Content->AddWidget(Icon);
-                mEdictIcons[i] = Icon;
+                DecreaseText->SetText(TEXT("-"));
+                DecreaseText->SetFontSize(16.f);
+                DecreaseText->SetAlignH(ETextAlignH::Center);
+                DecreaseText->SetAlignV(ETextAlignV::Middle);
+                DecreaseText->SetTextColor(255, 255, 255, 255);
+                DecreaseButton->SetChild(DecreaseText);
             }
 
-            auto Label = CWidget::CreateStaticWidget<CTextBlock>(
-                "Edict_ListLabel_" + std::to_string(i),
-                mWorld, 2);
-
-            if (Label)
-            {
-                Label->SetFontSize(16.f);
-                Label->SetAlignH(ETextAlignH::Left);
-                Label->SetAlignV(ETextAlignV::Middle);
-                Label->SetTextColor(245, 245, 245, 255);
-                Label->EnableShadow(true);
-                Label->SetShadowOffset(1.f, 1.f);
-                Label->SetShadowTextColor(16, 16, 16, 220);
-                Content->AddWidget(Label);
-                mEdictLabels[i] = Label;
-            }
-
-            auto Status = CWidget::CreateStaticWidget<CTextBlock>(
-                "Edict_ListStatus_" + std::to_string(i),
-                mWorld, 2);
-
-            if (Status)
-            {
-                Status->SetFontSize(13.f);
-                Status->SetAlignH(ETextAlignH::Left);
-                Status->SetAlignV(ETextAlignV::Middle);
-                Status->SetTextColor(220, 210, 160, 255);
-                Status->EnableShadow(true);
-                Status->SetShadowOffset(1.f, 1.f);
-                Status->SetShadowTextColor(16, 16, 16, 220);
-                Content->AddWidget(Status);
-                mEdictStatuses[i] = Status;
-            }
+            mTaxDecreaseButtons[i] = DecreaseButton;
         }
 
-        mEdictButtons[i] = Button;
+        auto IncreaseButton = CreateWidget<CButton>(
+            "EdictMenu_TaxUp_" + std::to_string(i + 1), 7).lock();
+
+        if (IncreaseButton)
+        {
+            ConfigureDefaultButtonStyle(IncreaseButton);
+            IncreaseButton->SetEventCallback<CEdictWidget>(
+                EButtonEventState::Click, this, TaxIncreaseCallbacks[i]);
+
+            auto IncreaseText = CWidget::CreateStaticWidget<CTextBlock>(
+                "EdictMenu_TaxUpText_" + std::to_string(i + 1), mWorld);
+
+            if (IncreaseText)
+            {
+                IncreaseText->SetText(TEXT("+"));
+                IncreaseText->SetFontSize(16.f);
+                IncreaseText->SetAlignH(ETextAlignH::Center);
+                IncreaseText->SetAlignV(ETextAlignV::Middle);
+                IncreaseText->SetTextColor(255, 255, 255, 255);
+                IncreaseButton->SetChild(IncreaseText);
+            }
+
+            mTaxIncreaseButtons[i] = IncreaseButton;
+        }
     }
 
     ApplyOpenState();
+    RefreshCategoryButtons();
     RefreshData();
     RefreshLayout();
+
     return true;
 }
 
 void CEdictWidget::Update(float DeltaTime)
 {
     CWidgetContainer::Update(DeltaTime);
-
-    if (!mOpen)
-        return;
-
     RefreshData();
     RefreshLayout();
 }
@@ -427,6 +744,16 @@ void CEdictWidget::SetOpen(bool Open)
         return;
 
     mOpen = Open;
+
+    if (mOpen)
+    {
+        mFeedbackMessage.clear();
+        mCurrentPage = 0;
+        mPreviewEntryIndex = -1;
+        mSelectedEntryIndex = -1;
+        RefreshData();
+    }
+
     ApplyOpenState();
 }
 
@@ -435,349 +762,295 @@ void CEdictWidget::RefreshLayout()
     const FResolution& Resolution = CDevice::GetInst()->GetResolution();
     const float ScreenWidth = static_cast<float>(Resolution.Width);
     const float ScreenHeight = static_cast<float>(Resolution.Height);
+    const float AvailableWidth = (std::max)(320.f, ScreenWidth - 80.f);
+    const float AvailableHeight = (std::max)(320.f, ScreenHeight - 180.f);
     const float Scale =
-        (std::max)(0.72f, (std::min)(1.f, ScreenWidth / 1920.f));
-    const float PanelWidth = 700.f * Scale;
-    const float PanelHeight = 500.f * Scale;
-    const float PanelX = ScreenWidth - PanelWidth - 22.f;
-    const float PanelY = 78.f;
-    const float Margin = 22.f * Scale;
-    const float HeaderHeight = 34.f * Scale;
-    const float ListWidth = 248.f * Scale;
-    const float ButtonHeight = 72.f * Scale;
-    const float ButtonGap = 10.f * Scale;
-    const float DetailX = PanelX + Margin + ListWidth + 16.f * Scale;
-    const float DetailY = PanelY + 78.f * Scale;
-    const float DetailWidth = PanelWidth - (DetailX - PanelX) - Margin;
-    const float DetailHeight = PanelHeight - 176.f * Scale;
+        (std::min)(1.f,
+            (std::min)(AvailableWidth / mPanelWidth,
+                AvailableHeight / mPanelHeight));
+    const float PanelWidth = mPanelWidth * Scale;
+    const float PanelHeight = mPanelHeight * Scale;
+    const float PanelLeft = (ScreenWidth - PanelWidth) * 0.5f;
+    const float PanelTop = (ScreenHeight - PanelHeight) * 0.5f;
+    const float HorizontalMargin = 24.f * Scale;
+    const float ContentWidth = PanelWidth - HorizontalMargin * 2.f;
+    const float HeaderTopPadding = 14.f * Scale;
+    const float HeaderHeight = 36.f * Scale;
 
-    auto Background = mBackground.lock();
-    auto DetailFrame = mDetailFrame.lock();
-    auto TitleText = mTitleText.lock();
-    auto SubtitleText = mSubtitleText.lock();
-    auto DetailIcon = mDetailIcon.lock();
-    auto DetailTitleText = mDetailTitleText.lock();
-    auto DetailBodyText = mDetailBodyText.lock();
-    auto FeedbackText = mFeedbackText.lock();
-    auto ApplyButton = mApplyButton.lock();
+    auto MenuBackground = mMenuBackground.lock();
 
-    if (Background)
+    if (MenuBackground)
     {
-        Background->SetPos(PanelX, PanelY);
-        Background->SetSize(PanelWidth, PanelHeight);
+        MenuBackground->SetPos(PanelLeft, PanelTop);
+        MenuBackground->SetSize(PanelWidth, PanelHeight);
     }
+
+    auto TitleText = mTitleText.lock();
 
     if (TitleText)
     {
-        TitleText->SetPos(PanelX + Margin, PanelY + 18.f * Scale);
-        TitleText->SetSize(260.f * Scale, HeaderHeight);
+        TitleText->SetPos(
+            PanelLeft + HorizontalMargin,
+            PanelTop + HeaderTopPadding);
+        TitleText->SetSize(280.f * Scale, HeaderHeight);
     }
 
-    if (SubtitleText)
+    auto PrevPageButton = mPrevPageButton.lock();
+    auto NextPageButton = mNextPageButton.lock();
+    auto PageText = mPageText.lock();
+    auto CloseButton = mCloseButton.lock();
+
+    if (CloseButton)
     {
-        SubtitleText->SetPos(PanelX + Margin, PanelY + 48.f * Scale);
-        SubtitleText->SetSize(PanelWidth - Margin * 2.f, 24.f * Scale);
+        CloseButton->SetPos(
+            PanelLeft + PanelWidth - HorizontalMargin - 36.f * Scale,
+            PanelTop + HeaderTopPadding);
+        CloseButton->SetSize(36.f * Scale, HeaderHeight);
     }
 
-    for (size_t i = 0; i < mEdictButtons.size(); ++i)
+    if (PrevPageButton)
     {
-        auto Button = mEdictButtons[i].lock();
+        PrevPageButton->SetPos(
+            PanelLeft + PanelWidth - HorizontalMargin - 176.f * Scale,
+            PanelTop + HeaderTopPadding);
+        PrevPageButton->SetSize(36.f * Scale, HeaderHeight);
+    }
 
-        if (!Button)
+    if (PageText)
+    {
+        PageText->SetPos(
+            PanelLeft + PanelWidth - HorizontalMargin - 136.f * Scale,
+            PanelTop + HeaderTopPadding);
+        PageText->SetSize(56.f * Scale, HeaderHeight);
+    }
+
+    if (NextPageButton)
+    {
+        NextPageButton->SetPos(
+            PanelLeft + PanelWidth - HorizontalMargin - 76.f * Scale,
+            PanelTop + HeaderTopPadding);
+        NextPageButton->SetSize(36.f * Scale, HeaderHeight);
+    }
+
+    const float CategoryTop = PanelTop - 34.f * Scale;
+    const float CategoryGap = 8.f * Scale;
+    const float CategoryWidth = 64.f * Scale;
+    const float CategoryHeight = 64.f * Scale;
+    const float CategoryStartX = PanelLeft + 12.f * Scale;
+
+    for (int i = 0; i < static_cast<int>(mCategoryButtons.size()); ++i)
+    {
+        auto CategoryButton = mCategoryButtons[i].lock();
+
+        if (!CategoryButton)
             continue;
 
-        const float ButtonX = PanelX + Margin;
-        const float ButtonY =
-            PanelY + 82.f * Scale +
-            static_cast<float>(i) * (ButtonHeight + ButtonGap);
-
-        Button->SetPos(ButtonX, ButtonY);
-        Button->SetSize(ListWidth, ButtonHeight);
-
-        auto Icon = mEdictIcons[i].lock();
-        auto Label = mEdictLabels[i].lock();
-        auto Status = mEdictStatuses[i].lock();
-
-        if (Icon)
-        {
-            Icon->SetPos(12.f * Scale, 10.f * Scale);
-            Icon->SetSize(52.f * Scale, 52.f * Scale);
-        }
-
-        if (Label)
-        {
-            Label->SetPos(74.f * Scale, 10.f * Scale);
-            Label->SetSize(ListWidth - 84.f * Scale, 28.f * Scale);
-        }
-
-        if (Status)
-        {
-            Status->SetPos(74.f * Scale, 38.f * Scale);
-            Status->SetSize(ListWidth - 84.f * Scale, 22.f * Scale);
-        }
+        CategoryButton->SetPos(
+            CategoryStartX +
+            (CategoryWidth + CategoryGap) * static_cast<float>(i),
+            CategoryTop);
+        CategoryButton->SetSize(CategoryWidth, CategoryHeight);
     }
 
-    if (DetailFrame)
+    const float SlotGapX = 12.f * Scale;
+    const float SlotGapY = 12.f * Scale;
+    const float SlotTop =
+        PanelTop + HeaderTopPadding + HeaderHeight + 52.f * Scale;
+    const float DetailGap = 10.f * Scale;
+    const float DetailTopPadding = 4.f * Scale;
+    const float DetailBottomPadding = 12.f * Scale;
+    const float DetailTitleHeight = 28.f * Scale;
+    const float FeedbackHeight = 20.f * Scale;
+    const float DetailHeight = 152.f * Scale;
+    const float SlotBottom =
+        PanelTop + PanelHeight - DetailHeight - DetailGap;
+    const float SlotAreaHeight = (std::max)(
+        96.f * Scale,
+        SlotBottom - SlotTop);
+    const float SlotWidth =
+        (ContentWidth - SlotGapX * (GEdictSlotColumnCount - 1)) /
+        static_cast<float>(GEdictSlotColumnCount);
+    const float SlotHeight =
+        (SlotAreaHeight - SlotGapY * (GEdictSlotRowCount - 1)) /
+        static_cast<float>(GEdictSlotRowCount);
+
+    for (int i = 0; i < static_cast<int>(mEdictButtons.size()); ++i)
     {
-        DetailFrame->SetPos(DetailX, DetailY);
-        DetailFrame->SetSize(DetailWidth, DetailHeight);
+        const int Row = i / GEdictSlotColumnCount;
+        const int Col = i % GEdictSlotColumnCount;
+        auto SlotButton = mEdictButtons[i].lock();
+
+        if (!SlotButton)
+            continue;
+
+        SlotButton->SetPos(
+            PanelLeft + HorizontalMargin +
+            (SlotWidth + SlotGapX) * static_cast<float>(Col),
+            SlotTop + (SlotHeight + SlotGapY) * static_cast<float>(Row));
+        SlotButton->SetSize(SlotWidth, SlotHeight);
     }
 
-    if (DetailIcon)
-    {
-        DetailIcon->SetPos(DetailX + 20.f * Scale, DetailY + 18.f * Scale);
-        DetailIcon->SetSize(72.f * Scale, 72.f * Scale);
-    }
+    const float DetailTop = SlotBottom + DetailTopPadding;
+    const float TaxColumnWidth = 178.f * Scale;
+    const float DetailColumnGap = 14.f * Scale;
+    const float ApplyButtonWidth = TaxColumnWidth;
+    const float ApplyButtonHeight = 32.f * Scale;
+    const float DetailTitleWidth =
+        (std::max)(120.f, ContentWidth - TaxColumnWidth - DetailColumnGap);
+    const float TaxColumnLeft =
+        PanelLeft + HorizontalMargin + DetailTitleWidth + DetailColumnGap;
+    const float TaxButtonWidth = 26.f * Scale;
+    const float TaxButtonHeight = 22.f * Scale;
+    const float TaxRowHeight = 24.f * Scale;
+
+    auto DetailTitleText = mDetailTitleText.lock();
+    auto FeedbackText = mFeedbackText.lock();
+    auto DetailBodyText = mDetailBodyText.lock();
+    auto ApplyButton = mApplyButton.lock();
+    auto TaxPolicyTitleText = mTaxPolicyTitleText.lock();
+    auto TaxPolicySummaryText = mTaxPolicySummaryText.lock();
 
     if (DetailTitleText)
     {
-        DetailTitleText->SetPos(
-            DetailX + 104.f * Scale,
-            DetailY + 18.f * Scale);
-        DetailTitleText->SetSize(
-            DetailWidth - 124.f * Scale,
-            32.f * Scale);
+        DetailTitleText->SetPos(PanelLeft + HorizontalMargin, DetailTop);
+        DetailTitleText->SetSize(DetailTitleWidth, DetailTitleHeight);
     }
 
-    if (DetailBodyText)
+    if (ApplyButton)
     {
-        DetailBodyText->SetPos(
-            DetailX + 20.f * Scale,
-            DetailY + 102.f * Scale);
-        DetailBodyText->SetSize(
-            DetailWidth - 40.f * Scale,
-            DetailHeight - 168.f * Scale);
+        ApplyButton->SetPos(TaxColumnLeft, DetailTop - 1.f * Scale);
+        ApplyButton->SetSize(ApplyButtonWidth, ApplyButtonHeight);
     }
 
     if (FeedbackText)
     {
         FeedbackText->SetPos(
-            DetailX,
-            PanelY + PanelHeight - 80.f * Scale);
-        FeedbackText->SetSize(
-            DetailWidth - 166.f * Scale,
-            24.f * Scale);
+            PanelLeft + HorizontalMargin,
+            DetailTop + DetailTitleHeight);
+        FeedbackText->SetSize(DetailTitleWidth, FeedbackHeight);
     }
 
-    if (ApplyButton)
+    if (DetailBodyText)
     {
-        ApplyButton->SetPos(
-            DetailX + DetailWidth - 150.f * Scale,
-            PanelY + PanelHeight - 90.f * Scale);
-        ApplyButton->SetSize(150.f * Scale, 42.f * Scale);
+        DetailBodyText->SetPos(
+            PanelLeft + HorizontalMargin,
+            DetailTop + DetailTitleHeight + FeedbackHeight);
+        DetailBodyText->SetSize(
+            DetailTitleWidth,
+            PanelTop + PanelHeight -
+            (DetailTop + DetailTitleHeight + FeedbackHeight) -
+            DetailBottomPadding);
+    }
+
+    if (TaxPolicyTitleText)
+    {
+        TaxPolicyTitleText->SetPos(
+            TaxColumnLeft,
+            DetailTop + ApplyButtonHeight + 6.f * Scale);
+        TaxPolicyTitleText->SetSize(TaxColumnWidth, 18.f * Scale);
+    }
+
+    for (int i = 0; i < GTaxPolicyRowCount; ++i)
+    {
+        const float RowTop =
+            DetailTop + ApplyButtonHeight + 26.f * Scale +
+            TaxRowHeight * static_cast<float>(i);
+        auto RowText = mTaxPolicyRowTexts[i].lock();
+        auto DecreaseButton = mTaxDecreaseButtons[i].lock();
+        auto IncreaseButton = mTaxIncreaseButtons[i].lock();
+
+        if (RowText)
+        {
+            RowText->SetPos(TaxColumnLeft, RowTop);
+            RowText->SetSize(
+                TaxColumnWidth - TaxButtonWidth * 2.f - 10.f * Scale,
+                TaxRowHeight);
+        }
+
+        if (DecreaseButton)
+        {
+            DecreaseButton->SetPos(
+                TaxColumnLeft + TaxColumnWidth - TaxButtonWidth * 2.f - 6.f * Scale,
+                RowTop + (TaxRowHeight - TaxButtonHeight) * 0.5f);
+            DecreaseButton->SetSize(TaxButtonWidth, TaxButtonHeight);
+        }
+
+        if (IncreaseButton)
+        {
+            IncreaseButton->SetPos(
+                TaxColumnLeft + TaxColumnWidth - TaxButtonWidth,
+                RowTop + (TaxRowHeight - TaxButtonHeight) * 0.5f);
+            IncreaseButton->SetSize(TaxButtonWidth, TaxButtonHeight);
+        }
+    }
+
+    if (TaxPolicySummaryText)
+    {
+        TaxPolicySummaryText->SetPos(
+            TaxColumnLeft,
+            DetailTop + ApplyButtonHeight + 102.f * Scale);
+        TaxPolicySummaryText->SetSize(
+            TaxColumnWidth,
+            PanelTop + PanelHeight -
+            (DetailTop + ApplyButtonHeight + 102.f * Scale) -
+            DetailBottomPadding);
     }
 }
 
 void CEdictWidget::RefreshData()
 {
-    auto World = mWorld.lock();
-    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
-
-    if (!MainWorld)
-        return;
-
-    const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
-    int ActiveCount = 0;
-
-    for (size_t i = 0; i < MainWorld->GetGovernmentEdictStates().size(); ++i)
-    {
-        if (MainWorld->GetGovernmentEdictStates()[i].Active)
-            ++ActiveCount;
-    }
-
-    auto SubtitleText = mSubtitleText.lock();
-
-    if (SubtitleText)
-    {
-        const std::wstring Subtitle =
-            L"활성 칙령 " + std::to_wstring(ActiveCount) +
-            L"개 | 일일 재정 영향 " +
-            FormatCurrency(-MainWorld->GetLastDailyEdictCost());
-        SubtitleText->SetText(Subtitle.c_str());
-    }
-
-    const FGovernmentEdictDefinition* SelectedDefinition = nullptr;
-
-    for (size_t i = 0; i < Definitions.size(); ++i)
-    {
-        if (Definitions[i].Type == mSelectedEdict)
-        {
-            SelectedDefinition = &Definitions[i];
-            break;
-        }
-    }
-
-    if (!SelectedDefinition && !Definitions.empty())
-        SelectedDefinition = &Definitions[0];
-
-    for (size_t i = 0; i < mEdictTypes.size(); ++i)
-    {
-        const FGovernmentEdictDefinition* Definition =
-            EdictSystem::FindGovernmentEdictDefinition(mEdictTypes[i]);
-        const FGovernmentEdictState* State =
-            MainWorld->GetGovernmentEdictState(mEdictTypes[i]);
-        auto Button = mEdictButtons[i].lock();
-        auto Icon = mEdictIcons[i].lock();
-        auto Label = mEdictLabels[i].lock();
-        auto Status = mEdictStatuses[i].lock();
-
-        if (Button)
-        {
-            if (mEdictTypes[i] == mSelectedEdict)
-                ConfigureSelectedButtonStyle(Button);
-            else
-                ConfigureDefaultButtonStyle(Button);
-        }
-
-        if (!Definition)
-            continue;
-
-        if (Icon && Definition->IconPath)
-        {
-            Icon->SetTexture(
-                "EdictListIconTexture_" + std::to_string(i),
-                Definition->IconPath);
-        }
-
-        if (Label)
-            Label->SetText(Definition->DisplayName.c_str());
-
-        if (Status)
-            Status->SetText(
-                BuildStateText(State, *Definition).c_str());
-    }
-
-    if (!SelectedDefinition)
-        return;
-
-    const FGovernmentEdictState* SelectedState =
-        MainWorld->GetGovernmentEdictState(SelectedDefinition->Type);
-    const int ActiveCitizenCount =
-        MainWorld->GetPoliticalSnapshot().ActiveCitizenCount;
-    const long long ActivationCost =
-        EdictSystem::ResolveEdictActivationCost(
-            *SelectedDefinition,
-            ActiveCitizenCount);
-
-    auto DetailIcon = mDetailIcon.lock();
-    auto DetailTitle = mDetailTitleText.lock();
-    auto DetailBody = mDetailBodyText.lock();
-    auto ApplyButtonText = mApplyButtonText.lock();
-    auto FeedbackText = mFeedbackText.lock();
-
-    if (DetailIcon && SelectedDefinition->IconPath)
-    {
-        DetailIcon->SetTexture(
-            "EdictDetailIconTexture_" +
-                std::to_string(static_cast<int>(SelectedDefinition->Type)),
-            SelectedDefinition->IconPath);
-    }
-
-    if (DetailTitle)
-        DetailTitle->SetText(SelectedDefinition->DisplayName.c_str());
-
-    if (DetailBody)
-    {
-        std::wstring Body;
-        Body += L"유형: ";
-        Body += SelectedDefinition->Mode == EGovernmentEdictMode::Passive ?
-            L"패시브" : L"액티브";
-        Body += L"\n";
-        Body += L"상태: ";
-        Body += BuildStateText(SelectedState, *SelectedDefinition);
-        Body += L"\n";
-        Body += L"시행 비용: ";
-        Body += FormatCurrency(ActivationCost);
-        Body += L"\n";
-        Body += L"월간 유지비: ";
-        Body += FormatCurrency(SelectedDefinition->MonthlyUpkeep);
-        Body += L"\n";
-        Body += L"지속 시간: ";
-        Body += SelectedDefinition->Mode == EGovernmentEdictMode::Active ?
-            FormatDaysAsYearsMonths(SelectedDefinition->DurationDays) :
-            L"해제 전까지";
-        Body += L"\n";
-        Body += L"재사용 대기: ";
-        Body += SelectedDefinition->CooldownDays > 0 ?
-            FormatDaysAsYearsMonths(SelectedDefinition->CooldownDays) :
-            L"-";
-        Body += L"\n\n";
-        Body += SelectedDefinition->Summary;
-        Body += L"\n";
-        Body += SelectedDefinition->EffectText;
-        Body += L"\n\n정치 신호:";
-
-        for (size_t SignalIndex = 0;
-            SignalIndex < SelectedDefinition->Signals.size();
-            ++SignalIndex)
-        {
-            const FPoliticalSignalDef& Signal =
-                SelectedDefinition->Signals[SignalIndex];
-            Body += L"\n- ";
-            Body += GetPoliticalFactionDisplayName(
-                Signal.Axis,
-                Signal.FavoredStance);
-            Body += L" ";
-            Body += Signal.Strength >= 0.f ? L"+" : L"";
-            Body += std::to_wstring(static_cast<int>(
-                std::round(Signal.Strength)));
-        }
-
-        DetailBody->SetText(Body.c_str());
-    }
-
-    if (ApplyButtonText)
-    {
-        if (SelectedDefinition->Mode == EGovernmentEdictMode::Passive &&
-            SelectedState &&
-            SelectedState->Active)
-        {
-            ApplyButtonText->SetText(TEXT("해제"));
-        }
-        else if (SelectedState && SelectedState->CooldownDays > 0)
-        {
-            ApplyButtonText->SetText(TEXT("대기중"));
-        }
-        else
-        {
-            ApplyButtonText->SetText(TEXT("시행"));
-        }
-    }
-
-    if (FeedbackText)
-        FeedbackText->SetText(mFeedbackMessage.c_str());
+    RefreshCategoryButtons();
+    RefreshEdictButtons();
+    RefreshTaxPolicyControls();
 }
 
 void CEdictWidget::ApplyOpenState()
 {
-    auto Background = mBackground.lock();
-    auto DetailFrame = mDetailFrame.lock();
-    auto DetailIcon = mDetailIcon.lock();
+    auto MenuBackground = mMenuBackground.lock();
     auto TitleText = mTitleText.lock();
-    auto SubtitleText = mSubtitleText.lock();
+    auto PageText = mPageText.lock();
     auto DetailTitleText = mDetailTitleText.lock();
     auto DetailBodyText = mDetailBodyText.lock();
     auto FeedbackText = mFeedbackText.lock();
+    auto TaxPolicyTitleText = mTaxPolicyTitleText.lock();
+    auto TaxPolicySummaryText = mTaxPolicySummaryText.lock();
+    auto PrevPageButton = mPrevPageButton.lock();
+    auto NextPageButton = mNextPageButton.lock();
+    auto CloseButton = mCloseButton.lock();
     auto ApplyButton = mApplyButton.lock();
 
-    if (Background)
-        Background->SetEnable(mOpen);
-    if (DetailFrame)
-        DetailFrame->SetEnable(mOpen);
-    if (DetailIcon)
-        DetailIcon->SetEnable(mOpen);
+    if (MenuBackground)
+        MenuBackground->SetEnable(mOpen);
     if (TitleText)
         TitleText->SetEnable(mOpen);
-    if (SubtitleText)
-        SubtitleText->SetEnable(mOpen);
+    if (PageText)
+        PageText->SetEnable(mOpen);
     if (DetailTitleText)
         DetailTitleText->SetEnable(mOpen);
     if (DetailBodyText)
         DetailBodyText->SetEnable(mOpen);
     if (FeedbackText)
         FeedbackText->SetEnable(mOpen);
+    if (TaxPolicyTitleText)
+        TaxPolicyTitleText->SetEnable(mOpen);
+    if (TaxPolicySummaryText)
+        TaxPolicySummaryText->SetEnable(mOpen);
+    if (PrevPageButton)
+        PrevPageButton->SetEnable(mOpen);
+    if (NextPageButton)
+        NextPageButton->SetEnable(mOpen);
+    if (CloseButton)
+        CloseButton->SetEnable(mOpen);
     if (ApplyButton)
         ApplyButton->SetEnable(mOpen);
+
+    for (size_t i = 0; i < mCategoryButtons.size(); ++i)
+    {
+        auto Button = mCategoryButtons[i].lock();
+
+        if (Button)
+            Button->SetEnable(mOpen);
+    }
 
     for (size_t i = 0; i < mEdictButtons.size(); ++i)
     {
@@ -786,54 +1059,619 @@ void CEdictWidget::ApplyOpenState()
         if (Button)
             Button->SetEnable(mOpen);
     }
+
+    for (size_t i = 0; i < mTaxPolicyRowTexts.size(); ++i)
+    {
+        auto RowText = mTaxPolicyRowTexts[i].lock();
+        auto DecreaseButton = mTaxDecreaseButtons[i].lock();
+        auto IncreaseButton = mTaxIncreaseButtons[i].lock();
+
+        if (RowText)
+            RowText->SetEnable(mOpen);
+        if (DecreaseButton)
+            DecreaseButton->SetEnable(mOpen);
+        if (IncreaseButton)
+            IncreaseButton->SetEnable(mOpen);
+    }
 }
 
-void CEdictWidget::SelectEdictByIndex(int Index)
+void CEdictWidget::RefreshCategoryButtons()
 {
-    if (Index < 0 ||
-        Index >= static_cast<int>(mEdictTypes.size()))
+    for (int i = 0; i < static_cast<int>(mCategoryButtons.size()); ++i)
     {
-        return;
+        auto CategoryButton = mCategoryButtons[i].lock();
+
+        if (!CategoryButton)
+            continue;
+
+        ConfigureCategoryTabButtonStyle(
+            CategoryButton,
+            i == static_cast<int>(mSelectedCategory));
     }
 
-    mSelectedEdict = mEdictTypes[Index];
-    mFeedbackMessage.clear();
+    auto TitleText = mTitleText.lock();
+
+    if (TitleText)
+        TitleText->SetText(GetCategoryLabel(mSelectedCategory));
 }
 
-void CEdictWidget::OnApplyButtonClick()
+void CEdictWidget::RefreshEdictButtons()
+{
+    const std::vector<int> CategoryEntries = CollectCategoryEntryIndices();
+    const int EntryCount = static_cast<int>(CategoryEntries.size());
+    const int PageCount = (std::max)(
+        1, (EntryCount + GEdictSlotsPerPage - 1) / GEdictSlotsPerPage);
+
+    if (mCurrentPage < 0)
+        mCurrentPage = 0;
+    else if (mCurrentPage >= PageCount)
+        mCurrentPage = PageCount - 1;
+
+    mVisibleEntryIndices.assign(GEdictSlotsPerPage, -1);
+    const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
+    auto World = mWorld.lock();
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    const int BeginIndex = mCurrentPage * GEdictSlotsPerPage;
+
+    for (int i = 0; i < GEdictSlotsPerPage; ++i)
+    {
+        const int CategoryListIndex = BeginIndex + i;
+        auto Button = mEdictButtons[i].lock();
+        auto ButtonText = mEdictButtonTexts[i].lock();
+
+        if (!Button || !ButtonText)
+            continue;
+
+        if (CategoryListIndex >= 0 && CategoryListIndex < EntryCount)
+        {
+            const int EntryIndex = CategoryEntries[CategoryListIndex];
+            const auto& Definition = Definitions[EntryIndex];
+            const FGovernmentEdictState* State = nullptr;
+
+            if (MainWorld)
+                State = MainWorld->GetGovernmentEdictState(Definition.Type);
+
+            const bool Active =
+                State && State->Active;
+            const bool CoolingDown =
+                State &&
+                !State->Active &&
+                State->CooldownDays > 0;
+            const bool Selected =
+                mSelectedEntryIndex == EntryIndex;
+
+            mVisibleEntryIndices[i] = EntryIndex;
+            Button->ButtonEnable(true);
+            ConfigureEdictSlotButtonStyle(
+                Button, Selected, Active, CoolingDown);
+
+            std::wstring SlotLabel = Definition.DisplayName;
+            SlotLabel += L"\n";
+            SlotLabel += BuildEdictSlotStatusText(Definition, State);
+            ButtonText->SetText(SlotLabel.c_str());
+
+            if (Definition.IconPath)
+            {
+                ApplyTextureToAllButtonStates(
+                    Button,
+                    "EdictSlotIcon_" + std::to_string(EntryIndex),
+                    Definition.IconPath);
+            }
+            else
+            {
+                ApplyTextureToAllButtonStates(
+                    Button,
+                    "EdictSlotEmptyTexture",
+                    GEmptySlotTexture);
+            }
+        }
+        else
+        {
+            Button->ButtonEnable(false);
+            ButtonText->SetText(TEXT("-"));
+            ConfigureIconSlotButtonStyle(Button);
+            ApplyTextureToAllButtonStates(
+                Button,
+                "EdictSlotEmptyTexture",
+                GEmptySlotTexture);
+        }
+    }
+
+    auto PageText = mPageText.lock();
+
+    if (PageText)
+    {
+        wchar_t PageBuffer[64] = {};
+        swprintf_s(PageBuffer, L"%d / %d", mCurrentPage + 1, PageCount);
+        PageText->SetText(PageBuffer);
+    }
+
+    auto PrevPageButton = mPrevPageButton.lock();
+    auto NextPageButton = mNextPageButton.lock();
+
+    if (PrevPageButton)
+        PrevPageButton->ButtonEnable(mCurrentPage > 0);
+    if (NextPageButton)
+        NextPageButton->ButtonEnable(mCurrentPage < PageCount - 1);
+
+    bool HasSelectionOnPage = false;
+
+    if (mSelectedEntryIndex >= 0)
+    {
+        for (int i = 0; i < static_cast<int>(mVisibleEntryIndices.size()); ++i)
+        {
+            if (mVisibleEntryIndices[i] == mSelectedEntryIndex)
+            {
+                HasSelectionOnPage = true;
+                break;
+            }
+        }
+    }
+
+    if (!HasSelectionOnPage)
+        mSelectedEntryIndex = -1;
+
+    mPreviewEntryIndex = mSelectedEntryIndex;
+
+    RefreshDetailPanel();
+}
+
+void CEdictWidget::RefreshTaxPolicyControls()
+{
+    auto TaxPolicyTitleText = mTaxPolicyTitleText.lock();
+    auto TaxPolicySummaryText = mTaxPolicySummaryText.lock();
+    auto World = mWorld.lock();
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+
+    if (TaxPolicyTitleText)
+        TaxPolicyTitleText->SetText(TEXT("세금 정책"));
+
+    const FTaxPolicy* TaxPolicy = nullptr;
+
+    if (MainWorld)
+        TaxPolicy = &MainWorld->GetTaxPolicy();
+
+    for (int i = 0; i < GTaxPolicyRowCount; ++i)
+    {
+        const ETaxPolicyType TaxType = GTaxPolicyTypes[i];
+        const int TaxRatePercent =
+            TaxPolicy ?
+            (TaxType == ETaxPolicyType::Consumption ?
+                TaxPolicy->ConsumptionRatePercent :
+                (TaxType == ETaxPolicyType::Income ?
+                    TaxPolicy->IncomeRatePercent :
+                    TaxPolicy->PropertyRatePercent)) :
+            0;
+        auto RowText = mTaxPolicyRowTexts[i].lock();
+        auto DecreaseButton = mTaxDecreaseButtons[i].lock();
+        auto IncreaseButton = mTaxIncreaseButtons[i].lock();
+
+        if (RowText)
+        {
+            const std::wstring RowLabel =
+                std::wstring(GetTaxPolicyDisplayName(TaxType)) +
+                L" " +
+                FormatPercentValue(TaxRatePercent);
+            RowText->SetText(RowLabel.c_str());
+        }
+
+        if (DecreaseButton)
+        {
+            DecreaseButton->ButtonEnable(
+                TaxPolicy &&
+                TaxRatePercent > GetTaxPolicyMinPercent(TaxType));
+        }
+
+        if (IncreaseButton)
+        {
+            IncreaseButton->ButtonEnable(
+                TaxPolicy &&
+                TaxRatePercent < GetTaxPolicyMaxPercent(TaxType));
+        }
+    }
+
+    if (TaxPolicySummaryText)
+    {
+        std::wstring Summary;
+
+        if (MainWorld)
+        {
+            const FTaxPolicyEventStatus& TaxEventStatus =
+                MainWorld->GetTaxPolicyEventStatus();
+
+            Summary =
+                L"오늘 세수 " +
+                FormatCurrency(MainWorld->GetLastDailyTaxIncome()) +
+                L"\n다음 일일 정산부터 반영";
+
+            if (TaxEventStatus.Active)
+            {
+                Summary +=
+                    L"\n활성 사건: " +
+                    TaxEventStatus.Title +
+                    L" (" +
+                    std::to_wstring((std::max)(0, TaxEventStatus.RemainingDays)) +
+                    L"일)";
+            }
+        }
+        else
+        {
+            Summary = L"월드 정보 없음";
+        }
+
+        TaxPolicySummaryText->SetText(Summary.c_str());
+    }
+}
+
+void CEdictWidget::SelectCategory(EEdictUiCategory Category)
+{
+    mSelectedCategory = Category;
+    mCurrentPage = 0;
+    mSelectedEntryIndex = -1;
+    mPreviewEntryIndex = -1;
+    mFeedbackMessage.clear();
+    RefreshCategoryButtons();
+    RefreshEdictButtons();
+}
+
+void CEdictWidget::MovePage(int DeltaPage)
+{
+    mCurrentPage += DeltaPage;
+    RefreshEdictButtons();
+}
+
+void CEdictWidget::PreviewSlot(int SlotIndex)
+{
+    (void)SlotIndex;
+}
+
+void CEdictWidget::ActivateSlot(int SlotIndex)
+{
+    if (SlotIndex < 0 || SlotIndex >= static_cast<int>(mVisibleEntryIndices.size()))
+        return;
+
+    const int EntryIndex = mVisibleEntryIndices[SlotIndex];
+
+    if (EntryIndex < 0)
+        return;
+
+    mSelectedEntryIndex = EntryIndex;
+    mPreviewEntryIndex = EntryIndex;
+    mFeedbackMessage.clear();
+    RefreshDetailPanel();
+}
+
+void CEdictWidget::AdjustTaxPolicy(ETaxPolicyType Type, int DeltaPercent)
 {
     auto World = mWorld.lock();
     auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
 
     if (!MainWorld)
+    {
+        mFeedbackMessage = L"월드 정보를 찾을 수 없습니다.";
+        RefreshData();
         return;
+    }
 
-    std::wstring Message;
-    MainWorld->TryApplyEdict(mSelectedEdict, Message);
-    mFeedbackMessage = Message;
+    MainWorld->AdjustTaxPolicy(Type, DeltaPercent, mFeedbackMessage);
+    RefreshData();
 }
 
-void CEdictWidget::OnEdictButton0Click()
+void CEdictWidget::RefreshDetailPanel()
 {
-    SelectEdictByIndex(0);
+    auto DetailTitleText = mDetailTitleText.lock();
+    auto DetailBodyText = mDetailBodyText.lock();
+    auto FeedbackText = mFeedbackText.lock();
+    auto ApplyButton = mApplyButton.lock();
+    auto ApplyButtonText = mApplyButtonText.lock();
+
+    if (FeedbackText)
+        FeedbackText->SetText(mFeedbackMessage.c_str());
+
+    const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
+
+    const int DetailEntryIndex = mSelectedEntryIndex;
+
+    if (DetailEntryIndex < 0 ||
+        DetailEntryIndex >= static_cast<int>(Definitions.size()))
+    {
+        if (DetailTitleText)
+            DetailTitleText->SetText(TEXT("칙령 정보"));
+        if (DetailBodyText)
+            DetailBodyText->SetText(TEXT("칸을 클릭해 칙령을 선택하면 상세 정보가 표시됩니다.\n슬롯 하단의 상태 텍스트로 활성/대기 여부를 바로 확인할 수 있습니다.\n우측 하단의 세금 정책은 칙령과 별도로 즉시 조정할 수 있습니다."));
+        if (ApplyButton)
+            ApplyButton->ButtonEnable(false);
+        if (ApplyButtonText)
+            ApplyButtonText->SetText(TEXT("시행"));
+        return;
+    }
+
+    const FGovernmentEdictDefinition& Definition = Definitions[DetailEntryIndex];
+
+    if (DetailTitleText)
+        DetailTitleText->SetText(Definition.DisplayName.c_str());
+
+    auto World = mWorld.lock();
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+    const FGovernmentEdictState* State = nullptr;
+    ETaxPolicyEventType RequiredTaxEvent = ETaxPolicyEventType::None;
+    long long ActivationCost = Definition.BaseCost;
+    long long Budget = 0;
+    int ActiveCitizenCount = 0;
+
+    if (MainWorld)
+    {
+        State = MainWorld->GetGovernmentEdictState(Definition.Type);
+        Budget = MainWorld->GetNationalBudget();
+        ActiveCitizenCount = (std::max)(
+            0, MainWorld->GetPoliticalSnapshot().ActiveCitizenCount);
+        ActivationCost = EdictSystem::ResolveEdictActivationCost(
+            Definition, ActiveCitizenCount);
+    }
+
+    RequiredTaxEvent = ResolveRequiredTaxPolicyEvent(Definition.Type);
+
+    bool CanApply = true;
+    std::wstring ApplyLabel = L"시행";
+    std::wstring Body = Definition.Summary;
+
+    Body += L"\n\n";
+    Body += Definition.EffectText;
+    Body += L"\n\n시행 비용: ";
+    Body += FormatCurrency(ActivationCost);
+
+    if (Definition.MonthlyUpkeep > 0)
+    {
+        Body += L"\n월 유지비: ";
+        Body += FormatCurrency(Definition.MonthlyUpkeep);
+    }
+
+    if (Definition.Mode == EGovernmentEdictMode::Active)
+    {
+        Body += L"\n지속 기간: ";
+        Body += std::to_wstring((std::max)(1, Definition.DurationDays) / 30);
+        Body += L"개월";
+    }
+
+    if (Definition.CooldownDays > 0)
+    {
+        Body += L"\n재사용 대기: ";
+        Body += std::to_wstring((std::max)(1, Definition.CooldownDays) / 30);
+        Body += L"개월";
+    }
+
+    if (State)
+    {
+        if (Definition.Mode == EGovernmentEdictMode::Passive)
+        {
+            if (State->Active)
+            {
+                Body += L"\n현재 상태: 활성";
+                ApplyLabel = L"해제";
+            }
+            else
+            {
+                Body += L"\n현재 상태: 비활성";
+            }
+        }
+        else if (State->Active)
+        {
+            Body += L"\n현재 상태: 시행 중 (";
+            Body += std::to_wstring(State->RemainingDays);
+            Body += L"일 남음)";
+            ApplyLabel = L"시행 중";
+            CanApply = false;
+        }
+        else if (State->CooldownDays > 0)
+        {
+            Body += L"\n현재 상태: 재사용 대기 (";
+            Body += std::to_wstring(State->CooldownDays);
+            Body += L"일 남음)";
+            ApplyLabel = L"대기 중";
+            CanApply = false;
+        }
+        else
+        {
+            Body += L"\n현재 상태: 사용 가능";
+        }
+    }
+
+    if (MainWorld && RequiredTaxEvent != ETaxPolicyEventType::None)
+    {
+        const FTaxPolicyEventStatus& TaxEventStatus =
+            MainWorld->GetTaxPolicyEventStatus();
+
+        Body += L"\n대응 사건: ";
+        Body += GetTaxPolicyEventDisplayName(RequiredTaxEvent);
+
+        if (TaxEventStatus.Active &&
+            TaxEventStatus.Type == RequiredTaxEvent)
+        {
+            Body += L"\n현재 사건: 대응 가능 (";
+            Body += std::to_wstring((std::max)(0, TaxEventStatus.RemainingDays));
+            Body += L"일 남음)";
+        }
+        else if (TaxEventStatus.Active)
+        {
+            Body += L"\n현재 사건: ";
+            Body += TaxEventStatus.Title;
+            Body += L" (대상 아님)";
+        }
+        else
+        {
+            Body += L"\n현재 사건: 없음";
+        }
+
+        if (CanApply &&
+            !(TaxEventStatus.Active &&
+                TaxEventStatus.Type == RequiredTaxEvent))
+        {
+            ApplyLabel = L"사건 필요";
+            CanApply = false;
+        }
+    }
+
+    if (!State && !MainWorld)
+        CanApply = false;
+
+    if (ApplyLabel == L"시행" && Budget < ActivationCost)
+    {
+        ApplyLabel = L"예산 부족";
+        CanApply = false;
+    }
+
+    if (DetailBodyText)
+        DetailBodyText->SetText(Body.c_str());
+
+    if (ApplyButton)
+        ApplyButton->ButtonEnable(CanApply);
+    if (ApplyButtonText)
+        ApplyButtonText->SetText(ApplyLabel.c_str());
 }
 
-void CEdictWidget::OnEdictButton1Click()
+std::vector<int> CEdictWidget::CollectCategoryEntryIndices() const
 {
-    SelectEdictByIndex(1);
+    std::vector<int> Result;
+    const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
+
+    for (int i = 0; i < static_cast<int>(Definitions.size()); ++i)
+    {
+        if (ResolveEdictUiCategory(Definitions[i].Type) != mSelectedCategory)
+            continue;
+
+        Result.push_back(i);
+    }
+
+    return Result;
 }
 
-void CEdictWidget::OnEdictButton2Click()
+void CEdictWidget::OnCategoryGeneralClick()
 {
-    SelectEdictByIndex(2);
+    SelectCategory(EEdictUiCategory::General);
 }
 
-void CEdictWidget::OnEdictButton3Click()
+void CEdictWidget::OnCategoryInteriorClick()
 {
-    SelectEdictByIndex(3);
+    SelectCategory(EEdictUiCategory::Interior);
 }
 
-void CEdictWidget::OnEdictButton4Click()
+void CEdictWidget::OnCategoryDefenseClick()
 {
-    SelectEdictByIndex(4);
+    SelectCategory(EEdictUiCategory::Defense);
 }
+
+void CEdictWidget::OnCategoryEducationClick()
+{
+    SelectCategory(EEdictUiCategory::Education);
+}
+
+void CEdictWidget::OnPrevPageClick()
+{
+    MovePage(-1);
+}
+
+void CEdictWidget::OnNextPageClick()
+{
+    MovePage(1);
+}
+
+void CEdictWidget::OnCloseButtonClick()
+{
+    SetOpen(false);
+}
+
+void CEdictWidget::OnApplyButtonClick()
+{
+    const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
+    const int EntryIndex = mSelectedEntryIndex;
+
+    if (EntryIndex < 0 ||
+        EntryIndex >= static_cast<int>(Definitions.size()))
+    {
+        mFeedbackMessage = L"먼저 칙령을 선택하세요.";
+        RefreshDetailPanel();
+        return;
+    }
+
+    auto World = mWorld.lock();
+    auto MainWorld = std::dynamic_pointer_cast<CMainWorld>(World);
+
+    if (!MainWorld)
+    {
+        mFeedbackMessage = L"월드 정보를 찾을 수 없습니다.";
+        RefreshDetailPanel();
+        return;
+    }
+
+    MainWorld->TryApplyEdict(
+        Definitions[EntryIndex].Type,
+        mFeedbackMessage);
+    RefreshData();
+}
+
+void CEdictWidget::OnConsumptionTaxDownClick()
+{
+    AdjustTaxPolicy(
+        ETaxPolicyType::Consumption,
+        -GetTaxPolicyStepPercent(ETaxPolicyType::Consumption));
+}
+
+void CEdictWidget::OnConsumptionTaxUpClick()
+{
+    AdjustTaxPolicy(
+        ETaxPolicyType::Consumption,
+        GetTaxPolicyStepPercent(ETaxPolicyType::Consumption));
+}
+
+void CEdictWidget::OnIncomeTaxDownClick()
+{
+    AdjustTaxPolicy(
+        ETaxPolicyType::Income,
+        -GetTaxPolicyStepPercent(ETaxPolicyType::Income));
+}
+
+void CEdictWidget::OnIncomeTaxUpClick()
+{
+    AdjustTaxPolicy(
+        ETaxPolicyType::Income,
+        GetTaxPolicyStepPercent(ETaxPolicyType::Income));
+}
+
+void CEdictWidget::OnPropertyTaxDownClick()
+{
+    AdjustTaxPolicy(
+        ETaxPolicyType::Property,
+        -GetTaxPolicyStepPercent(ETaxPolicyType::Property));
+}
+
+void CEdictWidget::OnPropertyTaxUpClick()
+{
+    AdjustTaxPolicy(
+        ETaxPolicyType::Property,
+        GetTaxPolicyStepPercent(ETaxPolicyType::Property));
+}
+
+#define DEFINE_EDICT_SLOT_CALLBACKS(Index) \
+    void CEdictWidget::OnSlot##Index##Click() \
+    { \
+        ActivateSlot(Index); \
+    } \
+    void CEdictWidget::OnSlot##Index##Hovered() \
+    { \
+        PreviewSlot(Index); \
+    }
+
+DEFINE_EDICT_SLOT_CALLBACKS(0)
+DEFINE_EDICT_SLOT_CALLBACKS(1)
+DEFINE_EDICT_SLOT_CALLBACKS(2)
+DEFINE_EDICT_SLOT_CALLBACKS(3)
+DEFINE_EDICT_SLOT_CALLBACKS(4)
+DEFINE_EDICT_SLOT_CALLBACKS(5)
+DEFINE_EDICT_SLOT_CALLBACKS(6)
+DEFINE_EDICT_SLOT_CALLBACKS(7)
+DEFINE_EDICT_SLOT_CALLBACKS(8)
+DEFINE_EDICT_SLOT_CALLBACKS(9)
+DEFINE_EDICT_SLOT_CALLBACKS(10)
+DEFINE_EDICT_SLOT_CALLBACKS(11)
+
+#undef DEFINE_EDICT_SLOT_CALLBACKS
