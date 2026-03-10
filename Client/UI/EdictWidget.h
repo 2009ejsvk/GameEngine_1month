@@ -69,6 +69,10 @@ private:
     float mPanelWidth = 1120.f;
     float mPanelHeight = 760.f;
     std::wstring mFeedbackMessage;
+    int   mLastLayoutWidth = 0;
+    int   mLastLayoutHeight = 0;
+    int   mLastClickedEntryIndex = -1;
+    float mDoubleClickTimer = 0.f;
 
 public:
     virtual bool Init();
@@ -92,6 +96,7 @@ private:
     void MovePage(int DeltaPage);
     void PreviewSlot(int SlotIndex);
     void ActivateSlot(int SlotIndex);
+    void SelectOrApplySlot(int SlotIndex);
     void AdjustTaxPolicy(ETaxPolicyType Type, int DeltaPercent);
     void RefreshDetailPanel();
     std::vector<int> CollectCategoryEntryIndices() const;

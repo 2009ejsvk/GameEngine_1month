@@ -320,21 +320,17 @@ namespace
         return (std::max)(1, (Days + 29) / 30);
     }
 
-    EEdictUiCategory ResolveEdictUiCategory(EGovernmentEdictType Type)
+    EEdictUiCategory ResolveEdictUiCategory(EEdictEra Era)
     {
-        switch (Type)
+        switch (Era)
         {
-        case EGovernmentEdictType::FoodForThePeople:
-        case EGovernmentEdictType::FreeHousing:
+        case EEdictEra::Colonial:
             return EEdictUiCategory::Colonial;
-        case EGovernmentEdictType::MartialLaw:
-        case EGovernmentEdictType::EmployeeOfTheMonth:
+        case EEdictEra::WorldWars:
             return EEdictUiCategory::WorldWars;
-        case EGovernmentEdictType::LaborTaxRelief:
-        case EGovernmentEdictType::PropertyTaxRelief:
+        case EEdictEra::ColdWar:
             return EEdictUiCategory::ColdWar;
-        case EGovernmentEdictType::TaxCut:
-        case EGovernmentEdictType::EmergencyAusterity:
+        case EEdictEra::Modern:
             return EEdictUiCategory::Modern;
         default:
             return EEdictUiCategory::Colonial;
@@ -358,8 +354,15 @@ namespace
     {
         FEdictAvailabilityInfo Info;
         Info.StatusText = L"상태 확인 중";
-        Info.RequirementText = L"잠시 후 다시 확인하세요.";
         Info.ActivationCost = Definition.BaseCost;
+
+        if (!Definition.Implemented)
+        {
+            Info.StatusText = L"준비 중";
+            Info.RequirementText = L"아직 구현되지 않은 칙령입니다.";
+            Info.ActivationCost = 0;
+            return Info;
+        }
 
         if (!State || !MainWorld)
             return Info;
@@ -380,11 +383,13 @@ namespace
             {
                 Info.CanApply = true;
                 Info.StatusText = L"활성";
+                Info.RequirementText.clear();
                 return Info;
             }
 
             Info.CanApply = true;
             Info.StatusText = L"사용 가능";
+            Info.RequirementText.clear();
         }
         else
         {
@@ -394,6 +399,7 @@ namespace
                     L"시행 중 (" +
                     std::to_wstring((std::max)(0, State->RemainingDays)) +
                     L"일 남음)";
+                Info.RequirementText.clear();
                 return Info;
             }
 
@@ -409,6 +415,7 @@ namespace
 
             Info.CanApply = true;
             Info.StatusText = L"시행 가능";
+            Info.RequirementText.clear();
         }
 
         const ETaxPolicyEventType RequiredTaxEvent =
@@ -440,6 +447,7 @@ namespace
             return Info;
         }
 
+        Info.RequirementText.clear();
         return Info;
     }
 
@@ -756,7 +764,7 @@ bool CEdictWidget::Init()
             EButtonEventState::Click,
             [this, i]()
             {
-                ActivateSlot(i);
+                SelectOrApplySlot(i);
             });
         Button->SetEventCallback(
             EButtonEventState::Hovered,
@@ -900,7 +908,7 @@ bool CEdictWidget::Init()
     }
 
     auto DetailBodyText =
-        CreateWidget<CTextBlock>("EdictMenu_DetailBody", 7).lock();
+        CreateWidget<CTextBlock>("EdictMenu_DetailBody", 8).lock();
 
     if (DetailBodyText)
     {
@@ -1114,6 +1122,9 @@ void CEdictWidget::Update(float DeltaTime)
     if (!mOpen)
         return;
 
+    if (mDoubleClickTimer > 0.f)
+        mDoubleClickTimer -= DeltaTime;
+
     auto World = mWorld.lock();
 
     if (World)
@@ -1129,7 +1140,13 @@ void CEdictWidget::Update(float DeltaTime)
         }
     }
 
-    RefreshLayout();
+    const FResolution& Resolution = CDevice::GetInst()->GetResolution();
+    if (Resolution.Width != mLastLayoutWidth || Resolution.Height != mLastLayoutHeight)
+    {
+        mLastLayoutWidth = Resolution.Width;
+        mLastLayoutHeight = Resolution.Height;
+        RefreshLayout();
+    }
 }
 
 void CEdictWidget::ToggleOpen()
@@ -1485,13 +1502,17 @@ void CEdictWidget::RefreshLayout()
     const float InfoPanelTop = DetailFrameTop + 74.f * Scale;
     const float InfoPanelHeight =
         DetailFrameTop + DetailFrameHeight - InfoPanelTop - 14.f * Scale;
+    const float FeedbackGap = 8.f * Scale;
     const float DetailBodyLeft = DetailInnerLeft + 14.f * Scale;
-    const float DetailBodyTop = InfoPanelTop + 14.f * Scale;
+    const float DetailBodyTop = FeedbackTop + FeedbackHeight + FeedbackGap;
     const float DetailBodyWidth = DetailInnerWidth - 28.f * Scale;
     const float RequirementHeight = 28.f * Scale;
-    const float DetailBodyHeight = InfoPanelHeight - 56.f * Scale;
     const float RequirementTop =
         InfoPanelTop + InfoPanelHeight - RequirementHeight - 8.f * Scale;
+    const float DetailBodyBottom =
+        RequirementTop - 10.f * Scale;
+    const float DetailBodyHeight =
+        (std::max)(0.f, DetailBodyBottom - DetailBodyTop);
     const float TaxPanelHeight = 0.f;
     const float TaxSummaryHeight = 0.f;
     const bool ShowTaxPanel = GEnableTaxPolicyPanel && TaxPanelHeight > 0.f;
@@ -1700,9 +1721,9 @@ void CEdictWidget::ApplyOpenState()
     if (CloseButton)
         CloseButton->SetEnable(mOpen);
     if (ApplyButton)
-        ApplyButton->SetEnable(mOpen);
+        ApplyButton->SetEnable(false);
     if (ApplyButtonText)
-        ApplyButtonText->SetEnable(mOpen);
+        ApplyButtonText->SetEnable(false);
 
     for (size_t i = 0; i < mCategoryButtons.size(); ++i)
     {
@@ -2087,6 +2108,9 @@ void CEdictWidget::PreviewSlot(int SlotIndex)
     if (EntryIndex < 0)
         return;
 
+    if (mPreviewEntryIndex == EntryIndex)
+        return;
+
     mPreviewEntryIndex = EntryIndex;
     RefreshEdictButtons();
 }
@@ -2105,6 +2129,30 @@ void CEdictWidget::ActivateSlot(int SlotIndex)
     mPreviewEntryIndex = EntryIndex;
     mFeedbackMessage.clear();
     RefreshEdictButtons();
+}
+
+void CEdictWidget::SelectOrApplySlot(int SlotIndex)
+{
+    if (SlotIndex < 0 || SlotIndex >= static_cast<int>(mVisibleEntryIndices.size()))
+        return;
+
+    const int EntryIndex = mVisibleEntryIndices[SlotIndex];
+
+    if (EntryIndex < 0)
+        return;
+
+    const bool IsDoubleClick =
+        EntryIndex == mLastClickedEntryIndex && mDoubleClickTimer > 0.f;
+
+    mLastClickedEntryIndex = EntryIndex;
+    mDoubleClickTimer = 0.45f;
+    mSelectedEntryIndex = EntryIndex;
+    mPreviewEntryIndex = EntryIndex;
+    mFeedbackMessage.clear();
+    RefreshEdictButtons();
+
+    if (IsDoubleClick)
+        OnApplyButtonClick();
 }
 
 void CEdictWidget::AdjustTaxPolicy(ETaxPolicyType Type, int DeltaPercent)
@@ -2131,8 +2179,6 @@ void CEdictWidget::RefreshDetailPanel()
     auto DetailBodyText = mDetailBodyText.lock();
     auto FeedbackText = mFeedbackText.lock();
     auto RequirementText = mRequirementText.lock();
-    auto ApplyButton = mApplyButton.lock();
-    auto ApplyButtonText = mApplyButtonText.lock();
 
     if (FeedbackText)
     {
@@ -2159,18 +2205,6 @@ void CEdictWidget::RefreshDetailPanel()
                 TEXT("카드를 고르면 효과와 제약 조건이 아래 패널에 표시됩니다.\n현재 시행 중인 칙령은 금색 강조와 체크 표시로 구분됩니다."));
         if (RequirementText)
             RequirementText->SetText(TEXT(""));
-        ConfigureEdictActionButtonVisual(
-            ApplyButton,
-            ApplyButtonText,
-            EEdictActionVisualMode::Neutral,
-            L"시행");
-        if (ApplyButton)
-        {
-            ApplyButton->ButtonEnable(false);
-            ApplyButton->SetEnable(false);
-        }
-        if (ApplyButtonText)
-            ApplyButtonText->SetEnable(false);
         return;
     }
 
@@ -2178,10 +2212,6 @@ void CEdictWidget::RefreshDetailPanel()
 
     if (DetailTitleText)
         DetailTitleText->SetText(Definition.DisplayName.c_str());
-    if (ApplyButton)
-        ApplyButton->SetEnable(mOpen);
-    if (ApplyButtonText)
-        ApplyButtonText->SetEnable(mOpen);
 
     auto World = mWorld.lock();
     auto MainWorld = std::dynamic_pointer_cast<IMainWorldEdictReadAccess>(World);
@@ -2194,12 +2224,27 @@ void CEdictWidget::RefreshDetailPanel()
             Definition,
             State,
             MainWorld.get());
+
+    if (!Definition.Implemented)
+    {
+        if (DetailCostText)
+            DetailCostText->SetText(TEXT("$0"));
+        if (DetailInfoText)
+            DetailInfoText->SetText(TEXT("준비 중  |  참고용 칙령"));
+        if (DetailBodyText)
+            DetailBodyText->SetText(
+                TEXT("아이콘과 시대 배치만 연결된 칙령입니다.\n실제 효과와 적용 로직은 아직 연결되지 않았습니다."));
+        if (RequirementText)
+        {
+            RequirementText->SetText(TEXT("미구현: 아직 게임 로직이 연결되지 않았습니다."));
+            RequirementText->SetTextColor(211, 36, 20, 255);
+            RequirementText->SetShadowTextColor(255, 228, 216, 170);
+        }
+        return;
+    }
+
     const ETaxPolicyEventType RequiredTaxEvent =
         ResolveRequiredTaxPolicyEvent(Definition.Type);
-    bool CanApply = Availability.CanApply;
-    std::wstring ApplyLabel = L"시행";
-    EEdictActionVisualMode ApplyVisualMode =
-        EEdictActionVisualMode::Primary;
     std::wstring Body = Definition.Summary;
     std::wstring Info =
         Availability.StatusText +
@@ -2245,41 +2290,11 @@ void CEdictWidget::RefreshDetailPanel()
             L"개월";
     }
 
-    if (Availability.Active && Definition.Mode == EGovernmentEdictMode::Passive)
+    if (!Availability.CanApply &&
+        !Availability.Active &&
+        !Availability.CoolingDown &&
+        !Availability.RequirementText.empty())
     {
-        ApplyLabel = L"해제";
-        CanApply = true;
-        ApplyVisualMode = EEdictActionVisualMode::Primary;
-    }
-    else if (Availability.Active)
-    {
-        ApplyLabel = L"시행 중";
-        CanApply = false;
-        ApplyVisualMode = EEdictActionVisualMode::Active;
-    }
-    else if (Availability.CoolingDown)
-    {
-        ApplyLabel = L"대기 중";
-        CanApply = false;
-        ApplyVisualMode = EEdictActionVisualMode::CoolingDown;
-    }
-    else if (Availability.StatusText == L"상태 확인 중")
-    {
-        ApplyLabel = L"확인 중";
-        CanApply = false;
-        ApplyVisualMode = EEdictActionVisualMode::Waiting;
-    }
-    else if (!Availability.RequirementText.empty())
-    {
-        ApplyLabel =
-            Availability.RequirementText == L"예산 부족" ?
-            L"예산 부족" :
-            L"조건 필요";
-        CanApply = false;
-        ApplyVisualMode =
-            Availability.RequirementText == L"예산 부족" ?
-            EEdictActionVisualMode::BudgetShortage :
-            EEdictActionVisualMode::Requirement;
         RequirementMessage = L"미충족: " + Availability.RequirementText;
     }
 
@@ -2297,16 +2312,21 @@ void CEdictWidget::RefreshDetailPanel()
         {
             Info += L"  |  대응 가능";
         }
-        else if (TaxEventStatus.Active)
+        else if (!Availability.CanApply)
         {
-            RequirementMessage =
-                L"미충족: 현재 사건은 " + TaxEventStatus.Title;
+            if (TaxEventStatus.Active)
+            {
+                RequirementMessage =
+                    L"미충족: 현재 사건은 " + TaxEventStatus.Title;
+            }
+            else if (RequirementMessage.empty())
+            {
+                RequirementMessage =
+                    L"미충족: " +
+                    std::wstring(GetTaxPolicyEventDisplayName(RequiredTaxEvent)) +
+                    L" 발생 필요";
+            }
         }
-        else
-            RequirementMessage =
-                L"미충족: " +
-                std::wstring(GetTaxPolicyEventDisplayName(RequiredTaxEvent)) +
-                L" 발생 필요";
     }
 
     if (DetailInfoText)
@@ -2336,13 +2356,6 @@ void CEdictWidget::RefreshDetailPanel()
             RequirementText->SetText(TEXT(""));
     }
 
-    ConfigureEdictActionButtonVisual(
-        ApplyButton,
-        ApplyButtonText,
-        ApplyVisualMode,
-        ApplyLabel);
-    if (ApplyButton)
-        ApplyButton->ButtonEnable(CanApply);
 }
 
 std::vector<int> CEdictWidget::CollectCategoryEntryIndices() const
@@ -2352,7 +2365,7 @@ std::vector<int> CEdictWidget::CollectCategoryEntryIndices() const
 
     for (int i = 0; i < static_cast<int>(Definitions.size()); ++i)
     {
-        if (ResolveEdictUiCategory(Definitions[i].Type) != mSelectedCategory)
+        if (ResolveEdictUiCategory(Definitions[i].Era) != mSelectedCategory)
             continue;
 
         Result.push_back(i);
@@ -2447,4 +2460,3 @@ void CEdictWidget::OnPropertyTaxUpClick()
         ETaxPolicyType::Property,
         GetTaxPolicyStepPercent(ETaxPolicyType::Property));
 }
-

@@ -41,13 +41,48 @@ void CWorldUIManager::Update(float DeltaTime)
 	}
 }
 
+bool CWorldUIManager::IsPointOverEnabledWidget(const FVector2& MousePos)
+{
+	if (mWidgetList.size() >= 2)
+	{
+        std::stable_sort(mWidgetList.begin(), mWidgetList.end(),
+            CWorldUIManager::SortCollision);
+	}
+
+	auto	iter = mWidgetList.begin();
+	auto	iterEnd = mWidgetList.end();
+
+	for (; iter != iterEnd;)
+	{
+		if (!(*iter)->GetAlive())
+		{
+			iter = mWidgetList.erase(iter);
+			iterEnd = mWidgetList.end();
+			continue;
+		}
+
+		else if (!(*iter)->GetEnable())
+		{
+			++iter;
+			continue;
+		}
+
+		if ((*iter)->HitTest(MousePos))
+			return true;
+
+		++iter;
+	}
+
+	return false;
+}
+
 bool CWorldUIManager::CollisionMouse(float DeltaTime,
 	const FVector2& MousePos)
 {
 	if (mWidgetList.size() >= 2)
 	{
-		std::sort(mWidgetList.begin(), mWidgetList.end(),
-			CWorldUIManager::SortCollision);
+        std::stable_sort(mWidgetList.begin(), mWidgetList.end(),
+            CWorldUIManager::SortCollision);
 	}
 
 	// 기존에 Hovered 상태의 위젯이 제거되었는지 판단한다.
@@ -193,8 +228,8 @@ void CWorldUIManager::Render()
 {
 	if (mWidgetList.size() >= 2)
 	{
-		std::sort(mWidgetList.begin(), mWidgetList.end(),
-			CWorldUIManager::SortRender);
+        std::stable_sort(mWidgetList.begin(), mWidgetList.end(),
+            CWorldUIManager::SortRender);
 	}
 
 	auto	iter = mWidgetList.begin();

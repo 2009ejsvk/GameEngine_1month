@@ -144,6 +144,63 @@ void CWidget::Destroy()
 	mAlive = false;
 }
 
+bool CWidget::HitTest(const FVector2& MousePos)
+{
+	auto	Parent = mParent.lock();
+
+	if (Parent)
+	{
+		mRenderPos = Parent->mRenderPos + mPos;
+	}
+
+	else
+	{
+		mRenderPos = mPos;
+	}
+
+	if (mAngle == 0.f)
+	{
+		FVector3	Min = mRenderPos - mSize * mPivot;
+		FVector3	Max = Min + mSize;
+
+		return MousePos.x >= Min.x &&
+			MousePos.x <= Max.x &&
+			MousePos.y >= Min.y &&
+			MousePos.y <= Max.y;
+	}
+
+	FVector3	Axis[2];
+	FVector3	HalfSize = mSize * 0.5f;
+	FVector3	Center = mRenderPos - mSize * mPivot + HalfSize;
+
+	Axis[0] = FVector3::Axis[EAxis::X];
+	Axis[1] = FVector3::Axis[EAxis::Y];
+
+	FMatrix	RotationMat;
+	RotationMat.RotationZ(mAngle);
+
+	Axis[0] = Axis[0].TransformNormal(RotationMat);
+	Axis[1] = Axis[1].TransformNormal(RotationMat);
+
+	Axis[0].Normalize();
+	Axis[1].Normalize();
+
+	FVector3	ConvertMousePos;
+	ConvertMousePos.x = MousePos.x;
+	ConvertMousePos.y = MousePos.y;
+
+	FVector3	CenterLine = Center - ConvertMousePos;
+
+	float	Dist = abs(CenterLine.Dot(Axis[0]));
+
+	if (Dist > HalfSize.x)
+		return false;
+
+	Dist = abs(CenterLine.Dot(Axis[1]));
+
+	return Dist <= HalfSize.y;
+}
+
 bool CWidget::CollisionMouse(std::weak_ptr<CWidget>& Result, 
 	const FVector2& MousePos)
 {

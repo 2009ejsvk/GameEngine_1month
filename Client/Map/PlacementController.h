@@ -39,6 +39,8 @@ public:
     bool BeginBuildPlacement(
         const FBuildingCatalogEntry& Entry,
         const std::string& SpriteTexturePath);
+    bool BeginMoveExistingBuilding(const std::string& BuildingObjectName);
+    bool DemolishBuildingByName(const std::string& BuildingObjectName);
 
 private:
     void RotateCurrentAreaCCW();
@@ -48,6 +50,7 @@ private:
     void UpdateDemolitionHoverPreview();
     void ClearDemolitionHoverPreview();
     void RefreshPlacementObjects();
+    bool IsPointerOverActiveUi(const FVector2& MouseScreenPos) const;
     std::shared_ptr<class CPlacementAreaObject> PickPlacementObject(
         const FVector2& MouseWorldPos);
     std::shared_ptr<class CBuildingMarkerOrb> PickCitizenOrb(

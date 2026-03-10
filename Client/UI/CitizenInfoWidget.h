@@ -1,12 +1,13 @@
 #pragma once
 
 #include "UI/WidgetContainer.h"
+#include <array>
 #include <string>
-#include <vector>
 
 struct FNpcSatisfaction;
 struct FNpcPoliticalProfile;
 struct FCitizenIdentityProfile;
+struct FBuildingCatalogEntry;
 
 class CCitizenInfoWidget :
     public CWidgetContainer
@@ -20,17 +21,56 @@ public:
     virtual ~CCitizenInfoWidget();
 
 private:
+    enum class EPanelMode
+    {
+        Citizen,
+        Building
+    };
+
+    enum class EBuildingInfoTab
+    {
+        Overview = 0,
+        Statistics,
+        Upgrades,
+        Efficiency,
+        Information,
+        Count
+    };
+
+    static constexpr int GBuildingTabCount =
+        static_cast<int>(EBuildingInfoTab::Count);
+    static constexpr int GBudgetLevelCount = 5;
+
+    EPanelMode mPanelMode = EPanelMode::Citizen;
+    EBuildingInfoTab mSelectedBuildingTab = EBuildingInfoTab::Overview;
+
     std::weak_ptr<class CImage> mPanelImage;
+    std::weak_ptr<class CImage> mInnerFrame;
+    std::weak_ptr<class CImage> mTitleRibbon;
+    std::weak_ptr<class CImage> mSectionRibbon;
+    std::weak_ptr<class CImage> mScrollTrack;
+    std::weak_ptr<class CImage> mScrollThumb;
+    std::weak_ptr<class CImage> mTitleIcon;
     std::weak_ptr<class CTextBlock> mTitleText;
+    std::weak_ptr<class CTextBlock> mSubtitleText;
+    std::weak_ptr<class CTextBlock> mPageTitleText;
     std::weak_ptr<class CTextBlock> mBodyText;
+    std::weak_ptr<class CTextBlock> mBudgetText;
     std::weak_ptr<class CButton> mCloseButton;
+    std::weak_ptr<class CButton> mDemolishButton;
+    std::weak_ptr<class CButton> mMoveButton;
+    std::weak_ptr<class CButton> mCloneButton;
+    std::array<std::weak_ptr<class CButton>, GBuildingTabCount> mTabButtons;
+    std::array<std::weak_ptr<class CTextBlock>, GBuildingTabCount>
+        mTabButtonTexts;
+    std::array<std::weak_ptr<class CButton>, GBudgetLevelCount> mBudgetButtons;
+    std::array<std::weak_ptr<class CTextBlock>, GBudgetLevelCount>
+        mBudgetButtonTexts;
     std::string mTrackedCitizenName;
     std::string mTrackedBuildingName;
-    std::weak_ptr<class CTextBlock> mBudgetText;
-    std::vector<std::weak_ptr<class CButton>> mBudgetButtons;
-    std::vector<std::weak_ptr<class CTextBlock>> mBudgetButtonTexts;
-    float mPanelWidth = 260.f;
-    float mPanelHeight = 120.f;
+    float mPanelWidth = 360.f;
+    float mPanelHeight = 720.f;
+    float mPanelTop = 56.f;
 
 public:
     virtual bool Init();
@@ -52,16 +92,27 @@ public:
 
 private:
     void SetTitle(const std::wstring& Title);
+    void SetSubtitle(const std::wstring& Subtitle);
     void SetCitizenSatisfaction(
         const FNpcSatisfaction& Satisfaction,
         const FCitizenIdentityProfile& IdentityProfile,
         const FNpcPoliticalProfile& PoliticalProfile);
     void SetBodyText(const std::wstring& Text);
     void SetPanelScreenPos(const FVector2& ScreenPos);
-    void SetBudgetControlsVisible(bool Visible);
+    void RefreshPanelLayout();
+    void RefreshModeVisibility();
     void RefreshBuildingInfo();
+    void RefreshBuildingTabState();
+    void UpdateBuildingTitleIcon(const FBuildingCatalogEntry* CatalogEntry);
+    void SetBudgetControlsVisible(bool Visible);
+    void SetActionButtonsVisible(bool Visible);
+    void SetTabButtonsVisible(bool Visible);
+    void SelectBuildingTab(EBuildingInfoTab Tab);
     void SetBuildingBudgetLevel(int Level);
     void OnCloseButtonClick();
+    void OnDemolishButtonClick();
+    void OnMoveButtonClick();
+    void OnCloneButtonClick();
     void OnBudgetLevel1Click();
     void OnBudgetLevel2Click();
     void OnBudgetLevel3Click();

@@ -91,8 +91,8 @@ void CWidgetContainer::Render()
 
 	if (mChildList.size() >= 2)
 	{
-		std::sort(mChildList.begin(), mChildList.end(),
-			CWidget::SortRender);
+        std::stable_sort(mChildList.begin(), mChildList.end(),
+            CWidget::SortRender);
 	}
 
 	auto	iter = mChildList.begin();
@@ -119,13 +119,48 @@ void CWidgetContainer::Render()
 	}
 }
 
+bool CWidgetContainer::HitTest(const FVector2& MousePos)
+{
+	if (mChildList.size() >= 2)
+	{
+        std::stable_sort(mChildList.begin(), mChildList.end(),
+            CWidget::SortCollision);
+	}
+
+	auto	iter = mChildList.begin();
+	auto	iterEnd = mChildList.end();
+
+	for (; iter != iterEnd;)
+	{
+		if (!(*iter)->GetAlive())
+		{
+			iter = mChildList.erase(iter);
+			iterEnd = mChildList.end();
+			continue;
+		}
+
+		else if (!(*iter)->GetEnable())
+		{
+			++iter;
+			continue;
+		}
+
+		if ((*iter)->HitTest(MousePos))
+			return true;
+
+		++iter;
+	}
+
+	return CWidget::HitTest(MousePos);
+}
+
 bool CWidgetContainer::CollisionMouse(std::weak_ptr<CWidget>& Result,
 	const FVector2& MousePos)
 {
 	if (mChildList.size() >= 2)
 	{
-		std::sort(mChildList.begin(), mChildList.end(),
-			CWidget::SortCollision);
+        std::stable_sort(mChildList.begin(), mChildList.end(),
+            CWidget::SortCollision);
 	}
 
 	auto	iter = mChildList.begin();

@@ -172,6 +172,86 @@ bool CPlacementController::BeginBuildPlacement(
     return true;
 }
 
+bool CPlacementController::BeginMoveExistingBuilding(
+    const std::string& BuildingObjectName)
+{
+    if (BuildingObjectName.empty())
+        return false;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+        return false;
+
+    auto PlacementObject =
+        World->FindObject<CPlacementAreaObject>(BuildingObjectName).lock();
+
+    if (!PlacementObject ||
+        !PlacementObject->GetAlive() ||
+        !PlacementObject->GetEnable())
+    {
+        return false;
+    }
+
+    if (mDemolitionMode)
+        SetDemolitionMode(false);
+
+    auto ActiveObject = mActivePlacementObject.lock();
+
+    if (ActiveObject &&
+        ActiveObject != PlacementObject &&
+        ActiveObject->IsMovePreviewActive())
+    {
+        ActiveObject->CancelMovePreview();
+    }
+
+    mActivePlacementObject = PlacementObject;
+    PlacementObject->StartMovePreview(Input->GetMouseWorldPos());
+
+    auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+    if (CitizenInfoWidget)
+        CitizenInfoWidget->SetEnable(false);
+
+    return true;
+}
+
+bool CPlacementController::DemolishBuildingByName(
+    const std::string& BuildingObjectName)
+{
+    if (BuildingObjectName.empty())
+        return false;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    auto PlacementObject =
+        World->FindObject<CPlacementAreaObject>(BuildingObjectName).lock();
+
+    if (!PlacementObject ||
+        !PlacementObject->GetAlive() ||
+        !PlacementObject->GetEnable())
+    {
+        return false;
+    }
+
+    DemolishPlacementObject(PlacementObject);
+
+    auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+    if (CitizenInfoWidget)
+        CitizenInfoWidget->SetEnable(false);
+
+    return true;
+}
+
 void CPlacementController::RotateCurrentAreaCCW()
 {
     auto ActiveObject = mActivePlacementObject.lock();
@@ -214,6 +294,19 @@ void CPlacementController::RotateCurrentAreaCW()
 
 void CPlacementController::MoveCurrentArea()
 {
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+        return;
+
+    if (IsPointerOverActiveUi(Input->GetMousePos()))
+        return;
+
     if (mDemolitionMode)
     {
         SetDemolitionMode(false);
@@ -228,16 +321,6 @@ void CPlacementController::MoveCurrentArea()
         mActivePlacementObject.reset();
         return;
     }
-
-    auto World = mWorld.lock();
-
-    if (!World)
-        return;
-
-    auto Input = World->GetInput().lock();
-
-    if (!Input)
-        return;
 
     const FVector2 MouseWorldPos = Input->GetMouseWorldPos();
 
@@ -273,6 +356,9 @@ void CPlacementController::PlaceCurrentArea()
 
     const FVector2 MouseWorldPos = Input->GetMouseWorldPos();
     const FVector2 MouseScreenPos = Input->GetMousePos();
+
+    if (IsPointerOverActiveUi(MouseScreenPos))
+        return;
 
     auto CitizenInfoPanelWidget = mCitizenInfoWidget.lock();
 
@@ -397,6 +483,12 @@ void CPlacementController::UpdateDemolitionHoverPreview()
         return;
     }
 
+    if (IsPointerOverActiveUi(Input->GetMousePos()))
+    {
+        ClearDemolitionHoverPreview();
+        return;
+    }
+
     RefreshPlacementObjects();
 
     auto HoverObject = PickPlacementObject(Input->GetMouseWorldPos());
@@ -437,6 +529,22 @@ void CPlacementController::RefreshPlacementObjects()
 
     World->FindObjectListByType<CPlacementAreaObject>(
         mPlacementObjects);
+}
+
+bool CPlacementController::IsPointerOverActiveUi(
+    const FVector2& MouseScreenPos) const
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return false;
+
+    return UIManager->IsPointOverEnabledWidget(MouseScreenPos);
 }
 
 std::shared_ptr<CPlacementAreaObject> CPlacementController::PickPlacementObject(

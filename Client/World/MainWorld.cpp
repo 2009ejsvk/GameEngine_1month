@@ -87,6 +87,12 @@ bool CMainWorld::TryApplyEdict(
         return false;
     }
 
+    if (!Definition->Implemented)
+    {
+        OutMessage = L"아직 구현되지 않은 칙령입니다.";
+        return false;
+    }
+
     FGovernmentEdictState* TargetState = nullptr;
 
     for (size_t i = 0; i < mGovernmentEdicts.size(); ++i)

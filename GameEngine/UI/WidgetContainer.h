@@ -34,6 +34,7 @@ public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
     virtual void Render();
+	virtual bool HitTest(const FVector2& MousePos);
 	virtual bool CollisionMouse(std::weak_ptr<CWidget>& Result,
 		const FVector2& MousePos);
 	virtual void MouseHovered();

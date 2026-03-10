@@ -24,6 +24,7 @@ private:
 public:
 	bool Init();
 	void Update(float DeltaTime);
+	bool IsPointOverEnabledWidget(const FVector2& MousePos);
 	bool CollisionMouse(float DeltaTime, const FVector2& MousePos);
 	void Render();
 	std::weak_ptr<CWidgetContainer> GetWidget(const std::string& Name);

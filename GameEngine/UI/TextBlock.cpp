@@ -48,6 +48,12 @@ void CTextBlock::SetFont(const std::string& FontName)
 
 void CTextBlock::SetText(const TCHAR* Text)
 {
+	if (!Text)
+		Text = TEXT("");
+
+	if (mText == Text)
+		return;
+
 	mText = Text;
 
 	CreateTextLayout();

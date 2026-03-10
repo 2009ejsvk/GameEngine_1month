@@ -6,12 +6,14 @@
 struct FGovernmentEdictDefinition
 {
     EGovernmentEdictType         Type = EGovernmentEdictType::None;
+    EEdictEra                    Era = EEdictEra::Colonial;
     EGovernmentEdictMode         Mode = EGovernmentEdictMode::Passive;
     EPoliticalActionType         ActionType = EPoliticalActionType::None;
     std::wstring                 DisplayName;
     std::wstring                 Summary;
     std::wstring                 EffectText;
     const wchar_t*               IconPath = nullptr;
+    bool                         Implemented = false;
     long long                    BaseCost = 0;
     long long                    CostPerCitizen = 0;
     long long                    MonthlyUpkeep = 0;

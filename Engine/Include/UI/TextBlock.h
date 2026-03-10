@@ -68,6 +68,9 @@ public:
 
 	virtual void SetSize(const FVector3& Size)
 	{
+		if (mSize.x == Size.x && mSize.y == Size.y && mSize.z == Size.z)
+			return;
+
 		CWidget::SetSize(Size);
 
 		CreateTextLayout();
@@ -75,6 +78,9 @@ public:
 
 	virtual void SetSize(float x, float y)
 	{
+		if (mSize.x == x && mSize.y == y)
+			return;
+
 		CWidget::SetSize(x, y);
 
 		CreateTextLayout();
