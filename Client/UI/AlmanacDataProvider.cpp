@@ -1,6 +1,7 @@
 #include "AlmanacDataProvider.h"
 #include "../Politics/EdictSystem.h"
 #include "../World/WorldStatsSnapshot.h"
+#include "World/World.h"
 #include <algorithm>
 #include <cmath>
 #include <cwchar>
@@ -75,7 +76,7 @@ namespace
         }
 
         for (int CategoryIndex = 0;
-            CategoryIndex < AlmanacDataProvider::GBuildingCategoryCount;
+            CategoryIndex < BuildingCategoryInfo::GBuildingCategoryCount;
             ++CategoryIndex)
         {
             Snapshot.BuildingCategoryCount[CategoryIndex] =
@@ -86,6 +87,14 @@ namespace
 
 namespace AlmanacDataProvider
 {
+    FAlmanacSnapshot BuildSnapshot(
+        const std::shared_ptr<CWorld>& World)
+    {
+        return BuildSnapshot(
+            World,
+            std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World));
+    }
+
     FAlmanacSnapshot BuildSnapshot(
         const std::shared_ptr<CWorld>& World,
         const std::shared_ptr<IMainWorldAlmanacAccess>& MainWorld)

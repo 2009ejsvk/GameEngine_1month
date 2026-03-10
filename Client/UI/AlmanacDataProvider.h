@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Building/BuildingCategoryInfo.h"
 #include "../Politics/PoliticalTypes.h"
 #include "../World/MainWorldAccess.h"
 #include <memory>
@@ -11,8 +12,6 @@ class CWorld;
 
 namespace AlmanacDataProvider
 {
-    constexpr int GBuildingCategoryCount = 8;
-
     struct FAlmanacSnapshot
     {
         bool HasMainWorld = false;
@@ -32,7 +31,7 @@ namespace AlmanacDataProvider
         int AnyNeutralAxisCitizenCount = 0;
         int FullyNeutralCitizenCount = 0;
         int PoliticalCount[static_cast<int>(EPoliticalAxis::Count)][3] = {};
-        int BuildingCategoryCount[GBuildingCategoryCount] = {};
+        int BuildingCategoryCount[BuildingCategoryInfo::GBuildingCategoryCount] = {};
         long long NationalBudget = 0;
         long long MonthlyWageCost = 0;
         long long MonthlyUpkeepCost = 0;
@@ -70,6 +69,9 @@ namespace AlmanacDataProvider
         std::vector<std::pair<std::wstring, int>> TopResourceBuildings;
         std::vector<std::wstring> ActiveEdictLines;
     };
+
+    FAlmanacSnapshot BuildSnapshot(
+        const std::shared_ptr<CWorld>& World);
 
     FAlmanacSnapshot BuildSnapshot(
         const std::shared_ptr<CWorld>& World,

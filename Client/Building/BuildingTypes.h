@@ -7,7 +7,7 @@
 #include <vector>
 
 // 건물 카탈로그 카테고리 번호.
-// BuildingCatalog.cpp 의 CategoryLabels 배열과 순서가 일치해야 한다.
+// BuildingCategoryInfo.h 의 카테고리 메타데이터와 순서가 일치해야 한다.
 enum class EBuildingCategory
 {
     Infrastructure  = 0,  // 교통 및 기반시설

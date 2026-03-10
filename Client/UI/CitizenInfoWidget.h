@@ -9,10 +9,13 @@ struct FNpcPoliticalProfile;
 struct FCitizenIdentityProfile;
 struct FBuildingCatalogEntry;
 
+class FCitizenInfoRenderer;
+
 class CCitizenInfoWidget :
     public CWidgetContainer
 {
     friend class CWorldUIManager;
+    friend class FCitizenInfoRenderer;
 
 protected:
     CCitizenInfoWidget();
@@ -71,6 +74,7 @@ private:
     float mPanelWidth = 360.f;
     float mPanelHeight = 720.f;
     float mPanelTop = 56.f;
+    FVector2 mRequestedScreenPos = FVector2(0.f, 0.f);
 
 public:
     virtual bool Init();
@@ -91,22 +95,7 @@ public:
         const FVector2& ScreenPos);
 
 private:
-    void SetTitle(const std::wstring& Title);
-    void SetSubtitle(const std::wstring& Subtitle);
-    void SetCitizenSatisfaction(
-        const FNpcSatisfaction& Satisfaction,
-        const FCitizenIdentityProfile& IdentityProfile,
-        const FNpcPoliticalProfile& PoliticalProfile);
-    void SetBodyText(const std::wstring& Text);
-    void SetPanelScreenPos(const FVector2& ScreenPos);
-    void RefreshPanelLayout();
-    void RefreshModeVisibility();
-    void RefreshBuildingInfo();
-    void RefreshBuildingTabState();
-    void UpdateBuildingTitleIcon(const FBuildingCatalogEntry* CatalogEntry);
-    void SetBudgetControlsVisible(bool Visible);
-    void SetActionButtonsVisible(bool Visible);
-    void SetTabButtonsVisible(bool Visible);
+    void RefreshFromState();
     void SelectBuildingTab(EBuildingInfoTab Tab);
     void SetBuildingBudgetLevel(int Level);
     void OnCloseButtonClick();

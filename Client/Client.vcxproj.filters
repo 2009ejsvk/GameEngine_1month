@@ -210,7 +210,46 @@
     <ClCompile Include="UI\BuildMenuWidget.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
+    <ClCompile Include="UI\BuildMenuDataProvider.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\BuildMenuRenderer.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
     <ClCompile Include="UI\AlmanacDataProvider.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRenderer.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererCreate.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererLayout.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\EdictDataProvider.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\EdictRenderer.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\EdictRendererCreate.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\EdictRendererLayout.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CitizenInfoDataProvider.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CitizenInfoRenderer.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TopHudDataProvider.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TopHudRenderer.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="UI\AlmanacWidget.cpp">
@@ -341,7 +380,40 @@
     <ClInclude Include="UI\BuildMenuWidget.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
+    <ClInclude Include="UI\BuildMenuDataProvider.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\BuildMenuRenderer.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
     <ClInclude Include="UI\AlmanacDataProvider.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\AlmanacRenderer.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\AlmanacRendererInternal.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\EdictDataProvider.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\EdictRenderer.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\EdictRendererInternal.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CitizenInfoDataProvider.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CitizenInfoRenderer.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TopHudDataProvider.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TopHudRenderer.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
     <ClInclude Include="UI\AlmanacWidget.h">

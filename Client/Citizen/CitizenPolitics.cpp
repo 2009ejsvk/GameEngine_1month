@@ -1,11 +1,10 @@
 #include "CitizenPolitics.h"
+#include "../GameConstants.h"
 #include <algorithm>
 #include <cstdlib>
 
 namespace
 {
-    constexpr float GPoliticalShiftInterval = 12.f;
-
     EPoliticalStance GetOppositePoliticalStance(EPoliticalStance Stance)
     {
         switch (Stance)
@@ -66,7 +65,8 @@ namespace CitizenPolitics
 
         // 초기 갱신 타이밍을 분산시켜 한 프레임에 편향이 몰리지 않게 한다.
         TickAccum =
-            static_cast<float>(rand() % 1000) / 1000.f * GPoliticalShiftInterval;
+            static_cast<float>(rand() % 1000) / 1000.f *
+                GameConstants::Politics::CitizenPoliticalShiftIntervalSeconds;
     }
 
     void Update(
@@ -80,9 +80,11 @@ namespace CitizenPolitics
 
         TickAccum += DeltaTime;
 
-        while (TickAccum >= GPoliticalShiftInterval)
+        while (TickAccum >=
+            GameConstants::Politics::CitizenPoliticalShiftIntervalSeconds)
         {
-            TickAccum -= GPoliticalShiftInterval;
+            TickAccum -=
+                GameConstants::Politics::CitizenPoliticalShiftIntervalSeconds;
 
             const int AxisIndex = rand() %
                 static_cast<int>(EPoliticalAxis::Count);

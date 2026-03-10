@@ -6,10 +6,13 @@
 #include <string>
 #include <vector>
 
+class FBuildMenuRenderer;
+
 class CBuildMenuWidget :
     public CWidgetContainer
 {
     friend class CWorldUIManager;
+    friend class FBuildMenuRenderer;
 
 protected:
     CBuildMenuWidget();
@@ -60,6 +63,7 @@ private:
     EBuildingCategory mSelectedCategory = EBuildingCategory::Infrastructure;
     int   mPreviewEntryIndex      = -1;
     int   mCurrentPage            = 0;
+    int   mPageCount              = 1;
     float mPanelWidth             = 1100.f;
     float mPanelHeight            = 760.f;
 
@@ -82,20 +86,11 @@ public:
     bool IsMouseOverOpenPanel(const FVector2& MousePos) const;
 
 private:
-    void RefreshLayout();
-    void RefreshNpcCountText();
-    void RefreshEconomyStatus();
-    void RefreshYearbookStatus();
-    void ApplyMenuOpenState();
-    void ApplyYearbookOpenState();
-    void RefreshCategoryButtons();
-    void RefreshBuildingButtons();
+    void RefreshFromState();
     void SelectCategory(EBuildingCategory Category);
     void MovePage(int DeltaPage);
     void PreviewSlot(int SlotIndex);
     void StartPlacementBySlot(int SlotIndex);
-    void RefreshDetailPanel();
-    std::vector<int> CollectCategoryEntryIndices() const;
 
 private:
     void OnBuildButtonClick();

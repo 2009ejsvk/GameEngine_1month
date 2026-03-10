@@ -6,6 +6,8 @@
 #include <array>
 #include <vector>
 
+class FAlmanacRenderer;
+
 enum class EAlmanacPage
 {
     Overview = 0,
@@ -24,6 +26,7 @@ class CAlmanacWidget :
     public CWidgetContainer
 {
     friend class CWorldUIManager;
+    friend class FAlmanacRenderer;
 
 protected:
     CAlmanacWidget();
@@ -116,10 +119,7 @@ public:
     }
 
 private:
-    void RefreshLayout();
     void RefreshData();
-    void ApplyOpenState();
-    void ApplySelectedPage();
     void SelectPage(EAlmanacPage Page);
 
 private:

@@ -5,7 +5,9 @@
 #include <string>
 #include <vector>
 
-enum class EEdictUiCategory
+class FEdictRenderer;
+
+enum class EEdictUiCategory : int
 {
     Colonial = 0,
     WorldWars,
@@ -17,6 +19,7 @@ class CEdictWidget :
     public CWidgetContainer
 {
     friend class CWorldUIManager;
+    friend class FEdictRenderer;
 
 protected:
     CEdictWidget();
@@ -66,6 +69,7 @@ private:
     int   mPreviewEntryIndex = -1;
     int   mSelectedEntryIndex = -1;
     int   mCurrentPage = 0;
+    int   mPageCount = 1;
     float mPanelWidth = 1120.f;
     float mPanelHeight = 760.f;
     std::wstring mFeedbackMessage;
@@ -86,20 +90,13 @@ public:
     bool IsMouseOverOpenPanel(const FVector2& MousePos) const;
 
 private:
-    void RefreshLayout();
-    void RefreshData();
-    void ApplyOpenState();
-    void RefreshCategoryButtons();
-    void RefreshEdictButtons();
-    void RefreshTaxPolicyControls();
+    void RefreshFromState();
     void SelectCategory(EEdictUiCategory Category);
     void MovePage(int DeltaPage);
     void PreviewSlot(int SlotIndex);
     void ActivateSlot(int SlotIndex);
     void SelectOrApplySlot(int SlotIndex);
     void AdjustTaxPolicy(ETaxPolicyType Type, int DeltaPercent);
-    void RefreshDetailPanel();
-    std::vector<int> CollectCategoryEntryIndices() const;
 
 private:
     void OnPrevPageClick();

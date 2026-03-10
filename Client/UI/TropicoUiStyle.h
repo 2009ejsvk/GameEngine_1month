@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UI/Button.h"
+#include "TropicoUiTheme.h"
 #include <string>
 
 namespace TropicoUiAssets
@@ -62,13 +63,13 @@ namespace TropicoUiStyle
             return;
 
         Button->SetTint(EButtonState::Normal,
-            FVector4(0.20f, 0.22f, 0.26f, 0.92f));
+            TropicoUiTheme::GButtonDefaultNormalTint);
         Button->SetTint(EButtonState::Hovered,
-            FVector4(0.26f, 0.30f, 0.35f, 0.95f));
+            TropicoUiTheme::GButtonDefaultHoverTint);
         Button->SetTint(EButtonState::Click,
-            FVector4(0.14f, 0.16f, 0.20f, 0.98f));
+            TropicoUiTheme::GButtonDefaultClickTint);
         Button->SetTint(EButtonState::Disable,
-            FVector4(0.10f, 0.10f, 0.12f, 0.70f));
+            TropicoUiTheme::GButtonDefaultDisableTint);
     }
 
     inline void ConfigureHighlightedButtonStyle(
@@ -78,13 +79,13 @@ namespace TropicoUiStyle
             return;
 
         Button->SetTint(EButtonState::Normal,
-            FVector4(0.10f, 0.32f, 0.52f, 0.95f));
+            TropicoUiTheme::GButtonHighlightNormalTint);
         Button->SetTint(EButtonState::Hovered,
-            FVector4(0.16f, 0.40f, 0.62f, 0.98f));
+            TropicoUiTheme::GButtonHighlightHoverTint);
         Button->SetTint(EButtonState::Click,
-            FVector4(0.08f, 0.24f, 0.40f, 0.98f));
+            TropicoUiTheme::GButtonHighlightClickTint);
         Button->SetTint(EButtonState::Disable,
-            FVector4(0.08f, 0.24f, 0.40f, 0.70f));
+            TropicoUiTheme::GButtonHighlightDisableTint);
     }
 
     inline void ConfigureIconSlotButtonStyle(
@@ -94,13 +95,13 @@ namespace TropicoUiStyle
             return;
 
         Button->SetTint(EButtonState::Normal,
-            FVector4(1.f, 1.f, 1.f, 0.96f));
+            TropicoUiTheme::GButtonIconSlotNormalTint);
         Button->SetTint(EButtonState::Hovered,
-            FVector4(1.f, 1.f, 1.f, 1.f));
+            TropicoUiTheme::GButtonIconSlotHoverTint);
         Button->SetTint(EButtonState::Click,
-            FVector4(0.80f, 0.80f, 0.80f, 1.f));
+            TropicoUiTheme::GButtonIconSlotClickTint);
         Button->SetTint(EButtonState::Disable,
-            FVector4(0.35f, 0.35f, 0.35f, 0.75f));
+            TropicoUiTheme::GButtonIconSlotDisableTint);
     }
 
     inline void ConfigureCategoryTabButtonStyle(
@@ -113,24 +114,24 @@ namespace TropicoUiStyle
         if (Selected)
         {
             Button->SetTint(EButtonState::Normal,
-                FVector4(1.f, 1.f, 1.f, 1.f));
+                TropicoUiTheme::GButtonCategorySelectedNormalTint);
             Button->SetTint(EButtonState::Hovered,
-                FVector4(1.f, 1.f, 1.f, 1.f));
+                TropicoUiTheme::GButtonCategorySelectedHoverTint);
             Button->SetTint(EButtonState::Click,
-                FVector4(0.90f, 0.90f, 0.90f, 1.f));
+                TropicoUiTheme::GButtonCategorySelectedClickTint);
             Button->SetTint(EButtonState::Disable,
-                FVector4(0.50f, 0.50f, 0.50f, 0.75f));
+                TropicoUiTheme::GButtonCategorySelectedDisableTint);
             return;
         }
 
         Button->SetTint(EButtonState::Normal,
-            FVector4(0.74f, 0.84f, 0.98f, 0.96f));
+            TropicoUiTheme::GButtonCategoryNormalTint);
         Button->SetTint(EButtonState::Hovered,
-            FVector4(0.88f, 0.95f, 1.f, 1.f));
+            TropicoUiTheme::GButtonCategoryHoverTint);
         Button->SetTint(EButtonState::Click,
-            FVector4(0.62f, 0.74f, 0.92f, 1.f));
+            TropicoUiTheme::GButtonCategoryClickTint);
         Button->SetTint(EButtonState::Disable,
-            FVector4(0.5f, 0.5f, 0.5f, 0.7f));
+            TropicoUiTheme::GButtonCategoryDisableTint);
     }
 
     inline void ApplyTextureToAllButtonStates(

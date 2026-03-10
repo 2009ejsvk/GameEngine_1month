@@ -1,4 +1,5 @@
 #include "BuildingCatalog.h"
+#include "BuildingCategoryInfo.h"
 #include "Asset/PathManager.h"
 #include <Windows.h>
 #include <algorithm>
@@ -48,20 +49,6 @@ namespace
 
 namespace
 {
-    constexpr int CategoryCount = 8;
-
-    const wchar_t* CategoryLabels[CategoryCount] =
-    {
-        L"교통 및 기반시설",
-        L"음식 및 자원",
-        L"산업",
-        L"주거지",
-        L"오락",
-        L"미디어 및 교육",
-        L"관광업",
-        L"공익 서비스"
-    };
-
     EPlacementTemplateType ResolveTemplateTypeByBuildingId(
         const std::string& BuildingId)
     {
@@ -1186,8 +1173,11 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
             const int CategoryIndex = static_cast<int>(Record.Category);
             const int i = Record.LocalIndex;
 
-            if (CategoryIndex < 0 || CategoryIndex >= CategoryCount || i < 0)
+            if (!BuildingCategoryInfo::IsValidCategoryIndex(CategoryIndex) ||
+                i < 0)
+            {
                 continue;
+            }
 
             bool Residential = false;
             bool FoodProvider = false;
@@ -1202,7 +1192,8 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
             Entry.Id = "build_" + std::to_string(CategoryIndex + 1) +
                 "_" + std::to_string(i + 1);
             Entry.DisplayName = Record.DisplayName;
-            Entry.CategoryName = CategoryLabels[CategoryIndex];
+            Entry.CategoryName =
+                BuildingCategoryInfo::GetDisplayName(CategoryIndex);
             Entry.DetailText =
                 Record.DetailText.empty() ?
                 L"세부 데이터 준비 중" :

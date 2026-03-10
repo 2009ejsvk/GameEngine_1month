@@ -8,7 +8,7 @@ namespace CitizenPolitics
     // TickAccum도 분산을 위해 초기화한다.
     void Init(FNpcPoliticalProfile& Profile, float& TickAccum);
 
-    // 매 Update마다 호출. GPoliticalShiftInterval마다 축 하나를 재추출한다.
+    // 매 Update마다 호출. 정치 이동 주기마다 축 하나를 재추출한다.
     // OverallSatisfaction은 성향 이동 확률 보정에 사용된다.
     void Update(
         FNpcPoliticalProfile& Profile,

@@ -1,5 +1,6 @@
 #include "EconomySystem.h"
 #include "../Politics/EdictSystem.h"
+#include "../GameConstants.h"
 #include "World/World.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
@@ -10,11 +11,6 @@
 
 namespace
 {
-    constexpr int GExportPricePerStockUnit = 2;
-    constexpr double GDailyConsumptionSpendBase = 30.0;
-    constexpr double GDailyWorkerIncomeBase = 66.6666666667;
-    constexpr double GDailyResidenceValueBase = 11.4285714286;
-
     struct FTaxEventEconomyEffects
     {
         double ExportMultiplier = 1.0;
@@ -297,7 +293,8 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
                     EffectiveExportStock))
             {
                 Result.ExportIncome += static_cast<long long>(
-                    EffectiveExportStock) * GExportPricePerStockUnit;
+                    EffectiveExportStock) *
+                    GameConstants::Economy::ExportPricePerStockUnit;
             }
         }
     }
@@ -325,7 +322,7 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
             OverallSum += Satisfaction.Overall;
 
             ConsumptionTaxIncome +=
-                GDailyConsumptionSpendBase *
+                GameConstants::Economy::DailyConsumptionSpendBase *
                 static_cast<double>(
                     GovernmentProfile.TaxPolicy.ConsumptionRatePercent) /
                 100.0;
@@ -333,7 +330,7 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
             if (!Citizen->GetWorkBuilding().empty())
             {
                 IncomeTaxIncome +=
-                    GDailyWorkerIncomeBase *
+                    GameConstants::Economy::DailyWorkerIncomeBase *
                     static_cast<double>(
                         GovernmentProfile.TaxPolicy.IncomeRatePercent) /
                     100.0;
@@ -342,7 +339,7 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
             if (!Citizen->GetHomeBuilding().empty())
             {
                 ResidenceTaxIncome +=
-                    GDailyResidenceValueBase *
+                    GameConstants::Economy::DailyResidenceValueBase *
                     static_cast<double>(
                         GovernmentProfile.TaxPolicy.PropertyRatePercent) /
                     100.0;

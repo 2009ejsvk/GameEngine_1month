@@ -3,10 +3,13 @@
 #include "UI/WidgetContainer.h"
 #include <vector>
 
+class FTopHudRenderer;
+
 class CTopHudWidget :
     public CWidgetContainer
 {
     friend class CWorldUIManager;
+    friend class FTopHudRenderer;
 
 protected:
     CTopHudWidget();
@@ -40,6 +43,7 @@ private:
     std::vector<std::weak_ptr<class CButton>> mMenuButtons;
     std::vector<std::weak_ptr<class CTextBlock>> mMenuButtonTexts;
     float mMonthProgress = 0.f;
+    bool mGameLost = false;
     bool mGameOverMenusClosed = false;
 
 public:
@@ -47,8 +51,7 @@ public:
     virtual void Update(float DeltaTime);
 
 private:
-    void RefreshData();
-    void RefreshLayout();
+    void RefreshFromState();
     void CloseMenus(
         bool CloseBuildMenu,
         bool CloseAlmanac,

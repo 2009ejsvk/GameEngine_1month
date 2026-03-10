@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include "../GameConstants.h"
 #include "../Building/BuildingTypes.h"
 #include "../Citizen/CitizenTypes.h"
 #include "CitizenOrbComponents.h"
@@ -55,16 +56,26 @@ private:
     ECitizenState mResumeStateAfterService = ECitizenState::GoingToWork;
     float mDwellTimer = 0.f;
     float mDefaultMoveSpeed = 200.f;
-    static constexpr float GAtWorkDuration = 15.f;
-    static constexpr float GAtHomeDuration = 10.f;
-    static constexpr float GAtFoodDuration = 4.f;
-    static constexpr float GAtFunDuration = 6.f;
-    static constexpr float GFoodInterruptThreshold = 25.f;
-    static constexpr float GFunInterruptThreshold = 30.f;
-    static constexpr float GHealthRemoveThreshold = 5.f;
-    static constexpr float GTeamsterSpeedMultiplier = 5.f;
-    static constexpr int GTeamsterTransferUnit = 1000;
-    static constexpr float GPoliticalShiftInterval = 12.f;
+    static constexpr float GAtWorkDuration =
+        GameConstants::Orb::AtWorkDurationSeconds;
+    static constexpr float GAtHomeDuration =
+        GameConstants::Orb::AtHomeDurationSeconds;
+    static constexpr float GAtFoodDuration =
+        GameConstants::Orb::AtFoodDurationSeconds;
+    static constexpr float GAtFunDuration =
+        GameConstants::Orb::AtFunDurationSeconds;
+    static constexpr float GFoodInterruptThreshold =
+        GameConstants::Orb::FoodInterruptThreshold;
+    static constexpr float GFunInterruptThreshold =
+        GameConstants::Orb::FunInterruptThreshold;
+    static constexpr float GHealthRemoveThreshold =
+        GameConstants::Orb::HealthRemovalThreshold;
+    static constexpr float GTeamsterSpeedMultiplier =
+        GameConstants::Orb::TeamsterSpeedMultiplier;
+    static constexpr int GTeamsterTransferUnit =
+        GameConstants::Orb::TeamsterTransferUnit;
+    static constexpr float GPoliticalShiftInterval =
+        GameConstants::Orb::PoliticalShiftIntervalSeconds;
     bool mHasLockedTarget = false;
     bool mWaitingForPath = false;
     bool mScaleInitialized = false;

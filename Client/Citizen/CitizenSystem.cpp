@@ -1,5 +1,6 @@
 #include "CitizenSystem.h"
 #include "World/World.h"
+#include "../GameConstants.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Citizen/CitizenTypes.h"
@@ -12,9 +13,6 @@
 
 namespace
 {
-    constexpr float GNpcSpeedBase     = 140.f;
-    constexpr float GNpcSpeedVariance = 21.f;
-
     FCitizenIdentityProfile BuildCitizenIdentityProfile()
     {
         FCitizenIdentityProfile Profile;
@@ -231,8 +229,9 @@ void CitizenSystem::SpawnCitizenOrb(CWorld* World, int& SpawnedNpcCount)
     if (!FunNames.empty())
         MarkerOrbObj->SetFunBuilding(PickRandomBuildingName(FunNames));
 
-    const float Speed = GNpcSpeedBase +
-        ((float)(rand() % 1001) / 500.f - 1.f) * GNpcSpeedVariance;
+    const float Speed = GameConstants::Citizen::NpcBaseMoveSpeed +
+        ((float)(rand() % 1001) / 500.f - 1.f) *
+            GameConstants::Citizen::NpcMoveSpeedVariance;
     MarkerOrbObj->SetMoveSpeed(Speed);
     ++SpawnedNpcCount;
 }
