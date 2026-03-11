@@ -31,6 +31,10 @@ private:
     FBuildingCatalogEntry mRoadBrushEntry;
     std::string mRoadBrushSpriteTexturePath;
     int mLastRoadBrushTileIndex = -1;
+    int mRoadPathStartTileIndex = -1;
+    int mRoadPreviewEndTileIndex = -1;
+    std::vector<int> mRoadPreviewTileIndices;
+    std::weak_ptr<class CTileMapObject> mRoadPreviewTileMapObject;
 
 public:
     virtual bool Init();
@@ -62,8 +66,25 @@ private:
     bool IsPlacementInputBlocked(const FVector2& MouseScreenPos) const;
     bool TryCommitActivePlacement();
     bool RestartRoadBrushPlacement();
+    void UpdateRoadPathPreview();
+    bool TryGetTileMap(
+        std::shared_ptr<class CTileMapComponent>& OutTileMap) const;
+    bool TryGetRoadPreviewTileMap(
+        std::shared_ptr<class CTileMapComponent>& OutTileMap);
     bool TryGetMouseTileIndex(
         const FVector2& MouseWorldPos, int& OutTileIndex) const;
+    bool TryGetTileWorldPos(
+        int TileIndex, FVector2& OutWorldPos) const;
+    bool ResolveRoadPathToTile(
+        int EndTileIndex,
+        std::vector<int>& OutPathIndices) const;
+    bool IsRoadPathTileTraversable(
+        const std::shared_ptr<class CTileMapComponent>& TileMap,
+        int TileIndex) const;
+    void ApplyRoadPreviewTiles(const std::vector<int>& TileIndices);
+    bool EnsureRoadPlacementObject();
+    bool TryPlaceRoadAtTile(int TileIndex);
+    bool CommitRoadPathToTile(int EndTileIndex);
     void ClearRoadBrushMode();
     std::shared_ptr<class CPlacementAreaObject> PickPlacementObject(
         const FVector2& MouseWorldPos);

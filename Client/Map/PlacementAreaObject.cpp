@@ -9,6 +9,10 @@
 
 namespace
 {
+    int GTopologyBatchDepth = 0;
+    bool GTopologyBatchPending = false;
+    std::weak_ptr<CWorld> GTopologyBatchWorld;
+
     std::string WideToUtf8(const std::wstring& Text)
     {
         if (Text.empty())
@@ -39,6 +43,51 @@ namespace
             CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
             &Utf8[0], RequiredBytes, nullptr, nullptr);
         return Utf8;
+    }
+
+}
+
+void CPlacementAreaObject::BeginTopologyBatchUpdate()
+{
+    ++GTopologyBatchDepth;
+}
+
+void CPlacementAreaObject::EndTopologyBatchUpdate()
+{
+    if (GTopologyBatchDepth <= 0)
+        return;
+
+    --GTopologyBatchDepth;
+
+    if (GTopologyBatchDepth > 0 || !GTopologyBatchPending)
+        return;
+
+    GTopologyBatchPending = false;
+    auto World = GTopologyBatchWorld.lock();
+    GTopologyBatchWorld.reset();
+
+    if (!World)
+        return;
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return;
+
+    for (size_t i = 0; i < BuildingList.size(); ++i)
+    {
+        auto Building = BuildingList[i].lock();
+
+        if (!Building || !Building->GetAlive() || !Building->GetEnable())
+            continue;
+
+        Building->RefreshAccessibilityScore();
+    }
+
+    if (auto RoadNetworkAccess =
+            dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()))
+    {
+        RoadNetworkAccess->RebuildRoadNetwork();
     }
 }
 
@@ -241,6 +290,13 @@ void CPlacementAreaObject::NotifyPlacementTopologyChanged()
 
     if (!World)
         return;
+
+    if (GTopologyBatchDepth > 0)
+    {
+        GTopologyBatchPending = true;
+        GTopologyBatchWorld = World;
+        return;
+    }
 
     std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
 

@@ -24,6 +24,8 @@ protected:
 
 public:
     virtual ~CPlacementAreaObject();
+    static void BeginTopologyBatchUpdate();
+    static void EndTopologyBatchUpdate();
 
 private:
     std::weak_ptr<class CTileMapObject> mTileMapObject;

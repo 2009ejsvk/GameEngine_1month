@@ -12,6 +12,7 @@
 constexpr const char* GTileMapObjectName         = "TileMap";
 constexpr const char* GTileMapFloorBlueName      = "TileMapFloorBlue";
 constexpr const char* GTileMapFloorYellowName    = "TileMapFloorYellow";
+constexpr const char* GTileMapRoadPreviewName    = "TileMapRoadPreview";
 constexpr const char* GTileMapExpansionName      = "TileMapExpansion";
 
 // ── 배치 시스템 오브젝트 ─────────────────────────────────────────────────────

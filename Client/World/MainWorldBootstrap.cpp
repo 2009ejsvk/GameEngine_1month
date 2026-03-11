@@ -347,16 +347,20 @@ bool CMainWorld::Init()
         CreateGameObject<CTileMapObject>(GTileMapFloorBlueName);
     auto FloorYellowTileMap =
         CreateGameObject<CTileMapObject>(GTileMapFloorYellowName);
+    auto RoadPreviewTileMap =
+        CreateGameObject<CTileMapObject>(GTileMapRoadPreviewName);
     auto ExpansionTileMap =
         CreateGameObject<CTileMapObject>(GTileMapExpansionName);
     auto MainCameraObj = MainCamera.lock();
     auto FloorBlueTileMapObj = FloorBlueTileMap.lock();
     auto FloorYellowTileMapObj = FloorYellowTileMap.lock();
+    auto RoadPreviewTileMapObj = RoadPreviewTileMap.lock();
     auto ExpansionTileMapObj = ExpansionTileMap.lock();
 
     if (TileMapObj &&
         FloorBlueTileMapObj &&
         FloorYellowTileMapObj &&
+        RoadPreviewTileMapObj &&
         ExpansionTileMapObj)
     {
         auto BaseTileMap = TileMapObj->GetTileMap().lock();
@@ -387,6 +391,14 @@ bool CMainWorld::Init()
                 2,
                 ERenderListSort::None,
                 FVector4(1.f, 1.f, 0.f, 1.f));
+            ConfigureOverlayTileMap(
+                TileMapObj,
+                BaseTileMap,
+                RoadPreviewTileMapObj,
+                "MapFloorBlue",
+                2,
+                ERenderListSort::None,
+                FVector4(1.f, 0.72f, 0.20f, 1.f));
         }
     }
 

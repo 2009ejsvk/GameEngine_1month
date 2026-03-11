@@ -4,6 +4,7 @@
 #include "../UI/CitizenInfoWidget.h"
 #include "../ObjectNames.h"
 #include "Component/CameraComponent.h"
+#include "Component/TileMapComponent.h"
 #include "Device.h"
 #include "World/World.h"
 #include "World/Input.h"
@@ -12,7 +13,106 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <limits>
 #include <Windows.h>
+
+namespace
+{
+    constexpr float GRoadPreviewAlpha = 0.9f;
+    constexpr int GRoadPathDirCount = 4;
+    constexpr int GRoadPathDirX[GRoadPathDirCount] = { 0, 1, 0, -1 };
+    constexpr int GRoadPathDirY[GRoadPathDirCount] = { 1, 0, -1, 0 };
+
+    bool TryGetTileGridCoords(
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        int TileIndex,
+        int& OutGridX,
+        int& OutGridY)
+    {
+        OutGridX = 0;
+        OutGridY = 0;
+
+        if (!TileMap)
+            return false;
+
+        auto Tile = TileMap->GetTile(TileIndex).lock();
+
+        if (!Tile)
+            return false;
+
+        const int TileX = Tile->GetIndexX();
+        const int TileY = Tile->GetIndexY();
+        OutGridX = TileX + ((TileY + (TileY & 1)) / 2);
+        OutGridY = TileX - (TileY / 2);
+        return true;
+    }
+
+    int GetTileIndexByGrid(
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        int GridX,
+        int GridY)
+    {
+        if (!TileMap)
+            return -1;
+
+        const int TileY = GridX - GridY;
+
+        if (TileY < 0 || TileY >= TileMap->GetTileCountY())
+            return -1;
+
+        const int TileX = GridY + (TileY / 2);
+
+        if (TileX < 0 || TileX >= TileMap->GetTileCountX())
+            return -1;
+
+        return TileY * TileMap->GetTileCountX() + TileX;
+    }
+
+    int GetRoadPathNeighborIndex(
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        int TileIndex,
+        int DirIndex)
+    {
+        if (!TileMap ||
+            DirIndex < 0 ||
+            DirIndex >= GRoadPathDirCount)
+        {
+            return -1;
+        }
+
+        int GridX = 0;
+        int GridY = 0;
+
+        if (!TryGetTileGridCoords(TileMap, TileIndex, GridX, GridY))
+            return -1;
+
+        return GetTileIndexByGrid(
+            TileMap,
+            GridX + GRoadPathDirX[DirIndex],
+            GridY + GRoadPathDirY[DirIndex]);
+    }
+
+    float EstimateRoadPathCost(
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        int FromTileIndex,
+        int ToTileIndex)
+    {
+        int FromGridX = 0;
+        int FromGridY = 0;
+        int ToGridX = 0;
+        int ToGridY = 0;
+
+        if (!TryGetTileGridCoords(TileMap, FromTileIndex, FromGridX, FromGridY) ||
+            !TryGetTileGridCoords(TileMap, ToTileIndex, ToGridX, ToGridY))
+        {
+            return 0.f;
+        }
+
+        return static_cast<float>(
+            abs(FromGridX - ToGridX) +
+            abs(FromGridY - ToGridY));
+    }
+}
 
 CPlacementController::CPlacementController()
 {
@@ -72,6 +172,7 @@ void CPlacementController::Update(float DeltaTime)
     CGameObject::Update(DeltaTime);
 
     UpdateDemolitionHoverPreview();
+    UpdateRoadPathPreview();
 }
 
 void CPlacementController::SetDemolitionMode(bool Enable)
@@ -172,7 +273,9 @@ bool CPlacementController::BeginBuildPlacement(
         Visual->SetBuilding(PlacementObjectWeak);
 
     mActivePlacementObject = PlacementObject;
-    PlacementObject->StartMovePreview(Input->GetMouseWorldPos());
+
+    if (Entry.BuildingKind != EPlacementBuildingKind::Road)
+        PlacementObject->StartMovePreview(Input->GetMouseWorldPos());
 
     auto CitizenInfoWidget = mCitizenInfoWidget.lock();
 
@@ -325,6 +428,12 @@ void CPlacementController::MoveCurrentArea()
         return;
     }
 
+    if (mRoadBrushMode)
+    {
+        CancelActivePlacementSession();
+        return;
+    }
+
     auto ActiveObject = mActivePlacementObject.lock();
 
     if (ActiveObject && ActiveObject->IsMovePreviewActive())
@@ -370,6 +479,39 @@ void CPlacementController::PlaceCurrentArea()
 
     if (IsPlacementInputBlocked(MouseScreenPos))
         return;
+
+    if (mRoadBrushMode &&
+        mRoadBrushEntry.BuildingKind == EPlacementBuildingKind::Road)
+    {
+        int TileIndex = -1;
+
+        if (!TryGetMouseTileIndex(MouseWorldPos, TileIndex) ||
+            TileIndex < 0)
+        {
+            return;
+        }
+
+        if (mRoadPathStartTileIndex < 0)
+        {
+            std::shared_ptr<CTileMapComponent> TileMap;
+
+            if (!TryGetTileMap(TileMap) ||
+                !IsRoadPathTileTraversable(TileMap, TileIndex))
+            {
+                return;
+            }
+
+            mRoadPathStartTileIndex = TileIndex;
+            mRoadPreviewEndTileIndex = -1;
+            ApplyRoadPreviewTiles(std::vector<int>(1, TileIndex));
+            return;
+        }
+
+        if (CommitRoadPathToTile(TileIndex))
+            CancelActivePlacementSession();
+
+        return;
+    }
 
     if (TryCommitActivePlacement())
         return;
@@ -438,46 +580,10 @@ void CPlacementController::PlaceCurrentArea()
 
 void CPlacementController::PaintRoadHold()
 {
-    if (!mRoadBrushMode)
-        return;
-
-    auto World = mWorld.lock();
-
-    if (!World)
-        return;
-
-    auto Input = World->GetInput().lock();
-
-    if (!Input)
-        return;
-
-    if (IsPlacementInputBlocked(Input->GetMousePos()))
-        return;
-
-    auto ActivePlacementObject = mActivePlacementObject.lock();
-
-    if (!ActivePlacementObject ||
-        !ActivePlacementObject->IsMovePreviewActive() ||
-        !ActivePlacementObject->IsRoad())
-    {
-        return;
-    }
-
-    int TileIndex = -1;
-
-    if (!TryGetMouseTileIndex(Input->GetMouseWorldPos(), TileIndex) ||
-        TileIndex < 0 ||
-        TileIndex == mLastRoadBrushTileIndex)
-    {
-        return;
-    }
-
-    TryCommitActivePlacement();
 }
 
 void CPlacementController::FinishRoadBrushStroke()
 {
-    mLastRoadBrushTileIndex = -1;
 }
 
 void CPlacementController::CancelPlacementMode()
@@ -485,6 +591,12 @@ void CPlacementController::CancelPlacementMode()
     if (mDemolitionMode)
     {
         SetDemolitionMode(false);
+        return;
+    }
+
+    if (mRoadBrushMode)
+    {
+        CancelActivePlacementSession();
         return;
     }
 
@@ -699,10 +811,63 @@ bool CPlacementController::RestartRoadBrushPlacement()
     return true;
 }
 
-bool CPlacementController::TryGetMouseTileIndex(
-    const FVector2& MouseWorldPos, int& OutTileIndex) const
+void CPlacementController::UpdateRoadPathPreview()
 {
-    OutTileIndex = -1;
+    if (!mRoadBrushMode ||
+        mRoadBrushEntry.BuildingKind != EPlacementBuildingKind::Road ||
+        mRoadPathStartTileIndex < 0)
+    {
+        return;
+    }
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input || IsPlacementInputBlocked(Input->GetMousePos()))
+    {
+        if (mRoadPreviewTileIndices.size() != 1 ||
+            mRoadPreviewTileIndices[0] != mRoadPathStartTileIndex)
+        {
+            ApplyRoadPreviewTiles(
+                std::vector<int>(1, mRoadPathStartTileIndex));
+        }
+
+        return;
+    }
+
+    int EndTileIndex = -1;
+
+    if (!TryGetMouseTileIndex(Input->GetMouseWorldPos(), EndTileIndex) ||
+        EndTileIndex < 0)
+    {
+        ApplyRoadPreviewTiles(std::vector<int>(1, mRoadPathStartTileIndex));
+        mRoadPreviewEndTileIndex = -1;
+        return;
+    }
+
+    if (EndTileIndex == mRoadPreviewEndTileIndex)
+        return;
+
+    std::vector<int> PathIndices;
+
+    if (!ResolveRoadPathToTile(EndTileIndex, PathIndices) ||
+        PathIndices.empty())
+    {
+        PathIndices.push_back(mRoadPathStartTileIndex);
+    }
+
+    ApplyRoadPreviewTiles(PathIndices);
+    mRoadPreviewEndTileIndex = EndTileIndex;
+}
+
+bool CPlacementController::TryGetTileMap(
+    std::shared_ptr<class CTileMapComponent>& OutTileMap) const
+{
+    OutTileMap.reset();
 
     auto World = mWorld.lock();
 
@@ -715,21 +880,356 @@ bool CPlacementController::TryGetMouseTileIndex(
     if (!TileMapObject)
         return false;
 
-    auto TileMap = TileMapObject->GetTileMap().lock();
+    OutTileMap = TileMapObject->GetTileMap().lock();
+    return OutTileMap != nullptr;
+}
 
-    if (!TileMap)
+bool CPlacementController::TryGetRoadPreviewTileMap(
+    std::shared_ptr<class CTileMapComponent>& OutTileMap)
+{
+    OutTileMap.reset();
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    if (mRoadPreviewTileMapObject.expired())
+    {
+        mRoadPreviewTileMapObject =
+            World->FindObject<CTileMapObject>(GTileMapRoadPreviewName);
+    }
+
+    auto RoadPreviewObj = mRoadPreviewTileMapObject.lock();
+
+    if (!RoadPreviewObj)
+        return false;
+
+    OutTileMap = RoadPreviewObj->GetTileMap().lock();
+    return OutTileMap != nullptr;
+}
+
+bool CPlacementController::TryGetMouseTileIndex(
+    const FVector2& MouseWorldPos, int& OutTileIndex) const
+{
+    OutTileIndex = -1;
+
+    std::shared_ptr<CTileMapComponent> TileMap;
+
+    if (!TryGetTileMap(TileMap))
         return false;
 
     OutTileIndex = TileMap->GetTileIndex(MouseWorldPos);
     return OutTileIndex >= 0;
 }
 
+bool CPlacementController::TryGetTileWorldPos(
+    int TileIndex,
+    FVector2& OutWorldPos) const
+{
+    OutWorldPos = FVector2();
+
+    std::shared_ptr<CTileMapComponent> TileMap;
+
+    if (!TryGetTileMap(TileMap))
+        return false;
+
+    auto Tile = TileMap->GetTile(TileIndex).lock();
+
+    if (!Tile)
+        return false;
+
+    const FVector2 TileCenter = Tile->GetCenter();
+    OutWorldPos = TileCenter;
+
+    auto Owner = TileMap->GetOwner().lock();
+
+    if (Owner)
+    {
+        const FVector3 OwnerPos = Owner->GetWorldPos();
+        OutWorldPos.x += OwnerPos.x;
+        OutWorldPos.y += OwnerPos.y;
+    }
+
+    return true;
+}
+
+bool CPlacementController::ResolveRoadPathToTile(
+    int EndTileIndex,
+    std::vector<int>& OutPathIndices) const
+{
+    OutPathIndices.clear();
+
+    if (mRoadPathStartTileIndex < 0 || EndTileIndex < 0)
+        return false;
+
+    std::shared_ptr<CTileMapComponent> TileMap;
+
+    if (!TryGetTileMap(TileMap))
+        return false;
+
+    if (!IsRoadPathTileTraversable(TileMap, mRoadPathStartTileIndex) ||
+        !IsRoadPathTileTraversable(TileMap, EndTileIndex))
+    {
+        return false;
+    }
+
+    const int TileCount =
+        TileMap->GetTileCountX() * TileMap->GetTileCountY();
+
+    if (TileCount <= 0 ||
+        mRoadPathStartTileIndex >= TileCount ||
+        EndTileIndex >= TileCount)
+    {
+        return false;
+    }
+
+    std::vector<float> GScore(
+        TileCount, (std::numeric_limits<float>::max)());
+    std::vector<float> FScore(
+        TileCount, (std::numeric_limits<float>::max)());
+    std::vector<int> Parents(TileCount, -1);
+    std::vector<unsigned char> Open(TileCount, 0);
+    std::vector<unsigned char> Closed(TileCount, 0);
+
+    GScore[mRoadPathStartTileIndex] = 0.f;
+    FScore[mRoadPathStartTileIndex] = EstimateRoadPathCost(
+        TileMap,
+        mRoadPathStartTileIndex,
+        EndTileIndex);
+    Open[mRoadPathStartTileIndex] = 1;
+
+    while (true)
+    {
+        int CurrentIndex = -1;
+        float BestScore = (std::numeric_limits<float>::max)();
+
+        for (int i = 0; i < TileCount; ++i)
+        {
+            if (!Open[i] || Closed[i])
+                continue;
+
+            if (FScore[i] >= BestScore)
+                continue;
+
+            BestScore = FScore[i];
+            CurrentIndex = i;
+        }
+
+        if (CurrentIndex < 0)
+            break;
+
+        if (CurrentIndex == EndTileIndex)
+            break;
+
+        Open[CurrentIndex] = 0;
+        Closed[CurrentIndex] = 1;
+
+        for (int DirIndex = 0; DirIndex < GRoadPathDirCount; ++DirIndex)
+        {
+            const int NextIndex = GetRoadPathNeighborIndex(
+                TileMap,
+                CurrentIndex,
+                DirIndex);
+
+            if (NextIndex < 0 ||
+                Closed[NextIndex] ||
+                !IsRoadPathTileTraversable(TileMap, NextIndex))
+            {
+                continue;
+            }
+
+            const float CandidateScore = GScore[CurrentIndex] + 1.f;
+
+            if (CandidateScore >= GScore[NextIndex])
+                continue;
+
+            Parents[NextIndex] = CurrentIndex;
+            GScore[NextIndex] = CandidateScore;
+            FScore[NextIndex] = CandidateScore +
+                EstimateRoadPathCost(TileMap, NextIndex, EndTileIndex);
+            Open[NextIndex] = 1;
+        }
+    }
+
+    if (EndTileIndex != mRoadPathStartTileIndex &&
+        Parents[EndTileIndex] < 0)
+    {
+        return false;
+    }
+
+    int CurrentIndex = EndTileIndex;
+
+    while (CurrentIndex >= 0)
+    {
+        OutPathIndices.push_back(CurrentIndex);
+
+        if (CurrentIndex == mRoadPathStartTileIndex)
+            break;
+
+        CurrentIndex = Parents[CurrentIndex];
+    }
+
+    if (OutPathIndices.empty() ||
+        OutPathIndices.back() != mRoadPathStartTileIndex)
+    {
+        OutPathIndices.clear();
+        return false;
+    }
+
+    std::reverse(OutPathIndices.begin(), OutPathIndices.end());
+    return true;
+}
+
+bool CPlacementController::IsRoadPathTileTraversable(
+    const std::shared_ptr<class CTileMapComponent>& TileMap,
+    int TileIndex) const
+{
+    if (!TileMap || TileIndex < 0)
+        return false;
+
+    auto Tile = TileMap->GetTile(TileIndex).lock();
+
+    if (!Tile)
+        return false;
+
+    return TileMap->IsRoadTile(TileIndex) ||
+        Tile->GetType() != ETileType::UnableToMove;
+}
+
+void CPlacementController::ApplyRoadPreviewTiles(
+    const std::vector<int>& TileIndices)
+{
+    if (mRoadPreviewTileIndices == TileIndices)
+        return;
+
+    std::shared_ptr<CTileMapComponent> RoadPreviewTileMap;
+
+    if (!TryGetRoadPreviewTileMap(RoadPreviewTileMap))
+    {
+        mRoadPreviewTileIndices.clear();
+        return;
+    }
+
+    for (size_t i = 0; i < mRoadPreviewTileIndices.size(); ++i)
+    {
+        auto Tile = RoadPreviewTileMap->GetTile(
+            mRoadPreviewTileIndices[i]).lock();
+
+        if (!Tile)
+            continue;
+
+        Tile->SetOutLineColor(1.f, 0.72f, 0.20f, 0.f);
+    }
+
+    mRoadPreviewTileIndices = TileIndices;
+
+    for (size_t i = 0; i < mRoadPreviewTileIndices.size(); ++i)
+    {
+        auto Tile = RoadPreviewTileMap->GetTile(
+            mRoadPreviewTileIndices[i]).lock();
+
+        if (!Tile)
+            continue;
+
+        Tile->SetOutLineColor(1.f, 0.72f, 0.20f, GRoadPreviewAlpha);
+    }
+}
+
+bool CPlacementController::EnsureRoadPlacementObject()
+{
+    auto ActivePlacementObject = mActivePlacementObject.lock();
+
+    if (ActivePlacementObject &&
+        ActivePlacementObject->IsRoad() &&
+        !ActivePlacementObject->HasPlacedArea())
+    {
+        return true;
+    }
+
+    return RestartRoadBrushPlacement();
+}
+
+bool CPlacementController::TryPlaceRoadAtTile(int TileIndex)
+{
+    if (TileIndex < 0 || !EnsureRoadPlacementObject())
+        return false;
+
+    auto ActivePlacementObject = mActivePlacementObject.lock();
+
+    if (!ActivePlacementObject || !ActivePlacementObject->IsRoad())
+        return false;
+
+    FVector2 TileWorldPos;
+
+    if (!TryGetTileWorldPos(TileIndex, TileWorldPos))
+        return false;
+
+    ActivePlacementObject->StartMovePreview(TileWorldPos);
+    ActivePlacementObject->ConfirmPlacement();
+
+    const bool IsPlaced = ActivePlacementObject->HasPlacedArea();
+
+    if (!IsPlaced)
+    {
+        ActivePlacementObject->CancelMovePreview();
+        return false;
+    }
+
+    mActivePlacementObject.reset();
+    return true;
+}
+
+bool CPlacementController::CommitRoadPathToTile(int EndTileIndex)
+{
+    std::vector<int> PathIndices;
+
+    if (!ResolveRoadPathToTile(EndTileIndex, PathIndices) ||
+        PathIndices.empty())
+    {
+        return false;
+    }
+
+    std::shared_ptr<CTileMapComponent> TileMap;
+
+    if (!TryGetTileMap(TileMap))
+        return false;
+
+    std::vector<int> BuildIndices;
+
+    for (size_t i = 0; i < PathIndices.size(); ++i)
+    {
+        if (!TileMap->IsRoadTile(PathIndices[i]))
+            BuildIndices.push_back(PathIndices[i]);
+    }
+
+    CPlacementAreaObject::BeginTopologyBatchUpdate();
+
+    bool PlacedAny = false;
+
+    for (size_t i = 0; i < BuildIndices.size(); ++i)
+    {
+        if (TryPlaceRoadAtTile(BuildIndices[i]))
+            PlacedAny = true;
+    }
+
+    CPlacementAreaObject::EndTopologyBatchUpdate();
+
+    if (!PlacedAny && BuildIndices.empty())
+        return true;
+
+    return PlacedAny;
+}
+
 void CPlacementController::ClearRoadBrushMode()
 {
+    ApplyRoadPreviewTiles(std::vector<int>());
     mRoadBrushMode = false;
     mRoadBrushEntry = FBuildingCatalogEntry();
     mRoadBrushSpriteTexturePath.clear();
     mLastRoadBrushTileIndex = -1;
+    mRoadPathStartTileIndex = -1;
+    mRoadPreviewEndTileIndex = -1;
 }
 
 std::shared_ptr<CPlacementAreaObject> CPlacementController::PickPlacementObject(
