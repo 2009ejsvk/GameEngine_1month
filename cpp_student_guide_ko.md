@@ -60,7 +60,8 @@ private:
 2. 입력 상태(Press/Hold/Release)처럼 상태 전이를 명시적으로 표현한다.
 
 프로젝트 연결:
-1. `GameEngine/World/Input.cpp`는 입력 상태를 프레임 단위로 갱신한다.
+1. `GameEngine/World/Input.h`에서 `EInputState` 열거형 클래스 확인.
+2. `GameEngine/World/Input.cpp`의 `CInput::Update()`에서 입력 상태를 프레임 단위로 갱신하는 로직 분석.
 
 예제:
 ```cpp
@@ -130,8 +131,9 @@ T Clamp(T v, T lo, T hi) {
 2. 경계 이슈(최적화, 초기화, assert 제거)를 구분해서 확인한다.
 
 프로젝트 연결:
-1. `GameEngine`은 정적 라이브러리, `Client`는 실행 파일로 분리.
-2. PostBuild에서 `Copy.bat`을 통해 런타임 에셋을 동기화.
+1. `GameEngine` 프로젝트 설정(정적 라이브러리)과 `Client` 프로젝트 설정 확인.
+2. `GameEngine/Copy.bat`을 통해 빌드 후 에셋이 어떻게 복사되는지 스크립트 확인.
+3. `GameEngine/Engine.cpp`의 `Run()` 루프에서 프레임 타임이 빌드 구성에 따라 어떻게 차이 나는지 측정.
 
 ## 4) 4주 강의 운영안
 

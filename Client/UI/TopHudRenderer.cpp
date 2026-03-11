@@ -1,6 +1,7 @@
 #include "TopHudRenderer.h"
 #include "TopHudWidget.h"
 #include "TropicoUiStyle.h"
+#include "UILayoutConfig.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
@@ -29,6 +30,8 @@ namespace
         "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Notifications\\T_staticData_bg.png");
     constexpr const TCHAR* GCenterPopupTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\5_MainMenu\\CenterPopUp\\T_center_popUp.png");
+    constexpr const TCHAR* GMenuButtonBackgroundTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\IconBackground\\T_icon_background.png");
     constexpr const TCHAR* GStatusMoneyIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_money.png");
     constexpr const TCHAR* GStatusNpcIconTexture = TEXT(
@@ -74,30 +77,49 @@ namespace
             return;
 
         Button->SetTint(EButtonState::Normal,
-            FVector4(0.96f, 0.96f, 0.96f, 0.95f));
+            FVector4(0.96f, 0.96f, 0.96f, 0.98f));
         Button->SetTint(EButtonState::Hovered,
-            FVector4(1.f, 1.f, 1.f, 1.f));
+            FVector4(1.06f, 1.04f, 0.98f, 1.f));
         Button->SetTint(EButtonState::Click,
-            FVector4(0.78f, 0.78f, 0.78f, 1.f));
+            FVector4(0.86f, 0.84f, 0.74f, 1.f));
         Button->SetTint(EButtonState::Disable,
             FVector4(0.40f, 0.40f, 0.40f, 0.75f));
     }
 
-    void ApplyTopHudTextureToAllButtonStates(
-        const std::shared_ptr<CButton>& Button,
-        const std::string& TextureKey,
-        const TCHAR* TextureFile)
+    void ConfigureSpeedButtonStyle(const std::shared_ptr<CButton>& Button)
     {
-        if (!Button || !TextureFile)
+        if (!Button)
             return;
 
-        if (!Button->SetTexture(EButtonState::Normal, TextureKey, TextureFile))
-            return;
-
-        Button->SetTexture(EButtonState::Hovered, TextureKey);
-        Button->SetTexture(EButtonState::Click, TextureKey);
-        Button->SetTexture(EButtonState::Disable, TextureKey);
+        Button->SetTint(EButtonState::Normal,
+            FVector4(1.f, 1.f, 1.f, 1.f));
+        Button->SetTint(EButtonState::Hovered,
+            FVector4(1.08f, 1.04f, 0.96f, 1.f));
+        Button->SetTint(EButtonState::Click,
+            FVector4(0.90f, 0.86f, 0.76f, 1.f));
+        Button->SetTint(EButtonState::Disable,
+            FVector4(0.50f, 0.45f, 0.35f, 0.70f));
     }
+
+    void ConfigureInfoText(
+        const std::shared_ptr<CTextBlock>& Text,
+        float FontSize,
+        unsigned char R,
+        unsigned char G,
+        unsigned char B)
+    {
+        if (!Text)
+            return;
+
+        Text->SetFontSize(FontSize);
+        Text->SetAlignH(ETextAlignH::Left);
+        Text->SetAlignV(ETextAlignV::Middle);
+        Text->SetTextColor(R, G, B, 255);
+        Text->EnableShadow(true);
+        Text->SetShadowOffset(1.f, 1.f);
+        Text->SetShadowTextColor(16, 16, 16, 220);
+    }
+
 }
 
 void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
@@ -149,7 +171,7 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
     }
 
     auto BudgetText =
-        Widget.CreateWidget<CTextBlock>("TopHud_BudgetText", 17).lock();
+        Widget.CreateWidget<CTextBlock>("TopHud_BudgetText", 20).lock();
 
     if (BudgetText)
     {
@@ -178,54 +200,6 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         BudgetLabelText->SetShadowOffset(1.f, 1.f);
         BudgetLabelText->SetShadowTextColor(22, 18, 12, 180);
         Widget.mBudgetLabelText = BudgetLabelText;
-    }
-
-    auto ElectionText =
-        Widget.CreateWidget<CTextBlock>("TopHud_ElectionText", 17).lock();
-
-    if (ElectionText)
-    {
-        ElectionText->SetText(TEXT("차기 선거 -"));
-        ElectionText->SetFontSize(15.f);
-        ElectionText->SetAlignH(ETextAlignH::Left);
-        ElectionText->SetAlignV(ETextAlignV::Top);
-        ElectionText->SetTextColor(245, 235, 210, 255);
-        ElectionText->EnableShadow(true);
-        ElectionText->SetShadowOffset(1.f, 1.f);
-        ElectionText->SetShadowTextColor(16, 16, 16, 220);
-        Widget.mElectionText = ElectionText;
-    }
-
-    auto TaxPolicyText =
-        Widget.CreateWidget<CTextBlock>("TopHud_TaxPolicyText", 17).lock();
-
-    if (TaxPolicyText)
-    {
-        TaxPolicyText->SetText(TEXT("세금 10/12/35%"));
-        TaxPolicyText->SetFontSize(13.f);
-        TaxPolicyText->SetAlignH(ETextAlignH::Left);
-        TaxPolicyText->SetAlignV(ETextAlignV::Top);
-        TaxPolicyText->SetTextColor(229, 220, 198, 255);
-        TaxPolicyText->EnableShadow(true);
-        TaxPolicyText->SetShadowOffset(1.f, 1.f);
-        TaxPolicyText->SetShadowTextColor(16, 16, 16, 220);
-        Widget.mTaxPolicyText = TaxPolicyText;
-    }
-
-    auto EventText =
-        Widget.CreateWidget<CTextBlock>("TopHud_EventText", 17).lock();
-
-    if (EventText)
-    {
-        EventText->SetText(TEXT("현재 상태 안정"));
-        EventText->SetFontSize(13.f);
-        EventText->SetAlignH(ETextAlignH::Left);
-        EventText->SetAlignV(ETextAlignV::Top);
-        EventText->SetTextColor(208, 226, 198, 255);
-        EventText->EnableShadow(true);
-        EventText->SetShadowOffset(1.f, 1.f);
-        EventText->SetShadowTextColor(16, 16, 16, 220);
-        Widget.mEventText = EventText;
     }
 
     auto StatusBar =
@@ -338,6 +312,36 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         Widget.mSupportLabelText = SupportLabelText;
     }
 
+    auto ElectionText =
+        Widget.CreateWidget<CTextBlock>("TopHud_ElectionText", 20).lock();
+
+    if (ElectionText)
+    {
+        ElectionText->SetText(TEXT("차기 선거 -"));
+        ConfigureInfoText(ElectionText, 15.f, 238, 229, 198);
+        Widget.mElectionText = ElectionText;
+    }
+
+    auto TaxPolicyText =
+        Widget.CreateWidget<CTextBlock>("TopHud_TaxPolicyText", 20).lock();
+
+    if (TaxPolicyText)
+    {
+        TaxPolicyText->SetText(TEXT("세금 -"));
+        ConfigureInfoText(TaxPolicyText, 13.f, 186, 173, 144);
+        Widget.mTaxPolicyText = TaxPolicyText;
+    }
+
+    auto EventText =
+        Widget.CreateWidget<CTextBlock>("TopHud_EventText", 20).lock();
+
+    if (EventText)
+    {
+        EventText->SetText(TEXT("현재 상태 안정"));
+        ConfigureInfoText(EventText, 13.f, 208, 226, 198);
+        Widget.mEventText = EventText;
+    }
+
     auto GameOverDim =
         Widget.CreateWidget<CImage>("TopHud_GameOverDim", 90).lock();
 
@@ -395,6 +399,7 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
     }
 
     Widget.mSpeedButtons.resize(GSpeedButtonCount);
+    Widget.mSpeedButtonIcons.resize(GSpeedButtonCount);
 
     for (int i = 0; i < GSpeedButtonCount; ++i)
     {
@@ -405,21 +410,38 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         if (!Button)
             continue;
 
-        ConfigureIconButtonStyle(Button);
+        ConfigureSpeedButtonStyle(Button);
+        ApplyButtonTextureSet(
+            Button,
+            "TopHudSpeedButtonFrame_" + std::to_string(i),
+            GRoundButtonTexture,
+            GRoundButtonHoverTexture,
+            GRoundButtonSelectedTexture,
+            GRoundButtonTexture);
         Button->SetEventCallback<CTopHudWidget>(
             EButtonEventState::Click,
             &Widget,
             &CTopHudWidget::OnAnyButtonClick);
 
-        ApplyTopHudTextureToAllButtonStates(
-            Button,
-            "TopHudSpeedIcon_" + std::to_string(i),
-            GSpeedIcons[i]);
+        auto Icon = CWidget::CreateStaticWidget<CImage>(
+            "TopHud_SpeedButtonIcon_" + std::to_string(i + 1),
+            Widget.mWorld);
+
+        if (Icon)
+        {
+            Icon->SetTexture(
+                "TopHudSpeedIcon_" + std::to_string(i),
+                GSpeedIcons[i]);
+            Icon->SetTint(1.15f, 1.00f, 0.52f, 1.f);
+            Button->SetChild(Icon);
+            Widget.mSpeedButtonIcons[i] = Icon;
+        }
 
         Widget.mSpeedButtons[i] = Button;
     }
 
     Widget.mMenuButtons.resize(GMenuButtonCount);
+    Widget.mMenuButtonIcons.resize(GMenuButtonCount);
     Widget.mMenuButtonTexts.resize(GMenuButtonCount);
 
     for (int i = 0; i < GMenuButtonCount; ++i)
@@ -432,6 +454,13 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
             continue;
 
         ConfigureIconButtonStyle(Button);
+        ApplyButtonTextureSet(
+            Button,
+            "TopHudMenuButtonFrame_" + std::to_string(i),
+            GMenuButtonBackgroundTexture,
+            GMenuButtonBackgroundTexture,
+            GMenuButtonBackgroundTexture,
+            GMenuButtonBackgroundTexture);
 
         void (CTopHudWidget::*MenuCallback)() =
             &CTopHudWidget::OnAnyButtonClick;
@@ -448,12 +477,21 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
             &Widget,
             MenuCallback);
 
-        ApplyTopHudTextureToAllButtonStates(
-            Button,
-            "TopHudMenuIcon_" + std::to_string(i),
-            GMenuIcons[i]);
-
         Widget.mMenuButtons[i] = Button;
+
+        auto MenuIcon = CWidget::CreateStaticWidget<CImage>(
+            "TopHud_MenuIcon_" + std::to_string(i + 1),
+            Widget.mWorld);
+
+        if (MenuIcon)
+        {
+            MenuIcon->SetTexture(
+                "TopHudMenuIcon_" + std::to_string(i),
+                GMenuIcons[i]);
+            MenuIcon->SetTint(1.f, 1.f, 1.f, 1.f);
+            Button->SetChild(MenuIcon);
+            Widget.mMenuButtonIcons[i] = MenuIcon;
+        }
 
         auto MenuText = Widget.CreateWidget<CTextBlock>(
             "TopHud_MenuText_" + std::to_string(i + 1),
@@ -483,11 +521,11 @@ void FTopHudRenderer::ApplySnapshot(
 
     auto DateText = Widget.mDateText.lock();
     auto BudgetText = Widget.mBudgetText.lock();
+    auto NpcText = Widget.mNpcText.lock();
+    auto SupportText = Widget.mSupportText.lock();
     auto ElectionText = Widget.mElectionText.lock();
     auto TaxPolicyText = Widget.mTaxPolicyText.lock();
     auto EventText = Widget.mEventText.lock();
-    auto NpcText = Widget.mNpcText.lock();
-    auto SupportText = Widget.mSupportText.lock();
     auto GameOverDim = Widget.mGameOverDim.lock();
     auto GameOverPanel = Widget.mGameOverPanel.lock();
     auto GameOverTitleText = Widget.mGameOverTitleText.lock();
@@ -498,6 +536,12 @@ void FTopHudRenderer::ApplySnapshot(
 
     if (BudgetText)
         BudgetText->SetText(Snapshot.BudgetText.c_str());
+
+    if (NpcText)
+        NpcText->SetText(Snapshot.NpcText.c_str());
+
+    if (SupportText)
+        SupportText->SetText(Snapshot.SupportText.c_str());
 
     if (ElectionText)
     {
@@ -513,12 +557,6 @@ void FTopHudRenderer::ApplySnapshot(
         EventText->SetText(Snapshot.EventText.c_str());
         EventText->SetTextColor(Snapshot.EventTextColor);
     }
-
-    if (NpcText)
-        NpcText->SetText(Snapshot.NpcText.c_str());
-
-    if (SupportText)
-        SupportText->SetText(Snapshot.SupportText.c_str());
 
     for (size_t i = 0; i < Widget.mSpeedButtons.size(); ++i)
     {
@@ -571,44 +609,45 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     auto StatusMoneyIcon = Widget.mStatusMoneyIcon.lock();
     auto StatusNpcIcon = Widget.mStatusNpcIcon.lock();
     auto StatusSupportIcon = Widget.mStatusSupportIcon.lock();
-    auto ElectionText = Widget.mElectionText.lock();
-    auto TaxPolicyText = Widget.mTaxPolicyText.lock();
-    auto EventText = Widget.mEventText.lock();
     auto NpcLabelText = Widget.mNpcLabelText.lock();
     auto NpcText = Widget.mNpcText.lock();
     auto SupportLabelText = Widget.mSupportLabelText.lock();
     auto SupportText = Widget.mSupportText.lock();
+    auto ElectionText = Widget.mElectionText.lock();
+    auto TaxPolicyText = Widget.mTaxPolicyText.lock();
+    auto EventText = Widget.mEventText.lock();
     auto GameOverDim = Widget.mGameOverDim.lock();
     auto GameOverPanel = Widget.mGameOverPanel.lock();
     auto GameOverTitleText = Widget.mGameOverTitleText.lock();
     auto GameOverBodyText = Widget.mGameOverBodyText.lock();
     const float TopHudScale =
         (std::max)(0.72f, (std::min)(1.05f, ScreenWidth / 1920.f));
-    const float TopHudPanelX = 16.f;
-    const float TopHudPanelW = 388.f * TopHudScale;
-    const float TopHudPanelH = 182.f * TopHudScale;
+    const float TopHudPanelX = UIConfig::SpeedPanelX;
+    const float TopHudPanelW = UIConfig::SpeedPanelWidth * TopHudScale;
+    const float TopHudPanelH = UIConfig::SpeedPanelHeight * TopHudScale;
     const float TopHudPanelY = (std::max)(
-        12.f, ScreenHeight - TopHudPanelH - 18.f);
+        UIConfig::SpeedPanelMinY,
+        ScreenHeight - TopHudPanelH - UIConfig::SpeedPanelBottomMargin);
 
     const float StatusScale =
         (std::max)(0.72f, (std::min)(1.05f, ScreenWidth / 1920.f));
-    const float StatusX = 14.f;
-    const float StatusY = 10.f;
-    const float StatusPaddingX = 20.f * StatusScale;
-    const float StatusBlockGap = 18.f * StatusScale;
-    const float StatusMoneyBlockW = 218.f * StatusScale;
-    const float StatusNpcBlockW = 128.f * StatusScale;
-    const float StatusSupportBlockW = 132.f * StatusScale;
+    const float StatusX = UIConfig::StatusBarX;
+    const float StatusY = UIConfig::StatusBarY;
+    const float StatusPaddingX = UIConfig::StatusBarPaddingX * StatusScale;
+    const float StatusBlockGap = UIConfig::StatusBlockGap * StatusScale;
+    const float StatusMoneyBlockW = UIConfig::StatusBudgetBlockWidth * StatusScale;
+    const float StatusNpcBlockW = UIConfig::StatusNpcBlockWidth * StatusScale;
+    const float StatusSupportBlockW = UIConfig::StatusSupportBlockWidth * StatusScale;
     const float StatusW =
         StatusPaddingX * 2.f +
         StatusMoneyBlockW +
         StatusNpcBlockW +
         StatusSupportBlockW +
         StatusBlockGap * 2.f;
-    const float StatusH = 94.f * StatusScale;
-    const float StatusIconSize = 26.f * StatusScale;
-    const float StatusLabelY = StatusY + 12.f * StatusScale;
-    const float StatusValueY = StatusY + 30.f * StatusScale;
+    const float StatusH = UIConfig::StatusBarHeight * StatusScale;
+    const float StatusIconSize = UIConfig::StatusIconSize * StatusScale;
+    const float StatusLabelY = StatusY + UIConfig::StatusLabelOffsetY * StatusScale;
+    const float StatusValueY = StatusY + UIConfig::StatusValueOffsetY * StatusScale;
     const float StatusBlockMoneyX = StatusX + StatusPaddingX;
     const float StatusBlockNpcX =
         StatusBlockMoneyX + StatusMoneyBlockW + StatusBlockGap;
@@ -627,50 +666,81 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
             const std::shared_ptr<CTextBlock>& LabelText,
             const std::shared_ptr<CTextBlock>& ValueText,
             float BlockX,
-            float BlockW)
+            float BlockW,
+            float OffsetX,
+            float OffsetY)
         {
+            const float X = BlockX + OffsetX;
+            const float LabelY = StatusLabelY + OffsetY;
+            const float ValueY = StatusValueY + OffsetY;
+
             if (Icon)
             {
-                Icon->SetPos(BlockX, StatusValueY + 1.f * StatusScale);
+                Icon->SetPos(X, ValueY + 1.f * StatusScale);
                 Icon->SetSize(StatusIconSize, StatusIconSize);
             }
 
-            const float TextX = BlockX + StatusIconSize + 10.f * StatusScale;
-            const float TextW = BlockW - StatusIconSize - 10.f * StatusScale;
+            const float TextX = X + StatusIconSize +
+                UIConfig::StatusIconTextGap * StatusScale;
+            const float TextW = BlockW - StatusIconSize -
+                UIConfig::StatusIconTextGap * StatusScale;
 
             if (LabelText)
             {
-                LabelText->SetFontSize(12.f * StatusScale);
-                LabelText->SetPos(TextX, StatusLabelY);
-                LabelText->SetSize(TextW, 16.f * StatusScale);
+                LabelText->SetFontSize(UIConfig::StatusLabelFontSize * StatusScale);
+                LabelText->SetPos(TextX, LabelY);
+                LabelText->SetSize(TextW, UIConfig::StatusLabelHeight * StatusScale);
             }
 
             if (ValueText)
             {
-                ValueText->SetFontSize(22.f * StatusScale);
-                ValueText->SetPos(TextX, StatusValueY);
-                ValueText->SetSize(TextW, 30.f * StatusScale);
+                ValueText->SetFontSize(UIConfig::StatusValueFontSize * StatusScale);
+                ValueText->SetPos(TextX, ValueY);
+                ValueText->SetSize(TextW, UIConfig::StatusValueHeight * StatusScale);
             }
         };
 
     LayoutStatusBlock(
-        StatusMoneyIcon,
-        BudgetLabelText,
-        BudgetText,
-        StatusBlockMoneyX,
-        StatusMoneyBlockW);
+        StatusMoneyIcon, BudgetLabelText, BudgetText,
+        StatusBlockMoneyX, StatusMoneyBlockW,
+        UIConfig::BudgetBlockOffsetX * StatusScale,
+        UIConfig::BudgetBlockOffsetY * StatusScale);
     LayoutStatusBlock(
-        StatusNpcIcon,
-        NpcLabelText,
-        NpcText,
-        StatusBlockNpcX,
-        StatusNpcBlockW);
+        StatusNpcIcon, NpcLabelText, NpcText,
+        StatusBlockNpcX, StatusNpcBlockW,
+        UIConfig::NpcBlockOffsetX * StatusScale,
+        UIConfig::NpcBlockOffsetY * StatusScale);
     LayoutStatusBlock(
-        StatusSupportIcon,
-        SupportLabelText,
-        SupportText,
-        StatusBlockSupportX,
-        StatusSupportBlockW);
+        StatusSupportIcon, SupportLabelText, SupportText,
+        StatusBlockSupportX, StatusSupportBlockW,
+        UIConfig::SupportBlockOffsetX * StatusScale,
+        UIConfig::SupportBlockOffsetY * StatusScale);
+
+    const float InfoTextX = StatusX + 16.f * StatusScale;
+    const float InfoTextTop = StatusY + StatusH + 8.f * StatusScale;
+    const float InfoTextWidth = 540.f * StatusScale;
+    const float InfoLineHeight = 18.f * StatusScale;
+
+    if (ElectionText)
+    {
+        ElectionText->SetFontSize(15.f * StatusScale);
+        ElectionText->SetPos(InfoTextX, InfoTextTop);
+        ElectionText->SetSize(InfoTextWidth, InfoLineHeight);
+    }
+
+    if (TaxPolicyText)
+    {
+        TaxPolicyText->SetFontSize(13.f * StatusScale);
+        TaxPolicyText->SetPos(InfoTextX, InfoTextTop + 18.f * StatusScale);
+        TaxPolicyText->SetSize(InfoTextWidth, InfoLineHeight);
+    }
+
+    if (EventText)
+    {
+        EventText->SetFontSize(13.f * StatusScale);
+        EventText->SetPos(InfoTextX, InfoTextTop + 36.f * StatusScale);
+        EventText->SetSize(InfoTextWidth, InfoLineHeight);
+    }
 
     if (SpeedPanel)
     {
@@ -678,10 +748,11 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
         SpeedPanel->SetSize(TopHudPanelW, TopHudPanelH);
     }
 
-    const float TimeBarX = TopHudPanelX + 74.f * TopHudScale;
-    const float TimeBarY = TopHudPanelY + 16.f * TopHudScale;
-    const float TimeBarW = 226.f * TopHudScale;
-    const float TimeBarH = 14.f * TopHudScale;
+    const float PanelTextX = TopHudPanelX + UIConfig::PanelTextOffsetX * TopHudScale;
+    const float TimeBarX = PanelTextX;
+    const float TimeBarY = TopHudPanelY + UIConfig::TimeBarOffsetY * TopHudScale;
+    const float TimeBarW = UIConfig::TimeBarWidth * TopHudScale;
+    const float TimeBarH = UIConfig::TimeBarHeight * TopHudScale;
 
     if (TimeBarBack)
     {
@@ -697,49 +768,30 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
 
     if (DateText)
     {
-        DateText->SetFontSize(22.f * TopHudScale);
+        DateText->SetFontSize(UIConfig::DateFontSize * TopHudScale);
         DateText->SetPos(
-            TopHudPanelX + 74.f * TopHudScale,
-            TopHudPanelY + 34.f * TopHudScale);
-        DateText->SetSize(240.f * TopHudScale, 28.f * TopHudScale);
+            PanelTextX,
+            TopHudPanelY + UIConfig::DateTextOffsetY * TopHudScale);
+        DateText->SetSize(
+            UIConfig::DateTextWidth * TopHudScale,
+            UIConfig::DateTextHeight * TopHudScale);
     }
 
-    if (ElectionText)
-    {
-        ElectionText->SetFontSize(15.f * TopHudScale);
-        ElectionText->SetPos(
-            TopHudPanelX + 74.f * TopHudScale,
-            TopHudPanelY + 68.f * TopHudScale);
-        ElectionText->SetSize(248.f * TopHudScale, 22.f * TopHudScale);
-    }
-
-    if (TaxPolicyText)
-    {
-        TaxPolicyText->SetFontSize(13.f * TopHudScale);
-        TaxPolicyText->SetPos(
-            TopHudPanelX + 74.f * TopHudScale,
-            TopHudPanelY + 92.f * TopHudScale);
-        TaxPolicyText->SetSize(248.f * TopHudScale, 18.f * TopHudScale);
-    }
-
-    if (EventText)
-    {
-        EventText->SetFontSize(13.5f * TopHudScale);
-        EventText->SetPos(
-            TopHudPanelX + 74.f * TopHudScale,
-            TopHudPanelY + 114.f * TopHudScale);
-        EventText->SetSize(276.f * TopHudScale, 34.f * TopHudScale);
-    }
-
-    const float SpeedButtonSize = 44.f * TopHudScale;
-    const float SpeedButtonStep = 52.f * TopHudScale;
+    const float SpeedButtonSize = UIConfig::SpeedButtonSize * TopHudScale;
+    const float SpeedButtonStep = UIConfig::SpeedButtonStep * TopHudScale;
     const float SpeedButtonY =
-        TopHudPanelY + TopHudPanelH - SpeedButtonSize - 18.f * TopHudScale;
-    const float SpeedButtonStartX = TopHudPanelX + 24.f * TopHudScale;
+        TopHudPanelY + TopHudPanelH - SpeedButtonSize -
+        UIConfig::SpeedButtonBottomMargin * TopHudScale;
+    const float SpeedButtonStartX =
+        TopHudPanelX + UIConfig::SpeedButtonOffsetX * TopHudScale;
 
     for (int i = 0; i < static_cast<int>(Widget.mSpeedButtons.size()); ++i)
     {
         auto SpeedButton = Widget.mSpeedButtons[i].lock();
+        auto SpeedIcon =
+            i < static_cast<int>(Widget.mSpeedButtonIcons.size()) ?
+            Widget.mSpeedButtonIcons[i].lock() :
+            nullptr;
 
         if (!SpeedButton)
             continue;
@@ -748,36 +800,51 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
             SpeedButtonStartX + SpeedButtonStep * static_cast<float>(i),
             SpeedButtonY);
         SpeedButton->SetSize(SpeedButtonSize, SpeedButtonSize);
+
+        if (SpeedIcon)
+        {
+            SpeedIcon->SetPos(
+                SpeedButtonSize * 0.18f,
+                SpeedButtonSize * 0.18f);
+            SpeedIcon->SetSize(
+                SpeedButtonSize * 0.64f,
+                SpeedButtonSize * 0.64f);
+        }
     }
 
-    float MenuButtonSize = 60.f * TopHudScale;
-    float MenuButtonGap = 10.f * TopHudScale;
-    float MenuLabelGap = 8.f * TopHudScale;
-    const float MenuStartX =
-        TopHudPanelX + TopHudPanelW + 26.f * TopHudScale;
-    const float MenuY = TopHudPanelY + 8.f * TopHudScale;
+    float MenuButtonSize = UIConfig::MenuButtonSize * TopHudScale * 0.70f;
+    float MenuButtonGap = UIConfig::MenuButtonGap * TopHudScale * 0.34f;
 
     const float WantedMenuWidth =
         MenuButtonSize * GMenuButtonCount +
         MenuButtonGap * static_cast<float>(GMenuButtonCount - 1);
     const float MaxMenuWidth =
-        (std::max)(120.f, ScreenWidth - MenuStartX - 14.f);
+        (std::max)(520.f * TopHudScale,
+            ScreenWidth - 220.f * TopHudScale);
 
     if (WantedMenuWidth > MaxMenuWidth)
     {
         const float MenuScale =
-            (std::max)(0.70f, MaxMenuWidth / WantedMenuWidth);
+            (std::max)(UIConfig::MenuMinScaleFactor,
+                MaxMenuWidth / WantedMenuWidth);
         MenuButtonSize *= MenuScale;
         MenuButtonGap *= MenuScale;
-        MenuLabelGap *= MenuScale;
     }
 
-    const float MenuTextFontSize = 12.5f * MenuButtonSize / 60.f;
-    const float MenuTextHeight = 18.f * MenuButtonSize / 60.f;
+    const float MenuStripWidth =
+        MenuButtonSize * GMenuButtonCount +
+        MenuButtonGap * static_cast<float>(GMenuButtonCount - 1);
+    const float MenuStartX = (ScreenWidth - MenuStripWidth) * 0.5f;
+    const float MenuBottomMargin = 18.f * TopHudScale;
+    const float MenuY = ScreenHeight - MenuButtonSize - MenuBottomMargin;
 
     for (int i = 0; i < static_cast<int>(Widget.mMenuButtons.size()); ++i)
     {
         auto MenuButton = Widget.mMenuButtons[i].lock();
+        auto MenuIcon =
+            i < static_cast<int>(Widget.mMenuButtonIcons.size()) ?
+            Widget.mMenuButtonIcons[i].lock() :
+            nullptr;
         auto MenuText = Widget.mMenuButtonTexts[i].lock();
         const float MenuButtonX =
             MenuStartX +
@@ -789,15 +856,19 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
             MenuButton->SetSize(MenuButtonSize, MenuButtonSize);
         }
 
+        if (MenuIcon)
+        {
+            MenuIcon->SetPos(
+                MenuButtonSize * 0.18f,
+                MenuButtonSize * 0.16f);
+            MenuIcon->SetSize(
+                MenuButtonSize * 0.64f,
+                MenuButtonSize * 0.64f);
+        }
+
         if (MenuText)
         {
-            MenuText->SetFontSize(MenuTextFontSize);
-            MenuText->SetPos(
-                MenuButtonX - MenuButtonSize * 0.10f,
-                MenuY + MenuButtonSize + MenuLabelGap);
-            MenuText->SetSize(
-                MenuButtonSize * 1.20f,
-                MenuTextHeight);
+            MenuText->SetEnable(false);
         }
     }
 
@@ -805,8 +876,8 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     const float OverlayHeight = ScreenHeight;
     const float PanelScale =
         (std::max)(0.72f, (std::min)(1.05f, ScreenWidth / 1920.f));
-    const float PanelWidth = 720.f * PanelScale;
-    const float PanelHeight = 390.f * PanelScale;
+    const float PanelWidth = UIConfig::GameOverPanelWidth * PanelScale;
+    const float PanelHeight = UIConfig::GameOverPanelHeight * PanelScale;
     const float PanelX = (ScreenWidth - PanelWidth) * 0.5f;
     const float PanelY = (ScreenHeight - PanelHeight) * 0.5f;
 
@@ -825,20 +896,20 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     if (GameOverTitleText)
     {
         GameOverTitleText->SetPos(
-            PanelX + 70.f * PanelScale,
-            PanelY + 70.f * PanelScale);
+            PanelX + UIConfig::GameOverTitlePaddingX * PanelScale,
+            PanelY + UIConfig::GameOverTitleOffsetY * PanelScale);
         GameOverTitleText->SetSize(
-            PanelWidth - 140.f * PanelScale,
-            48.f * PanelScale);
+            PanelWidth - UIConfig::GameOverTitlePaddingX * 2.f * PanelScale,
+            UIConfig::GameOverTitleHeight * PanelScale);
     }
 
     if (GameOverBodyText)
     {
         GameOverBodyText->SetPos(
-            PanelX + 84.f * PanelScale,
-            PanelY + 138.f * PanelScale);
+            PanelX + UIConfig::GameOverBodyPaddingX * PanelScale,
+            PanelY + UIConfig::GameOverBodyOffsetY * PanelScale);
         GameOverBodyText->SetSize(
-            PanelWidth - 168.f * PanelScale,
-            PanelHeight - 210.f * PanelScale);
+            PanelWidth - UIConfig::GameOverBodyPaddingX * 2.f * PanelScale,
+            PanelHeight - UIConfig::GameOverBodyBottomPadding * PanelScale);
     }
 }

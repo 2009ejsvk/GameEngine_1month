@@ -68,6 +68,7 @@ void CMainWorld::ApplyDailyEconomySettlement()
     mLastDailyIncomeTaxIncome = Result.AdjustedIncomeTaxIncome;
     mLastDailyPropertyTaxIncome = Result.AdjustedPropertyTaxIncome;
     mLastDailyEdictCost    = Result.DailyEdictCost;
+    mLastDailyImportExpense = Result.BaseResult.ImportExpense;
     mLastDailyTaxCollectionEfficiency =
         Result.BaseResult.TaxCollectionEfficiency;
     mLastDailyNetChange = Result.NetBudgetChange;

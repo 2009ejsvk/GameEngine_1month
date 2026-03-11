@@ -55,6 +55,14 @@ bool CPlacementController::Init()
     Input->AddBindKey("MainCameraPlace", VK_LBUTTON);
     Input->SetBindFunction<CPlacementController>("MainCameraPlace",
         EInputType::Press, this, &CPlacementController::PlaceCurrentArea);
+    Input->SetBindFunction<CPlacementController>("MainCameraPlace",
+        EInputType::Hold, this, &CPlacementController::PaintRoadHold);
+    Input->SetBindFunction<CPlacementController>("MainCameraPlace",
+        EInputType::Release, this, &CPlacementController::FinishRoadBrushStroke);
+
+    Input->AddBindKey("MainCameraCancelPlacement", VK_ESCAPE);
+    Input->SetBindFunction<CPlacementController>("MainCameraCancelPlacement",
+        EInputType::Press, this, &CPlacementController::CancelPlacementMode);
 
     return true;
 }
@@ -79,15 +87,7 @@ void CPlacementController::SetDemolitionMode(bool Enable)
         return;
     }
 
-    auto ActivePlacementObject = mActivePlacementObject.lock();
-
-    if (ActivePlacementObject &&
-        ActivePlacementObject->IsMovePreviewActive())
-    {
-        ActivePlacementObject->CancelMovePreview();
-    }
-
-    mActivePlacementObject.reset();
+    CancelActivePlacementSession();
 
     auto CitizenInfoWidget = mCitizenInfoWidget.lock();
 
@@ -108,6 +108,8 @@ bool CPlacementController::BeginBuildPlacement(
 
     if (mDemolitionMode)
         SetDemolitionMode(false);
+    else if (Entry.BuildingKind != EPlacementBuildingKind::Road)
+        ClearRoadBrushMode();
 
     auto Input = World->GetInput().lock();
 
@@ -143,6 +145,14 @@ bool CPlacementController::BeginBuildPlacement(
 
     if (!PlacementObject)
         return false;
+
+    if (Entry.BuildingKind == EPlacementBuildingKind::Road)
+    {
+        mRoadBrushMode = true;
+        mRoadBrushEntry = Entry;
+        mRoadBrushSpriteTexturePath = SpriteTexturePath;
+        mLastRoadBrushTileIndex = -1;
+    }
 
     const std::string SafeBuildingId = Entry.Id.empty() ?
         PlacementName :
@@ -200,6 +210,8 @@ bool CPlacementController::BeginMoveExistingBuilding(
 
     if (mDemolitionMode)
         SetDemolitionMode(false);
+    else
+        ClearRoadBrushMode();
 
     auto ActiveObject = mActivePlacementObject.lock();
 
@@ -317,8 +329,7 @@ void CPlacementController::MoveCurrentArea()
 
     if (ActiveObject && ActiveObject->IsMovePreviewActive())
     {
-        ActiveObject->CancelMovePreview();
-        mActivePlacementObject.reset();
+        CancelActivePlacementSession();
         return;
     }
 
@@ -357,45 +368,11 @@ void CPlacementController::PlaceCurrentArea()
     const FVector2 MouseWorldPos = Input->GetMouseWorldPos();
     const FVector2 MouseScreenPos = Input->GetMousePos();
 
-    if (IsPointerOverActiveUi(MouseScreenPos))
+    if (IsPlacementInputBlocked(MouseScreenPos))
         return;
 
-    auto CitizenInfoPanelWidget = mCitizenInfoWidget.lock();
-
-    if (CitizenInfoPanelWidget && CitizenInfoPanelWidget->GetEnable())
-    {
-        const FVector3& PanelPos = CitizenInfoPanelWidget->GetPos();
-        const FVector3& PanelSize = CitizenInfoPanelWidget->GetSize();
-
-        const bool InsideCitizenPanel =
-            MouseScreenPos.x >= PanelPos.x &&
-            MouseScreenPos.x <= PanelPos.x + PanelSize.x &&
-            MouseScreenPos.y >= PanelPos.y &&
-            MouseScreenPos.y <= PanelPos.y + PanelSize.y;
-
-        if (InsideCitizenPanel)
-            return;
-    }
-
-    auto ActivePlacementObject = mActivePlacementObject.lock();
-
-    if (ActivePlacementObject &&
-        ActivePlacementObject->IsMovePreviewActive())
-    {
-        const bool WasPlaced = ActivePlacementObject->HasPlacedArea();
-        ActivePlacementObject->ConfirmPlacement();
-
-        const bool IsPlaced = ActivePlacementObject->HasPlacedArea();
-
-        if (!WasPlaced && IsPlaced)
-        {
-            RegisterBuildingToOrbs(ActivePlacementObject->GetName());
-        }
-
-        if (!ActivePlacementObject->IsMovePreviewActive())
-            mActivePlacementObject.reset();
+    if (TryCommitActivePlacement())
         return;
-    }
 
     if (mDemolitionMode)
     {
@@ -457,6 +434,75 @@ void CPlacementController::PlaceCurrentArea()
         if (CitizenInfoWidget)
             CitizenInfoWidget->SetEnable(false);
     }
+}
+
+void CPlacementController::PaintRoadHold()
+{
+    if (!mRoadBrushMode)
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto Input = World->GetInput().lock();
+
+    if (!Input)
+        return;
+
+    if (IsPlacementInputBlocked(Input->GetMousePos()))
+        return;
+
+    auto ActivePlacementObject = mActivePlacementObject.lock();
+
+    if (!ActivePlacementObject ||
+        !ActivePlacementObject->IsMovePreviewActive() ||
+        !ActivePlacementObject->IsRoad())
+    {
+        return;
+    }
+
+    int TileIndex = -1;
+
+    if (!TryGetMouseTileIndex(Input->GetMouseWorldPos(), TileIndex) ||
+        TileIndex < 0 ||
+        TileIndex == mLastRoadBrushTileIndex)
+    {
+        return;
+    }
+
+    TryCommitActivePlacement();
+}
+
+void CPlacementController::FinishRoadBrushStroke()
+{
+    mLastRoadBrushTileIndex = -1;
+}
+
+void CPlacementController::CancelPlacementMode()
+{
+    if (mDemolitionMode)
+    {
+        SetDemolitionMode(false);
+        return;
+    }
+
+    CancelActivePlacementSession();
+}
+
+void CPlacementController::CancelActivePlacementSession()
+{
+    auto ActivePlacementObject = mActivePlacementObject.lock();
+
+    if (ActivePlacementObject &&
+        ActivePlacementObject->IsMovePreviewActive())
+    {
+        ActivePlacementObject->CancelMovePreview();
+    }
+
+    mActivePlacementObject.reset();
+    ClearRoadBrushMode();
 }
 
 void CPlacementController::UpdateDemolitionHoverPreview()
@@ -545,6 +591,145 @@ bool CPlacementController::IsPointerOverActiveUi(
         return false;
 
     return UIManager->IsPointOverEnabledWidget(MouseScreenPos);
+}
+
+bool CPlacementController::IsPlacementInputBlocked(
+    const FVector2& MouseScreenPos) const
+{
+    if (IsPointerOverActiveUi(MouseScreenPos))
+        return true;
+
+    auto CitizenInfoPanelWidget = mCitizenInfoWidget.lock();
+
+    if (!CitizenInfoPanelWidget ||
+        !CitizenInfoPanelWidget->GetEnable())
+    {
+        return false;
+    }
+
+    const FVector3& PanelPos = CitizenInfoPanelWidget->GetPos();
+    const FVector3& PanelSize = CitizenInfoPanelWidget->GetSize();
+
+    return MouseScreenPos.x >= PanelPos.x &&
+        MouseScreenPos.x <= PanelPos.x + PanelSize.x &&
+        MouseScreenPos.y >= PanelPos.y &&
+        MouseScreenPos.y <= PanelPos.y + PanelSize.y;
+}
+
+bool CPlacementController::TryCommitActivePlacement()
+{
+    auto ActivePlacementObject = mActivePlacementObject.lock();
+
+    if (!ActivePlacementObject ||
+        !ActivePlacementObject->IsMovePreviewActive())
+    {
+        return false;
+    }
+
+    const bool WasPlaced = ActivePlacementObject->HasPlacedArea();
+    const bool IsRoadBrushPlacement =
+        mRoadBrushMode &&
+        !WasPlaced &&
+        ActivePlacementObject->IsRoad();
+
+    if (IsRoadBrushPlacement)
+    {
+        auto World = mWorld.lock();
+
+        if (World)
+        {
+            auto Input = World->GetInput().lock();
+
+            if (Input)
+            {
+                int TileIndex = -1;
+
+                if (TryGetMouseTileIndex(Input->GetMouseWorldPos(), TileIndex))
+                {
+                    // Press and Hold both fire on the first mouse-down frame.
+                    mLastRoadBrushTileIndex = TileIndex;
+                }
+            }
+        }
+    }
+
+    ActivePlacementObject->ConfirmPlacement();
+
+    const bool IsPlaced = ActivePlacementObject->HasPlacedArea();
+
+    if (!WasPlaced && IsPlaced)
+    {
+        RegisterBuildingToOrbs(ActivePlacementObject->GetName());
+    }
+
+    if (IsRoadBrushPlacement && IsPlaced)
+    {
+        if (!RestartRoadBrushPlacement())
+            mActivePlacementObject.reset();
+
+        return true;
+    }
+
+    if (!ActivePlacementObject->IsMovePreviewActive())
+        mActivePlacementObject.reset();
+
+    return true;
+}
+
+bool CPlacementController::RestartRoadBrushPlacement()
+{
+    if (!mRoadBrushMode ||
+        mRoadBrushEntry.BuildingKind != EPlacementBuildingKind::Road)
+    {
+        return false;
+    }
+
+    const int LastRoadBrushTileIndex = mLastRoadBrushTileIndex;
+    const bool Started = BeginBuildPlacement(
+        mRoadBrushEntry,
+        mRoadBrushSpriteTexturePath);
+
+    if (!Started)
+    {
+        ClearRoadBrushMode();
+        return false;
+    }
+
+    mLastRoadBrushTileIndex = LastRoadBrushTileIndex;
+    return true;
+}
+
+bool CPlacementController::TryGetMouseTileIndex(
+    const FVector2& MouseWorldPos, int& OutTileIndex) const
+{
+    OutTileIndex = -1;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    auto TileMapObject =
+        World->FindObject<CTileMapObject>(GTileMapObjectName).lock();
+
+    if (!TileMapObject)
+        return false;
+
+    auto TileMap = TileMapObject->GetTileMap().lock();
+
+    if (!TileMap)
+        return false;
+
+    OutTileIndex = TileMap->GetTileIndex(MouseWorldPos);
+    return OutTileIndex >= 0;
+}
+
+void CPlacementController::ClearRoadBrushMode()
+{
+    mRoadBrushMode = false;
+    mRoadBrushEntry = FBuildingCatalogEntry();
+    mRoadBrushSpriteTexturePath.clear();
+    mLastRoadBrushTileIndex = -1;
 }
 
 std::shared_ptr<CPlacementAreaObject> CPlacementController::PickPlacementObject(
@@ -735,6 +920,12 @@ void CPlacementController::RegisterBuildingToOrbs(
     auto World = mWorld.lock();
 
     if (!World)
+        return;
+
+    auto Building =
+        World->FindObject<CPlacementAreaObject>(BuildingObjectName).lock();
+
+    if (Building && (Building->IsRoad() || Building->IsBusStop()))
         return;
 
     std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;

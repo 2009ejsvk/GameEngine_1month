@@ -1,5 +1,6 @@
 #include "BuildingMarkerOrb.h"
 #include "PlacementAreaObject.h"
+#include "../Citizen/CitizenCommuteCalc.h"
 #include "../World/MainWorldAccess.h"
 #include "World/World.h"
 #include <algorithm>
@@ -72,6 +73,10 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     auto World = mWorld.lock();
     const IMainWorldCitizenPolicyAccess* MainWorld =
         World ? dynamic_cast<IMainWorldCitizenPolicyAccess*>(World.get()) : nullptr;
+    const IMainWorldRoadNetworkAccess* RoadNetworkAccess =
+        World ? dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()) : nullptr;
+    const IMainWorldTransitAccess* TransitAccess =
+        World ? dynamic_cast<IMainWorldTransitAccess*>(World.get()) : nullptr;
     const FGovernmentEdictModifiers* EdictModifiers =
         MainWorld ? &MainWorld->GetEdictModifiers() : nullptr;
     const FTaxPolicy* TaxPolicy =
@@ -89,33 +94,60 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         (std::max)(1, EdictModifiers->FoodConsumptionPerVisit) :
         1;
 
-    auto ResolveBuildingCap = [&](
-        const std::string& BuildingName,
-        int (CPlacementAreaObject::*Getter)() const) -> float
+    auto ResolveBuilding = [&](const std::string& BuildingName)
+        -> std::shared_ptr<CPlacementAreaObject>
     {
         if (!World || BuildingName.empty())
-            return 100.f;
+            return nullptr;
 
         auto Building = World->FindObject<CPlacementAreaObject>(
             BuildingName).lock();
 
         if (!Building || !Building->GetAlive())
+            return nullptr;
+
+        return Building;
+    };
+
+    auto ResolveBuildingCap = [&](
+        const std::shared_ptr<CPlacementAreaObject>& Building,
+        int (CPlacementAreaObject::*Getter)() const) -> float
+    {
+        if (!Building)
             return 100.f;
 
         return static_cast<float>((Building.get()->*Getter)());
     };
 
+    const auto HomeBuilding = ResolveBuilding(mHomeName);
+    const auto WorkBuilding = ResolveBuilding(mWorkName);
     const float HomeHousingCap = ResolveBuildingCap(
-        mHomeName, &CPlacementAreaObject::GetHousingSatisfactionCap);
-    const float WorkJobCap = ResolveBuildingCap(
-        mWorkName, &CPlacementAreaObject::GetJobSatisfactionCap);
+        HomeBuilding, &CPlacementAreaObject::GetHousingSatisfactionCap);
     const std::string& FoodCapBuildingName = mFoodVisitBuildingName.empty() ?
         mFoodName :
         mFoodVisitBuildingName;
+    const auto FoodCapBuilding = ResolveBuilding(FoodCapBuildingName);
     const float FoodCap = ResolveBuildingCap(
-        FoodCapBuildingName, &CPlacementAreaObject::GetFoodSatisfactionCap);
+        FoodCapBuilding, &CPlacementAreaObject::GetFoodSatisfactionCap);
+    const auto FunBuilding = ResolveBuilding(mFunName);
     const float FunCap = ResolveBuildingCap(
-        mFunName, &CPlacementAreaObject::GetFunSatisfactionCap);
+        FunBuilding, &CPlacementAreaObject::GetFunSatisfactionCap);
+    const float WorkJobCap = ResolveBuildingCap(
+        WorkBuilding, &CPlacementAreaObject::GetEffectiveJobSatisfactionCap);
+    const float CommuteTimeSeconds =
+        CitizenCommuteCalc::EstimateCommuteTime(
+            HomeBuilding,
+            WorkBuilding,
+            mCitizenProfileState.IdentityProfile,
+            RoadNetworkAccess ? RoadNetworkAccess->GetRoadNetwork() : nullptr,
+            TransitAccess ? TransitAccess->GetBusRouteSystem() : nullptr);
+    Satisfaction.CommuteTimePenalty =
+        CitizenCommuteCalc::EstimateCommutePenalty(CommuteTimeSeconds);
+    const float EffectiveWorkJobCap = (std::max)(
+        0.f,
+        WorkJobCap -
+            Satisfaction.CommuteTimePenalty *
+                GameConstants::Citizen::CommuteJobPenaltyWeight);
     const float ConsumptionTaxDeviation =
         TaxPolicy ?
         GetTaxPolicyDeviationNormalized(
@@ -161,53 +193,48 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     switch (mCitizenState)
     {
     case ECitizenState::AtWork:
-        RecoverUnderCap(Satisfaction.Job, 10.f, WorkJobCap);
+        RecoverUnderCap(Satisfaction.Job, 10.f, EffectiveWorkJobCap);
         // 생산/식량 시설만 재고를 생산한다.
         // 운송업자 사무소/항구는 재고를 직접 생산하지 않는다.
-        if (World && !mWorkName.empty())
+        if (WorkBuilding)
         {
-            auto WorkBuilding =
-                World->FindObject<CPlacementAreaObject>(mWorkName).lock();
-            if (WorkBuilding)
+            float ProductionPerSec = 0.f;
+            const EResourceType ProducedType =
+                WorkBuilding->GetProducedResourceType();
+
+            if (ProducedType == EResourceType::Food)
             {
-                float ProductionPerSec = 0.f;
-                const EResourceType ProducedType =
-                    WorkBuilding->GetProducedResourceType();
-
-                if (ProducedType == EResourceType::Food)
-                {
-                    ProductionPerSec =
-                        (WorkBuilding->GetBuildingCategory() ==
-                            EBuildingCategory::FoodResource ?
-                            40.f :
-                            8.f) *
-                        ProductionMultiplier *
-                        TaxEventProductionMultiplier;
-                }
-                else if (ProducedType == EResourceType::RawGoods)
-                {
-                    ProductionPerSec =
-                        10.f *
-                        ProductionMultiplier *
-                        TaxEventProductionMultiplier;
-                }
-                else if (ProducedType == EResourceType::ManufacturedGoods)
-                {
-                    ProductionPerSec =
-                        6.f *
-                        ProductionMultiplier *
-                        TaxEventProductionMultiplier;
-                }
-                else if (ProducedType == EResourceType::LuxuryGoods)
-                {
-                    ProductionPerSec =
-                        4.f *
-                        ProductionMultiplier *
-                        TaxEventProductionMultiplier;
-                }
-
-                WorkBuilding->AddProduction(ProductionPerSec, DeltaTime);
+                ProductionPerSec =
+                    (WorkBuilding->GetBuildingCategory() ==
+                        EBuildingCategory::FoodResource ?
+                        40.f :
+                        8.f) *
+                    ProductionMultiplier *
+                    TaxEventProductionMultiplier;
             }
+            else if (ProducedType == EResourceType::RawGoods)
+            {
+                ProductionPerSec =
+                    10.f *
+                    ProductionMultiplier *
+                    TaxEventProductionMultiplier;
+            }
+            else if (ProducedType == EResourceType::ManufacturedGoods)
+            {
+                ProductionPerSec =
+                    6.f *
+                    ProductionMultiplier *
+                    TaxEventProductionMultiplier;
+            }
+            else if (ProducedType == EResourceType::LuxuryGoods)
+            {
+                ProductionPerSec =
+                    4.f *
+                    ProductionMultiplier *
+                    TaxEventProductionMultiplier;
+            }
+
+            WorkBuilding->AddProduction(ProductionPerSec, DeltaTime);
         }
         break;
     case ECitizenState::AtHome:

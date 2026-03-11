@@ -275,6 +275,7 @@ enum class EPlacementBuildingKind
 {
     BuildingA,          // 일반 소형 건물 A
     BuildingB,          // 일반 소형 건물 B (기본값)
+    Road,               // 도로 타일
     TransportOffice,    // 교통 관련 건물
     Harbor              // 항구
 };
@@ -290,6 +291,7 @@ enum class EPlacementBuildingKind
 //   PlacementAreaObject::MakePlacementTemplate() 의 switch 에도 케이스를 추가한다.
 enum class EPlacementTemplateType
 {
+    SingleTileMarker,       // 1x1 타일, 마커 1개 (도로 등)
     Diamond3x3SingleMarker,  // 반지름 1, 마커 1개, 입구 Gap 있음 (기본·소형)
     Diamond5x5TwoMarker,     // 반지름 2, 마커 2개 (중형)
     Diamond5x5FourMarker,    // 반지름 2, 마커 4개 (중형·4방향 입구)

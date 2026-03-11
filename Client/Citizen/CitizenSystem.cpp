@@ -77,8 +77,14 @@ namespace
         {
             auto B = List[i].lock();
 
-            if (!B || !B->GetAlive() || !B->HasPlacedArea())
+            if (!B ||
+                !B->GetAlive() ||
+                !B->HasPlacedArea() ||
+                B->IsRoad() ||
+                B->IsBusStop())
+            {
                 continue;
+            }
 
             const std::string& Name = B->GetName();
 
@@ -105,8 +111,14 @@ namespace
         {
             auto B = List[i].lock();
 
-            if (!B || !B->GetAlive() || !B->HasPlacedArea())
+            if (!B ||
+                !B->GetAlive() ||
+                !B->HasPlacedArea() ||
+                B->IsRoad() ||
+                B->IsBusStop())
+            {
                 continue;
+            }
 
             if (B->IsResidential())
                 Out.push_back(B->GetName());
@@ -128,12 +140,19 @@ namespace
         {
             auto B = List[i].lock();
 
-            if (!B || !B->GetAlive() || !B->HasPlacedArea())
+            if (!B ||
+                !B->GetAlive() ||
+                !B->HasPlacedArea() ||
+                B->IsRoad() ||
+                B->IsBusStop())
+            {
                 continue;
+            }
 
             // FoodProvider 건물은 직장 겸 음식 생산지로 포함
             // EntertainmentProvider 전용 건물(주점 등)은 제외
             if (!B->IsResidential() &&
+                B->GetCapacity() > 0 &&
                 !B->IsHarbor() &&
                 (!B->IsEntertainmentProvider() || B->IsFoodProvider()))
             {
@@ -157,8 +176,14 @@ namespace
         {
             auto B = List[i].lock();
 
-            if (!B || !B->GetAlive() || !B->HasPlacedArea())
+            if (!B ||
+                !B->GetAlive() ||
+                !B->HasPlacedArea() ||
+                B->IsRoad() ||
+                B->IsBusStop())
+            {
                 continue;
+            }
 
             if (B->IsFoodProvider())
                 Out.push_back(B->GetName());
@@ -180,8 +205,14 @@ namespace
         {
             auto B = List[i].lock();
 
-            if (!B || !B->GetAlive() || !B->HasPlacedArea())
+            if (!B ||
+                !B->GetAlive() ||
+                !B->HasPlacedArea() ||
+                B->IsRoad() ||
+                B->IsBusStop())
+            {
                 continue;
+            }
 
             if (B->IsEntertainmentProvider())
                 Out.push_back(B->GetName());
@@ -284,7 +315,9 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         if (!WorkBuilding ||
             !WorkBuilding->GetAlive() ||
             !WorkBuilding->GetEnable() ||
-            !WorkBuilding->HasPlacedArea())
+            !WorkBuilding->HasPlacedArea() ||
+            WorkBuilding->IsRoad() ||
+            WorkBuilding->GetCapacity() <= 0)
         {
             continue;
         }
@@ -292,7 +325,7 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         FWorkBuildingInfo Info;
         Info.Name         = WorkNames[i];
         Info.Capacity     = (std::max)(0, WorkBuilding->GetCapacity());
-        Info.JobCap       = WorkBuilding->GetJobSatisfactionCap();
+        Info.JobCap       = WorkBuilding->GetEffectiveJobSatisfactionCap();
         Info.RequiredEducation =
             WorkBuilding->GetRequiredEducationLevel();
         Info.IsFoodProvider = WorkBuilding->IsFoodProvider();

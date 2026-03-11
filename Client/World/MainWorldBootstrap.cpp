@@ -1,5 +1,7 @@
 #include "MainWorld.h"
+#include "BusRouteSystem.h"
 #include "MainWorldConfig.h"
+#include "RoadNetwork.h"
 #include "../ObjectNames.h"
 #include "Asset/AssetManager.h"
 #include "../UI/TopHudWidget.h"
@@ -267,6 +269,31 @@ CMainWorld::~CMainWorld()
 {
 }
 
+void CMainWorld::RebuildRoadNetwork()
+{
+    if (!mRoadNetwork)
+        mRoadNetwork = std::make_shared<CRoadNetwork>();
+
+    auto TileMapObj = FindObject<CTileMapObject>(GTileMapObjectName).lock();
+
+    if (!TileMapObj)
+    {
+        mRoadNetwork->Rebuild(std::shared_ptr<CTileMapComponent>());
+        return;
+    }
+
+    mRoadNetwork->Rebuild(TileMapObj->GetTileMap().lock());
+    RebuildBusRoutes();
+}
+
+void CMainWorld::RebuildBusRoutes()
+{
+    if (!mBusRouteSystem)
+        mBusRouteSystem = std::make_shared<CBusRouteSystem>();
+
+    mBusRouteSystem->Rebuild(mSelf.lock(), mRoadNetwork.get());
+}
+
 void CMainWorld::ResetWorldState()
 {
     mSpawnedNpcCount = 0;
@@ -281,6 +308,7 @@ void CMainWorld::ResetWorldState()
     mLastDailyIncomeTaxIncome = 0;
     mLastDailyPropertyTaxIncome = 0;
     mLastDailyEdictCost = 0;
+    mLastDailyImportExpense = 0;
     mLastDailyNetChange = 0;
     mLastDailyTaxCollectionEfficiency = 0.0;
     mSimulationYear = MainWorldConfig::GSimulationStartYear;
@@ -399,6 +427,7 @@ bool CMainWorld::Init()
         "build_1_3",
         15,
         -12);
+    RebuildRoadNetwork();
 
     ResetWorldState();
     InitializeElectionSchedule();

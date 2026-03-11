@@ -67,6 +67,7 @@ private:
 	std::vector<unsigned char>	mGoalMask;
 	std::vector<int>	mGoalIndices;
 	int		mStartIndex = -1;
+	bool	mUseJumpPointSearch = false;
 
 public:
 	void SetTileMap(const std::weak_ptr<class CTileMapComponent>& TileMap);
@@ -95,6 +96,9 @@ private:
 	bool IsWalkableGrid(int GridX, int GridY) const;
 	bool IsGoalIndex(int Index) const;
 	float ComputeHeuristic(int Index) const;
+	float ComputeTraversalCost(int FromIndex, int ToIndex) const;
+	float GetTileTraversalWeight(int Index) const;
+	bool IsRoadTile(int Index) const;
 	int FindFallbackGoalIndex(int StartIndex, int EndIndex) const;
 	bool BuildPath(FNavNode* GoalNode, std::list<FVector3>& PathList);
 	bool FindPathFallbackAStar(int StartIndex,

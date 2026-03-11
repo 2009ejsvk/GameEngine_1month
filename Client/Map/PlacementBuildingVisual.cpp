@@ -193,7 +193,8 @@ void CBuildingVisual::SyncVisuals()
 	if (!Building || !Sprite)
 		return;
 
-	if (!Building->HasPlacedArea())
+	if (!Building->HasPlacedArea() ||
+		Building->IsRoad())
 	{
 		Sprite->SetEnable(false);
 		mVisible = false;

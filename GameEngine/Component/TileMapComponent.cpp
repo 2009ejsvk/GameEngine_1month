@@ -45,6 +45,24 @@ ETileType CTileMapComponent::GetTileType(int Index)
 	return mTileList[Index]->GetType();
 }
 
+bool CTileMapComponent::IsRoadTile(int Index) const
+{
+	if (Index < 0 || Index >= (int)mRoadMask.size())
+		return false;
+
+	return mRoadMask[Index] != 0;
+}
+
+bool CTileMapComponent::IsRoadTile(const FVector2& Pos) const
+{
+	return IsRoadTile(GetTileIndex(Pos));
+}
+
+bool CTileMapComponent::IsRoadTile(const FVector3& Pos) const
+{
+	return IsRoadTile(GetTileIndex(Pos));
+}
+
 /*
  * [GetTileIndex]
  * 특정 월드 좌표(Pos)가 어떤 타일 위에 있는지 '인덱스(순서)'를 찾아주는 함수입니다.
@@ -274,6 +292,19 @@ void CTileMapComponent::SetTileFrame(int Index, int Frame)
 {
 	mTileList[Index]->SetFrame(mTileFrame[Frame].Start,
 		mTileFrame[Frame].End);
+}
+
+void CTileMapComponent::SetRoadTile(int Index, bool IsRoad)
+{
+	if (Index < 0 || Index >= (int)mRoadMask.size())
+		return;
+
+	mRoadMask[Index] = IsRoad ? 1 : 0;
+}
+
+void CTileMapComponent::ClearRoadTiles()
+{
+	std::fill(mRoadMask.begin(), mRoadMask.end(), 0);
 }
 
 void CTileMapComponent::SetTileOutLineRender(
@@ -862,6 +893,8 @@ void CTileMapComponent::CreateTile(ETileShape Shape,
 	// 기존 타일 목록을 지우고 새로 생성할 준비를 합니다.
 	mTileList.clear();
 	mTileList.resize(mCountX * mCountY);
+	mRoadMask.clear();
+	mRoadMask.resize(mCountX * mCountY, 0);
 
 	// 이중 반복문을 돌며 타일을 하나씩 생성하고 위치를 잡아줍니다.
 	for (int i = 0; i < mCountY; ++i)
@@ -1229,6 +1262,8 @@ void CTileMapComponent::LoadFullPath(const TCHAR* FullPath)
 
 	mTileList.clear();
 	mTileList.resize(Size);
+	mRoadMask.clear();
+	mRoadMask.resize(Size, 0);
 
 	for (size_t i = 0; i < Size; ++i)
 	{

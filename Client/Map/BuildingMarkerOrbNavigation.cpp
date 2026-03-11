@@ -138,7 +138,11 @@ std::string CBuildingMarkerOrb::ResolveTargetByState() const
     case ECitizenState::GoingToTeamsterSource:
         return Delivery.SourceName;
     case ECitizenState::GoingToTeamsterHarbor:
-        return Delivery.HarborName;
+        return Delivery.DestinationName;
+    case ECitizenState::GoingToTeamsterConsumerSource:
+        return Delivery.SourceName;
+    case ECitizenState::GoingToTeamsterConsumerTarget:
+        return Delivery.DestinationName;
     case ECitizenState::GoingToTeamsterOffice:
         return mWorkName;
     default:
@@ -256,6 +260,7 @@ void CBuildingMarkerOrb::HandleMissingTarget()
     auto& Delivery = mTeamsterDeliveryState;
 
     CancelCurrentPath();
+    ReleaseTeamsterReservations();
 
     switch (mCitizenState)
     {
@@ -283,7 +288,17 @@ void CBuildingMarkerOrb::HandleMissingTarget()
         ResetTeamsterSpeed();
         break;
     case ECitizenState::GoingToTeamsterHarbor:
-        Delivery.HarborName.clear();
+        Delivery.DestinationName.clear();
+        Delivery.ClearCargo();
+        ResetTeamsterSpeed();
+        break;
+    case ECitizenState::GoingToTeamsterConsumerSource:
+        Delivery.SourceName.clear();
+        Delivery.ClearCargo();
+        ResetTeamsterSpeed();
+        break;
+    case ECitizenState::GoingToTeamsterConsumerTarget:
+        Delivery.DestinationName.clear();
         Delivery.ClearCargo();
         ResetTeamsterSpeed();
         break;
@@ -358,23 +373,42 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
                 World->FindObject<CPlacementAreaObject>(
                     mCurrentTargetName).lock();
 
-            if (SourceBuilding &&
-                SourceBuilding->SupportsTeamsterPickup() &&
-                SourceBuilding->TryConsumeAnyExportableResource(
-                    GTeamsterTransferUnit,
-                    Delivery.CargoType))
+            if (Delivery.SourceReservationKind ==
+                FTeamsterDeliveryState::ESourceReservationKind::Typed &&
+                SourceBuilding)
             {
-                Delivery.CarryAmount = GTeamsterTransferUnit;
+                SourceBuilding->ReleaseTeamsterPickup(
+                    Delivery.RequestedType,
+                    Delivery.RequestedAmount);
+                Delivery.SourceReservationKind =
+                    FTeamsterDeliveryState::ESourceReservationKind::None;
+            }
+
+            if (SourceBuilding &&
+                (SourceBuilding->SupportsTeamsterPickup() ||
+                 SourceBuilding->IsWarehouse()) &&
+                Delivery.RequestedType != EResourceType::None &&
+                SourceBuilding->TryConsumeResource(
+                    Delivery.RequestedType,
+                    (std::max)(1, Delivery.RequestedAmount)))
+            {
+                Delivery.CargoType = Delivery.RequestedType;
+                Delivery.CarryAmount = (std::max)(1, Delivery.RequestedAmount);
                 LoadedCargo = true;
             }
         }
 
         if (LoadedCargo)
         {
-            if (Delivery.HarborName.empty())
-                Delivery.HarborName = FindHarborName();
+            if (Delivery.DestinationName.empty())
+            {
+                Delivery.DestinationName =
+                    FindTeamsterExportDropoffName(
+                        mCurrentTargetName,
+                        Delivery.CargoType);
+            }
 
-            if (!Delivery.HarborName.empty())
+            if (!Delivery.DestinationName.empty())
                 TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
             else
                 TransitionFsm(ECitizenState::GoingToTeamsterOffice);
@@ -390,18 +424,151 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
         auto World = mWorld.lock();
 
         if (World &&
+            Delivery.DestinationReservationActive &&
+            Delivery.CargoType != EResourceType::None &&
             Delivery.CarryAmount > 0 &&
             !mCurrentTargetName.empty())
         {
-            auto HarborBuilding =
+            auto ReservedTarget =
                 World->FindObject<CPlacementAreaObject>(
                     mCurrentTargetName).lock();
 
-            if (HarborBuilding &&
-                HarborBuilding->IsHarbor() &&
+            if (ReservedTarget)
+            {
+                ReservedTarget->ReleaseIncomingResource(
+                    Delivery.CargoType,
+                    Delivery.CarryAmount);
+            }
+
+            Delivery.DestinationReservationActive = false;
+        }
+
+        bool Delivered = false;
+
+        if (World &&
+            Delivery.CarryAmount > 0 &&
+            !mCurrentTargetName.empty())
+        {
+            auto DestinationBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mCurrentTargetName).lock();
+
+            if (DestinationBuilding &&
                 Delivery.CargoType != EResourceType::None)
             {
-                HarborBuilding->AddResourceStock(
+                if (DestinationBuilding->TryAddResourceStock(
+                        Delivery.CargoType,
+                        Delivery.CarryAmount))
+                {
+                    Delivered = true;
+                }
+                else if (!DestinationBuilding->IsHarbor())
+                {
+                    const std::string HarborName = FindHarborName();
+
+                    if (!HarborName.empty() &&
+                        HarborName != mCurrentTargetName)
+                    {
+                        Delivery.DestinationName = HarborName;
+                        TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
+                        mPathRetryAccum = -((float)(rand() % 10) / 100.f);
+                        return;
+                    }
+                }
+            }
+        }
+
+        (void)Delivered;
+        Delivery.ClearCargo();
+        TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+    }
+    else if (mCitizenState == ECitizenState::GoingToTeamsterConsumerSource)
+    {
+        auto World = mWorld.lock();
+        bool LoadedCargo = false;
+
+        if (World &&
+            Delivery.RequestedType != EResourceType::None &&
+            !mCurrentTargetName.empty())
+        {
+            auto SourceBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mCurrentTargetName).lock();
+
+            if (SourceBuilding)
+            {
+                if (Delivery.SourceReservationKind ==
+                    FTeamsterDeliveryState::ESourceReservationKind::Typed)
+                {
+                    SourceBuilding->ReleaseTeamsterPickup(
+                        Delivery.RequestedType,
+                        Delivery.RequestedAmount);
+                    Delivery.SourceReservationKind =
+                        FTeamsterDeliveryState::ESourceReservationKind::None;
+                }
+
+                const int AvailableAmount =
+                    SourceBuilding->GetResourceStock(Delivery.RequestedType);
+                const int RequestedAmount =
+                    (std::max)(1, Delivery.RequestedAmount);
+                const int PickupAmount =
+                    (std::min)(RequestedAmount, AvailableAmount);
+
+                if (PickupAmount > 0 &&
+                    SourceBuilding->TryConsumeResource(
+                        Delivery.RequestedType,
+                        PickupAmount))
+                {
+                    Delivery.CarryAmount = PickupAmount;
+                    Delivery.CargoType = Delivery.RequestedType;
+                    LoadedCargo = true;
+                }
+            }
+        }
+
+        if (LoadedCargo && !Delivery.DestinationName.empty())
+            TransitionFsm(ECitizenState::GoingToTeamsterConsumerTarget);
+        else
+            TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+    }
+    else if (mCitizenState == ECitizenState::GoingToTeamsterConsumerTarget)
+    {
+        auto World = mWorld.lock();
+
+        if (World &&
+            Delivery.DestinationReservationActive &&
+            Delivery.RequestedType != EResourceType::None &&
+            Delivery.RequestedAmount > 0 &&
+            !mCurrentTargetName.empty())
+        {
+            auto ReservedTarget =
+                World->FindObject<CPlacementAreaObject>(
+                    mCurrentTargetName).lock();
+
+            if (ReservedTarget)
+            {
+                ReservedTarget->ReleaseIncomingResource(
+                    Delivery.RequestedType,
+                    Delivery.RequestedAmount);
+            }
+
+            Delivery.DestinationReservationActive = false;
+        }
+
+        if (World &&
+            Delivery.CarryAmount > 0 &&
+            Delivery.CargoType != EResourceType::None &&
+            !mCurrentTargetName.empty())
+        {
+            auto ConsumerBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mCurrentTargetName).lock();
+
+            if (ConsumerBuilding &&
+                ConsumerBuilding->GetVisitConsumptionResourceType() ==
+                    Delivery.CargoType)
+            {
+                ConsumerBuilding->TryAddResourceStock(
                     Delivery.CargoType,
                     Delivery.CarryAmount);
             }
@@ -1151,19 +1318,24 @@ void CBuildingMarkerOrb::RemoveTargetBuildingName(
         mCitizenProfileState.FoodStockAvailableThisVisit = false;
     }
     if (mFunName == BuildingName) { mFunName.clear(); }
+    if (mTeamsterDeliveryState.SourceName == BuildingName ||
+        mTeamsterDeliveryState.DestinationName == BuildingName)
+    {
+        ReleaseTeamsterReservations();
+    }
     if (mTeamsterDeliveryState.SourceName == BuildingName)
     {
         mTeamsterDeliveryState.SourceName.clear();
         mTeamsterDeliveryState.ClearCargo();
     }
-    if (mTeamsterDeliveryState.HarborName == BuildingName)
+    if (mTeamsterDeliveryState.DestinationName == BuildingName)
     {
-        mTeamsterDeliveryState.HarborName.clear();
+        mTeamsterDeliveryState.DestinationName.clear();
         mTeamsterDeliveryState.ClearCargo();
     }
 
     if ((mTeamsterDeliveryState.SourceName.empty() ||
-        mTeamsterDeliveryState.HarborName.empty()) &&
+        mTeamsterDeliveryState.DestinationName.empty()) &&
         IsTeamsterState(mCitizenState))
     {
         ResetTeamsterSpeed();

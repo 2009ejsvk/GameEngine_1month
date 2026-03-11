@@ -1,16 +1,20 @@
 #include "PlacementAreaObject.h"
 #include "Object/TileMapObject.h"
+#include "World/World.h"
 #include <cfloat>
 
 bool CPlacementAreaObject::IsNavigationObstacle() const
 {
-    return true;
+    return !IsRoad();
 }
 
 void CPlacementAreaObject::GetNavigationGoalTiles(
     std::vector<int>& OutIndices)
 {
     EnsurePlacementObject();
+
+    if (IsRoad())
+        return;
 
     if (!mTileMapPrepared)
         return;
@@ -44,6 +48,9 @@ void CPlacementAreaObject::GetNavigationBlockedTiles(
     std::vector<int>& OutIndices)
 {
     EnsurePlacementObject();
+
+    if (IsRoad())
+        return;
 
     if (!mTileMapPrepared ||
         mPrimaryPlacedIndices.empty())
@@ -207,6 +214,32 @@ bool CPlacementAreaObject::GetTileSize(FVector2& OutTileSize)
     return true;
 }
 
+bool CPlacementAreaObject::GetPlacedCenterGridCoords(
+    int& OutGridX, int& OutGridY) const
+{
+    OutGridX = 0;
+    OutGridY = 0;
+
+    if (!mTileMapPrepared || mPlacedCenterIndex < 0)
+        return false;
+
+    std::shared_ptr<CTileMapComponent> TileMap;
+
+    if (!const_cast<CPlacementAreaObject*>(this)->AcquireTileMap(TileMap))
+        return false;
+
+    auto CenterTile = TileMap->GetTile(mPlacedCenterIndex).lock();
+
+    if (!CenterTile)
+        return false;
+
+    const int IndexX = CenterTile->GetIndexX();
+    const int IndexY = CenterTile->GetIndexY();
+    OutGridX = IndexX + ((IndexY + (IndexY & 1)) / 2);
+    OutGridY = IndexX - (IndexY / 2);
+    return true;
+}
+
 bool CPlacementAreaObject::BuildDiamondAreaIndices(
     const std::shared_ptr<class CTileMapComponent>& TileMap,
     int CenterIndex, std::vector<int>& OutIndices) const
@@ -315,9 +348,69 @@ bool CPlacementAreaObject::IsAreaPlaceable(
         {
             return false;
         }
+
+        if (TileMap->IsRoadTile(Indices[i]) &&
+            !IsPlacedIndex(Indices[i]))
+        {
+            return false;
+        }
     }
 
     return true;
+}
+
+void CPlacementAreaObject::RefreshAccessibilityScore()
+{
+    mAccessibilityScore = 0.f;
+
+    if (IsRoad() ||
+        !mTileMapPrepared ||
+        mPrimaryPlacedIndices.empty())
+    {
+        return;
+    }
+
+    std::shared_ptr<CTileMapComponent> TileMap;
+
+    if (!AcquireTileMap(TileMap))
+        return;
+
+    int PerimeterTileCount = 0;
+    int RoadConnectedTileCount = 0;
+
+    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
+    {
+        const int TileIndex = mPrimaryPlacedIndices[i];
+        bool IsPerimeterTile = false;
+        bool HasAdjacentRoad = false;
+
+        for (int Dir = 0; Dir < 8; ++Dir)
+        {
+            const int NeighborIndex =
+                GetIsoNeighborIndexByDir(TileMap, TileIndex, Dir);
+
+            if (NeighborIndex < 0 || !IsPlacedIndex(NeighborIndex))
+                IsPerimeterTile = true;
+
+            if (NeighborIndex >= 0 && TileMap->IsRoadTile(NeighborIndex))
+                HasAdjacentRoad = true;
+        }
+
+        if (!IsPerimeterTile)
+            continue;
+
+        ++PerimeterTileCount;
+
+        if (HasAdjacentRoad)
+            ++RoadConnectedTileCount;
+    }
+
+    if (PerimeterTileCount <= 0)
+        return;
+
+    mAccessibilityScore =
+        static_cast<float>(RoadConnectedTileCount) /
+        static_cast<float>(PerimeterTileCount);
 }
 
 bool CPlacementAreaObject::IsPlacedIndex(int Index) const

@@ -5,6 +5,8 @@
 
 namespace
 {
+    const FVector4 GRoadOverlayColor(0.40f, 0.40f, 0.40f, 1.f);
+
     struct FOverlayTileState
     {
         CTileMapComponent* TileMap = nullptr;
@@ -205,7 +207,7 @@ void CPlacementAreaObject::UpdatePrimaryOverlayTiles(
         BlueOverlayTileMap,
         mAppliedPrimaryOverlayIndices,
         NextIndices,
-        FVector4::Blue);
+        IsRoad() ? GRoadOverlayColor : FVector4::Blue);
 }
 
 void CPlacementAreaObject::UpdateMarkerOverlayTiles(
@@ -245,10 +247,19 @@ void CPlacementAreaObject::SetAreaColor(
 void CPlacementAreaObject::ApplyPlacedAreaColor(
     const std::shared_ptr<class CTileMapComponent>& TileMap)
 {
-    SetAreaColor(TileMap, mPrimaryPlacedIndices, FVector4::White);
+    SetAreaColor(
+        TileMap,
+        mPrimaryPlacedIndices,
+        IsRoad() ? GRoadOverlayColor : FVector4::White);
     UpdatePrimaryOverlayTiles(mPrimaryPlacedIndices);
 
     mMarkerTileIndices.clear();
+
+    if (IsRoad())
+    {
+        UpdateMarkerOverlayTiles(std::vector<int>());
+        return;
+    }
 
     if (mPlacedCenterIndex < 0 ||
         mPrimaryPlacedIndices.empty())

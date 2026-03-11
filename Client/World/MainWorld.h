@@ -6,6 +6,9 @@
 #include <string>
 #include <vector>
 
+class CRoadNetwork;
+class CBusRouteSystem;
+
 class CMainWorld :
     public CWorld,
     public IMainWorldBuildMenuAccess,
@@ -13,7 +16,9 @@ class CMainWorld :
     public IMainWorldAlmanacAccess,
     public IMainWorldEdictReadAccess,
     public IGovernmentCommandService,
-    public IMainWorldCitizenPolicyAccess
+    public IMainWorldCitizenPolicyAccess,
+    public IMainWorldRoadNetworkAccess,
+    public IMainWorldTransitAccess
 {
 public:
 	CMainWorld();
@@ -74,6 +79,10 @@ public:
 	{
 		return mLastDailyEdictCost;
 	}
+	long long GetLastDailyImportExpense() const
+	{
+		return mLastDailyImportExpense;
+	}
 	long long GetLastDailyExportIncome() const
 	{
 		return mLastDailyExportIncome;
@@ -112,6 +121,15 @@ public:
 	{
 		return mTaxEventStatus;
 	}
+    virtual void RebuildRoadNetwork() override;
+    virtual const CRoadNetwork* GetRoadNetwork() const override
+    {
+        return mRoadNetwork.get();
+    }
+    virtual const CBusRouteSystem* GetBusRouteSystem() const override
+    {
+        return mBusRouteSystem.get();
+    }
 
 private:
 	int mSpawnedNpcCount = 0;
@@ -126,6 +144,7 @@ private:
 	long long mLastDailyIncomeTaxIncome = 0;
 	long long mLastDailyPropertyTaxIncome = 0;
 	long long mLastDailyEdictCost = 0;
+	long long mLastDailyImportExpense = 0;
 	long long mLastDailyNetChange = 0;
 	double mLastDailyTaxCollectionEfficiency = 0.0;
 	int mSimulationYear = 2000;
@@ -143,6 +162,8 @@ private:
 	FTaxPolicyEventStatus mTaxEventStatus;
 	std::vector<FGovernmentEdictState> mGovernmentEdicts;
 	FGovernmentEdictModifiers mEdictModifiers;
+    std::shared_ptr<CRoadNetwork> mRoadNetwork;
+    std::shared_ptr<CBusRouteSystem> mBusRouteSystem;
 
 private:
 	void ResetWorldState();
@@ -166,4 +187,5 @@ private:
 	void ApplyDailyTaxPolicyEventEffects();
 	void TickTaxPolicyEvents();
 	void RefreshPoliticalSnapshot();
+    void RebuildBusRoutes();
 };

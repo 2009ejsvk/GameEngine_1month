@@ -196,6 +196,7 @@
     </ClCompile>
     <ClCompile Include="GlobalSetting.cpp" />
     <ClCompile Include="Building\BuildingCatalog.cpp" />
+    <ClCompile Include="Citizen\CitizenCommuteCalc.cpp" />
     <ClCompile Include="Citizen\CitizenPolitics.cpp" />
     <ClCompile Include="Citizen\CitizenSatisfaction.cpp" />
     <ClCompile Include="Citizen\CitizenSystem.cpp" />
@@ -235,6 +236,7 @@
     <ClCompile Include="UI\EdictWidget.cpp" />
     <ClCompile Include="UI\CitizenInfoDataProvider.cpp" />
     <ClCompile Include="UI\CitizenInfoRenderer.cpp" />
+    <ClCompile Include="UI\UILayoutConfig.cpp" />
     <ClCompile Include="UI\TopHudDataProvider.cpp" />
     <ClCompile Include="UI\TopHudRenderer.cpp" />
     <ClCompile Include="UI\TopHudWidget.cpp" />
@@ -253,6 +255,8 @@
     <ClCompile Include="World\MainWorldBootstrap.cpp" />
     <ClCompile Include="World\MainWorldPopulation.cpp" />
     <ClCompile Include="World\MainWorldSimulation.cpp" />
+    <ClCompile Include="World\BusRouteSystem.cpp" />
+    <ClCompile Include="World\RoadNetwork.cpp" />
     <ClCompile Include="World\WorldStatsSnapshot.cpp" />
     <ClCompile Include="World\StartWorld.cpp" />
   </ItemGroup>
@@ -261,6 +265,7 @@
     <ClInclude Include="ClientInfo.h" />
     <ClInclude Include="Building\BuildingCatalog.h" />
     <ClInclude Include="Building\BuildingTypes.h" />
+    <ClInclude Include="Citizen\CitizenCommuteCalc.h" />
     <ClInclude Include="Citizen\CitizenPolitics.h" />
     <ClInclude Include="Citizen\CitizenSatisfaction.h" />
     <ClInclude Include="Citizen\CitizenTypes.h" />
@@ -312,6 +317,8 @@
     <ClInclude Include="World\MainWorldAccess.h" />
     <ClInclude Include="World\MainWorldConfig.h" />
     <ClInclude Include="World\MainWorld.h" />
+    <ClInclude Include="World\BusRouteSystem.h" />
+    <ClInclude Include="World\RoadNetwork.h" />
     <ClInclude Include="World\WorldStatsSnapshot.h" />
     <ClInclude Include="World\StartWorld.h" />
   </ItemGroup>

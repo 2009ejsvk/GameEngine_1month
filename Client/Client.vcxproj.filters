@@ -102,6 +102,12 @@
     <ClCompile Include="World\MainWorldSimulation.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
+    <ClCompile Include="World\BusRouteSystem.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\RoadNetwork.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
     <ClCompile Include="World\WorldStatsSnapshot.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
@@ -110,6 +116,9 @@
     </ClCompile>
     <ClCompile Include="Building\BuildingCatalog.cpp">
       <Filter>12. Building</Filter>
+    </ClCompile>
+    <ClCompile Include="Citizen\CitizenCommuteCalc.cpp">
+      <Filter>13. Citizen</Filter>
     </ClCompile>
     <ClCompile Include="Citizen\CitizenPolitics.cpp">
       <Filter>13. Citizen</Filter>
@@ -290,6 +299,12 @@
     <ClInclude Include="World\WorldStatsSnapshot.h">
       <Filter>02. World</Filter>
     </ClInclude>
+    <ClInclude Include="World\BusRouteSystem.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\RoadNetwork.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
     <ClInclude Include="GlobalSetting.h">
       <Filter>06. Setting</Filter>
     </ClInclude>
@@ -349,6 +364,9 @@
     </ClInclude>
     <ClInclude Include="Building\BuildingTypes.h">
       <Filter>12. Building</Filter>
+    </ClInclude>
+    <ClInclude Include="Citizen\CitizenCommuteCalc.h">
+      <Filter>13. Citizen</Filter>
     </ClInclude>
     <ClInclude Include="Citizen\CitizenPolitics.h">
       <Filter>13. Citizen</Filter>

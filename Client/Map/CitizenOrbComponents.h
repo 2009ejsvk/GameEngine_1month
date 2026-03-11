@@ -84,6 +84,7 @@ struct FCitizenWellbeingState
         Satisfaction.Faith = 70.f;
         Satisfaction.Housing = 70.f;
         Satisfaction.Job = 70.f;
+        Satisfaction.CommuteTimePenalty = 0.f;
         Satisfaction.Freedom = 70.f;
         Satisfaction.Security = 70.f;
         RecalculateOverallSatisfaction();
@@ -149,22 +150,47 @@ struct FCitizenWellbeingState
 
 struct FTeamsterDeliveryState
 {
+    enum class ERouteMode
+    {
+        None = 0,
+        Export,
+        ConsumerDelivery
+    };
+
+    enum class ESourceReservationKind
+    {
+        None = 0,
+        Exportable,
+        Typed
+    };
+
+    ERouteMode Mode = ERouteMode::None;
+    ESourceReservationKind SourceReservationKind =
+        ESourceReservationKind::None;
     std::string SourceName;
-    std::string HarborName;
+    std::string DestinationName;
+    int RequestedAmount = 0;
+    EResourceType RequestedType = EResourceType::None;
     int CarryAmount = 0;
     EResourceType CargoType = EResourceType::None;
+    bool DestinationReservationActive = false;
     bool SpeedBoostActive = false;
 
     void ClearCargo()
     {
+        RequestedAmount = 0;
+        RequestedType = EResourceType::None;
         CarryAmount = 0;
         CargoType = EResourceType::None;
     }
 
     void ClearRoute()
     {
+        Mode = ERouteMode::None;
+        SourceReservationKind = ESourceReservationKind::None;
         SourceName.clear();
-        HarborName.clear();
+        DestinationName.clear();
+        DestinationReservationActive = false;
         ClearCargo();
     }
 };

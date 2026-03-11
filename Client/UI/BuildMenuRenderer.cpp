@@ -4,7 +4,6 @@
 #include "../Building/BuildingCategoryInfo.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
-#include "UI/ProgressBar.h"
 #include "UI/TextBlock.h"
 #include "Device.h"
 #include <algorithm>
@@ -45,25 +44,10 @@ void FBuildMenuRenderer::ApplySnapshot(
     Widget.mPreviewEntryIndex = Snapshot.Catalog.PreviewEntryIndex;
     Widget.mVisibleEntryIndices = Snapshot.Catalog.VisibleEntryIndices;
 
-    auto NpcCountText = Widget.mNpcCountText.lock();
-    auto BudgetText = Widget.mBudgetText.lock();
-    auto DateText = Widget.mDateText.lock();
-    auto DayProgressText = Widget.mDayProgressText.lock();
-    auto DayProgressBar = Widget.mDayProgressBar.lock();
     auto YearbookBodyText = Widget.mYearbookBodyText.lock();
     auto TitleText = Widget.mTitleText.lock();
     auto PageText = Widget.mPageText.lock();
 
-    if (NpcCountText)
-        NpcCountText->SetText(Snapshot.Status.NpcCountText.c_str());
-    if (BudgetText)
-        BudgetText->SetText(Snapshot.Status.BudgetText.c_str());
-    if (DateText)
-        DateText->SetText(Snapshot.Status.DateText.c_str());
-    if (DayProgressText)
-        DayProgressText->SetText(Snapshot.Status.MonthProgressText.c_str());
-    if (DayProgressBar)
-        DayProgressBar->SetPercent(Snapshot.Status.MonthProgress);
     if (YearbookBodyText)
         YearbookBodyText->SetText(Snapshot.Status.YearbookBodyText.c_str());
     if (TitleText)
@@ -204,73 +188,6 @@ void FBuildMenuRenderer::RefreshLayout(CBuildMenuWidget& Widget)
     const float DetailFrameWidth = GridFrameWidth;
     const float DetailFrameHeight =
         PanelTop + PanelHeight - DetailFrameTop - 22.f * Scale;
-
-    auto BuildButton = Widget.mBuildButton.lock();
-    auto YearbookButton = Widget.mYearbookButton.lock();
-    const float BuildButtonWidth = 220.f;
-    const float YearbookButtonWidth = 140.f;
-    const float BottomButtonGap = 14.f;
-    const float BottomButtonHeight = 58.f;
-    const float BottomButtonTop =
-        ScreenWidth * 0.5f -
-        (BuildButtonWidth + BottomButtonGap + YearbookButtonWidth) * 0.5f;
-
-    if (BuildButton)
-    {
-        BuildButton->SetPivot(0.f, 1.f);
-        BuildButton->SetPos(BottomButtonTop, ScreenHeight - 20.f);
-        BuildButton->SetSize(BuildButtonWidth, BottomButtonHeight);
-    }
-
-    if (YearbookButton)
-    {
-        YearbookButton->SetPivot(0.f, 1.f);
-        YearbookButton->SetPos(
-            BottomButtonTop + BuildButtonWidth + BottomButtonGap,
-            ScreenHeight - 20.f);
-        YearbookButton->SetSize(YearbookButtonWidth, BottomButtonHeight);
-    }
-
-    auto NpcCountText = Widget.mNpcCountText.lock();
-    auto BudgetText = Widget.mBudgetText.lock();
-    auto DateText = Widget.mDateText.lock();
-    auto DayProgressText = Widget.mDayProgressText.lock();
-    auto DayProgressBar = Widget.mDayProgressBar.lock();
-
-    if (NpcCountText)
-    {
-        NpcCountText->SetPivot(0.f, 1.f);
-        NpcCountText->SetPos(20.f, ScreenHeight - 20.f);
-        NpcCountText->SetSize(380.f, 28.f);
-    }
-
-    if (BudgetText)
-    {
-        BudgetText->SetPivot(0.f, 1.f);
-        BudgetText->SetPos(20.f, ScreenHeight - 48.f);
-        BudgetText->SetSize(420.f, 28.f);
-    }
-
-    if (DateText)
-    {
-        DateText->SetPivot(0.f, 1.f);
-        DateText->SetPos(20.f, ScreenHeight - 76.f);
-        DateText->SetSize(420.f, 28.f);
-    }
-
-    if (DayProgressText)
-    {
-        DayProgressText->SetPivot(0.f, 1.f);
-        DayProgressText->SetPos(20.f, ScreenHeight - 104.f);
-        DayProgressText->SetSize(420.f, 24.f);
-    }
-
-    if (DayProgressBar)
-    {
-        DayProgressBar->SetPivot(0.f, 1.f);
-        DayProgressBar->SetPos(20.f, ScreenHeight - 124.f);
-        DayProgressBar->SetSize(300.f, 14.f);
-    }
 
     auto YearbookPanel = Widget.mYearbookPanel.lock();
     auto YearbookTitleText = Widget.mYearbookTitleText.lock();
@@ -670,172 +587,6 @@ bool FBuildMenuRenderer::IsMouseOverPanel(
 
 void FBuildMenuRenderer::CreateHudWidgets(CBuildMenuWidget& Widget)
 {
-    auto BuildButton =
-        Widget.CreateWidget<CButton>("BuildMenu_BuildButton", 10).lock();
-
-    if (BuildButton)
-    {
-        ApplyButtonTextureSet(
-            BuildButton,
-            "BuildMenuOpenButton",
-            GBigTextButtonTexture,
-            GBigTextButtonHoverTexture,
-            GBigTextButtonSelectedTexture,
-            GBigTextButtonDisabledTexture);
-        ConfigureIconSlotButtonStyle(BuildButton);
-        BuildButton->SetEventCallback<CBuildMenuWidget>(
-            EButtonEventState::Click,
-            &Widget,
-            &CBuildMenuWidget::OnBuildButtonClick);
-
-        auto BuildButtonText =
-            CWidget::CreateStaticWidget<CTextBlock>(
-                "BuildMenu_BuildButtonText",
-                Widget.mWorld);
-
-        if (BuildButtonText)
-        {
-            BuildButtonText->SetText(TEXT("건축"));
-            BuildButtonText->SetFontSize(24.f);
-            BuildButtonText->SetAlignH(ETextAlignH::Center);
-            BuildButtonText->SetAlignV(ETextAlignV::Middle);
-            BuildButtonText->SetTextColor(95, 68, 18, 255);
-            BuildButtonText->EnableShadow(true);
-            BuildButtonText->SetShadowOffset(1.f, 1.f);
-            BuildButtonText->SetShadowTextColor(246, 225, 170, 170);
-            BuildButton->SetChild(BuildButtonText);
-        }
-
-        Widget.mBuildButton = BuildButton;
-    }
-
-    auto YearbookButton =
-        Widget.CreateWidget<CButton>("BuildMenu_YearbookButton", 10).lock();
-
-    if (YearbookButton)
-    {
-        ApplyButtonTextureSet(
-            YearbookButton,
-            "BuildMenuYearbookButton",
-            GBigTextButtonTexture,
-            GBigTextButtonHoverTexture,
-            GBigTextButtonSelectedTexture,
-            GBigTextButtonDisabledTexture);
-        ConfigureIconSlotButtonStyle(YearbookButton);
-        YearbookButton->SetEventCallback<CBuildMenuWidget>(
-            EButtonEventState::Click,
-            &Widget,
-            &CBuildMenuWidget::OnYearbookButtonClick);
-
-        auto YearbookButtonText =
-            CWidget::CreateStaticWidget<CTextBlock>(
-                "BuildMenu_YearbookButtonText",
-                Widget.mWorld);
-
-        if (YearbookButtonText)
-        {
-            YearbookButtonText->SetText(TEXT("연감"));
-            YearbookButtonText->SetFontSize(24.f);
-            YearbookButtonText->SetAlignH(ETextAlignH::Center);
-            YearbookButtonText->SetAlignV(ETextAlignV::Middle);
-            YearbookButtonText->SetTextColor(95, 68, 18, 255);
-            YearbookButtonText->EnableShadow(true);
-            YearbookButtonText->SetShadowOffset(1.f, 1.f);
-            YearbookButtonText->SetShadowTextColor(246, 225, 170, 170);
-            YearbookButton->SetChild(YearbookButtonText);
-            Widget.mYearbookButtonText = YearbookButtonText;
-        }
-
-        Widget.mYearbookButton = YearbookButton;
-    }
-
-    auto NpcCountText =
-        Widget.CreateWidget<CTextBlock>("BuildMenu_NpcCount", 11).lock();
-
-    if (NpcCountText)
-    {
-        NpcCountText->SetText(TEXT("NPC: 0"));
-        NpcCountText->SetFontSize(20.f);
-        NpcCountText->SetAlignH(ETextAlignH::Left);
-        NpcCountText->SetAlignV(ETextAlignV::Middle);
-        NpcCountText->SetTextColor(245, 245, 245, 255);
-        NpcCountText->EnableShadow(true);
-        NpcCountText->SetShadowOffset(1.f, 1.f);
-        NpcCountText->SetShadowTextColor(20, 20, 20, 255);
-        Widget.mNpcCountText = NpcCountText;
-    }
-
-    auto BudgetText =
-        Widget.CreateWidget<CTextBlock>(
-            "BuildMenu_NationalBudget",
-            11).lock();
-
-    if (BudgetText)
-    {
-        BudgetText->SetText(TEXT("국가 예산: $0"));
-        BudgetText->SetFontSize(20.f);
-        BudgetText->SetAlignH(ETextAlignH::Left);
-        BudgetText->SetAlignV(ETextAlignV::Middle);
-        BudgetText->SetTextColor(245, 245, 210, 255);
-        BudgetText->EnableShadow(true);
-        BudgetText->SetShadowOffset(1.f, 1.f);
-        BudgetText->SetShadowTextColor(20, 20, 20, 255);
-        Widget.mBudgetText = BudgetText;
-    }
-
-    auto DateText =
-        Widget.CreateWidget<CTextBlock>(
-            "BuildMenu_SimulationDate",
-            11).lock();
-
-    if (DateText)
-    {
-        DateText->SetText(TEXT("날짜: 2000-01-01"));
-        DateText->SetFontSize(20.f);
-        DateText->SetAlignH(ETextAlignH::Left);
-        DateText->SetAlignV(ETextAlignV::Middle);
-        DateText->SetTextColor(220, 235, 255, 255);
-        DateText->EnableShadow(true);
-        DateText->SetShadowOffset(1.f, 1.f);
-        DateText->SetShadowTextColor(20, 20, 20, 255);
-        Widget.mDateText = DateText;
-    }
-
-    auto DayProgressText =
-        Widget.CreateWidget<CTextBlock>(
-            "BuildMenu_DayProgressText",
-            11).lock();
-
-    if (DayProgressText)
-    {
-        DayProgressText->SetText(TEXT("월 진행: 0%"));
-        DayProgressText->SetFontSize(16.f);
-        DayProgressText->SetAlignH(ETextAlignH::Left);
-        DayProgressText->SetAlignV(ETextAlignV::Middle);
-        DayProgressText->SetTextColor(220, 220, 220, 255);
-        DayProgressText->EnableShadow(true);
-        DayProgressText->SetShadowOffset(1.f, 1.f);
-        DayProgressText->SetShadowTextColor(20, 20, 20, 255);
-        Widget.mDayProgressText = DayProgressText;
-    }
-
-    auto DayProgressBar =
-        Widget.CreateWidget<CProgressBar>(
-            "BuildMenu_DayProgressBar",
-            10).lock();
-
-    if (DayProgressBar)
-    {
-        DayProgressBar->SetTint(
-            EProgressBarImageType::Back,
-            FVector4(0.08f, 0.08f, 0.10f, 0.85f));
-        DayProgressBar->SetTint(
-            EProgressBarImageType::Fill,
-            FVector4(0.18f, 0.62f, 0.34f, 0.95f));
-        DayProgressBar->SetPercent(0.f);
-        DayProgressBar->SetBarDir(EProgressBarDir::RightToLeft);
-        Widget.mDayProgressBar = DayProgressBar;
-    }
 }
 
 void FBuildMenuRenderer::CreateYearbookWidgets(CBuildMenuWidget& Widget)
@@ -1380,7 +1131,6 @@ void FBuildMenuRenderer::CreateDetailWidgets(CBuildMenuWidget& Widget)
 
 void FBuildMenuRenderer::ApplyMenuOpenState(CBuildMenuWidget& Widget)
 {
-    auto BuildButton = Widget.mBuildButton.lock();
     auto MenuBackground = Widget.mMenuBackground.lock();
     auto MenuTitleRibbon = Widget.mMenuTitleRibbon.lock();
     auto MenuGridFrame = Widget.mMenuGridFrame.lock();
@@ -1460,19 +1210,6 @@ void FBuildMenuRenderer::ApplyMenuOpenState(CBuildMenuWidget& Widget)
             Button->SetEnable(Widget.mMenuOpen && HasEntry);
     }
 
-    if (BuildButton)
-    {
-        ApplyButtonTextureSet(
-            BuildButton,
-            "BuildMenuOpenButtonState",
-            Widget.mMenuOpen ?
-                GBigTextButtonSelectedTexture :
-                GBigTextButtonTexture,
-            GBigTextButtonHoverTexture,
-            GBigTextButtonSelectedTexture,
-            GBigTextButtonDisabledTexture);
-        ConfigureIconSlotButtonStyle(BuildButton);
-    }
 }
 
 void FBuildMenuRenderer::ApplyYearbookOpenState(CBuildMenuWidget& Widget)
@@ -1481,8 +1218,6 @@ void FBuildMenuRenderer::ApplyYearbookOpenState(CBuildMenuWidget& Widget)
     auto YearbookTitleText = Widget.mYearbookTitleText.lock();
     auto YearbookBodyText = Widget.mYearbookBodyText.lock();
     auto YearbookCloseButton = Widget.mYearbookCloseButton.lock();
-    auto YearbookButton = Widget.mYearbookButton.lock();
-    auto YearbookButtonText = Widget.mYearbookButtonText.lock();
 
     if (YearbookPanel)
         YearbookPanel->SetEnable(Widget.mYearbookOpen);
@@ -1492,26 +1227,4 @@ void FBuildMenuRenderer::ApplyYearbookOpenState(CBuildMenuWidget& Widget)
         YearbookBodyText->SetEnable(Widget.mYearbookOpen);
     if (YearbookCloseButton)
         YearbookCloseButton->SetEnable(Widget.mYearbookOpen);
-
-    if (YearbookButton)
-    {
-        ApplyButtonTextureSet(
-            YearbookButton,
-            "BuildMenuYearbookButtonState",
-            Widget.mYearbookOpen ?
-                GBigTextButtonSelectedTexture :
-                GBigTextButtonTexture,
-            GBigTextButtonHoverTexture,
-            GBigTextButtonSelectedTexture,
-            GBigTextButtonDisabledTexture);
-        ConfigureIconSlotButtonStyle(YearbookButton);
-    }
-
-    if (YearbookButtonText)
-    {
-        if (Widget.mYearbookOpen)
-            YearbookButtonText->SetText(TEXT("연감 ON"));
-        else
-            YearbookButtonText->SetText(TEXT("연감"));
-    }
 }

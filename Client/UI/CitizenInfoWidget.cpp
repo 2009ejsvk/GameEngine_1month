@@ -55,36 +55,16 @@ void CCitizenInfoWidget::OpenCitizen(
     const FNpcSatisfaction& Satisfaction,
     const FVector2& ScreenPos)
 {
+    (void)Satisfaction;
+
     mRequestedScreenPos = ScreenPos;
     mPanelMode = EPanelMode::Citizen;
     mTrackedCitizenName = CitizenName;
     mTrackedBuildingName.clear();
     mSelectedBuildingTab = EBuildingInfoTab::Overview;
 
-    FNpcPoliticalProfile PoliticalProfile;
-    FCitizenIdentityProfile IdentityProfile;
-    auto World = mWorld.lock();
-
-    if (World)
-    {
-        auto Citizen = World->FindObject<CBuildingMarkerOrb>(CitizenName).lock();
-
-        if (Citizen && Citizen->GetAlive() && Citizen->GetEnable())
-        {
-            PoliticalProfile = Citizen->GetPoliticalProfile();
-            IdentityProfile = Citizen->GetIdentityProfile();
-        }
-    }
-
-    const auto Snapshot = CitizenInfoDataProvider::BuildCitizenSnapshot(
-        CitizenName,
-        Satisfaction,
-        IdentityProfile,
-        PoliticalProfile);
-
     SetEnable(true);
-    FCitizenInfoRenderer::ApplySnapshot(*this, Snapshot);
-    FCitizenInfoRenderer::RefreshLayout(*this);
+    RefreshFromState();
 }
 
 void CCitizenInfoWidget::OpenBuilding(
@@ -118,7 +98,8 @@ void CCitizenInfoWidget::RefreshFromState()
     {
         Snapshot = CitizenInfoDataProvider::BuildTrackedCitizenSnapshot(
             mWorld.lock(),
-            mTrackedCitizenName);
+            mTrackedCitizenName,
+            static_cast<int>(mSelectedBuildingTab));
     }
     else
     {
@@ -224,6 +205,10 @@ void CCitizenInfoWidget::OnMoveButtonClick()
 }
 
 void CCitizenInfoWidget::OnCloneButtonClick()
+{
+}
+
+void CCitizenInfoWidget::OnOverviewCommandButtonClick()
 {
 }
 

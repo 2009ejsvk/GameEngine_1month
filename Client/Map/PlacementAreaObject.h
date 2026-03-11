@@ -52,6 +52,7 @@ private:
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
+    float mAccessibilityScore = 0.f;
 
 public:
     void SetTileMapObject(
@@ -174,9 +175,30 @@ public:
         return mBuildingKind == EPlacementBuildingKind::TransportOffice;
     }
 
+    bool IsRoad() const
+    {
+        return mBuildingKind == EPlacementBuildingKind::Road;
+    }
+
     bool IsHarbor() const
     {
         return mBuildingKind == EPlacementBuildingKind::Harbor;
+    }
+
+    bool IsWarehouse() const
+    {
+        return mBuildingId == "build_1_7" ||
+            mBuildingId == "build_1_8";
+    }
+
+    bool IsBusGarage() const
+    {
+        return mBuildingId == "build_1_11";
+    }
+
+    bool IsBusStop() const
+    {
+        return mBuildingId == "build_1_12";
     }
 
     bool IsFoodProductionFacility() const
@@ -206,6 +228,19 @@ public:
     {
         return mOperations.ApplyBudgetScale(
             mServiceProfile.JobSatisfactionCap);
+    }
+
+    int GetEffectiveJobSatisfactionCap() const
+    {
+        if (IsRoad())
+            return 0;
+
+        const float EffectiveCap =
+            static_cast<float>(GetJobSatisfactionCap()) *
+            (std::max)(0.f, (std::min)(1.f, mAccessibilityScore));
+        return (std::max)(
+            0,
+            (std::min)(100, static_cast<int>(roundf(EffectiveCap))));
     }
 
     int GetFoodSatisfactionCap() const
@@ -311,9 +346,44 @@ public:
     {
         return mOperations.GetExportableResourceStock();
     }
+    int GetAvailableExportableResourceStock() const
+    {
+        return mOperations.GetAvailableExportableResourceStock();
+    }
+    int GetAvailableResourceStock(EResourceType Type) const
+    {
+        return mOperations.GetAvailableResourceStock(Type);
+    }
+    int GetAvailableIncomingCapacity(EResourceType Type) const
+    {
+        return mOperations.GetAvailableIncomingCapacity(Type);
+    }
+    int GetReservedIncomingResourceAmount(EResourceType Type) const
+    {
+        return mOperations.GetReservedIncomingResourceAmount(Type);
+    }
+    int GetWarehouseSlotCount() const
+    {
+        return IsWarehouse() ?
+            FBuildingOperationsState::WarehouseSlotCount :
+            0;
+    }
+    EResourceType GetWarehouseSlotType(int SlotIndex) const
+    {
+        return static_cast<EResourceType>(
+            mOperations.GetWarehouseSlotType(SlotIndex));
+    }
+    int GetResourceTypeCapacity(EResourceType Type) const
+    {
+        return mOperations.GetResourceTypeCapacity(Type);
+    }
+    bool CanStoreResourceType(EResourceType Type) const
+    {
+        return mOperations.CanStoreResourceType(Type);
+    }
     int GetMaxResourceStock() const
     {
-        return FBuildingOperationsState::MaxResourceStock;
+        return mOperations.GetMaxTotalResourceStock();
     }
 
     void AddResourceStock(int Amount)
@@ -326,6 +396,11 @@ public:
     void AddResourceStock(EResourceType Type, int Amount)
     {
         mOperations.AddResourceStock(Type, Amount);
+    }
+
+    bool TryAddResourceStock(EResourceType Type, int Amount)
+    {
+        return mOperations.TryAddResourceStock(Type, Amount);
     }
 
     // AtWork 시민이 매 프레임 호출 - float 누적 후 int 단위로 재고에 추가
@@ -365,6 +440,45 @@ public:
         return mOperations.TryConsumeExportableResources(Amount);
     }
 
+    bool TryGetExportableResourceTypeForAmount(
+        int Amount,
+        EResourceType& OutType) const
+    {
+        return mOperations.TryGetExportableResourceTypeForAmount(
+            Amount,
+            OutType);
+    }
+
+    bool ReserveTeamsterExportPickup(int Amount)
+    {
+        return mOperations.ReserveExportPickupAmount(Amount);
+    }
+
+    void ReleaseTeamsterExportPickup(int Amount)
+    {
+        mOperations.ReleaseExportPickupAmount(Amount);
+    }
+
+    bool ReserveTeamsterPickup(EResourceType Type, int Amount)
+    {
+        return mOperations.ReserveResourcePickupAmount(Type, Amount);
+    }
+
+    void ReleaseTeamsterPickup(EResourceType Type, int Amount)
+    {
+        mOperations.ReleaseResourcePickupAmount(Type, Amount);
+    }
+
+    bool ReserveIncomingResource(EResourceType Type, int Amount)
+    {
+        return mOperations.ReserveIncomingResourceAmount(Type, Amount);
+    }
+
+    void ReleaseIncomingResource(EResourceType Type, int Amount)
+    {
+        mOperations.ReleaseIncomingResourceAmount(Type, Amount);
+    }
+
     bool HasPlacedArea() const
     {
         return mPlacedCenterIndex >= 0 &&
@@ -374,6 +488,11 @@ public:
     int GetDiamondRadius() const
     {
         return mTemplate.DiamondRadius;
+    }
+
+    float GetAccessibilityScore() const
+    {
+        return mAccessibilityScore;
     }
 
     void SetPlacementTemplateType(EPlacementTemplateType Type);
@@ -414,6 +533,7 @@ public:
     bool GetClosestMarkerWorldPos(
         const FVector3& RefWorldPos, FVector3& OutWorldPos);
     bool GetTileSize(FVector2& OutTileSize);
+    bool GetPlacedCenterGridCoords(int& OutGridX, int& OutGridY) const;
 
 private:
     EResourceType ResolvePrimaryResourceTypeForLegacy() const
@@ -435,6 +555,12 @@ private:
         std::shared_ptr<class CTileMapComponent>& OutTileMap);
     void UpdatePrimaryOverlayTiles(const std::vector<int>& NextIndices);
     void UpdateMarkerOverlayTiles(const std::vector<int>& NextIndices);
+    void ApplyPlacementStateToTileMap(
+        const std::shared_ptr<class CTileMapComponent>& TileMap,
+        const std::vector<int>& Indices,
+        bool Apply);
+    void RefreshAccessibilityScore();
+    void NotifyPlacementTopologyChanged();
     bool BuildDiamondAreaIndices(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, std::vector<int>& OutIndices) const;

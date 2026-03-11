@@ -11,6 +11,7 @@ namespace EconomySystem
     {
         long long WageCost              = 0;
         long long UpkeepCost            = 0;
+        long long ImportExpense         = 0;
         long long ExportIncome          = 0;
         long long TaxIncome             = 0;
         long long ConsumptionTaxIncome  = 0;

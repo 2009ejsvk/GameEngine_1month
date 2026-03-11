@@ -44,11 +44,50 @@ namespace
         Snapshot.FoodProviderCount = WorldSnapshot.FoodProviderCount;
         Snapshot.EntertainmentBuildingCount =
             WorldSnapshot.EntertainmentBuildingCount;
+        Snapshot.FaithBuildingCount = WorldSnapshot.FaithBuildingCount;
+        Snapshot.ResidentialVacancyBuildingCount =
+            WorldSnapshot.ResidentialVacancyBuildingCount;
+        Snapshot.WorkVacancyBuildingCount =
+            WorldSnapshot.WorkVacancyBuildingCount;
+        Snapshot.FreedomInfluenceBuildingCount =
+            WorldSnapshot.FreedomInfluenceBuildingCount;
+        Snapshot.SecurityInfluenceBuildingCount =
+            WorldSnapshot.SecurityInfluenceBuildingCount;
         Snapshot.HarborCount = WorldSnapshot.HarborCount;
+        Snapshot.TotalProducedPowerMW = WorldSnapshot.TotalProducedPowerMW;
+        Snapshot.TotalRequiredPowerMW = WorldSnapshot.TotalRequiredPowerMW;
+        Snapshot.DisconnectedConsumerCount =
+            WorldSnapshot.DisconnectedConsumerCount;
         Snapshot.AnyNeutralAxisCitizenCount =
             WorldSnapshot.AnyNeutralAxisCitizenCount;
         Snapshot.FullyNeutralCitizenCount =
             WorldSnapshot.FullyNeutralCitizenCount;
+        for (int WealthIndex = 0; WealthIndex < 3; ++WealthIndex)
+        {
+            Snapshot.HomelessWealthCount[WealthIndex] =
+                WorldSnapshot.HomelessWealthCount[WealthIndex];
+            Snapshot.CitizenWealthCount[WealthIndex] =
+                WorldSnapshot.CitizenWealthCount[WealthIndex];
+        }
+        for (int TierIndex = 0; TierIndex < 5; ++TierIndex)
+        {
+            Snapshot.OverallSatisfactionCitizenCount[TierIndex] =
+                WorldSnapshot.OverallSatisfactionCitizenCount[TierIndex];
+        }
+        for (int EducationIndex = 0; EducationIndex < 3; ++EducationIndex)
+        {
+            Snapshot.EducationCount[EducationIndex] =
+                WorldSnapshot.EducationCount[EducationIndex];
+            Snapshot.UnemployedEducationCount[EducationIndex] =
+                WorldSnapshot.UnemployedEducationCount[EducationIndex];
+            Snapshot.WorkVacancyEducationCount[EducationIndex] =
+                WorldSnapshot.WorkVacancyEducationCount[EducationIndex];
+        }
+        for (int WealthIndex = 0; WealthIndex < 5; ++WealthIndex)
+        {
+            Snapshot.ResidentialVacancyWealthCount[WealthIndex] =
+                WorldSnapshot.ResidentialVacancyWealthCount[WealthIndex];
+        }
         Snapshot.MonthlyWageCost = WorldSnapshot.MonthlyWageCost;
         Snapshot.MonthlyUpkeepCost = WorldSnapshot.MonthlyUpkeepCost;
         Snapshot.TotalResourceStock = WorldSnapshot.TotalResourceStock;
@@ -118,6 +157,8 @@ namespace AlmanacDataProvider
             Snapshot.DailyPropertyTaxIncome =
                 MainWorld->GetLastDailyPropertyTaxIncome();
             Snapshot.DailyEdictCost = MainWorld->GetLastDailyEdictCost();
+            Snapshot.DailyImportExpense =
+                MainWorld->GetLastDailyImportExpense();
             Snapshot.DailyNetChange = MainWorld->GetLastDailyNetChange();
             Snapshot.TaxCollectionEfficiency =
                 MainWorld->GetLastDailyTaxCollectionEfficiency();

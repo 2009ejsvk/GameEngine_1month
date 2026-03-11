@@ -1,5 +1,6 @@
 #include "EdictRenderer.h"
 #include "EdictRendererInternal.h"
+#include "UILayoutConfig.h"
 #include "Device.h"
 #include <algorithm>
 
@@ -18,21 +19,21 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     const float PanelHeight = Widget.mPanelHeight * Scale;
     const float PanelLeft = (ScreenWidth - PanelWidth) * 0.5f;
     const float PanelTop = (ScreenHeight - PanelHeight) * 0.5f;
-    const float HorizontalMargin = 24.f * Scale;
-    const float VerticalMargin = 18.f * Scale;
-    const float HeaderTopPadding = 40.f * Scale;
-    const float HeaderHeight = 48.f * Scale;
+    const float HorizontalMargin = UIConfig::EdictHorizontalMargin * Scale;
+    const float VerticalMargin = UIConfig::EdictVerticalMargin * Scale;
+    const float HeaderTopPadding = UIConfig::EdictHeaderTopPadding * Scale;
+    const float HeaderHeight = UIConfig::EdictHeaderHeight * Scale;
     const float TitleRibbonWidth = PanelWidth - 118.f * Scale;
     const float TitleRibbonLeft =
         PanelLeft + (PanelWidth - TitleRibbonWidth) * 0.5f;
     const float GridFrameLeft = PanelLeft + HorizontalMargin;
     const float GridFrameTop =
-        PanelTop + HeaderTopPadding + HeaderHeight + 10.f * Scale;
+        PanelTop + HeaderTopPadding + HeaderHeight + UIConfig::EdictGridGapFromHeader * Scale;
     const float GridFrameWidth = PanelWidth - HorizontalMargin * 2.f;
-    const float GridFrameHeight = 404.f * Scale;
+    const float GridFrameHeight = UIConfig::EdictGridFrameHeight * Scale;
     const float DetailFrameLeft = GridFrameLeft;
     const float DetailFrameTop =
-        GridFrameTop + GridFrameHeight + 12.f * Scale;
+        GridFrameTop + GridFrameHeight + UIConfig::EdictDetailGapFromGrid * Scale;
     const float DetailFrameWidth = GridFrameWidth;
     const float DetailFrameHeight =
         PanelTop + PanelHeight - DetailFrameTop - VerticalMargin;
@@ -77,7 +78,7 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
 
     if (TitleText)
     {
-        TitleText->SetFontSize(30.f * Scale);
+        TitleText->SetFontSize(UIConfig::EdictTitleFontSize * Scale);
         TitleText->SetPos(
             TitleRibbonLeft + 32.f * Scale,
             PanelTop + HeaderTopPadding);
@@ -86,15 +87,16 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
 
     if (CloseButton)
     {
+        const float CBSize = UIConfig::EdictCloseButtonSize * Scale;
         CloseButton->SetPos(
-            PanelLeft + PanelWidth - HorizontalMargin - 44.f * Scale,
+            PanelLeft + PanelWidth - HorizontalMargin - CBSize - 4.f * Scale,
             PanelTop + HeaderTopPadding - 2.f * Scale);
-        CloseButton->SetSize(40.f * Scale, 40.f * Scale);
+        CloseButton->SetSize(CBSize, CBSize);
     }
 
     const int PageCount = (std::max)(1, Widget.mPageCount);
     const bool ShowScrollBar = PageCount > 1;
-    const float ScrollTrackWidth = 10.f * Scale;
+    const float ScrollTrackWidth = UIConfig::EdictScrollTrackWidth * Scale;
     const float ScrollTrackLeft =
         GridFrameLeft + GridFrameWidth - 18.f * Scale;
     const float ScrollTrackTop = GridFrameTop + 24.f * Scale;
@@ -148,9 +150,9 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
         ScrollThumb->SetEnable(Widget.mOpen && ShowScrollBar);
     }
 
-    const float CategoryGap = 12.f * Scale;
-    const float CategoryWidth = 74.f * Scale;
-    const float CategoryHeight = 90.f * Scale;
+    const float CategoryGap = UIConfig::EdictCategoryGap * Scale;
+    const float CategoryWidth = UIConfig::EdictCategoryWidth * Scale;
+    const float CategoryHeight = UIConfig::EdictCategoryHeight * Scale;
     const float CategoryStartX =
         PanelLeft +
         (PanelWidth -
@@ -181,14 +183,14 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
         }
     }
 
-    const float SlotPaddingLeft = 18.f * Scale;
-    const float SlotPaddingTop = 26.f * Scale;
+    const float SlotPaddingLeft = UIConfig::EdictSlotPaddingLeft * Scale;
+    const float SlotPaddingTop = UIConfig::EdictSlotPaddingTop * Scale;
     const float SlotPaddingRight = 22.f * Scale;
     const float SlotPaddingBottom = 22.f * Scale;
     const float SlotAreaLeft = GridFrameLeft + SlotPaddingLeft;
     const float SlotAreaTop = GridFrameTop + SlotPaddingTop;
-    const float SlotGapX = 12.f * Scale;
-    const float SlotGapY = 14.f * Scale;
+    const float SlotGapX = UIConfig::EdictSlotGapX * Scale;
+    const float SlotGapY = UIConfig::EdictSlotGapY * Scale;
     const float SlotAreaWidth =
         GridFrameWidth - SlotPaddingLeft - SlotPaddingRight -
         ScrollTrackWidth - 22.f * Scale;
@@ -296,8 +298,8 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     const float DetailInfoHeight = 20.f * Scale;
     const float FeedbackTop = DetailInfoTop + DetailInfoHeight + 2.f * Scale;
     const float FeedbackHeight = 22.f * Scale;
-    const float ApplyButtonWidth = 140.f * Scale;
-    const float ApplyButtonHeight = 38.f * Scale;
+    const float ApplyButtonWidth = UIConfig::EdictApplyButtonWidth * Scale;
+    const float ApplyButtonHeight = UIConfig::EdictApplyButtonHeight * Scale;
     const float ApplyButtonTop = DetailFrameTop + 14.f * Scale;
     const float ApplyButtonLeft =
         DetailFrameLeft + DetailFrameWidth - ApplyButtonWidth - 18.f * Scale;
@@ -322,7 +324,7 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
 
     if (DetailTitleText)
     {
-        DetailTitleText->SetFontSize(23.f * Scale);
+        DetailTitleText->SetFontSize(UIConfig::EdictDetailTitleFontSize * Scale);
         DetailTitleText->SetPos(
             DetailHeaderCenterX - DetailTitleWidth * 0.5f,
             DetailTitleTop);
@@ -343,7 +345,7 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
         DetailCostText->SetSize(
             CostRowWidth - CostIconSize - 8.f * Scale,
             30.f * Scale);
-        DetailCostText->SetFontSize(18.f * Scale);
+        DetailCostText->SetFontSize(UIConfig::EdictDetailCostFontSize * Scale);
     }
 
     if (DetailInfoPanel)

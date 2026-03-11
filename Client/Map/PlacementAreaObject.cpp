@@ -1,5 +1,6 @@
 #include "PlacementAreaObject.h"
 #include "../Building/BuildingCatalog.h"
+#include "../World/MainWorldAccess.h"
 #include "Component/SceneComponent.h"
 #include "Object/TileMapObject.h"
 #include "World/Input.h"
@@ -103,6 +104,7 @@ void CPlacementAreaObject::ApplyCatalogEntry(
     SetBuildingId(Entry.Id);
     SetBuildingCategory(Entry.Category);
     SetBuildingKind(Entry.BuildingKind);
+    mOperations.ConfigureStorageBehavior(IsWarehouse());
     SetRequiredEducationLevel(Entry.RequiredEducationLevel);
     SetBuildingDisplayInfo(
         WideToUtf8(Entry.DisplayName),
@@ -170,20 +172,12 @@ void CPlacementAreaObject::Update(float DeltaTime)
 
 void CPlacementAreaObject::Destroy()
 {
+    const bool HadPlacedArea = HasPlacedArea();
     std::shared_ptr<CTileMapComponent> TileMap;
 
     if (AcquireTileMap(TileMap))
     {
-        for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
-        {
-            auto Tile = TileMap->GetTile(mPrimaryPlacedIndices[i]).lock();
-
-            if (!Tile)
-                continue;
-
-            Tile->SetTileType(ETileType::Normal);
-            Tile->SetOutLineColor(FVector4::White);
-        }
+        ApplyPlacementStateToTileMap(TileMap, mPrimaryPlacedIndices, false);
 
         for (size_t i = 0; i < mPreviewIndices.size(); ++i)
         {
@@ -199,8 +193,73 @@ void CPlacementAreaObject::Destroy()
     mPreviewCenterIndex = -1;
     mPreviewCanPlace = false;
     mDemolitionHoverActive = false;
+    mAccessibilityScore = 0.f;
 
     UpdatePrimaryOverlayTiles(std::vector<int>());
     UpdateMarkerOverlayTiles(std::vector<int>());
+
+    if (HadPlacedArea)
+        NotifyPlacementTopologyChanged();
+
     CGameObject::Destroy();
+}
+
+void CPlacementAreaObject::ApplyPlacementStateToTileMap(
+    const std::shared_ptr<class CTileMapComponent>& TileMap,
+    const std::vector<int>& Indices,
+    bool Apply)
+{
+    if (!TileMap)
+        return;
+
+    for (size_t i = 0; i < Indices.size(); ++i)
+    {
+        const int TileIndex = Indices[i];
+        auto Tile = TileMap->GetTile(TileIndex).lock();
+
+        if (!Tile)
+            continue;
+
+        if (IsRoad())
+        {
+            TileMap->SetRoadTile(TileIndex, Apply);
+        }
+        else
+        {
+            TileMap->SetRoadTile(TileIndex, false);
+            Tile->SetTileType(
+                Apply ? ETileType::UnableToMove : ETileType::Normal);
+        }
+
+        Tile->SetOutLineColor(FVector4::White);
+    }
+}
+
+void CPlacementAreaObject::NotifyPlacementTopologyChanged()
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return;
+
+    for (size_t i = 0; i < BuildingList.size(); ++i)
+    {
+        auto Building = BuildingList[i].lock();
+
+        if (!Building || !Building->GetAlive() || !Building->GetEnable())
+            continue;
+
+        Building->RefreshAccessibilityScore();
+    }
+
+    if (auto RoadNetworkAccess =
+            dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()))
+    {
+        RoadNetworkAccess->RebuildRoadNetwork();
+    }
 }

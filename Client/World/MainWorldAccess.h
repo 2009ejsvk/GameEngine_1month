@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 
+class CRoadNetwork;
+class CBusRouteSystem;
+
 class IMainWorldBuildMenuAccess
 {
 public:
@@ -47,6 +50,7 @@ public:
     virtual const std::vector<FGovernmentEdictState>&
         GetGovernmentEdictStates() const = 0;
     virtual long long GetLastDailyEdictCost() const = 0;
+    virtual long long GetLastDailyImportExpense() const = 0;
     virtual long long GetLastDailyExportIncome() const = 0;
     virtual long long GetLastDailyTaxIncome() const = 0;
     virtual long long GetLastDailyConsumptionTaxIncome() const = 0;
@@ -82,4 +86,21 @@ public:
     virtual const FGovernmentEdictModifiers& GetEdictModifiers() const = 0;
     virtual const FTaxPolicy& GetTaxPolicy() const = 0;
     virtual const FTaxPolicyEventStatus& GetTaxPolicyEventStatus() const = 0;
+};
+
+class IMainWorldRoadNetworkAccess
+{
+public:
+    virtual ~IMainWorldRoadNetworkAccess() = default;
+
+    virtual void RebuildRoadNetwork() = 0;
+    virtual const CRoadNetwork* GetRoadNetwork() const = 0;
+};
+
+class IMainWorldTransitAccess
+{
+public:
+    virtual ~IMainWorldTransitAccess() = default;
+
+    virtual const CBusRouteSystem* GetBusRouteSystem() const = 0;
 };

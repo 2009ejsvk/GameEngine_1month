@@ -68,6 +68,9 @@ namespace
 	{
 		1, 1, 0, -1, -1, -1, 0, 1
 	};
+
+	constexpr float GNavRoadTileWeight = 1.f;
+	constexpr float GNavOffRoadTileWeight = 3.f;
 }
 
 CNavigation::CNavigation()
@@ -466,6 +469,14 @@ bool CNavigation::FindPath(const FVector3& Start, const FVector3& End,
 		DebugPathLog("[Path] Start already goal index=%d\n", StartIndex);
 #endif
 		return true;
+	}
+
+	if (!mUseJumpPointSearch)
+	{
+#ifdef _DEBUG
+		DebugPathLog("[Path] Weighted pathing active. using A* only\n");
+#endif
+		return FindPathFallbackAStar(StartIndex, PathList);
 	}
 
 	// 시작 노드를 Open 상태로 설정
@@ -1178,6 +1189,33 @@ float CNavigation::ComputeHeuristic(int Index) const
 	return Best;
 }
 
+float CNavigation::ComputeTraversalCost(int FromIndex, int ToIndex) const
+{
+	if (FromIndex < 0 || FromIndex >= (int)mNodeList.size() ||
+		ToIndex < 0 || ToIndex >= (int)mNodeList.size())
+	{
+		return FLT_MAX;
+	}
+
+	return mNodeList[FromIndex].Center.Distance(
+		mNodeList[ToIndex].Center) * GetTileTraversalWeight(ToIndex);
+}
+
+float CNavigation::GetTileTraversalWeight(int Index) const
+{
+	return IsRoadTile(Index) ? GNavRoadTileWeight : GNavOffRoadTileWeight;
+}
+
+bool CNavigation::IsRoadTile(int Index) const
+{
+	auto TileMap = mTileMap.lock();
+
+	if (!TileMap)
+		return false;
+
+	return TileMap->IsRoadTile(Index);
+}
+
 /*
  * [FindFallbackGoalIndex] 목표 타일이 벽 위일 때,
  * 그 주변 8방향 중 "통과 가능하고 출발점에서 가장 가까운" 이웃을 대체 목표로 반환.
@@ -1392,8 +1430,7 @@ bool CNavigation::FindPathFallbackAStar(int StartIndex,
 			if (ClosedMask[(size_t)Next])
 				continue;
 
-			const float StepCost = mNodeList[Current].Center.Distance(
-				mNodeList[Next].Center);
+			const float StepCost = ComputeTraversalCost(Current, Next);
 			const float NewG = GScore[(size_t)Current] + StepCost;
 
 			// 처음 발견했거나, 더 짧은 경로를 찾았으면 갱신.

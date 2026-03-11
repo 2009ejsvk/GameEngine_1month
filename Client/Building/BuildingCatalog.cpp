@@ -62,6 +62,8 @@ namespace
         static const std::vector<FTemplateRule> GRules =
         {
             // 필요 시 건물별 템플릿 규칙을 여기에 추가한다.
+            { "build_1_1", EPlacementTemplateType::SingleTileMarker },
+            { "build_1_12", EPlacementTemplateType::SingleTileMarker },
             // { "build_1_3", EPlacementTemplateType::Diamond5x5TwoMarker },
             // { "build_4_3", EPlacementTemplateType::Diamond5x5FourMarker },
             // { "build_7_5", EPlacementTemplateType::Diamond7x7ThreeMarker },
@@ -1206,7 +1208,9 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
             Entry.TemplateType =
                 ResolveTemplateTypeByBuildingId(Entry.Id);
 
-            if (Entry.Id == "build_1_3")
+            if (Entry.Id == "build_1_1")
+                Entry.BuildingKind = EPlacementBuildingKind::Road;
+            else if (Entry.Id == "build_1_3")
                 Entry.BuildingKind = EPlacementBuildingKind::Harbor;
             else if (Entry.Id == "build_1_5")
                 Entry.BuildingKind = EPlacementBuildingKind::TransportOffice;
@@ -1223,6 +1227,18 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
             else
             {
                 Entry.Capacity = 15 + (i % 6) * 6 + (i / 6) * 3;
+            }
+
+            if (Entry.BuildingKind == EPlacementBuildingKind::Road)
+            {
+                Entry.Capacity = 0;
+                Entry.JobSatisfactionCap = 0;
+            }
+
+            if (Entry.Id == "build_1_12")
+            {
+                Entry.Capacity = 0;
+                Entry.JobSatisfactionCap = 0;
             }
 
             Entry.HousingSatisfactionCap = 100;
@@ -1270,6 +1286,12 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
                 Entry.JobSatisfactionCap = (std::min)(
                     88, 48 + (i % 6) * 5 + (i / 6) * 4);
             }
+
+            if (Entry.BuildingKind == EPlacementBuildingKind::Road)
+                Entry.JobSatisfactionCap = 0;
+
+            if (Entry.Id == "build_1_12")
+                Entry.JobSatisfactionCap = 0;
 
             if (Record.Category == EBuildingCategory::Entertainment &&
                 IsCatalogIdOneOf(

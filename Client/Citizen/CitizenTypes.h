@@ -16,6 +16,8 @@ enum class ECitizenState
     AtFun,
     GoingToTeamsterSource,
     GoingToTeamsterHarbor,
+    GoingToTeamsterConsumerSource,
+    GoingToTeamsterConsumerTarget,
     GoingToTeamsterOffice
 };
 
@@ -77,6 +79,7 @@ struct FNpcSatisfaction
     float Faith    = 70.f;
     float Housing  = 70.f;
     float Job      = 70.f;
+    float CommuteTimePenalty = 0.f;
     float Freedom  = 70.f;
     float Security = 70.f;
     float Overall  = 70.f;

@@ -29,6 +29,7 @@ public:
 
 protected:
 	std::vector<std::shared_ptr<CTile>>	mTileList;
+	std::vector<unsigned char>	mRoadMask;
 	std::vector<FTileMapInstancingBuffer>	mTileIstData;
 	std::vector<FTileMapInstancingBuffer>	mTileLineIstData;
 	FVertexBuffer	mInstancingBuffer;
@@ -100,6 +101,9 @@ public:
 	}
 
 	ETileType GetTileType(int Index);
+	bool IsRoadTile(int Index) const;
+	bool IsRoadTile(const FVector2& Pos) const;
+	bool IsRoadTile(const FVector3& Pos) const;
 	int GetTileIndex(const FVector2& Pos)	const;
 	int GetTileIndex(const FVector3& Pos)	const;
 	int GetTileIndex(float x, float y)	const;
@@ -117,6 +121,8 @@ public:
 	}
 
 	void SetTileFrame(int Index, int Frame);
+	void SetRoadTile(int Index, bool IsRoad = true);
+	void ClearRoadTiles();
 
 public:
 	void SetTileMapRender(

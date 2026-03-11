@@ -45,6 +45,12 @@ CBuildingMarkerOrb::~CBuildingMarkerOrb()
 {
 }
 
+void CBuildingMarkerOrb::Destroy()
+{
+    ReleaseTeamsterReservations();
+    CGameObject::Destroy();
+}
+
 bool CBuildingMarkerOrb::Init()
 {
     CGameObject::Init();

@@ -24,14 +24,21 @@ bool CAlmanacWidget::Init()
 
     mOpen = false;
     mSelectedPage = EAlmanacPage::Overview;
+    mSelectedSatisfactionIndex = 0;
+    mSelectedPopulationIndex = 0;
+    mSelectedEconomyIndex = 0;
+    mSelectedResourceIndex = 0;
+    mSelectedPoliticsFactionIndex = 0;
+    mSelectedForeignPowerIndex = 0;
+    mSelectedBuildingCategoryIndex = 0;
     mDataRefreshAccum = 0.f;
     mLayoutDirty = true;
     mLastResolutionWidth = 0;
     mLastResolutionHeight = 0;
 
     FAlmanacRenderer::CreateWidgets(*this);
-    RefreshData();
     FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
     return true;
 }
 
@@ -60,7 +67,10 @@ void CAlmanacWidget::Update(float DeltaTime)
     }
 
     if (mLayoutDirty)
+    {
         FAlmanacRenderer::RefreshLayout(*this);
+        RefreshData();
+    }
 }
 
 void CAlmanacWidget::ToggleOpen()
@@ -79,11 +89,158 @@ void CAlmanacWidget::SetOpen(bool Open)
     {
         mDataRefreshAccum = 0.f;
         mLayoutDirty = true;
-        RefreshData();
         FAlmanacRenderer::RefreshLayout(*this);
+        RefreshData();
     }
 
     FAlmanacRenderer::ApplyOpenState(*this);
+}
+
+void CAlmanacWidget::SelectSatisfactionRow(int Index)
+{
+    const int MaxIndex = static_cast<int>(mSatisfactionRows.size()) - 1;
+
+    if (MaxIndex < 0)
+        return;
+
+    if (Index < 0)
+        Index = 0;
+    else if (Index > MaxIndex)
+        Index = MaxIndex;
+
+    if (mSelectedSatisfactionIndex == Index)
+        return;
+
+    mSelectedSatisfactionIndex = Index;
+    mLayoutDirty = true;
+    FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
+}
+
+void CAlmanacWidget::SelectPopulationRow(int Index)
+{
+    const int MaxIndex = static_cast<int>(mPopulationDetails.size()) - 1;
+
+    if (MaxIndex < 0)
+        return;
+
+    if (Index < 0)
+        Index = 0;
+    else if (Index > MaxIndex)
+        Index = MaxIndex;
+
+    if (mSelectedPopulationIndex == Index)
+        return;
+
+    mSelectedPopulationIndex = Index;
+    mLayoutDirty = true;
+    FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
+}
+
+void CAlmanacWidget::SelectEconomyRow(int Index)
+{
+    const int MaxIndex = static_cast<int>(mEconomyDetails.size()) - 1;
+
+    if (MaxIndex < 0)
+        return;
+
+    if (Index < 0)
+        Index = 0;
+    else if (Index > MaxIndex)
+        Index = MaxIndex;
+
+    if (mSelectedEconomyIndex == Index)
+        return;
+
+    mSelectedEconomyIndex = Index;
+    mLayoutDirty = true;
+    FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
+}
+
+void CAlmanacWidget::SelectResourceRow(int Index)
+{
+    const int MaxIndex = static_cast<int>(mResourceRows.size()) - 1;
+
+    if (MaxIndex < 0)
+        return;
+
+    if (Index < 0)
+        Index = 0;
+    else if (Index > MaxIndex)
+        Index = MaxIndex;
+
+    if (mSelectedResourceIndex == Index)
+        return;
+
+    mSelectedResourceIndex = Index;
+    mLayoutDirty = true;
+    FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
+}
+
+void CAlmanacWidget::SelectPoliticsFaction(int Index)
+{
+    const int MaxIndex = static_cast<int>(mPoliticsFactionTiles.size()) - 1;
+
+    if (MaxIndex < 0)
+        return;
+
+    if (Index < 0)
+        Index = 0;
+    else if (Index > MaxIndex)
+        Index = MaxIndex;
+
+    if (mSelectedPoliticsFactionIndex == Index)
+        return;
+
+    mSelectedPoliticsFactionIndex = Index;
+    mLayoutDirty = true;
+    FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
+}
+
+void CAlmanacWidget::SelectForeignPower(int Index)
+{
+    const int MaxIndex = static_cast<int>(mForeignRows.size()) - 1;
+
+    if (MaxIndex < 0)
+        return;
+
+    if (Index < 0)
+        Index = 0;
+    else if (Index > MaxIndex)
+        Index = MaxIndex;
+
+    if (mSelectedForeignPowerIndex == Index)
+        return;
+
+    mSelectedForeignPowerIndex = Index;
+    mLayoutDirty = true;
+    FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
+}
+
+void CAlmanacWidget::SelectBuildingCategory(int Index)
+{
+    const int MaxIndex = static_cast<int>(mBuildingRows.size()) - 1;
+
+    if (MaxIndex < 0)
+        return;
+
+    if (Index < 0)
+        Index = 0;
+    else if (Index > MaxIndex)
+        Index = MaxIndex;
+
+    if (mSelectedBuildingCategoryIndex == Index)
+        return;
+
+    mSelectedBuildingCategoryIndex = Index;
+    mLayoutDirty = true;
+    FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
 }
 
 void CAlmanacWidget::RefreshData()
@@ -101,6 +258,7 @@ void CAlmanacWidget::SelectPage(EAlmanacPage Page)
     FAlmanacRenderer::ApplySelectedPage(*this);
     mLayoutDirty = true;
     FAlmanacRenderer::RefreshLayout(*this);
+    RefreshData();
 }
 
 void CAlmanacWidget::OnCloseButtonClick()

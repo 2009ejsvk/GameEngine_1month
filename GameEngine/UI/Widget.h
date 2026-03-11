@@ -208,6 +208,11 @@ public:
         return mMouseDrag;
     }
 
+    bool GetMouseOn() const
+    {
+        return mMouseOn;
+    }
+
     bool GetEnable()	const
     {
         return mEnable;

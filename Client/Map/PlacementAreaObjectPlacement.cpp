@@ -61,19 +61,6 @@ void CPlacementAreaObject::ConfirmPlacement()
     if (!AcquireTileMap(TileMap))
         return;
 
-    mMarkerTileIndices.clear();
-
-    for (size_t i = 0; i < mPrimaryPlacedIndices.size(); ++i)
-    {
-        auto Tile = TileMap->GetTile(mPrimaryPlacedIndices[i]).lock();
-
-        if (!Tile)
-            continue;
-
-        Tile->SetTileType(ETileType::Normal);
-        Tile->SetOutLineColor(FVector4::White);
-    }
-
     std::vector<int> NextPrimaryIndices;
 
     if (!BuildDiamondAreaIndices(
@@ -83,16 +70,9 @@ void CPlacementAreaObject::ConfirmPlacement()
         return;
     }
 
-    for (size_t i = 0; i < NextPrimaryIndices.size(); ++i)
-    {
-        auto Tile = TileMap->GetTile(NextPrimaryIndices[i]).lock();
-
-        if (!Tile)
-            continue;
-
-        Tile->SetTileType(ETileType::UnableToMove);
-    }
-
+    ApplyPlacementStateToTileMap(TileMap, mPrimaryPlacedIndices, false);
+    mMarkerTileIndices.clear();
+    ApplyPlacementStateToTileMap(TileMap, NextPrimaryIndices, true);
     mPrimaryPlacedIndices = NextPrimaryIndices;
     mPlacedCenterIndex = mPreviewCenterIndex;
     mPreviewIndices.clear();
@@ -102,6 +82,7 @@ void CPlacementAreaObject::ConfirmPlacement()
 
     ApplyPlacedAreaColor(TileMap);
     SyncWorldPosFromCenter(TileMap, mPlacedCenterIndex);
+    NotifyPlacementTopologyChanged();
 }
 
 void CPlacementAreaObject::CancelMovePreview()
@@ -120,6 +101,12 @@ FPlacementTemplate CPlacementAreaObject::CreateTemplateByType(
 
     switch (Type)
     {
+    case EPlacementTemplateType::SingleTileMarker:
+        Template.DiamondRadius = 0;
+        Template.MarkerAnchors.push_back({ 0.f, 0.f });
+        Template.HasDirectionalGap = false;
+        break;
+
     case EPlacementTemplateType::Diamond5x5TwoMarker:
         Template.DiamondRadius = 2;
         Template.MarkerAnchors.push_back({ 1.f, 0.5f });
@@ -154,8 +141,11 @@ FPlacementTemplate CPlacementAreaObject::CreateTemplateByType(
 
 void CPlacementAreaObject::EnsureTemplateValidity()
 {
-    if (mTemplate.DiamondRadius < 1)
-        mTemplate.DiamondRadius = 1;
+    const int MinRadius =
+        mTemplate.Type == EPlacementTemplateType::SingleTileMarker ? 0 : 1;
+
+    if (mTemplate.DiamondRadius < MinRadius)
+        mTemplate.DiamondRadius = MinRadius;
 
     if (mTemplate.MarkerAnchors.empty())
     {
@@ -178,6 +168,7 @@ void CPlacementAreaObject::ResetPlacementState()
     mPreviewCenterIndex = -1;
     mPreviewDirection = 0;
     mMarkerTileIndices.clear();
+    mAccessibilityScore = 0.f;
 }
 
 void CPlacementAreaObject::EnsurePlacementObject()
@@ -276,20 +267,13 @@ void CPlacementAreaObject::EnsurePlacementObject()
 
     if (Found)
     {
-        for (size_t i = 0; i < StartPrimaryIndices.size(); ++i)
-        {
-            auto Tile = TileMap->GetTile(StartPrimaryIndices[i]).lock();
-
-            if (!Tile)
-                continue;
-
-            Tile->SetTileType(ETileType::UnableToMove);
-        }
-
+        ApplyPlacementStateToTileMap(TileMap, StartPrimaryIndices, true);
         mPrimaryPlacedIndices = StartPrimaryIndices;
         mPlacedCenterIndex = StartCenterIndex;
         ApplyPlacedAreaColor(TileMap);
         SyncWorldPosFromCenter(TileMap, mPlacedCenterIndex);
+        mTileMapPrepared = true;
+        NotifyPlacementTopologyChanged();
     }
 
     mPreviewIndices.clear();

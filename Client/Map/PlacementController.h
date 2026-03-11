@@ -27,6 +27,10 @@ private:
     std::weak_ptr<class CPlacementAreaObject> mDemolitionHoverObject;
     std::weak_ptr<class CCitizenInfoWidget> mCitizenInfoWidget;
     bool mDemolitionMode = false;
+    bool mRoadBrushMode = false;
+    FBuildingCatalogEntry mRoadBrushEntry;
+    std::string mRoadBrushSpriteTexturePath;
+    int mLastRoadBrushTileIndex = -1;
 
 public:
     virtual bool Init();
@@ -47,10 +51,20 @@ private:
     void RotateCurrentAreaCW();
     void MoveCurrentArea();
     void PlaceCurrentArea();
+    void PaintRoadHold();
+    void FinishRoadBrushStroke();
+    void CancelPlacementMode();
+    void CancelActivePlacementSession();
     void UpdateDemolitionHoverPreview();
     void ClearDemolitionHoverPreview();
     void RefreshPlacementObjects();
     bool IsPointerOverActiveUi(const FVector2& MouseScreenPos) const;
+    bool IsPlacementInputBlocked(const FVector2& MouseScreenPos) const;
+    bool TryCommitActivePlacement();
+    bool RestartRoadBrushPlacement();
+    bool TryGetMouseTileIndex(
+        const FVector2& MouseWorldPos, int& OutTileIndex) const;
+    void ClearRoadBrushMode();
     std::shared_ptr<class CPlacementAreaObject> PickPlacementObject(
         const FVector2& MouseWorldPos);
     std::shared_ptr<class CBuildingMarkerOrb> PickCitizenOrb(

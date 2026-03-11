@@ -72,8 +72,14 @@ private:
         GameConstants::Orb::HealthRemovalThreshold;
     static constexpr float GTeamsterSpeedMultiplier =
         GameConstants::Orb::TeamsterSpeedMultiplier;
+    static constexpr float GTeamsterCoverageRadius =
+        GameConstants::Orb::TeamsterCoverageRadiusTiles;
     static constexpr int GTeamsterTransferUnit =
         GameConstants::Orb::TeamsterTransferUnit;
+    static constexpr int GTeamsterConsumerRestockThreshold =
+        GameConstants::Orb::TeamsterConsumerRestockThreshold;
+    static constexpr int GTeamsterConsumerTargetStock =
+        GameConstants::Orb::TeamsterConsumerTargetStock;
     static constexpr float GPoliticalShiftInterval =
         GameConstants::Orb::PoliticalShiftIntervalSeconds;
     bool mHasLockedTarget = false;
@@ -256,6 +262,7 @@ public:
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
+    virtual void Destroy();
 
 private:
     void UpdateSatisfaction(float DeltaTime);
@@ -276,9 +283,19 @@ private:
     bool IsTeamsterState(ECitizenState State) const;
     void StartTeamsterSpeedBoost();
     void ResetTeamsterSpeed();
+    void ReleaseTeamsterReservations();
     bool TryStartTeamsterDelivery();
+    bool TryPlanTeamsterConsumerDelivery(
+        const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
+        FTeamsterDeliveryState& OutDelivery) const;
+    bool TryPlanTeamsterExportDelivery(
+        const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
+        FTeamsterDeliveryState& OutDelivery) const;
     std::string FindTeamsterSourceName() const;
     std::string FindHarborName() const;
+    std::string FindTeamsterExportDropoffName(
+        const std::string& SourceName,
+        EResourceType CargoType) const;
     void UpdateSpriteAnimationFromVelocity(const FVector3& Velocity);
     int ResolveDirectionIndexFromVelocity(const FVector3& Velocity) const;
     const char* GetIdleAnimationNameByDir(int Direction) const;

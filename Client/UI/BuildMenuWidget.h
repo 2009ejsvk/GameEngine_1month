@@ -21,14 +21,6 @@ public:
     virtual ~CBuildMenuWidget();
 
 private:
-    std::weak_ptr<class CButton>    mBuildButton;
-    std::weak_ptr<class CButton>    mYearbookButton;
-    std::weak_ptr<class CTextBlock> mYearbookButtonText;
-    std::weak_ptr<class CTextBlock> mNpcCountText;
-    std::weak_ptr<class CTextBlock> mBudgetText;
-    std::weak_ptr<class CTextBlock> mDateText;
-    std::weak_ptr<class CTextBlock> mDayProgressText;
-    std::weak_ptr<class CProgressBar> mDayProgressBar;
     std::weak_ptr<class CImage>     mYearbookPanel;
     std::weak_ptr<class CTextBlock> mYearbookTitleText;
     std::weak_ptr<class CTextBlock> mYearbookBodyText;

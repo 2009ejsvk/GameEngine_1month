@@ -1,6 +1,7 @@
 #include "TopHudWidget.h"
 #include "TopHudDataProvider.h"
 #include "TopHudRenderer.h"
+#include "UILayoutConfig.h"
 #include "AlmanacWidget.h"
 #include "BuildMenuWidget.h"
 #include "EdictWidget.h"
@@ -32,7 +33,7 @@ bool CTopHudWidget::Init()
 void CTopHudWidget::Update(float DeltaTime)
 {
     CWidgetContainer::Update(DeltaTime);
-    (void)DeltaTime;
+    UIConfig::ReloadIfChanged(DeltaTime);
     RefreshFromState();
 }
 
