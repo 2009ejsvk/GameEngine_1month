@@ -225,8 +225,27 @@ namespace WorldStats
         if (!World)
             return Snapshot;
 
+        for (int ResourceIndex = 0;
+            ResourceIndex < GResourceTypeCount;
+            ++ResourceIndex)
+        {
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].Type =
+                static_cast<EResourceType>(ResourceIndex);
+        }
+        for (int CategoryIndex = 0;
+            CategoryIndex < GBuildingCategoryCount;
+            ++CategoryIndex)
+        {
+            Snapshot.BuildingCategories[static_cast<size_t>(CategoryIndex)].
+                Category = static_cast<EBuildingCategory>(CategoryIndex);
+        }
+
         std::map<std::wstring, int> BuildingCounts;
         std::map<std::wstring, int> ResourceCounts;
+        std::array<std::map<std::wstring, int>, GBuildingCategoryCount>
+            BuildingCountsByCategory;
+        std::array<std::map<std::wstring, int>, GResourceTypeCount>
+            ResourceCountsByType;
         std::map<std::string, int> ResidentialCapacityByName;
         std::map<std::string, int> ResidentialOccupancyByName;
         std::map<std::string, int> ResidentialWealthTierByName;
@@ -274,6 +293,81 @@ namespace WorldStats
                 if (Building->GetResourceStock() > 0)
                     ResourceCounts[BuildingName] += Building->GetResourceStock();
 
+                for (int ResourceIndex = 1;
+                    ResourceIndex < GResourceTypeCount;
+                    ++ResourceIndex)
+                {
+                    const EResourceType ResourceType =
+                        static_cast<EResourceType>(ResourceIndex);
+                    const int Stock = Building->GetResourceStock(ResourceType);
+                    const int AvailableStock =
+                        Building->GetAvailableResourceStock(ResourceType);
+                    const int ReservedIncoming =
+                        Building->GetReservedIncomingResourceAmount(
+                            ResourceType);
+                    const bool Produces =
+                        Building->GetProducedResourceType() == ResourceType;
+                    const bool Consumes =
+                        Building->GetVisitConsumptionResourceType() ==
+                        ResourceType;
+                    bool AssignedWarehouseSlot = false;
+
+                    if (Building->IsWarehouse())
+                    {
+                        for (int SlotIndex = 0;
+                            SlotIndex < Building->GetWarehouseSlotCount();
+                            ++SlotIndex)
+                        {
+                            if (Building->GetWarehouseSlotType(SlotIndex) ==
+                                ResourceType)
+                            {
+                                AssignedWarehouseSlot = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    const bool HasActiveStorage =
+                        Produces ||
+                        Stock > 0 ||
+                        ReservedIncoming > 0 ||
+                        AssignedWarehouseSlot;
+                    const bool TracksResource = HasActiveStorage || Consumes;
+
+                    if (!TracksResource)
+                        continue;
+
+                    auto& ResourceSnapshot =
+                        Snapshot.ResourceTypes[
+                            static_cast<size_t>(ResourceIndex)];
+
+                    ResourceSnapshot.TotalStock += Stock;
+                    ResourceSnapshot.AvailableStock += AvailableStock;
+                    ResourceSnapshot.ReservedIncoming += ReservedIncoming;
+
+                    if (Consumes)
+                        ++ResourceSnapshot.ConsumerBuildingCount;
+                    if (Produces)
+                        ++ResourceSnapshot.ProducerBuildingCount;
+
+                    if (HasActiveStorage)
+                    {
+                        ResourceSnapshot.Capacity +=
+                            Building->GetResourceTypeCapacity(ResourceType);
+                        ++ResourceSnapshot.StorageBuildingCount;
+
+                        if (Building->IsHarbor())
+                            ++ResourceSnapshot.HarborBuildingCount;
+                    }
+
+                    if (Stock > 0)
+                    {
+                        ResourceCountsByType[
+                            static_cast<size_t>(ResourceIndex)][BuildingName] +=
+                            Stock;
+                    }
+                }
+
                 const FBuildingCatalogEntry* Entry =
                     FindBuildingCatalogEntry(Building->GetBuildingId());
 
@@ -286,6 +380,10 @@ namespace WorldStats
                     CategoryIndex < GBuildingCategoryCount)
                 {
                     ++Snapshot.BuildingCategoryCount[CategoryIndex];
+                    ++Snapshot.BuildingCategories[
+                        static_cast<size_t>(CategoryIndex)].Count;
+                    ++BuildingCountsByCategory[
+                        static_cast<size_t>(CategoryIndex)][BuildingName];
                 }
 
                 if (Entry->Category == EBuildingCategory::Tourism)
@@ -346,6 +444,29 @@ namespace WorldStats
                         static_cast<int>(Entry->RequiredEducationLevel);
                 }
             }
+        }
+
+        for (int ResourceIndex = 1;
+            ResourceIndex < GResourceTypeCount;
+            ++ResourceIndex)
+        {
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].
+                TopStockBuildings =
+                    BuildTopList(
+                        ResourceCountsByType[
+                            static_cast<size_t>(ResourceIndex)],
+                        8);
+        }
+        for (int CategoryIndex = 0;
+            CategoryIndex < GBuildingCategoryCount;
+            ++CategoryIndex)
+        {
+            Snapshot.BuildingCategories[static_cast<size_t>(CategoryIndex)].
+                TopBuildings =
+                    BuildTopList(
+                        BuildingCountsByCategory[
+                            static_cast<size_t>(CategoryIndex)],
+                        8);
         }
 
         Snapshot.TopBuildings = BuildTopList(BuildingCounts, 8);

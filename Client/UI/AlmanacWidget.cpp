@@ -1,6 +1,6 @@
 #include "AlmanacWidget.h"
 #include "AlmanacDataProvider.h"
-#include "AlmanacPageData.h"
+#include "AlmanacQueryService.h"
 #include "AlmanacRendererConstants.h"
 #include "AlmanacRenderer.h"
 #include "Device.h"
@@ -46,9 +46,6 @@ void CAlmanacWidget::Update(float DeltaTime)
     if (!mOpen)
         return;
 
-    if (AlmanacPageData::ReloadIfChanged(DeltaTime))
-        RefreshData();
-
     mDataRefreshAccum += DeltaTime;
 
     if (mDataRefreshAccum >= GDataRefreshIntervalSeconds)
@@ -87,7 +84,6 @@ void CAlmanacWidget::SetOpen(bool Open)
 
     if (mOpen)
     {
-        AlmanacPageData::ReloadIfChanged(GDataRefreshIntervalSeconds);
         mDataRefreshAccum = 0.f;
         mLayoutDirty = true;
         FAlmanacRenderer::RefreshLayout(*this);
@@ -246,7 +242,8 @@ void CAlmanacWidget::SelectBuildingCategory(int Index)
 
 void CAlmanacWidget::RefreshData()
 {
-    const auto Snapshot = AlmanacDataProvider::BuildSnapshot(mWorld.lock());
+    const auto Snapshot = AlmanacDataProvider::BuildSnapshot(
+        AlmanacQueryService::CreateWorldQuerySource(mWorld.lock()));
     FAlmanacRenderer::ApplySnapshot(*this, Snapshot);
 }
 

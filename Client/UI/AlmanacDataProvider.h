@@ -1,17 +1,66 @@
 #pragma once
 
+#include "../Building/BuildingTypes.h"
 #include "../Building/BuildingCategoryInfo.h"
 #include "../Politics/PoliticalTypes.h"
 #include "../World/MainWorldAccess.h"
+#include <array>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 class CWorld;
+namespace WorldStats
+{
+    struct FWorldStatsSnapshot;
+}
 
 namespace AlmanacDataProvider
 {
+    struct FAlmanacResourceTypeSnapshot
+    {
+        EResourceType Type = EResourceType::None;
+        int TotalStock = 0;
+        int AvailableStock = 0;
+        int ReservedIncoming = 0;
+        int Capacity = 0;
+        int ProducerBuildingCount = 0;
+        int ConsumerBuildingCount = 0;
+        int StorageBuildingCount = 0;
+        int HarborBuildingCount = 0;
+        std::vector<std::pair<std::wstring, int>> TopStockBuildings;
+    };
+
+    struct FAlmanacBuildingCategorySnapshot
+    {
+        EBuildingCategory Category = EBuildingCategory::Infrastructure;
+        int Count = 0;
+        std::vector<std::pair<std::wstring, int>> TopBuildings;
+    };
+
+    struct FAlmanacMainWorldRecord
+    {
+        bool Available = false;
+        long long NationalBudget = 0;
+        long long DailyExportIncome = 0;
+        long long DailyTaxIncome = 0;
+        long long DailyConsumptionTaxIncome = 0;
+        long long DailyIncomeTaxIncome = 0;
+        long long DailyPropertyTaxIncome = 0;
+        long long DailyEdictCost = 0;
+        long long DailyImportExpense = 0;
+        long long DailyNetChange = 0;
+        double TaxCollectionEfficiency = 0.0;
+        int DaysUntilNextElection = -1;
+        double ElectionWarningScore = 0.0;
+        FPoliticalWorldSnapshot PoliticalSnapshot;
+        FGovernmentProfile GovernmentProfile;
+        FElectionStatus ElectionStatus;
+        FTaxPolicyEventStatus TaxEventStatus;
+        std::vector<FGovernmentEdictState> GovernmentEdictStates;
+    };
+
     struct FAlmanacSnapshot
     {
         bool HasMainWorld = false;
@@ -76,7 +125,13 @@ namespace AlmanacDataProvider
         double AbstainPercent = 0.0;
         double RebelRiskScore = 0.0;
         bool MartialLawActive = false;
-        std::wstring RebelRiskLabel = L"낮음";
+        std::wstring RebelRiskLabel;
+        std::array<
+            FAlmanacResourceTypeSnapshot,
+            static_cast<size_t>(EResourceType::Count)> ResourceTypes = {};
+        std::array<
+            FAlmanacBuildingCategorySnapshot,
+            BuildingCategoryInfo::GBuildingCategoryCount> BuildingCategories = {};
         FPoliticalWorldSnapshot PoliticalSnapshot;
         FGovernmentProfile GovernmentProfile;
         FElectionStatus ElectionStatus;
@@ -86,12 +141,21 @@ namespace AlmanacDataProvider
         std::vector<std::wstring> ActiveEdictLines;
     };
 
-    FAlmanacSnapshot BuildSnapshot(
-        const std::shared_ptr<CWorld>& World);
+    class IAlmanacQuerySource
+    {
+    public:
+        virtual ~IAlmanacQuerySource() = default;
+
+        virtual FAlmanacMainWorldRecord QueryMainWorldRecord() const = 0;
+        virtual void QueryWorldStats(
+            WorldStats::FWorldStatsSnapshot& OutSnapshot) const = 0;
+    };
 
     FAlmanacSnapshot BuildSnapshot(
-        const std::shared_ptr<CWorld>& World,
-        const std::shared_ptr<IMainWorldAlmanacAccess>& MainWorld);
+        const std::shared_ptr<IAlmanacQuerySource>& QuerySource);
+
+    FAlmanacSnapshot BuildSnapshot(
+        const std::shared_ptr<CWorld>& World);
 
     std::wstring BuildYearbookSummaryText(
         const FAlmanacSnapshot& Snapshot);

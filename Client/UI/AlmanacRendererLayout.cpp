@@ -3,242 +3,247 @@
 #include "UILayoutConfig.h"
 #include "Device.h"
 #include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <vector>
 
-void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
+struct FAlmanacChromeMetrics
 {
-    const FResolution& Resolution = CDevice::GetInst()->GetResolution();
-    Widget.mLastResolutionWidth = Resolution.Width;
-    Widget.mLastResolutionHeight = Resolution.Height;
-    const float ScreenWidth  = static_cast<float>(Resolution.Width);
-    const float ScreenHeight = static_cast<float>(Resolution.Height);
-    const float PanelBaseWidth =
-        (std::max)(720.f, UIConfig::AlmanacPanelWidth);
-    const float PanelBaseHeight =
-        (std::max)(520.f, UIConfig::AlmanacPanelHeight);
-    const float AvailableWidth  = (std::max)(360.f, ScreenWidth  - 80.f);
-    const float AvailableHeight = (std::max)(360.f, ScreenHeight - 120.f);
-    const float Scale =
-        (std::min)(1.f,
-            (std::min)(
-                AvailableWidth  / PanelBaseWidth,
-                AvailableHeight / PanelBaseHeight));
+    float PanelTopOffset = 0.f;
+    float RibbonTopOffset = 0.f;
+    float FrameInsetX = 0.f;
+    float FrameHeaderOverlap = 0.f;
+    float FrameBottomInset = 0.f;
+    float RailLeftInset = 0.f;
+    float RailTopInset = 0.f;
+    float RailBottomInset = 0.f;
+    float RailThumbTopOffset = 0.f;
+    float RailThumbMinHeight = 0.f;
+    float RailThumbExpand = 0.f;
+    float RailToContentGap = 0.f;
+    float ContentTopInset = 0.f;
+    float ContentBottomInset = 0.f;
+    float TitlePaddingX = 0.f;
+    float TitlePaddingY = 0.f;
+    float CloseButtonSize = 0.f;
+    float CloseButtonOffsetX = 0.f;
+    float CloseButtonOffsetY = 0.f;
+};
 
-    const float PanelWidth  = PanelBaseWidth  * Scale;
-    const float PanelHeight = PanelBaseHeight * Scale;
-    const float PanelLeft   = (ScreenWidth  - PanelWidth)  * 0.5f;
-    struct FAlmanacChromeMetrics
-    {
-        float PanelTopOffset;
-        float RibbonTopOffset;
-        float FrameInsetX;
-        float FrameHeaderOverlap;
-        float FrameBottomInset;
-        float RailLeftInset;
-        float RailTopInset;
-        float RailBottomInset;
-        float RailThumbTopOffset;
-        float RailThumbMinHeight;
-        float RailThumbExpand;
-        float RailToContentGap;
-        float ContentTopInset;
-        float ContentBottomInset;
-        float TitlePaddingX;
-        float TitlePaddingY;
-        float CloseButtonSize;
-        float CloseButtonOffsetX;
-        float CloseButtonOffsetY;
-    } Chrome =
-    {
-        UIConfig::AlmanacPanelTopOffset * Scale,
-        UIConfig::AlmanacRibbonTopOffset * Scale,
-        UIConfig::AlmanacFrameInsetX * Scale,
-        UIConfig::AlmanacFrameHeaderOverlap * Scale,
-        UIConfig::AlmanacFrameBottomInset * Scale,
-        UIConfig::AlmanacRailLeftInset * Scale,
-        UIConfig::AlmanacRailTopInset * Scale,
-        UIConfig::AlmanacRailBottomInset * Scale,
-        UIConfig::AlmanacRailThumbTopOffset * Scale,
-        UIConfig::AlmanacRailThumbMinHeight * Scale,
-        UIConfig::AlmanacRailThumbExpand * Scale,
-        UIConfig::AlmanacRailToContentGap * Scale,
-        UIConfig::AlmanacContentTopInset * Scale,
-        UIConfig::AlmanacContentBottomInset * Scale,
-        UIConfig::AlmanacTitlePaddingX * Scale,
-        UIConfig::AlmanacTitlePaddingY * Scale,
-        UIConfig::AlmanacCloseButtonSize * Scale,
-        UIConfig::AlmanacCloseButtonOffsetX * Scale,
-        UIConfig::AlmanacCloseButtonOffsetY * Scale
-    };
-    struct FAlmanacPageMetrics
-    {
-        float ColumnGap;
-        float WideColumnGap;
-        float TitleHeight;
-        float FrameTop;
-    } PageMetrics =
-    {
-        UIConfig::AlmanacPageColumnGap * Scale,
-        UIConfig::AlmanacWidePageColumnGap * Scale,
-        UIConfig::AlmanacPageTitleHeight * Scale,
-        UIConfig::AlmanacPageFrameTop * Scale
-    };
-    const float PanelTop =
-        (ScreenHeight - PanelHeight) * 0.5f + Chrome.PanelTopOffset;
+struct FAlmanacPageMetrics
+{
+    float ColumnGap = 0.f;
+    float WideColumnGap = 0.f;
+    float TitleHeight = 0.f;
+    float FrameTop = 0.f;
+};
 
-    // INI 제어 가능한 변수
-    const float HeaderHeight  = UIConfig::AlmanacHeaderHeight  * Scale;
-    const float HeaderPadding = UIConfig::AlmanacHeaderPadding * Scale;
-    const float ContentMarginX      = UIConfig::AlmanacContentMarginX      * Scale;
-    const float ContentMarginTop    = UIConfig::AlmanacContentMarginTop    * Scale;
-    const float ContentMarginBottom = UIConfig::AlmanacContentMarginBottom * Scale;
-    const float TabSize     = UIConfig::AlmanacTabSize    * Scale;
-    const float TabGap      = UIConfig::AlmanacTabGap     * Scale;
-    const float TabBaseOffsetY      = UIConfig::AlmanacTabBaseOffsetY      * Scale;
-    const float TabSelectedOffsetY  = UIConfig::AlmanacTabSelectedOffsetY  * Scale;
-    const float MetricRowHeight = UIConfig::AlmanacMetricRowHeight * Scale;
-    const float MetricRowGap    = UIConfig::AlmanacMetricRowGap    * Scale;
-    const float DetailRowHeight = UIConfig::AlmanacDetailRowHeight * Scale;
-    const float DetailRowGap    = UIConfig::AlmanacDetailRowGap    * Scale;
-    const int   CardColumns     = (std::max)(1, static_cast<int>(UIConfig::AlmanacCardColumns));
-    const float CardGapX        = UIConfig::AlmanacCardGapX * Scale;
-    const float CardGapY        = UIConfig::AlmanacCardGapY * Scale;
-    const float LeftPanelRatio  = UIConfig::AlmanacLeftPanelRatio;
+struct FAlmanacLayoutContext
+{
+    float Scale = 1.f;
+    float PanelLeft = 0.f;
+    float PanelTop = 0.f;
+    float PanelWidth = 0.f;
+    float PanelHeight = 0.f;
+    float RibbonLeft = 0.f;
+    float RibbonTop = 0.f;
+    float RibbonWidth = 0.f;
+    float RibbonHeight = 0.f;
+    float FrameLeft = 0.f;
+    float FrameTop = 0.f;
+    float FrameWidth = 0.f;
+    float FrameHeight = 0.f;
+    float RailTrackLeft = 0.f;
+    float RailTrackTop = 0.f;
+    float RailTrackWidth = 0.f;
+    float RailTrackHeight = 0.f;
+    float RailThumbHeight = 0.f;
+    float ContentLeft = 0.f;
+    float ContentTop = 0.f;
+    float ContentWidth = 0.f;
+    float ContentHeight = 0.f;
+    float HeaderPadding = 0.f;
+    float TabSize = 0.f;
+    float TabGap = 0.f;
+    float TabBaseY = 0.f;
+    float TabSelectedOffsetY = 0.f;
+    float MetricRowHeight = 0.f;
+    float MetricRowGap = 0.f;
+    float DetailRowHeight = 0.f;
+    float DetailRowGap = 0.f;
+    int CardColumns = 1;
+    float CardGapX = 0.f;
+    float CardGapY = 0.f;
+    float LeftPanelRatio = 0.5f;
+    FAlmanacChromeMetrics Chrome;
+    FAlmanacPageMetrics PageMetrics;
+};
 
-    const float RibbonWidth =
-        (std::max)(420.f * Scale, PanelWidth - 120.f * Scale);
-    const float RibbonHeight = HeaderHeight * 0.64f;
-    const float RibbonLeft =
-        PanelLeft + (PanelWidth - RibbonWidth) * 0.5f;
-    const float RibbonTop = PanelTop + Chrome.RibbonTopOffset;
-    const float FrameLeft = PanelLeft + Chrome.FrameInsetX;
-    const float FrameTop = PanelTop + HeaderHeight - Chrome.FrameHeaderOverlap;
-    const float FrameWidth = PanelWidth - Chrome.FrameInsetX * 2.f;
-    const float FrameHeight =
-        PanelHeight - (FrameTop - PanelTop) - Chrome.FrameBottomInset;
-    const float RailTrackLeft = FrameLeft + Chrome.RailLeftInset;
-    const float RailTrackTop = FrameTop + Chrome.RailTopInset;
-    const float RailTrackWidth = 10.f * Scale;
-    const float RailTrackHeight = FrameHeight - Chrome.RailBottomInset;
-    const float RailThumbHeight =
-        (std::max)(Chrome.RailThumbMinHeight, RailTrackHeight * 0.18f);
-    const float ContentLeft =
-        RailTrackLeft + RailTrackWidth + Chrome.RailToContentGap + ContentMarginX * 0.45f;
-    const float ContentTop = FrameTop + Chrome.ContentTopInset + ContentMarginTop;
-    const float ContentWidth =
-        FrameLeft + FrameWidth - ContentMarginX * 0.65f - ContentLeft;
-    const float ContentHeight =
-        FrameTop + FrameHeight - ContentMarginBottom - Chrome.ContentBottomInset - ContentTop;
+namespace
+{
+    constexpr float GAlmanacMinimumPanelBaseWidth = 720.f;
+    constexpr float GAlmanacMinimumPanelBaseHeight = 520.f;
+    constexpr float GAlmanacMinimumAvailableExtent = 360.f;
+    constexpr float GAlmanacHorizontalViewportInset = 80.f;
+    constexpr float GAlmanacVerticalViewportInset = 120.f;
+    constexpr float GAlmanacMinimumRibbonWidth = 420.f;
+    constexpr float GAlmanacRibbonWidthInset = 120.f;
+    constexpr float GAlmanacRailTrackBaseWidth = 10.f;
+    constexpr float GAlmanacTabMarkerWidth = 28.f;
+    constexpr float GAlmanacTabMarkerHeight = 16.f;
+    constexpr float GAlmanacTabMarkerTopOffset = 3.f;
 
-    if (auto Background = Widget.mPanelBackground.lock())
+    float ResolveOffscreenHiddenCoord(float ContentExtent, float Scale)
     {
-        Background->SetPos(PanelLeft, PanelTop);
-        Background->SetSize(PanelWidth, PanelHeight);
+        return ContentExtent + UIConfig::AlmanacOffscreenHideOffset * Scale;
     }
 
-    if (auto ContentFrame = Widget.mContentFrame.lock())
+    FAlmanacLayoutContext BuildLayoutContext(const FResolution& Resolution)
     {
-        ContentFrame->SetPos(FrameLeft, FrameTop);
-        ContentFrame->SetSize(FrameWidth, FrameHeight);
+        FAlmanacLayoutContext Layout;
+        const float ScreenWidth = static_cast<float>(Resolution.Width);
+        const float ScreenHeight = static_cast<float>(Resolution.Height);
+        const float PanelBaseWidth =
+            (std::max)(GAlmanacMinimumPanelBaseWidth, UIConfig::AlmanacPanelWidth);
+        const float PanelBaseHeight =
+            (std::max)(GAlmanacMinimumPanelBaseHeight, UIConfig::AlmanacPanelHeight);
+        const float AvailableWidth =
+            (std::max)(
+                GAlmanacMinimumAvailableExtent,
+                ScreenWidth - GAlmanacHorizontalViewportInset);
+        const float AvailableHeight =
+            (std::max)(
+                GAlmanacMinimumAvailableExtent,
+                ScreenHeight - GAlmanacVerticalViewportInset);
+
+        Layout.Scale =
+            (std::min)(1.f,
+                (std::min)(
+                    AvailableWidth / PanelBaseWidth,
+                    AvailableHeight / PanelBaseHeight));
+        Layout.PanelWidth = PanelBaseWidth * Layout.Scale;
+        Layout.PanelHeight = PanelBaseHeight * Layout.Scale;
+        Layout.PanelLeft = (ScreenWidth - Layout.PanelWidth) * 0.5f;
+        Layout.Chrome =
+        {
+            UIConfig::AlmanacPanelTopOffset * Layout.Scale,
+            UIConfig::AlmanacRibbonTopOffset * Layout.Scale,
+            UIConfig::AlmanacFrameInsetX * Layout.Scale,
+            UIConfig::AlmanacFrameHeaderOverlap * Layout.Scale,
+            UIConfig::AlmanacFrameBottomInset * Layout.Scale,
+            UIConfig::AlmanacRailLeftInset * Layout.Scale,
+            UIConfig::AlmanacRailTopInset * Layout.Scale,
+            UIConfig::AlmanacRailBottomInset * Layout.Scale,
+            UIConfig::AlmanacRailThumbTopOffset * Layout.Scale,
+            UIConfig::AlmanacRailThumbMinHeight * Layout.Scale,
+            UIConfig::AlmanacRailThumbExpand * Layout.Scale,
+            UIConfig::AlmanacRailToContentGap * Layout.Scale,
+            UIConfig::AlmanacContentTopInset * Layout.Scale,
+            UIConfig::AlmanacContentBottomInset * Layout.Scale,
+            UIConfig::AlmanacTitlePaddingX * Layout.Scale,
+            UIConfig::AlmanacTitlePaddingY * Layout.Scale,
+            UIConfig::AlmanacCloseButtonSize * Layout.Scale,
+            UIConfig::AlmanacCloseButtonOffsetX * Layout.Scale,
+            UIConfig::AlmanacCloseButtonOffsetY * Layout.Scale
+        };
+        Layout.PageMetrics =
+        {
+            UIConfig::AlmanacPageColumnGap * Layout.Scale,
+            UIConfig::AlmanacWidePageColumnGap * Layout.Scale,
+            UIConfig::AlmanacPageTitleHeight * Layout.Scale,
+            UIConfig::AlmanacPageFrameTop * Layout.Scale
+        };
+        Layout.PanelTop =
+            (ScreenHeight - Layout.PanelHeight) * 0.5f +
+            Layout.Chrome.PanelTopOffset;
+
+        const float HeaderHeight = UIConfig::AlmanacHeaderHeight * Layout.Scale;
+        Layout.HeaderPadding = UIConfig::AlmanacHeaderPadding * Layout.Scale;
+        const float ContentMarginX = UIConfig::AlmanacContentMarginX * Layout.Scale;
+        const float ContentMarginTop =
+            UIConfig::AlmanacContentMarginTop * Layout.Scale;
+        const float ContentMarginBottom =
+            UIConfig::AlmanacContentMarginBottom * Layout.Scale;
+        Layout.TabSize = UIConfig::AlmanacTabSize * Layout.Scale;
+        Layout.TabGap = UIConfig::AlmanacTabGap * Layout.Scale;
+        const float TabBaseOffsetY =
+            UIConfig::AlmanacTabBaseOffsetY * Layout.Scale;
+        Layout.TabSelectedOffsetY =
+            UIConfig::AlmanacTabSelectedOffsetY * Layout.Scale;
+        Layout.MetricRowHeight = UIConfig::AlmanacMetricRowHeight * Layout.Scale;
+        Layout.MetricRowGap = UIConfig::AlmanacMetricRowGap * Layout.Scale;
+        Layout.DetailRowHeight = UIConfig::AlmanacDetailRowHeight * Layout.Scale;
+        Layout.DetailRowGap = UIConfig::AlmanacDetailRowGap * Layout.Scale;
+        Layout.CardColumns =
+            (std::max)(1, static_cast<int>(UIConfig::AlmanacCardColumns));
+        Layout.CardGapX = UIConfig::AlmanacCardGapX * Layout.Scale;
+        Layout.CardGapY = UIConfig::AlmanacCardGapY * Layout.Scale;
+        Layout.LeftPanelRatio = UIConfig::AlmanacLeftPanelRatio;
+
+        Layout.RibbonWidth =
+            (std::max)(
+                GAlmanacMinimumRibbonWidth * Layout.Scale,
+                Layout.PanelWidth - GAlmanacRibbonWidthInset * Layout.Scale);
+        Layout.RibbonHeight = HeaderHeight * 0.64f;
+        Layout.RibbonLeft =
+            Layout.PanelLeft + (Layout.PanelWidth - Layout.RibbonWidth) * 0.5f;
+        Layout.RibbonTop = Layout.PanelTop + Layout.Chrome.RibbonTopOffset;
+        Layout.FrameLeft = Layout.PanelLeft + Layout.Chrome.FrameInsetX;
+        Layout.FrameTop =
+            Layout.PanelTop + HeaderHeight - Layout.Chrome.FrameHeaderOverlap;
+        Layout.FrameWidth = Layout.PanelWidth - Layout.Chrome.FrameInsetX * 2.f;
+        Layout.FrameHeight =
+            Layout.PanelHeight -
+            (Layout.FrameTop - Layout.PanelTop) -
+            Layout.Chrome.FrameBottomInset;
+        Layout.RailTrackLeft = Layout.FrameLeft + Layout.Chrome.RailLeftInset;
+        Layout.RailTrackTop = Layout.FrameTop + Layout.Chrome.RailTopInset;
+        Layout.RailTrackWidth = GAlmanacRailTrackBaseWidth * Layout.Scale;
+        Layout.RailTrackHeight = Layout.FrameHeight - Layout.Chrome.RailBottomInset;
+        Layout.RailThumbHeight =
+            (std::max)(
+                Layout.Chrome.RailThumbMinHeight,
+                Layout.RailTrackHeight * 0.18f);
+        Layout.ContentLeft =
+            Layout.RailTrackLeft + Layout.RailTrackWidth +
+            Layout.Chrome.RailToContentGap +
+            ContentMarginX * 0.45f;
+        Layout.ContentTop =
+            Layout.FrameTop + Layout.Chrome.ContentTopInset + ContentMarginTop;
+        Layout.ContentWidth =
+            Layout.FrameLeft + Layout.FrameWidth -
+            ContentMarginX * 0.65f - Layout.ContentLeft;
+        Layout.ContentHeight =
+            Layout.FrameTop + Layout.FrameHeight -
+            ContentMarginBottom - Layout.Chrome.ContentBottomInset -
+            Layout.ContentTop;
+        Layout.TabBaseY = Layout.PanelTop - TabBaseOffsetY;
+        return Layout;
     }
 
-    if (auto TitleRibbon = Widget.mTitleRibbon.lock())
-    {
-        TitleRibbon->SetPos(RibbonLeft, RibbonTop);
-        TitleRibbon->SetSize(RibbonWidth, RibbonHeight);
-    }
-
-    if (auto RailTrack = Widget.mLeftRailTrack.lock())
-    {
-        RailTrack->SetPos(RailTrackLeft, RailTrackTop);
-        RailTrack->SetSize(RailTrackWidth, RailTrackHeight);
-    }
-
-    if (auto RailThumb = Widget.mLeftRailThumb.lock())
-    {
-        RailThumb->SetPos(
-            RailTrackLeft - Chrome.RailThumbExpand,
-            RailTrackTop + Chrome.RailThumbTopOffset);
-        RailThumb->SetSize(
-            RailTrackWidth + Chrome.RailThumbExpand * 2.f,
-            RailThumbHeight);
-    }
-
-    if (auto TitleText = Widget.mTitleText.lock())
-    {
-        TitleText->SetFontSize(UIConfig::AlmanacTitleFontSize * Scale);
-        TitleText->SetPos(
-            RibbonLeft + Chrome.TitlePaddingX,
-            RibbonTop + Chrome.TitlePaddingY);
-        TitleText->SetSize(
-            RibbonWidth - Chrome.TitlePaddingX * 2.f,
-            RibbonHeight - Chrome.TitlePaddingY * 2.f);
-    }
-
-    if (auto CloseButton = Widget.mCloseButton.lock())
-    {
-        CloseButton->SetPos(
-            PanelLeft + PanelWidth - HeaderPadding - Chrome.CloseButtonOffsetX,
-            PanelTop + Chrome.CloseButtonOffsetY);
-        CloseButton->SetSize(
-            Chrome.CloseButtonSize,
-            Chrome.CloseButtonSize);
-    }
-
-    // 상단 탭 배치
-    const float TabsWidth =
-        TabSize * static_cast<float>(Widget.mTabButtons.size()) +
-        TabGap  * static_cast<float>((std::max)(0, static_cast<int>(Widget.mTabButtons.size()) - 1));
-    const float TabsStartX = PanelLeft + (PanelWidth - TabsWidth) * 0.5f;
-    const float TabBaseY   = PanelTop - TabBaseOffsetY;
-
-    for (size_t Index = 0; Index < Widget.mTabButtons.size(); ++Index)
-    {
-        auto Button = Widget.mTabButtons[Index].lock();
-        if (!Button)
-            continue;
-
-        const bool  Selected = Index == static_cast<size_t>(Widget.mSelectedPage);
-        const float OffsetY  = Selected ? TabSelectedOffsetY : 0.f;
-
-        Button->SetPos(
-            TabsStartX + (TabSize + TabGap) * static_cast<float>(Index),
-            TabBaseY + OffsetY);
-        Button->SetSize(TabSize, TabSize);
-    }
-
-    if (auto TabMarker = Widget.mTabMarker.lock())
-    {
-        const size_t SelectedIndex = static_cast<size_t>(Widget.mSelectedPage);
-        const float SelectedX =
-            TabsStartX + (TabSize + TabGap) * static_cast<float>(SelectedIndex);
-        TabMarker->SetPos(
-            SelectedX + TabSize * 0.5f - 14.f * Scale,
-            PanelTop - 3.f * Scale);
-        TabMarker->SetSize(28.f * Scale, 16.f * Scale);
-    }
-
-    // 페이지 영역 공통 위치
-    for (size_t Index = 0; Index < Widget.mPages.size(); ++Index)
-    {
-        auto Page = Widget.mPages[Index].lock();
-        if (!Page)
-            continue;
-
-        Page->SetPos(ContentLeft, ContentTop);
-        Page->SetSize(ContentWidth, ContentHeight);
-    }
-
-    // ── 공통 레이아웃 헬퍼 람다 ───────────────────────────────
-
-    auto LayoutMetricRows =
-        [Scale](const std::vector<CAlmanacWidget::FMetricRowWidgets>& Rows,
-            float X, float Y, float Width, float RowHeight, float Gap)
+    void LayoutMetricRows(
+        float Scale,
+        const std::vector<CAlmanacWidget::FMetricRowWidgets>& Rows,
+        float X,
+        float Y,
+        float Width,
+        float RowHeight,
+        float Gap)
     {
         const float LabelWidth = Width * 0.42f;
         const float ValueWidth = 100.f * Scale;
-        const float BarLeft    = X + LabelWidth + 12.f * Scale;
-        const float BarWidth   =
-            (std::max)(40.f, Width - LabelWidth - ValueWidth - 34.f * Scale);
+        const float BarGap = 12.f * Scale;
+        const float LabelInsetX = 14.f * Scale;
+        const float LabelWidthTrim = 16.f * Scale;
+        const float ValueInsetX = 12.f * Scale;
+        const float MinBarWidth = 40.f;
+        const float LabelBaselineOffsetY = 1.f * Scale;
+        const float MinBarHeight = 4.f * Scale;
+        const float BarLeft = X + LabelWidth + BarGap;
+        const float BarWidth =
+            (std::max)(
+                MinBarWidth,
+                Width - LabelWidth - ValueWidth - 34.f * Scale);
 
         for (size_t i = 0; i < Rows.size(); ++i)
         {
@@ -251,33 +256,46 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
             }
             if (auto Lbl = Rows[i].Label.lock())
             {
-                Lbl->SetPos(X + 14.f * Scale, RowY - 1.f * Scale);
-                Lbl->SetSize(LabelWidth - 16.f * Scale, RowHeight);
+                Lbl->SetPos(X + LabelInsetX, RowY - LabelBaselineOffsetY);
+                Lbl->SetSize(LabelWidth - LabelWidthTrim, RowHeight);
             }
             if (auto Bar = Rows[i].Bar.lock())
             {
                 Bar->SetPos(BarLeft, RowY + RowHeight * 0.58f);
-                Bar->SetSize(BarWidth, (std::max)(4.f * Scale, RowHeight * 0.12f));
+                Bar->SetSize(
+                    BarWidth,
+                    (std::max)(MinBarHeight, RowHeight * 0.12f));
             }
             if (auto Val = Rows[i].Value.lock())
             {
-                Val->SetPos(X + Width - ValueWidth - 12.f * Scale, RowY - 1.f * Scale);
+                Val->SetPos(
+                    X + Width - ValueWidth - ValueInsetX,
+                    RowY - LabelBaselineOffsetY);
                 Val->SetSize(ValueWidth, RowHeight);
             }
         }
-    };
+    }
 
-    auto LayoutSatisfactionRows =
-        [Scale](const std::vector<CAlmanacWidget::FSatisfactionRowWidgets>& Rows,
-            float X, float Y, float Width, float RowHeight, float Gap)
+    void LayoutSatisfactionRows(
+        float Scale,
+        const std::vector<CAlmanacWidget::FSatisfactionRowWidgets>& Rows,
+        float X,
+        float Y,
+        float Width,
+        float RowHeight,
+        float Gap)
     {
         const float InnerPadding = 12.f * Scale;
         const float IconSize = 30.f * Scale;
         const float ValueWidth = 64.f * Scale;
-        const float LabelLeft = InnerPadding + IconSize + 12.f * Scale;
-        const float BarWidth = (std::max)(
-            40.f,
-            Width - LabelLeft - ValueWidth - InnerPadding * 2.f);
+        const float LabelGap = 12.f * Scale;
+        const float LabelRightTrim = 18.f * Scale;
+        const float BarBottomInset = 6.f * Scale;
+        const float LabelLeft = InnerPadding + IconSize + LabelGap;
+        const float BarWidth =
+            (std::max)(
+                40.f,
+                Width - LabelLeft - ValueWidth - InnerPadding * 2.f);
 
         for (size_t i = 0; i < Rows.size(); ++i)
         {
@@ -288,7 +306,6 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
                 Button->SetPos(X, RowY);
                 Button->SetSize(Width, RowHeight);
             }
-
             if (auto Icon = Rows[i].Icon.lock())
             {
                 Icon->SetPos(
@@ -296,36 +313,53 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
                     (RowHeight - IconSize) * 0.5f);
                 Icon->SetSize(IconSize, IconSize);
             }
-
             if (auto Label = Rows[i].Label.lock())
             {
                 Label->SetPos(LabelLeft, 0.f);
                 Label->SetSize(
-                    Width - LabelLeft - ValueWidth - 18.f * Scale,
+                    Width - LabelLeft - ValueWidth - LabelRightTrim,
                     RowHeight);
             }
-
             if (auto Bar = Rows[i].Bar.lock())
             {
-                Bar->SetPos(LabelLeft, RowHeight - 6.f * Scale);
+                Bar->SetPos(LabelLeft, RowHeight - BarBottomInset);
                 Bar->SetSize(BarWidth, 1.f * Scale);
             }
-
             if (auto Value = Rows[i].Value.lock())
             {
                 Value->SetPos(Width - ValueWidth - InnerPadding, 0.f);
                 Value->SetSize(ValueWidth, RowHeight);
             }
         }
-    };
+    }
 
-    auto LayoutPoliticsFactionTiles =
-        [Scale](const std::vector<CAlmanacWidget::FPoliticsFactionTileWidgets>& Tiles,
-            float X, float Y, float TileWidth, float TileHeight,
-            float GapX, float GapY)
+    void LayoutPoliticsFactionTiles(
+        float Scale,
+        const std::vector<CAlmanacWidget::FPoliticsFactionTileWidgets>& Tiles,
+        float X,
+        float Y,
+        float TileWidth,
+        float TileHeight,
+        float GapX,
+        float GapY)
     {
         const float IconSize = 28.f * Scale;
         const float SmallIconSize = 13.f * Scale;
+        const float IconInsetX = 12.f * Scale;
+        const float IconInsetY = 10.f * Scale;
+        const float LabelLeft = 46.f * Scale;
+        const float LabelTop = 8.f * Scale;
+        const float LabelRightTrim = 58.f * Scale;
+        const float CountRowBottomInset = 22.f * Scale;
+        const float CountValueLeft = 28.f * Scale;
+        const float CountValueBottomInset = 25.f * Scale;
+        const float CountValueWidth = 44.f * Scale;
+        const float CountValueHeight = 20.f * Scale;
+        const float FavorIconRightInset = 58.f * Scale;
+        const float FavorValueRightInset = 40.f * Scale;
+        const float FavorValueBottomInset = 25.f * Scale;
+        const float FavorValueWidth = 32.f * Scale;
+        const float FavorValueHeight = 20.f * Scale;
 
         for (size_t i = 0; i < Tiles.size(); ++i)
         {
@@ -343,46 +377,57 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
             }
             if (auto Icon = Tiles[i].Icon.lock())
             {
-                Icon->SetPos(12.f * Scale, 10.f * Scale);
+                Icon->SetPos(IconInsetX, IconInsetY);
                 Icon->SetSize(IconSize, IconSize);
             }
             if (auto Label = Tiles[i].Label.lock())
             {
-                Label->SetPos(46.f * Scale, 8.f * Scale);
-                Label->SetSize(TileWidth - 58.f * Scale, 28.f * Scale);
+                Label->SetPos(LabelLeft, LabelTop);
+                Label->SetSize(TileWidth - LabelRightTrim, 28.f * Scale);
             }
             if (auto CountIcon = Tiles[i].CountIcon.lock())
             {
-                CountIcon->SetPos(12.f * Scale, TileHeight - 22.f * Scale);
+                CountIcon->SetPos(IconInsetX, TileHeight - CountRowBottomInset);
                 CountIcon->SetSize(SmallIconSize, SmallIconSize);
             }
             if (auto CountValue = Tiles[i].CountValue.lock())
             {
-                CountValue->SetPos(28.f * Scale, TileHeight - 25.f * Scale);
-                CountValue->SetSize(44.f * Scale, 20.f * Scale);
+                CountValue->SetPos(
+                    CountValueLeft,
+                    TileHeight - CountValueBottomInset);
+                CountValue->SetSize(CountValueWidth, CountValueHeight);
             }
             if (auto FavorIcon = Tiles[i].FavorIcon.lock())
             {
                 FavorIcon->SetPos(
-                    TileWidth - 58.f * Scale,
-                    TileHeight - 22.f * Scale);
+                    TileWidth - FavorIconRightInset,
+                    TileHeight - CountRowBottomInset);
                 FavorIcon->SetSize(SmallIconSize, SmallIconSize);
             }
             if (auto FavorValue = Tiles[i].FavorValue.lock())
             {
                 FavorValue->SetPos(
-                    TileWidth - 40.f * Scale,
-                    TileHeight - 25.f * Scale);
-                FavorValue->SetSize(32.f * Scale, 20.f * Scale);
+                    TileWidth - FavorValueRightInset,
+                    TileHeight - FavorValueBottomInset);
+                FavorValue->SetSize(FavorValueWidth, FavorValueHeight);
             }
         }
-    };
+    }
 
-    auto LayoutDetailRows =
-        [Scale](const std::vector<CAlmanacWidget::FDetailRowWidgets>& Rows,
-            float X, float Y, float Width, float RowHeight, float Gap)
+    void LayoutDetailRows(
+        float Scale,
+        const std::vector<CAlmanacWidget::FDetailRowWidgets>& Rows,
+        float X,
+        float Y,
+        float Width,
+        float RowHeight,
+        float Gap)
     {
         const float ValueWidth = 176.f * Scale;
+        const float LabelInsetX = 14.f * Scale;
+        const float ValueInsetX = 12.f * Scale;
+        const float LabelWidthTrim = 26.f * Scale;
+        const float LabelBaselineOffsetY = 1.f * Scale;
 
         for (size_t i = 0; i < Rows.size(); ++i)
         {
@@ -402,83 +447,40 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
             {
                 const bool UseLocalSpace = !Rows[i].Button.expired();
                 Lbl->SetPos(
-                    UseLocalSpace ? 14.f * Scale : X + 14.f * Scale,
-                    UseLocalSpace ? 0.f : RowY - 1.f * Scale);
-                Lbl->SetSize(Width - ValueWidth - 26.f * Scale, RowHeight);
+                    UseLocalSpace ? LabelInsetX : X + LabelInsetX,
+                    UseLocalSpace ? 0.f : RowY - LabelBaselineOffsetY);
+                Lbl->SetSize(Width - ValueWidth - LabelWidthTrim, RowHeight);
             }
             if (auto Val = Rows[i].Value.lock())
             {
                 const bool UseLocalSpace = !Rows[i].Button.expired();
                 Val->SetPos(
                     UseLocalSpace ?
-                        Width - ValueWidth - 12.f * Scale :
-                        X + Width - ValueWidth - 12.f * Scale,
-                    UseLocalSpace ? 0.f : RowY - 1.f * Scale);
+                        Width - ValueWidth - ValueInsetX :
+                        X + Width - ValueWidth - ValueInsetX,
+                    UseLocalSpace ? 0.f : RowY - LabelBaselineOffsetY);
                 Val->SetSize(ValueWidth, RowHeight);
             }
         }
-    };
+    }
 
-    auto LayoutCards =
-        [Scale](const std::vector<CAlmanacWidget::FCardWidgets>& Cards,
-            float X, float Y, float Width, float Height,
-            int Columns, float GapX, float GapY)
+    void LayoutOverviewCard(
+        float Scale,
+        const CAlmanacWidget::FCardWidgets& Card,
+        float X,
+        float Y,
+        float Width,
+        float Height)
     {
-        if (Columns <= 0)
-            return;
+        const float IconSize = 58.f * Scale;
+        const float TextInsetX = 10.f * Scale;
+        const float TitleTop = 82.f * Scale;
+        const float TitleHeight = 38.f * Scale;
+        const float ValueTop = 112.f * Scale;
+        const float ValueHeight = 28.f * Scale;
+        const float DetailTop = 140.f * Scale;
+        const float DetailBottomInset = 148.f * Scale;
 
-        const float CardWidth  =
-            (Width - GapX * static_cast<float>(Columns - 1)) /
-            static_cast<float>(Columns);
-        const float CardHeight =
-            (Height - GapY) * 0.5f;
-
-        for (size_t i = 0; i < Cards.size(); ++i)
-        {
-            const int   Row    = static_cast<int>(i) / Columns;
-            const int   Col    = static_cast<int>(i) % Columns;
-            const float CardX  = X + (CardWidth  + GapX) * static_cast<float>(Col);
-            const float CardY  = Y + (CardHeight + GapY) * static_cast<float>(Row);
-
-            if (auto Bg = Cards[i].Background.lock())
-            {
-                Bg->SetPos(CardX, CardY);
-                Bg->SetSize(CardWidth, CardHeight);
-            }
-            if (auto Icon = Cards[i].Icon.lock())
-            {
-                Icon->SetPos(CardX + 16.f * Scale, CardY + 16.f * Scale);
-                Icon->SetSize(34.f * Scale, 34.f * Scale);
-            }
-            if (auto Title = Cards[i].Title.lock())
-            {
-                Title->SetPos(CardX + 58.f * Scale, CardY + 12.f * Scale);
-                Title->SetSize(CardWidth - 70.f * Scale, 24.f * Scale);
-            }
-            if (auto Val = Cards[i].Value.lock())
-            {
-                Val->SetPos(CardX + 16.f * Scale, CardY + 42.f * Scale);
-                Val->SetSize(CardWidth - 32.f * Scale, 34.f * Scale);
-            }
-            if (auto Detail = Cards[i].Detail.lock())
-            {
-                Detail->SetPos(CardX + 16.f * Scale, CardY + 80.f * Scale);
-                Detail->SetSize(CardWidth - 32.f * Scale, CardHeight - 90.f * Scale);
-            }
-        }
-    };
-
-    // ── 페이지별 레이아웃 ──────────────────────────────────────
-
-    const float LeftWide  = ContentWidth * LeftPanelRatio;
-    const float RightWide = ContentWidth - LeftWide - PageMetrics.ColumnGap;
-    const float SepX      = LeftWide + PageMetrics.ColumnGap;
-
-    // 개요 카드
-    auto LayoutOverviewCard =
-        [Scale](const CAlmanacWidget::FCardWidgets& Card,
-            float X, float Y, float Width, float Height)
-    {
         if (auto Background = Card.Background.lock())
         {
             Background->SetPos(X, Y);
@@ -486,27 +488,385 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         }
         if (auto Icon = Card.Icon.lock())
         {
-            const float IconSize = 58.f * Scale;
             Icon->SetPos(X + (Width - IconSize) * 0.5f, Y + 16.f * Scale);
             Icon->SetSize(IconSize, IconSize);
         }
         if (auto Title = Card.Title.lock())
         {
-            Title->SetPos(X + 10.f * Scale, Y + 82.f * Scale);
-            Title->SetSize(Width - 20.f * Scale, 38.f * Scale);
+            Title->SetPos(X + TextInsetX, Y + TitleTop);
+            Title->SetSize(Width - TextInsetX * 2.f, TitleHeight);
         }
         if (auto Value = Card.Value.lock())
         {
-            Value->SetPos(X + 10.f * Scale, Y + 112.f * Scale);
-            Value->SetSize(Width - 20.f * Scale, 28.f * Scale);
+            Value->SetPos(X + TextInsetX, Y + ValueTop);
+            Value->SetSize(Width - TextInsetX * 2.f, ValueHeight);
         }
         if (auto Detail = Card.Detail.lock())
         {
-            Detail->SetPos(X + 10.f * Scale, Y + 140.f * Scale);
-            Detail->SetSize(Width - 20.f * Scale, Height - 148.f * Scale);
+            Detail->SetPos(X + TextInsetX, Y + DetailTop);
+            Detail->SetSize(
+                Width - TextInsetX * 2.f,
+                Height - DetailBottomInset);
         }
+    }
+}
+
+void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
+{
+    const FResolution& Resolution = CDevice::GetInst()->GetResolution();
+    Widget.mLastResolutionWidth = Resolution.Width;
+    Widget.mLastResolutionHeight = Resolution.Height;
+
+    const FAlmanacLayoutContext Layout = BuildLayoutContext(Resolution);
+    ValidateLayoutForDebug(Widget, Layout);
+    RefreshChromeLayout(Widget, Layout);
+    RefreshNavigationLayout(Widget, Layout);
+    RefreshPageContainerLayout(Widget, Layout);
+    RefreshOverviewLayout(Widget, Layout);
+    RefreshSatisfactionLayout(Widget, Layout);
+    RefreshPopulationLayout(Widget, Layout);
+    RefreshEconomyLayout(Widget, Layout);
+    RefreshResourceLayout(Widget, Layout);
+    RefreshPoliticsLayout(Widget, Layout);
+    RefreshForeignLayout(Widget, Layout);
+    RefreshBuildingLayout(Widget, Layout);
+    RefreshConflictLayout(Widget, Layout);
+    Widget.mLayoutDirty = false;
+}
+
+void FAlmanacRenderer::ValidateLayoutForDebug(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+#ifndef NDEBUG
+    auto IsPositiveFinite = [](float Value)
+    {
+        return std::isfinite(Value) && Value > 0.f;
     };
 
+    const auto ExpectedPageCount =
+        static_cast<size_t>(EAlmanacPage::Count);
+
+    assert(IsPositiveFinite(Layout.Scale));
+    assert(IsPositiveFinite(Layout.PanelWidth));
+    assert(IsPositiveFinite(Layout.PanelHeight));
+    assert(IsPositiveFinite(Layout.FrameWidth));
+    assert(IsPositiveFinite(Layout.FrameHeight));
+    assert(IsPositiveFinite(Layout.ContentWidth));
+    assert(IsPositiveFinite(Layout.ContentHeight));
+    assert(IsPositiveFinite(Layout.RibbonWidth));
+    assert(IsPositiveFinite(Layout.RibbonHeight));
+    assert(IsPositiveFinite(Layout.RailTrackWidth));
+    assert(IsPositiveFinite(Layout.RailTrackHeight));
+    assert(Layout.CardColumns >= 1);
+    assert(UIConfig::AlmanacOffscreenHideOffset >= 0.f);
+    assert(Widget.mTabButtons.size() == ExpectedPageCount);
+    assert(Widget.mPages.size() == ExpectedPageCount);
+    assert(
+        static_cast<size_t>(Widget.mSelectedPage) < ExpectedPageCount);
+    assert(
+        Widget.mOverviewCards.size() ==
+        static_cast<size_t>(GOverviewCardCount));
+    assert(
+        Widget.mOverviewSectionTitles.size() ==
+        static_cast<size_t>(GOverviewSectionTitleCount));
+    assert(
+        Widget.mSatisfactionRows.size() ==
+        static_cast<size_t>(GSatisfactionRowCount));
+    assert(
+        Widget.mSatisfactionChartGridLines.size() ==
+        static_cast<size_t>(GSatisfactionGraphGridLineCount));
+    assert(
+        Widget.mSatisfactionChartPrimaryLines.size() ==
+        static_cast<size_t>(GSatisfactionGraphSegmentCount));
+    assert(
+        Widget.mSatisfactionChartSecondaryLines.size() ==
+        static_cast<size_t>(GSatisfactionGraphSegmentCount));
+    assert(
+        Widget.mSatisfactionChartXAxisLabels.size() ==
+        static_cast<size_t>(GSatisfactionGraphPointCount));
+    assert(
+        Widget.mSatisfactionChartYAxisLabels.size() ==
+        static_cast<size_t>(GSatisfactionGraphGridLineCount));
+    assert(
+        Widget.mSatisfactionDetails.size() ==
+        static_cast<size_t>(GSatisfactionDetailCount));
+    assert(
+        Widget.mPopulationDetails.size() ==
+        static_cast<size_t>(GPopulationDetailCount));
+    assert(
+        Widget.mPopulationMetrics.size() ==
+        static_cast<size_t>(GPopulationMetricCount));
+    assert(
+        Widget.mPopulationTrendGridLines.size() ==
+        static_cast<size_t>(GPopulationTrendGridLineCount));
+    assert(
+        Widget.mPopulationTrendLines.size() ==
+        static_cast<size_t>(GPopulationTrendSegmentCount));
+    assert(
+        Widget.mPopulationTrendChildBars.size() ==
+        static_cast<size_t>(GPopulationDistributionBarCount));
+    assert(
+        Widget.mPopulationTrendAdultBars.size() ==
+        static_cast<size_t>(GPopulationDistributionBarCount));
+    assert(
+        Widget.mPopulationTrendRetiredBars.size() ==
+        static_cast<size_t>(GPopulationDistributionBarCount));
+    assert(
+        Widget.mPopulationTrendRichBars.size() ==
+        static_cast<size_t>(GPopulationDistributionBarCount));
+    assert(
+        Widget.mPopulationTrendFilthyRichBars.size() ==
+        static_cast<size_t>(GPopulationDistributionBarCount));
+    assert(
+        Widget.mPopulationTrendXAxisLabels.size() ==
+        static_cast<size_t>(GPopulationTrendXAxisLabelCount));
+    assert(
+        Widget.mPopulationTrendYAxisLabels.size() ==
+        static_cast<size_t>(GPopulationTrendYAxisLabelCount));
+    assert(
+        Widget.mPopulationChangeGridLines.size() ==
+        static_cast<size_t>(GPopulationChangeGridLineCount));
+    assert(
+        Widget.mPopulationChangePositiveBars.size() ==
+        static_cast<size_t>(GPopulationChangeBarCount));
+    assert(
+        Widget.mPopulationChangeNegativeBars.size() ==
+        static_cast<size_t>(GPopulationChangeBarCount));
+    assert(
+        Widget.mPopulationChangeXAxisLabels.size() ==
+        static_cast<size_t>(GPopulationChangeXAxisLabelCount));
+    assert(
+        Widget.mPopulationChangeYAxisLabels.size() ==
+        static_cast<size_t>(GPopulationChangeYAxisLabelCount));
+    assert(
+        Widget.mEconomyDetails.size() ==
+        static_cast<size_t>(GEconomyDetailCount));
+    assert(
+        Widget.mEconomyMetrics.size() ==
+        static_cast<size_t>(GEconomyMetricCount));
+    assert(
+        Widget.mEconomyTrendGridLines.size() ==
+        static_cast<size_t>(GEconomyTrendGridLineCount));
+    assert(
+        Widget.mEconomyTrendLines.size() ==
+        static_cast<size_t>(GEconomyTrendSegmentCount * 2));
+    assert(
+        Widget.mEconomyTrendBars.size() ==
+        static_cast<size_t>(GEconomyTrendBarCount));
+    assert(
+        Widget.mEconomyTrendSecondaryBars.size() ==
+        static_cast<size_t>(GEconomyTrendBarCount));
+    assert(
+        Widget.mEconomyTrendTertiaryBars.size() ==
+        static_cast<size_t>(GEconomyTrendBarCount));
+    assert(
+        Widget.mEconomyTrendXAxisLabels.size() ==
+        static_cast<size_t>(GEconomyTrendXAxisLabelCount));
+    assert(
+        Widget.mEconomyTrendYAxisLabels.size() ==
+        static_cast<size_t>(GEconomyTrendYAxisLabelCount));
+    assert(
+        Widget.mEconomyChangeGridLines.size() ==
+        static_cast<size_t>(GEconomyChangeGridLineCount));
+    assert(
+        Widget.mEconomyChangePositiveBars.size() ==
+        static_cast<size_t>(GEconomyChangeBarCount));
+    assert(
+        Widget.mEconomyChangeNegativeBars.size() ==
+        static_cast<size_t>(GEconomyChangeBarCount));
+    assert(
+        Widget.mEconomyChangeYAxisLabels.size() ==
+        static_cast<size_t>(GEconomyChangeYAxisLabelCount));
+    assert(
+        Widget.mEconomyBreakdownRows.size() ==
+        static_cast<size_t>(GEconomyBreakdownRowCount));
+    assert(
+        Widget.mResourceRows.size() ==
+        static_cast<size_t>(GResourceRowCount));
+    assert(
+        Widget.mResourceProductionGridLines.size() ==
+        static_cast<size_t>(GResourceProductionGridLineCount));
+    assert(
+        Widget.mResourceProductionBars.size() ==
+        static_cast<size_t>(GResourceProductionBarCount));
+    assert(
+        Widget.mResourceProductionXAxisLabels.size() ==
+        static_cast<size_t>(GResourceProductionXAxisLabelCount));
+    assert(
+        Widget.mResourceProductionYAxisLabels.size() ==
+        static_cast<size_t>(GResourceProductionYAxisLabelCount));
+    assert(
+        Widget.mResourceDistributionRows.size() ==
+        static_cast<size_t>(GResourceDistributionRowCount));
+    assert(
+        Widget.mResourceDetails.size() ==
+        static_cast<size_t>(GResourceDetailCount));
+    assert(
+        Widget.mPoliticsFactionTiles.size() ==
+        static_cast<size_t>(GPoliticsFactionTileCount));
+    assert(
+        Widget.mPoliticsNeutralTexts.size() ==
+        static_cast<size_t>(GPoliticsNeutralCount));
+    assert(
+        Widget.mPoliticsSupportRows.size() ==
+        static_cast<size_t>(GPoliticsSupportRowCount));
+    assert(
+        Widget.mPoliticsDetails.size() ==
+        static_cast<size_t>(GPoliticsDetailCount));
+    assert(
+        Widget.mForeignRows.size() ==
+        static_cast<size_t>(GForeignPowerCount));
+    assert(
+        Widget.mForeignDetails.size() ==
+        static_cast<size_t>(GForeignDetailCount));
+    assert(
+        Widget.mForeignMetrics.size() ==
+        static_cast<size_t>(GForeignMetricCount));
+    assert(
+        Widget.mBuildingRows.size() ==
+        static_cast<size_t>(GBuildingRowCount));
+    assert(
+        Widget.mBuildingDetails.size() ==
+        static_cast<size_t>(GBuildingDetailCount));
+    assert(
+        Widget.mConflictDetails.size() ==
+        static_cast<size_t>(GConflictDetailCount));
+    assert(
+        Widget.mConflictMetrics.size() ==
+        static_cast<size_t>(GConflictMetricCount));
+#else
+    (void)Widget;
+    (void)Layout;
+#endif
+}
+
+void FAlmanacRenderer::RefreshChromeLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    if (auto Background = Widget.mPanelBackground.lock())
+    {
+        Background->SetPos(Layout.PanelLeft, Layout.PanelTop);
+        Background->SetSize(Layout.PanelWidth, Layout.PanelHeight);
+    }
+
+    if (auto ContentFrame = Widget.mContentFrame.lock())
+    {
+        ContentFrame->SetPos(Layout.FrameLeft, Layout.FrameTop);
+        ContentFrame->SetSize(Layout.FrameWidth, Layout.FrameHeight);
+    }
+
+    if (auto TitleRibbon = Widget.mTitleRibbon.lock())
+    {
+        TitleRibbon->SetPos(Layout.RibbonLeft, Layout.RibbonTop);
+        TitleRibbon->SetSize(Layout.RibbonWidth, Layout.RibbonHeight);
+    }
+
+    if (auto RailTrack = Widget.mLeftRailTrack.lock())
+    {
+        RailTrack->SetPos(Layout.RailTrackLeft, Layout.RailTrackTop);
+        RailTrack->SetSize(Layout.RailTrackWidth, Layout.RailTrackHeight);
+    }
+
+    if (auto RailThumb = Widget.mLeftRailThumb.lock())
+    {
+        RailThumb->SetPos(
+            Layout.RailTrackLeft - Layout.Chrome.RailThumbExpand,
+            Layout.RailTrackTop + Layout.Chrome.RailThumbTopOffset);
+        RailThumb->SetSize(
+            Layout.RailTrackWidth + Layout.Chrome.RailThumbExpand * 2.f,
+            Layout.RailThumbHeight);
+    }
+
+    if (auto TitleText = Widget.mTitleText.lock())
+    {
+        TitleText->SetFontSize(UIConfig::AlmanacTitleFontSize * Layout.Scale);
+        TitleText->SetPos(
+            Layout.RibbonLeft + Layout.Chrome.TitlePaddingX,
+            Layout.RibbonTop + Layout.Chrome.TitlePaddingY);
+        TitleText->SetSize(
+            Layout.RibbonWidth - Layout.Chrome.TitlePaddingX * 2.f,
+            Layout.RibbonHeight - Layout.Chrome.TitlePaddingY * 2.f);
+    }
+
+    if (auto CloseButton = Widget.mCloseButton.lock())
+    {
+        CloseButton->SetPos(
+            Layout.PanelLeft + Layout.PanelWidth - Layout.HeaderPadding -
+                Layout.Chrome.CloseButtonOffsetX,
+            Layout.PanelTop + Layout.Chrome.CloseButtonOffsetY);
+        CloseButton->SetSize(
+            Layout.Chrome.CloseButtonSize,
+            Layout.Chrome.CloseButtonSize);
+    }
+}
+
+void FAlmanacRenderer::RefreshNavigationLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float TabsWidth =
+        Layout.TabSize * static_cast<float>(Widget.mTabButtons.size()) +
+        Layout.TabGap * static_cast<float>((std::max)(
+            0,
+            static_cast<int>(Widget.mTabButtons.size()) - 1));
+    const float TabsStartX =
+        Layout.PanelLeft + (Layout.PanelWidth - TabsWidth) * 0.5f;
+
+    for (size_t Index = 0; Index < Widget.mTabButtons.size(); ++Index)
+    {
+        auto Button = Widget.mTabButtons[Index].lock();
+        if (!Button)
+            continue;
+
+        const bool Selected = Index == static_cast<size_t>(Widget.mSelectedPage);
+        const float OffsetY = Selected ? Layout.TabSelectedOffsetY : 0.f;
+
+        Button->SetPos(
+            TabsStartX + (Layout.TabSize + Layout.TabGap) * static_cast<float>(Index),
+            Layout.TabBaseY + OffsetY);
+        Button->SetSize(Layout.TabSize, Layout.TabSize);
+    }
+
+    if (auto TabMarker = Widget.mTabMarker.lock())
+    {
+        const size_t SelectedIndex = static_cast<size_t>(Widget.mSelectedPage);
+        const float SelectedX =
+            TabsStartX +
+            (Layout.TabSize + Layout.TabGap) * static_cast<float>(SelectedIndex);
+        TabMarker->SetPos(
+            SelectedX + Layout.TabSize * 0.5f -
+                GAlmanacTabMarkerWidth * 0.5f * Layout.Scale,
+            Layout.PanelTop - GAlmanacTabMarkerTopOffset * Layout.Scale);
+        TabMarker->SetSize(
+            GAlmanacTabMarkerWidth * Layout.Scale,
+            GAlmanacTabMarkerHeight * Layout.Scale);
+    }
+}
+
+void FAlmanacRenderer::RefreshPageContainerLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    for (size_t Index = 0; Index < Widget.mPages.size(); ++Index)
+    {
+        auto Page = Widget.mPages[Index].lock();
+        if (!Page)
+            continue;
+
+        Page->SetPos(Layout.ContentLeft, Layout.ContentTop);
+        Page->SetSize(Layout.ContentWidth, Layout.ContentHeight);
+    }
+}
+
+void FAlmanacRenderer::RefreshOverviewLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const float ContentHeight = Layout.ContentHeight;
     const float OverviewGroupGap = 24.f * Scale;
     const float OverviewInnerGap = 10.f * Scale;
     const float OverviewSectionTitleTop = 6.f * Scale;
@@ -524,6 +884,8 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     const float OverviewElectionTextWidth = 144.f * Scale;
     const float OverviewElectionY = ContentHeight - 50.f * Scale;
     const float OverviewArrowSize = 16.f * Scale;
+    const float HiddenX = ResolveOffscreenHiddenCoord(ContentWidth, Scale);
+    const float HiddenY = ResolveOffscreenHiddenCoord(ContentHeight, Scale);
     const float GroupX0 = 0.f;
     const float GroupX1 = OverviewTopGroupWidth + OverviewGroupGap;
     const float GroupX2 = (OverviewTopGroupWidth + OverviewGroupGap) * 2.f;
@@ -531,36 +893,42 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     if (Widget.mOverviewCards.size() >= GOverviewCardCount)
     {
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[0],
             GroupX0,
             OverviewTopCardY,
             OverviewTopCardWidth,
             OverviewTopCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[1],
             GroupX0 + OverviewTopCardWidth + OverviewInnerGap,
             OverviewTopCardY,
             OverviewTopCardWidth,
             OverviewTopCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[2],
             GroupX1,
             OverviewTopCardY,
             OverviewTopCardWidth,
             OverviewTopCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[3],
             GroupX1 + OverviewTopCardWidth + OverviewInnerGap,
             OverviewTopCardY,
             OverviewTopCardWidth,
             OverviewTopCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[4],
             GroupX2,
             OverviewTopCardY,
             OverviewTopCardWidth,
             OverviewTopCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[5],
             GroupX2 + OverviewTopCardWidth + OverviewInnerGap,
             OverviewTopCardY,
@@ -568,30 +936,35 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
             OverviewTopCardHeight);
 
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[6],
             GroupX0,
             OverviewBottomCardY,
             OverviewTopCardWidth,
             OverviewBottomCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[7],
             GroupX0 + OverviewTopCardWidth + OverviewInnerGap,
             OverviewBottomCardY,
             OverviewTopCardWidth,
             OverviewBottomCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[8],
             ContentWidth * 0.5f - OverviewCenterCardWidth * 0.5f,
             OverviewBottomCardY,
             OverviewCenterCardWidth,
             OverviewBottomCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[9],
             GroupX2,
             OverviewBottomCardY,
             OverviewTopCardWidth,
             OverviewBottomCardHeight);
         LayoutOverviewCard(
+            Scale,
             Widget.mOverviewCards[10],
             GroupX2 + OverviewTopCardWidth + OverviewInnerGap,
             OverviewBottomCardY,
@@ -661,15 +1034,26 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     if (auto SumL = Widget.mOverviewSummaryLeft.lock())
     {
-        SumL->SetPos(ContentWidth + 200.f * Scale, ContentHeight + 200.f * Scale);
+        SumL->SetPos(HiddenX, HiddenY);
         SumL->SetSize(1.f, 1.f);
     }
     if (auto SumR = Widget.mOverviewSummaryRight.lock())
     {
-        SumR->SetPos(ContentWidth + 200.f * Scale, ContentHeight + 200.f * Scale);
+        SumR->SetPos(HiddenX, HiddenY);
         SumR->SetSize(1.f, 1.f);
     }
 
+}
+
+void FAlmanacRenderer::RefreshSatisfactionLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const float ContentHeight = Layout.ContentHeight;
+    const float HiddenY = ResolveOffscreenHiddenCoord(ContentHeight, Scale);
+    const auto& PageMetrics = Layout.PageMetrics;
     // 만족도
     const float SatisfactionLeftWide = ContentWidth * 0.46f;
     const float SatisfactionRightX = SatisfactionLeftWide + PageMetrics.WideColumnGap;
@@ -697,7 +1081,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         ListTitle->SetSize(SatisfactionLeftWide, SatisfactionChartTitleHeight);
     }
 
-    LayoutSatisfactionRows(
+    LayoutSatisfactionRows(Scale, 
         Widget.mSatisfactionRows,
         0.f,
         SatisfactionChartFrameTop,
@@ -861,7 +1245,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         }
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mSatisfactionDetails,
         SatisfactionRightX,
         SatisfactionDetailTop,
@@ -893,6 +1277,18 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         }
     }
 
+}
+
+void FAlmanacRenderer::RefreshPopulationLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const float ContentHeight = Layout.ContentHeight;
+    const float HiddenX = ResolveOffscreenHiddenCoord(ContentWidth, Scale);
+    const float HiddenY = ResolveOffscreenHiddenCoord(ContentHeight, Scale);
+    const auto& PageMetrics = Layout.PageMetrics;
     // 국민
     const int SelectedPopulationIndex =
         (std::max)(0,
@@ -933,7 +1329,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     const float PopulationRightW = ContentWidth - PopulationRightX;
     const float PopulationDetailRowHeight = 31.f * Scale;
     const float PopulationDetailGap = 3.f * Scale;
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mPopulationDetails,
         0.f,
         0.f,
@@ -1279,6 +1675,17 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         XLabel->SetFontSize(11.f * Scale);
     }
 
+}
+
+void FAlmanacRenderer::RefreshEconomyLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const float ContentHeight = Layout.ContentHeight;
+    const float HiddenY = ResolveOffscreenHiddenCoord(ContentHeight, Scale);
+    const auto& PageMetrics = Layout.PageMetrics;
     // 경제
     const float EconomyLeftWide = ContentWidth * 0.47f;
     const float EconomyRightX = EconomyLeftWide + PageMetrics.ColumnGap;
@@ -1293,7 +1700,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     const bool ShowEconomyUnemployedScreen = Widget.mSelectedEconomyIndex == 10;
     const bool ShowEconomyVacancyScreen = Widget.mSelectedEconomyIndex == 11;
     const bool ShowEconomyElectricityScreen = Widget.mSelectedEconomyIndex == 12;
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mEconomyDetails,
         0.f,
         0.f,
@@ -1478,7 +1885,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
             IsBottomSummary ?
                 EconomyBottomSummaryTop +
                     static_cast<float>(Index - 2) * (EconomySummaryHeight + 4.f * Scale) :
-                ContentHeight + 200.f * Scale;
+                HiddenY;
         auto& Row = Widget.mEconomyMetrics[static_cast<size_t>(Index)];
 
         if (auto Bg = Row.Background.lock())
@@ -1536,7 +1943,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         BreakdownTitle->SetSize(EconomyRightW, EconomyTitleHeight);
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mEconomyBreakdownRows,
         EconomyRightX,
         EconomyBreakdownRowsTop,
@@ -1615,6 +2022,20 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         XAxisArrow->SetSize(12.f * Scale, 12.f * Scale);
     }
 
+}
+
+void FAlmanacRenderer::RefreshResourceLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const float ContentHeight = Layout.ContentHeight;
+    const float HiddenX = ResolveOffscreenHiddenCoord(ContentWidth, Scale);
+    const float HiddenY = ResolveOffscreenHiddenCoord(ContentHeight, Scale);
+    const float DetailRowHeight = Layout.DetailRowHeight;
+    const float DetailRowGap = Layout.DetailRowGap;
+    const auto& PageMetrics = Layout.PageMetrics;
     // 자원
     const float ResourceLeftWide = ContentWidth * 0.46f;
     const float ResourceRightX = ResourceLeftWide + PageMetrics.ColumnGap;
@@ -1684,7 +2105,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         Arrow->SetSize(12.f * Scale, 12.f * Scale);
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mResourceRows,
         0.f,
         ResourceRowsTop,
@@ -1830,7 +2251,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         Text->SetFontSize(13.f * Scale);
     }
 
-    LayoutMetricRows(
+    LayoutMetricRows(Scale, 
         Widget.mResourceDistributionRows,
         ResourceRightX,
         ResourceDistributionRowsTop,
@@ -1861,7 +2282,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         Text->SetFontSize(16.f * Scale);
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mResourceDetails,
         ResourceRightX,
         ResourceTrackingRowsTop,
@@ -1871,10 +2292,19 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     if (auto Notice = Widget.mResourceNotice.lock())
     {
-        Notice->SetPos(ContentWidth + 200.f * Scale, ContentHeight + 200.f * Scale);
+        Notice->SetPos(HiddenX, HiddenY);
         Notice->SetSize(1.f, 1.f);
     }
 
+}
+
+void FAlmanacRenderer::RefreshPoliticsLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const auto& PageMetrics = Layout.PageMetrics;
     // 정치
     const float PoliticsLeftWide = ContentWidth * 0.48f;
     const float PoliticsRightX = PoliticsLeftWide + PageMetrics.ColumnGap;
@@ -1902,7 +2332,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         Title->SetSize(PoliticsLeftWide, PoliticsTitleHeight);
     }
 
-    LayoutPoliticsFactionTiles(
+    LayoutPoliticsFactionTiles(Scale, 
         Widget.mPoliticsFactionTiles,
         0.f,
         PoliticsTileTop,
@@ -1949,7 +2379,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         Title->SetSize(PoliticsLeftWide, PoliticsTitleHeight);
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mPoliticsSupportRows,
         0.f,
         PoliticsSupportRowTop,
@@ -2008,7 +2438,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         Value->SetSize(60.f * Scale, 26.f * Scale);
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mPoliticsDetails,
         PoliticsRightX,
         PoliticsTitleHeight + 36.f * Scale,
@@ -2016,6 +2446,18 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         29.f * Scale,
         3.f * Scale);
 
+}
+
+void FAlmanacRenderer::RefreshForeignLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const float ContentHeight = Layout.ContentHeight;
+    const float HiddenX = ResolveOffscreenHiddenCoord(ContentWidth, Scale);
+    const float HiddenY = ResolveOffscreenHiddenCoord(ContentHeight, Scale);
+    const auto& PageMetrics = Layout.PageMetrics;
     // 대외관계
     const float ForeignLeftWide = ContentWidth * 0.49f;
     const float ForeignRightX = ForeignLeftWide + PageMetrics.ColumnGap;
@@ -2029,7 +2471,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     const float ForeignDetailRowHeight = 29.f * Scale;
     const float ForeignDetailGap = 4.f * Scale;
 
-    LayoutSatisfactionRows(
+    LayoutSatisfactionRows(Scale, 
         Widget.mForeignRows,
         0.f,
         ForeignRowTop,
@@ -2060,7 +2502,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         Text->SetSize(96.f * Scale, 22.f * Scale);
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mForeignDetails,
         ForeignRightX,
         ForeignDetailsTop,
@@ -2072,32 +2514,41 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     {
         if (auto Bg = Metric.Background.lock())
         {
-            Bg->SetPos(ContentWidth + 200.f * Scale, ContentHeight + 200.f * Scale);
+            Bg->SetPos(HiddenX, HiddenY);
             Bg->SetSize(1.f, 1.f);
         }
         if (auto Lbl = Metric.Label.lock())
         {
-            Lbl->SetPos(ContentWidth + 200.f * Scale, ContentHeight + 200.f * Scale);
+            Lbl->SetPos(HiddenX, HiddenY);
             Lbl->SetSize(1.f, 1.f);
         }
         if (auto Bar = Metric.Bar.lock())
         {
-            Bar->SetPos(ContentWidth + 200.f * Scale, ContentHeight + 200.f * Scale);
+            Bar->SetPos(HiddenX, HiddenY);
             Bar->SetSize(1.f, 1.f);
         }
         if (auto Val = Metric.Value.lock())
         {
-            Val->SetPos(ContentWidth + 200.f * Scale, ContentHeight + 200.f * Scale);
+            Val->SetPos(HiddenX, HiddenY);
             Val->SetSize(1.f, 1.f);
         }
     }
 
     if (auto Notice = Widget.mForeignNotice.lock())
     {
-        Notice->SetPos(ContentWidth + 200.f * Scale, ContentHeight + 200.f * Scale);
+        Notice->SetPos(HiddenX, HiddenY);
         Notice->SetSize(1.f, 1.f);
     }
 
+}
+
+void FAlmanacRenderer::RefreshBuildingLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const auto& PageMetrics = Layout.PageMetrics;
     // 건물 목록
     const float BuildingLeftWide = ContentWidth * 0.49f;
     const float BuildingRightX = BuildingLeftWide + PageMetrics.ColumnGap;
@@ -2109,7 +2560,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     const float BuildingDetailRowHeight = 34.f * Scale;
     const float BuildingDetailGap = 5.f * Scale;
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mBuildingRows,
         0.f,
         0.f,
@@ -2123,7 +2574,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         Title->SetSize(BuildingRightW, BuildingTitleHeight);
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mBuildingDetails,
         BuildingRightX,
         BuildingDetailTop,
@@ -2131,6 +2582,18 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         BuildingDetailRowHeight,
         BuildingDetailGap);
 
+}
+
+void FAlmanacRenderer::RefreshConflictLayout(
+    CAlmanacWidget& Widget,
+    const FAlmanacLayoutContext& Layout)
+{
+    const float Scale = Layout.Scale;
+    const float ContentWidth = Layout.ContentWidth;
+    const float ContentHeight = Layout.ContentHeight;
+    const float MetricRowHeight = Layout.MetricRowHeight;
+    const float MetricRowGap = Layout.MetricRowGap;
+    const auto& PageMetrics = Layout.PageMetrics;
     // 분쟁
     const float ConflictLeft    = ContentWidth * 0.54f;
     const float ConflictRight   = ContentWidth - ConflictLeft - PageMetrics.ColumnGap;
@@ -2153,16 +2616,15 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         HeadlineTxt->SetSize(ConflictLeft - 36.f * Scale, 96.f * Scale);
     }
 
-    LayoutDetailRows(
+    LayoutDetailRows(Scale, 
         Widget.mConflictDetails,
         0.f, 140.f * Scale, ConflictLeft,
         ConflictDetailRowH, ConflictDetailGap);
-    LayoutMetricRows(
+    LayoutMetricRows(Scale, 
         Widget.mConflictMetrics,
         ConflictLeft + PageMetrics.ColumnGap, 0.f, ConflictRight,
         MetricRowHeight + 8.f * Scale, MetricRowGap + 2.f * Scale);
 
-    Widget.mLayoutDirty = false;
 }
 
 
@@ -2207,7 +2669,7 @@ void FAlmanacRenderer::ApplyOpenState(CAlmanacWidget& Widget)
 void FAlmanacRenderer::ApplySelectedPage(CAlmanacWidget& Widget)
 {
     if (auto TitleText = Widget.mTitleText.lock())
-        TitleText->SetText(GPageTitles[static_cast<size_t>(Widget.mSelectedPage)]);
+        TitleText->SetText(GetPageTitle(Widget.mSelectedPage).c_str());
 
     for (size_t Index = 0; Index < Widget.mTabButtons.size(); ++Index)
     {
@@ -2230,3 +2692,4 @@ void FAlmanacRenderer::ApplySelectedPage(CAlmanacWidget& Widget)
                 Widget.mOpen && Index == static_cast<size_t>(Widget.mSelectedPage));
     }
 }
+

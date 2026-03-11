@@ -1,5 +1,6 @@
 #include "BuildMenuQueryService.h"
 #include "AlmanacDataProvider.h"
+#include "AlmanacQueryService.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../World/MainWorldAccess.h"
 #include "World/World.h"
@@ -38,8 +39,8 @@ namespace
             : mWorld(World)
             , mBuildMenuAccess(
                 std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World))
-            , mAlmanacAccess(
-                std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World))
+            , mAlmanacQuerySource(
+                AlmanacQueryService::CreateWorldQuerySource(World))
         {
         }
 
@@ -69,7 +70,7 @@ namespace
             if (mWorld)
             {
                 const AlmanacDataProvider::FAlmanacSnapshot AlmanacSnapshot =
-                    AlmanacDataProvider::BuildSnapshot(mWorld, mAlmanacAccess);
+                    AlmanacDataProvider::BuildSnapshot(mAlmanacQuerySource);
                 Result.YearbookBodyText =
                     AlmanacDataProvider::BuildYearbookSummaryText(
                         AlmanacSnapshot);
@@ -81,7 +82,8 @@ namespace
     private:
         std::shared_ptr<CWorld> mWorld;
         std::shared_ptr<IMainWorldBuildMenuAccess> mBuildMenuAccess;
-        std::shared_ptr<IMainWorldAlmanacAccess> mAlmanacAccess;
+        std::shared_ptr<AlmanacDataProvider::IAlmanacQuerySource>
+            mAlmanacQuerySource;
     };
 }
 

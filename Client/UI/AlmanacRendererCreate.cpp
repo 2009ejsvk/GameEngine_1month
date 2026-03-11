@@ -3,7 +3,550 @@
 #include "World/World.h"
 #include <string>
 
+namespace
+{
+CAlmanacWidget::FCardWidgets CreateCard(
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    const TCHAR* IconPath)
+{
+        CAlmanacWidget::FCardWidgets Card;
+
+        if (!Page)
+            return Card;
+
+        Card.Background = Page->CreateWidget<CImage>(
+            Prefix + "_Background", 1);
+
+        if (auto Background = Card.Background.lock())
+        {
+            ConfigureFrameImage(
+                Background,
+                Prefix + "_Texture",
+                GCardTexture);
+            ApplySelectableBackground(Background, false, true);
+        }
+
+        Card.Icon = Page->CreateWidget<CImage>(Prefix + "_Icon", 2);
+
+        if (auto Icon = Card.Icon.lock())
+        {
+            Icon->SetTexture(Prefix + "_IconTexture", IconPath);
+            Icon->SetTint(1.f, 1.f, 1.f, 1.f);
+        }
+
+        Card.Title = Page->CreateWidget<CTextBlock>(Prefix + "_Title", 2);
+        Card.Value = Page->CreateWidget<CTextBlock>(Prefix + "_Value", 2);
+        Card.Detail = Page->CreateWidget<CTextBlock>(Prefix + "_Detail", 2);
+
+        ConfigureCardTitleText(Card.Title.lock());
+        ConfigureCardValueText(Card.Value.lock());
+        ConfigureCardDetailText(Card.Detail.lock());
+
+        return Card;
+}
+
+CAlmanacWidget::FMetricRowWidgets CreateMetricRow(
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix)
+{
+        CAlmanacWidget::FMetricRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Background = Page->CreateWidget<CImage>(
+            Prefix + "_Background", 1);
+        Row.Label = Page->CreateWidget<CTextBlock>(Prefix + "_Label", 2);
+        Row.Bar = Page->CreateWidget<CProgressBar>(Prefix + "_Bar", 2);
+        Row.Value = Page->CreateWidget<CTextBlock>(Prefix + "_Value", 2);
+
+        ConfigureRowBackground(Row.Background.lock(), Prefix + "_Texture");
+        ConfigureBodyLabelText(Row.Label.lock());
+        ConfigureMetricBar(Row.Bar.lock());
+        ConfigureBodyValueText(Row.Value.lock());
+
+        return Row;
+}
+
+CAlmanacWidget::FSatisfactionRowWidgets CreateSatisfactionRow(
+    CAlmanacWidget& Widget,
+    const std::weak_ptr<CWorld>& World,
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    int Index)
+{
+        CAlmanacWidget::FSatisfactionRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
+        auto Button = Row.Button.lock();
+
+        if (!Button)
+            return Row;
+
+        ConfigureSatisfactionRowButtonStyle(Button, false);
+        Button->SetEventCallback(
+            EButtonEventState::Hovered,
+            [&Widget, Index]()
+            {
+                Widget.SelectSatisfactionRow(Index);
+            });
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [&Widget, Index]()
+            {
+                Widget.SelectSatisfactionRow(Index);
+            });
+
+        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
+            Prefix + "_Content", World);
+        auto Icon = CWidget::CreateStaticWidget<CImage>(
+            Prefix + "_Icon", World);
+        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Label", World);
+        auto Bar = CWidget::CreateStaticWidget<CProgressBar>(
+            Prefix + "_Bar", World);
+        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Value", World);
+
+        if (Content && Icon && Label && Bar && Value)
+        {
+            Icon->SetTexture(Prefix + "_IconTexture", GSatisfactionIcons[Index]);
+            Icon->SetTint(1.f, 1.f, 1.f, 1.f);
+
+            ConfigureBodyLabelText(Label);
+            ConfigureSatisfactionRowBar(Bar);
+            ConfigureBodyValueText(Value);
+
+            Content->AddWidget(Icon);
+            Content->AddWidget(Label);
+            Content->AddWidget(Bar);
+            Content->AddWidget(Value);
+            Button->SetChild(Content);
+
+            Row.Icon = Icon;
+            Row.Label = Label;
+            Row.Bar = Bar;
+            Row.Value = Value;
+        }
+
+        return Row;
+}
+
+CAlmanacWidget::FDetailRowWidgets CreateDetailRow(
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix)
+{
+        CAlmanacWidget::FDetailRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Background = Page->CreateWidget<CImage>(
+            Prefix + "_Background", 1);
+        Row.Label = Page->CreateWidget<CTextBlock>(Prefix + "_Label", 2);
+        Row.Value = Page->CreateWidget<CTextBlock>(Prefix + "_Value", 2);
+
+        ConfigureRowBackground(Row.Background.lock(), Prefix + "_Texture");
+        ConfigureBodyLabelText(Row.Label.lock());
+        ConfigureBodyValueText(Row.Value.lock());
+
+        return Row;
+}
+
+CAlmanacWidget::FDetailRowWidgets CreateSelectableDetailRow(
+    CAlmanacWidget& Widget,
+    const std::weak_ptr<CWorld>& World,
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    int Index)
+{
+        CAlmanacWidget::FDetailRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
+        auto Button = Row.Button.lock();
+
+        if (!Button)
+            return Row;
+
+        ConfigureSatisfactionRowButtonStyle(Button, false);
+        Button->SetEventCallback(
+            EButtonEventState::Hovered,
+            [&Widget, Index]()
+            {
+                Widget.SelectPopulationRow(Index);
+            });
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [&Widget, Index]()
+            {
+                Widget.SelectPopulationRow(Index);
+            });
+
+        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
+            Prefix + "_Content", World);
+        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Label", World);
+        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Value", World);
+
+        if (Content && Label && Value)
+        {
+            ConfigureBodyLabelText(Label);
+            ConfigureBodyValueText(Value);
+
+            Content->AddWidget(Label);
+            Content->AddWidget(Value);
+            Button->SetChild(Content);
+
+            Row.Label = Label;
+            Row.Value = Value;
+        }
+
+        return Row;
+}
+
+CAlmanacWidget::FDetailRowWidgets CreateSelectableEconomyDetailRow(
+    CAlmanacWidget& Widget,
+    const std::weak_ptr<CWorld>& World,
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    int Index)
+{
+        CAlmanacWidget::FDetailRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
+        auto Button = Row.Button.lock();
+
+        if (!Button)
+            return Row;
+
+        ConfigureSatisfactionRowButtonStyle(Button, false);
+        Button->SetEventCallback(
+            EButtonEventState::Hovered,
+            [&Widget, Index]()
+            {
+                Widget.SelectEconomyRow(Index);
+            });
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [&Widget, Index]()
+            {
+                Widget.SelectEconomyRow(Index);
+            });
+
+        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
+            Prefix + "_Content", World);
+        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Label", World);
+        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Value", World);
+
+        if (Content && Label && Value)
+        {
+            ConfigureBodyLabelText(Label);
+            ConfigureBodyValueText(Value);
+
+            Content->AddWidget(Label);
+            Content->AddWidget(Value);
+            Button->SetChild(Content);
+
+            Row.Label = Label;
+            Row.Value = Value;
+        }
+
+        return Row;
+}
+
+CAlmanacWidget::FDetailRowWidgets CreateSelectableResourceDetailRow(
+    CAlmanacWidget& Widget,
+    const std::weak_ptr<CWorld>& World,
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    int Index)
+{
+        CAlmanacWidget::FDetailRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
+        auto Button = Row.Button.lock();
+
+        if (!Button)
+            return Row;
+
+        ConfigureSatisfactionRowButtonStyle(Button, false);
+        Button->SetEventCallback(
+            EButtonEventState::Hovered,
+            [&Widget, Index]()
+            {
+                Widget.SelectResourceRow(Index);
+            });
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [&Widget, Index]()
+            {
+                Widget.SelectResourceRow(Index);
+            });
+
+        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
+            Prefix + "_Content", World);
+        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Label", World);
+        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Value", World);
+
+        if (Content && Label && Value)
+        {
+            ConfigureBodyLabelText(Label);
+            ConfigureBodyValueText(Value);
+
+            Content->AddWidget(Label);
+            Content->AddWidget(Value);
+            Button->SetChild(Content);
+
+            Row.Label = Label;
+            Row.Value = Value;
+        }
+
+        return Row;
+}
+
+CAlmanacWidget::FPoliticsFactionTileWidgets CreatePoliticsFactionTile(
+    CAlmanacWidget& Widget,
+    const std::weak_ptr<CWorld>& World,
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    int Index)
+{
+        CAlmanacWidget::FPoliticsFactionTileWidgets Tile;
+
+        if (!Page)
+            return Tile;
+
+        Tile.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
+        auto Button = Tile.Button.lock();
+
+        if (!Button)
+            return Tile;
+
+        ConfigurePoliticsFactionButtonStyle(Button, false);
+        Button->SetEventCallback(
+            EButtonEventState::Hovered,
+            [&Widget, Index]()
+            {
+                Widget.SelectPoliticsFaction(Index);
+            });
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [&Widget, Index]()
+            {
+                Widget.SelectPoliticsFaction(Index);
+            });
+
+        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
+            Prefix + "_Content", World);
+        auto Icon = CWidget::CreateStaticWidget<CImage>(
+            Prefix + "_Icon", World);
+        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Label", World);
+        auto CountIcon = CWidget::CreateStaticWidget<CImage>(
+            Prefix + "_CountIcon", World);
+        auto CountValue = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_CountValue", World);
+        auto FavorIcon = CWidget::CreateStaticWidget<CImage>(
+            Prefix + "_FavorIcon", World);
+        auto FavorValue = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_FavorValue", World);
+
+        if (Content && Icon && Label && CountIcon && CountValue && FavorIcon && FavorValue)
+        {
+            Icon->SetTexture(Prefix + "_IconTexture", GPoliticsFactionIcons[0]);
+            Icon->SetTint(0.90f, 0.74f, 0.18f, 0.96f);
+
+            CountIcon->SetTexture(Prefix + "_CountIconTexture", GPopulationIcon);
+            FavorIcon->SetTexture(Prefix + "_FavorIconTexture", GApprovalIcon);
+
+            ConfigureBodyLabelText(Label);
+            Label->SetFontSize(15.f);
+            Label->SetAlignV(ETextAlignV::Top);
+
+            ConfigureBodyLabelText(CountValue);
+            CountValue->SetFontSize(14.f);
+            CountValue->SetAlignH(ETextAlignH::Left);
+
+            ConfigureBodyLabelText(FavorValue);
+            FavorValue->SetFontSize(14.f);
+            FavorValue->SetAlignH(ETextAlignH::Left);
+
+            Content->AddWidget(Icon);
+            Content->AddWidget(Label);
+            Content->AddWidget(CountIcon);
+            Content->AddWidget(CountValue);
+            Content->AddWidget(FavorIcon);
+            Content->AddWidget(FavorValue);
+            Button->SetChild(Content);
+
+            Tile.Icon = Icon;
+            Tile.Label = Label;
+            Tile.CountIcon = CountIcon;
+            Tile.CountValue = CountValue;
+            Tile.FavorIcon = FavorIcon;
+            Tile.FavorValue = FavorValue;
+        }
+
+        return Tile;
+}
+
+CAlmanacWidget::FSatisfactionRowWidgets CreateForeignPowerRow(
+    CAlmanacWidget& Widget,
+    const std::weak_ptr<CWorld>& World,
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    int Index)
+{
+        CAlmanacWidget::FSatisfactionRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
+        auto Button = Row.Button.lock();
+
+        if (!Button)
+            return Row;
+
+        ConfigureSatisfactionRowButtonStyle(Button, false);
+        Button->SetEventCallback(
+            EButtonEventState::Hovered,
+            [&Widget, Index]()
+            {
+                Widget.SelectForeignPower(Index);
+            });
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [&Widget, Index]()
+            {
+                Widget.SelectForeignPower(Index);
+            });
+
+        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
+            Prefix + "_Content", World);
+        auto Icon = CWidget::CreateStaticWidget<CImage>(
+            Prefix + "_Icon", World);
+        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Label", World);
+        auto Bar = CWidget::CreateStaticWidget<CProgressBar>(
+            Prefix + "_Bar", World);
+        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Value", World);
+
+        if (Content && Icon && Label && Bar && Value)
+        {
+            ConfigureBodyLabelText(Label);
+            ConfigureSatisfactionRowBar(Bar);
+            ConfigureBodyValueText(Value);
+
+            Content->AddWidget(Icon);
+            Content->AddWidget(Label);
+            Content->AddWidget(Bar);
+            Content->AddWidget(Value);
+            Button->SetChild(Content);
+
+            Row.Icon = Icon;
+            Row.Label = Label;
+            Row.Bar = Bar;
+            Row.Value = Value;
+        }
+
+        return Row;
+}
+
+CAlmanacWidget::FDetailRowWidgets CreateSelectableBuildingDetailRow(
+    CAlmanacWidget& Widget,
+    const std::weak_ptr<CWorld>& World,
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    int Index)
+{
+        CAlmanacWidget::FDetailRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
+        auto Button = Row.Button.lock();
+
+        if (!Button)
+            return Row;
+
+        ConfigureSatisfactionRowButtonStyle(Button, false);
+        Button->SetEventCallback(
+            EButtonEventState::Hovered,
+            [&Widget, Index]()
+            {
+                Widget.SelectBuildingCategory(Index);
+            });
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [&Widget, Index]()
+            {
+                Widget.SelectBuildingCategory(Index);
+            });
+
+        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
+            Prefix + "_Content", World);
+        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Label", World);
+        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Value", World);
+
+        if (Content && Label && Value)
+        {
+            ConfigureBodyLabelText(Label);
+            ConfigureBodyValueText(Value);
+
+            Content->AddWidget(Label);
+            Content->AddWidget(Value);
+            Button->SetChild(Content);
+
+            Row.Label = Label;
+            Row.Value = Value;
+        }
+
+        return Row;
+}
+} // namespace
+
 void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
+{
+    CreateChromeWidgets(Widget);
+    CreateTabWidgets(Widget);
+    CreatePageContainers(Widget);
+    CreateOverviewWidgets(Widget);
+    CreateSatisfactionWidgets(Widget);
+    CreatePopulationWidgets(Widget);
+    CreateEconomyWidgets(Widget);
+    CreateResourceWidgets(Widget);
+    CreatePoliticsWidgets(Widget);
+    CreateForeignWidgets(Widget);
+    CreateBuildingWidgets(Widget);
+    CreateConflictWidgets(Widget);
+    ApplySelectedPage(Widget);
+    ApplyOpenState(Widget);
+}
+
+void FAlmanacRenderer::CreateChromeWidgets(CAlmanacWidget& Widget)
 {
     auto PanelBackground = Widget.CreateWidget<CImage>("Almanac_Background", 6).lock();
 
@@ -78,7 +621,7 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
 
     if (TitleText)
     {
-        TitleText->SetText(GPageTitles[static_cast<size_t>(Widget.mSelectedPage)]);
+        TitleText->SetText(GetPageTitle(Widget.mSelectedPage).c_str());
         ConfigureTitleText(TitleText);
         Widget.mTitleText = TitleText;
     }
@@ -110,7 +653,10 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
 
         Widget.mCloseButton = CloseButton;
     }
+}
 
+void FAlmanacRenderer::CreateTabWidgets(CAlmanacWidget& Widget)
+{
     Widget.mTabButtons.resize(static_cast<size_t>(EAlmanacPage::Count));
 
     void (CAlmanacWidget::*TabCallbacks[static_cast<size_t>(EAlmanacPage::Count)])() =
@@ -157,7 +703,10 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
 
         Widget.mTabButtons[Index] = Button;
     }
+}
 
+void FAlmanacRenderer::CreatePageContainers(CAlmanacWidget& Widget)
+{
     for (size_t Index = 0; Index < Widget.mPages.size(); ++Index)
     {
         auto Page = Widget.CreateWidget<CWidgetContainer>(
@@ -166,516 +715,10 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         if (Page)
             Widget.mPages[Index] = Page;
     }
+}
 
-    auto CreateCard = [](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix,
-        const TCHAR* IconPath) -> CAlmanacWidget::FCardWidgets
-    {
-        CAlmanacWidget::FCardWidgets Card;
-
-        if (!Page)
-            return Card;
-
-        Card.Background = Page->CreateWidget<CImage>(
-            Prefix + "_Background", 1);
-
-        if (auto Background = Card.Background.lock())
-        {
-            ConfigureFrameImage(
-                Background,
-                Prefix + "_Texture",
-                GCardTexture);
-            ApplySelectableBackground(Background, false, true);
-        }
-
-        Card.Icon = Page->CreateWidget<CImage>(Prefix + "_Icon", 2);
-
-        if (auto Icon = Card.Icon.lock())
-        {
-            Icon->SetTexture(Prefix + "_IconTexture", IconPath);
-            Icon->SetTint(1.f, 1.f, 1.f, 1.f);
-        }
-
-        Card.Title = Page->CreateWidget<CTextBlock>(Prefix + "_Title", 2);
-        Card.Value = Page->CreateWidget<CTextBlock>(Prefix + "_Value", 2);
-        Card.Detail = Page->CreateWidget<CTextBlock>(Prefix + "_Detail", 2);
-
-        ConfigureCardTitleText(Card.Title.lock());
-        ConfigureCardValueText(Card.Value.lock());
-        ConfigureCardDetailText(Card.Detail.lock());
-
-        return Card;
-    };
-
-    auto CreateMetricRow = [](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix) -> CAlmanacWidget::FMetricRowWidgets
-    {
-        CAlmanacWidget::FMetricRowWidgets Row;
-
-        if (!Page)
-            return Row;
-
-        Row.Background = Page->CreateWidget<CImage>(
-            Prefix + "_Background", 1);
-        Row.Label = Page->CreateWidget<CTextBlock>(Prefix + "_Label", 2);
-        Row.Bar = Page->CreateWidget<CProgressBar>(Prefix + "_Bar", 2);
-        Row.Value = Page->CreateWidget<CTextBlock>(Prefix + "_Value", 2);
-
-        ConfigureRowBackground(Row.Background.lock(), Prefix + "_Texture");
-        ConfigureBodyLabelText(Row.Label.lock());
-        ConfigureMetricBar(Row.Bar.lock());
-        ConfigureBodyValueText(Row.Value.lock());
-
-        return Row;
-    };
-
-    auto CreateSatisfactionRow = [&Widget](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix,
-        int Index) -> CAlmanacWidget::FSatisfactionRowWidgets
-    {
-        CAlmanacWidget::FSatisfactionRowWidgets Row;
-
-        if (!Page)
-            return Row;
-
-        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
-        auto Button = Row.Button.lock();
-
-        if (!Button)
-            return Row;
-
-        ConfigureSatisfactionRowButtonStyle(Button, false);
-        Button->SetEventCallback(
-            EButtonEventState::Hovered,
-            [&Widget, Index]()
-            {
-                Widget.SelectSatisfactionRow(Index);
-            });
-        Button->SetEventCallback(
-            EButtonEventState::Click,
-            [&Widget, Index]()
-            {
-                Widget.SelectSatisfactionRow(Index);
-            });
-
-        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
-            Prefix + "_Content", Widget.mWorld);
-        auto Icon = CWidget::CreateStaticWidget<CImage>(
-            Prefix + "_Icon", Widget.mWorld);
-        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Label", Widget.mWorld);
-        auto Bar = CWidget::CreateStaticWidget<CProgressBar>(
-            Prefix + "_Bar", Widget.mWorld);
-        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Value", Widget.mWorld);
-
-        if (Content && Icon && Label && Bar && Value)
-        {
-            Icon->SetTexture(Prefix + "_IconTexture", GSatisfactionIcons[Index]);
-            Icon->SetTint(1.f, 1.f, 1.f, 1.f);
-
-            ConfigureBodyLabelText(Label);
-            ConfigureSatisfactionRowBar(Bar);
-            ConfigureBodyValueText(Value);
-
-            Content->AddWidget(Icon);
-            Content->AddWidget(Label);
-            Content->AddWidget(Bar);
-            Content->AddWidget(Value);
-            Button->SetChild(Content);
-
-            Row.Icon = Icon;
-            Row.Label = Label;
-            Row.Bar = Bar;
-            Row.Value = Value;
-        }
-
-        return Row;
-    };
-
-    auto CreateDetailRow = [](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix) -> CAlmanacWidget::FDetailRowWidgets
-    {
-        CAlmanacWidget::FDetailRowWidgets Row;
-
-        if (!Page)
-            return Row;
-
-        Row.Background = Page->CreateWidget<CImage>(
-            Prefix + "_Background", 1);
-        Row.Label = Page->CreateWidget<CTextBlock>(Prefix + "_Label", 2);
-        Row.Value = Page->CreateWidget<CTextBlock>(Prefix + "_Value", 2);
-
-        ConfigureRowBackground(Row.Background.lock(), Prefix + "_Texture");
-        ConfigureBodyLabelText(Row.Label.lock());
-        ConfigureBodyValueText(Row.Value.lock());
-
-        return Row;
-    };
-
-    auto CreateSelectableDetailRow = [&Widget](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix,
-        int Index) -> CAlmanacWidget::FDetailRowWidgets
-    {
-        CAlmanacWidget::FDetailRowWidgets Row;
-
-        if (!Page)
-            return Row;
-
-        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
-        auto Button = Row.Button.lock();
-
-        if (!Button)
-            return Row;
-
-        ConfigureSatisfactionRowButtonStyle(Button, false);
-        Button->SetEventCallback(
-            EButtonEventState::Hovered,
-            [&Widget, Index]()
-            {
-                Widget.SelectPopulationRow(Index);
-            });
-        Button->SetEventCallback(
-            EButtonEventState::Click,
-            [&Widget, Index]()
-            {
-                Widget.SelectPopulationRow(Index);
-            });
-
-        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
-            Prefix + "_Content", Widget.mWorld);
-        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Label", Widget.mWorld);
-        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Value", Widget.mWorld);
-
-        if (Content && Label && Value)
-        {
-            ConfigureBodyLabelText(Label);
-            ConfigureBodyValueText(Value);
-
-            Content->AddWidget(Label);
-            Content->AddWidget(Value);
-            Button->SetChild(Content);
-
-            Row.Label = Label;
-            Row.Value = Value;
-        }
-
-        return Row;
-    };
-
-    auto CreateSelectableEconomyDetailRow = [&Widget](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix,
-        int Index) -> CAlmanacWidget::FDetailRowWidgets
-    {
-        CAlmanacWidget::FDetailRowWidgets Row;
-
-        if (!Page)
-            return Row;
-
-        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
-        auto Button = Row.Button.lock();
-
-        if (!Button)
-            return Row;
-
-        ConfigureSatisfactionRowButtonStyle(Button, false);
-        Button->SetEventCallback(
-            EButtonEventState::Hovered,
-            [&Widget, Index]()
-            {
-                Widget.SelectEconomyRow(Index);
-            });
-        Button->SetEventCallback(
-            EButtonEventState::Click,
-            [&Widget, Index]()
-            {
-                Widget.SelectEconomyRow(Index);
-            });
-
-        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
-            Prefix + "_Content", Widget.mWorld);
-        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Label", Widget.mWorld);
-        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Value", Widget.mWorld);
-
-        if (Content && Label && Value)
-        {
-            ConfigureBodyLabelText(Label);
-            ConfigureBodyValueText(Value);
-
-            Content->AddWidget(Label);
-            Content->AddWidget(Value);
-            Button->SetChild(Content);
-
-            Row.Label = Label;
-            Row.Value = Value;
-        }
-
-        return Row;
-    };
-
-    auto CreateSelectableResourceDetailRow = [&Widget](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix,
-        int Index) -> CAlmanacWidget::FDetailRowWidgets
-    {
-        CAlmanacWidget::FDetailRowWidgets Row;
-
-        if (!Page)
-            return Row;
-
-        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
-        auto Button = Row.Button.lock();
-
-        if (!Button)
-            return Row;
-
-        ConfigureSatisfactionRowButtonStyle(Button, false);
-        Button->SetEventCallback(
-            EButtonEventState::Hovered,
-            [&Widget, Index]()
-            {
-                Widget.SelectResourceRow(Index);
-            });
-        Button->SetEventCallback(
-            EButtonEventState::Click,
-            [&Widget, Index]()
-            {
-                Widget.SelectResourceRow(Index);
-            });
-
-        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
-            Prefix + "_Content", Widget.mWorld);
-        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Label", Widget.mWorld);
-        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Value", Widget.mWorld);
-
-        if (Content && Label && Value)
-        {
-            ConfigureBodyLabelText(Label);
-            ConfigureBodyValueText(Value);
-
-            Content->AddWidget(Label);
-            Content->AddWidget(Value);
-            Button->SetChild(Content);
-
-            Row.Label = Label;
-            Row.Value = Value;
-        }
-
-        return Row;
-    };
-
-    auto CreatePoliticsFactionTile = [&Widget](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix,
-        int Index) -> CAlmanacWidget::FPoliticsFactionTileWidgets
-    {
-        CAlmanacWidget::FPoliticsFactionTileWidgets Tile;
-
-        if (!Page)
-            return Tile;
-
-        Tile.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
-        auto Button = Tile.Button.lock();
-
-        if (!Button)
-            return Tile;
-
-        ConfigurePoliticsFactionButtonStyle(Button, false);
-        Button->SetEventCallback(
-            EButtonEventState::Hovered,
-            [&Widget, Index]()
-            {
-                Widget.SelectPoliticsFaction(Index);
-            });
-        Button->SetEventCallback(
-            EButtonEventState::Click,
-            [&Widget, Index]()
-            {
-                Widget.SelectPoliticsFaction(Index);
-            });
-
-        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
-            Prefix + "_Content", Widget.mWorld);
-        auto Icon = CWidget::CreateStaticWidget<CImage>(
-            Prefix + "_Icon", Widget.mWorld);
-        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Label", Widget.mWorld);
-        auto CountIcon = CWidget::CreateStaticWidget<CImage>(
-            Prefix + "_CountIcon", Widget.mWorld);
-        auto CountValue = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_CountValue", Widget.mWorld);
-        auto FavorIcon = CWidget::CreateStaticWidget<CImage>(
-            Prefix + "_FavorIcon", Widget.mWorld);
-        auto FavorValue = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_FavorValue", Widget.mWorld);
-
-        if (Content && Icon && Label && CountIcon && CountValue && FavorIcon && FavorValue)
-        {
-            Icon->SetTexture(Prefix + "_IconTexture", GPoliticsFactionIcons[0]);
-            Icon->SetTint(0.90f, 0.74f, 0.18f, 0.96f);
-
-            CountIcon->SetTexture(Prefix + "_CountIconTexture", GPopulationIcon);
-            FavorIcon->SetTexture(Prefix + "_FavorIconTexture", GApprovalIcon);
-
-            ConfigureBodyLabelText(Label);
-            Label->SetFontSize(15.f);
-            Label->SetAlignV(ETextAlignV::Top);
-
-            ConfigureBodyLabelText(CountValue);
-            CountValue->SetFontSize(14.f);
-            CountValue->SetAlignH(ETextAlignH::Left);
-
-            ConfigureBodyLabelText(FavorValue);
-            FavorValue->SetFontSize(14.f);
-            FavorValue->SetAlignH(ETextAlignH::Left);
-
-            Content->AddWidget(Icon);
-            Content->AddWidget(Label);
-            Content->AddWidget(CountIcon);
-            Content->AddWidget(CountValue);
-            Content->AddWidget(FavorIcon);
-            Content->AddWidget(FavorValue);
-            Button->SetChild(Content);
-
-            Tile.Icon = Icon;
-            Tile.Label = Label;
-            Tile.CountIcon = CountIcon;
-            Tile.CountValue = CountValue;
-            Tile.FavorIcon = FavorIcon;
-            Tile.FavorValue = FavorValue;
-        }
-
-        return Tile;
-    };
-
-    auto CreateForeignPowerRow = [&Widget](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix,
-        int Index) -> CAlmanacWidget::FSatisfactionRowWidgets
-    {
-        CAlmanacWidget::FSatisfactionRowWidgets Row;
-
-        if (!Page)
-            return Row;
-
-        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
-        auto Button = Row.Button.lock();
-
-        if (!Button)
-            return Row;
-
-        ConfigureSatisfactionRowButtonStyle(Button, false);
-        Button->SetEventCallback(
-            EButtonEventState::Hovered,
-            [&Widget, Index]()
-            {
-                Widget.SelectForeignPower(Index);
-            });
-        Button->SetEventCallback(
-            EButtonEventState::Click,
-            [&Widget, Index]()
-            {
-                Widget.SelectForeignPower(Index);
-            });
-
-        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
-            Prefix + "_Content", Widget.mWorld);
-        auto Icon = CWidget::CreateStaticWidget<CImage>(
-            Prefix + "_Icon", Widget.mWorld);
-        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Label", Widget.mWorld);
-        auto Bar = CWidget::CreateStaticWidget<CProgressBar>(
-            Prefix + "_Bar", Widget.mWorld);
-        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Value", Widget.mWorld);
-
-        if (Content && Icon && Label && Bar && Value)
-        {
-            ConfigureBodyLabelText(Label);
-            ConfigureSatisfactionRowBar(Bar);
-            ConfigureBodyValueText(Value);
-
-            Content->AddWidget(Icon);
-            Content->AddWidget(Label);
-            Content->AddWidget(Bar);
-            Content->AddWidget(Value);
-            Button->SetChild(Content);
-
-            Row.Icon = Icon;
-            Row.Label = Label;
-            Row.Bar = Bar;
-            Row.Value = Value;
-        }
-
-        return Row;
-    };
-
-    auto CreateSelectableBuildingDetailRow = [&Widget](
-        const std::shared_ptr<CWidgetContainer>& Page,
-        const std::string& Prefix,
-        int Index) -> CAlmanacWidget::FDetailRowWidgets
-    {
-        CAlmanacWidget::FDetailRowWidgets Row;
-
-        if (!Page)
-            return Row;
-
-        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
-        auto Button = Row.Button.lock();
-
-        if (!Button)
-            return Row;
-
-        ConfigureSatisfactionRowButtonStyle(Button, false);
-        Button->SetEventCallback(
-            EButtonEventState::Hovered,
-            [&Widget, Index]()
-            {
-                Widget.SelectBuildingCategory(Index);
-            });
-        Button->SetEventCallback(
-            EButtonEventState::Click,
-            [&Widget, Index]()
-            {
-                Widget.SelectBuildingCategory(Index);
-            });
-
-        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
-            Prefix + "_Content", Widget.mWorld);
-        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Label", Widget.mWorld);
-        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
-            Prefix + "_Value", Widget.mWorld);
-
-        if (Content && Label && Value)
-        {
-            ConfigureBodyLabelText(Label);
-            ConfigureBodyValueText(Value);
-
-            Content->AddWidget(Label);
-            Content->AddWidget(Value);
-            Button->SetChild(Content);
-
-            Row.Label = Label;
-            Row.Value = Value;
-        }
-
-        return Row;
-    };
-
-    {
+void FAlmanacRenderer::CreateOverviewWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Overview)].lock();
         const TCHAR* CardIcons[GOverviewCardCount] =
         {
@@ -693,12 +736,12 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         };
         const wchar_t* SectionTitles[GOverviewSectionTitleCount] =
         {
-            L"인구",
-            L"만족도",
-            L"경제",
-            L"세력 우호도",
-            L"분쟁",
-            L"열강 관계"
+            UIStrings::Get(L"almanac.overview.section.population").c_str(),
+            UIStrings::Get(L"almanac.overview.section.satisfaction").c_str(),
+            UIStrings::Get(L"almanac.overview.section.economy").c_str(),
+            UIStrings::Get(L"almanac.overview.section.politics").c_str(),
+            UIStrings::Get(L"almanac.overview.section.conflict").c_str(),
+            UIStrings::Get(L"almanac.overview.section.foreign").c_str()
         };
 
         Widget.mOverviewCards.reserve(GOverviewCardCount);
@@ -762,9 +805,10 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
 
         ConfigureNoticeText(Widget.mOverviewSummaryLeft.lock());
         ConfigureNoticeText(Widget.mOverviewSummaryRight.lock());
-    }
+}
 
-    {
+void FAlmanacRenderer::CreateSatisfactionWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Satisfaction)].lock();
 
         Widget.mSatisfactionListTitleBackground = Page->CreateWidget<CImage>(
@@ -782,12 +826,15 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         if (auto ListTitle = Widget.mSatisfactionListTitle.lock())
         {
             ConfigureSectionText(ListTitle);
-            ListTitle->SetText(L"만족도");
+            ListTitle->SetText(
+                UIStrings::Get(L"almanac.satisfaction.title").c_str());
         }
 
         for (int Index = 0; Index < GSatisfactionRowCount; ++Index)
         {
             Widget.mSatisfactionRows.push_back(CreateSatisfactionRow(
+                Widget,
+                Widget.mWorld,
                 Page,
                 "Almanac_SatisfactionRow_" + std::to_string(Index + 1),
                 Index));
@@ -944,14 +991,17 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
                 Page,
                 "Almanac_SatisfactionDetail_" + std::to_string(Index + 1)));
         }
-    }
+}
 
-    {
+void FAlmanacRenderer::CreatePopulationWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Population)].lock();
 
         for (int Index = 0; Index < GPopulationDetailCount; ++Index)
         {
             Widget.mPopulationDetails.push_back(CreateSelectableDetailRow(
+                Widget,
+                Widget.mWorld,
                 Page,
                 "Almanac_PopulationDetail_" + std::to_string(Index + 1),
                 Index));
@@ -1266,9 +1316,10 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
             ConfigureAuxiliaryText(YAxisLabel.lock());
             Widget.mPopulationChangeYAxisLabels.push_back(YAxisLabel);
         }
-    }
+}
 
-    {
+void FAlmanacRenderer::CreateEconomyWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Economy)].lock();
 
         Widget.mEconomyTrendTitleBackground = Page->CreateWidget<CImage>(
@@ -1537,6 +1588,8 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         for (int Index = 0; Index < GEconomyDetailCount; ++Index)
         {
             Widget.mEconomyDetails.push_back(CreateSelectableEconomyDetailRow(
+                Widget,
+                Widget.mWorld,
                 Page,
                 "Almanac_EconomyDetail_" + std::to_string(Index + 1),
                 Index));
@@ -1555,9 +1608,10 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
                 Page,
                 "Almanac_EconomyMetric_" + std::to_string(Index + 1)));
         }
-    }
+}
 
-    {
+void FAlmanacRenderer::CreateResourceWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Resources)].lock();
 
         Widget.mResourceListTitleBackground = Page->CreateWidget<CImage>(
@@ -1575,7 +1629,7 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         if (auto Title = Widget.mResourceListTitle.lock())
         {
             ConfigureSectionText(Title);
-            Title->SetText(L"자원");
+            Title->SetText(UIStrings::Get(L"almanac.resource.title").c_str());
         }
 
         Widget.mResourceFilterBackground = Page->CreateWidget<CImage>(
@@ -1593,7 +1647,8 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         if (auto Text = Widget.mResourceFilterText.lock())
         {
             ConfigureBodyLabelText(Text);
-            Text->SetText(L"모든 상품");
+            Text->SetText(
+                UIStrings::Get(L"almanac.resource.filter.all").c_str());
         }
 
         Widget.mResourceFilterLeftIcon = Page->CreateWidget<CImage>(
@@ -1630,6 +1685,8 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         for (int Index = 0; Index < GResourceRowCount; ++Index)
         {
             Widget.mResourceRows.push_back(CreateSelectableResourceDetailRow(
+                Widget,
+                Widget.mWorld,
                 Page,
                 "Almanac_ResourceRow_" + std::to_string(Index + 1),
                 Index));
@@ -1804,7 +1861,8 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         if (auto Text = Widget.mResourceDistributionFilterText.lock())
         {
             ConfigureBodyLabelText(Text);
-            Text->SetText(L"마지막 24개월");
+            Text->SetText(
+                UIStrings::Get(L"almanac.resource.filter.period_24m").c_str());
         }
 
         for (int Index = 0; Index < GResourceDistributionRowCount; ++Index)
@@ -1846,9 +1904,10 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         Widget.mResourceNotice = Page->CreateWidget<CTextBlock>(
             "Almanac_ResourceNotice", 2);
         ConfigureNoticeText(Widget.mResourceNotice.lock());
-    }
+}
 
-    {
+void FAlmanacRenderer::CreatePoliticsWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Politics)].lock();
 
         Widget.mPoliticsListTitleBackground = Page->CreateWidget<CImage>(
@@ -1866,12 +1925,15 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         if (auto Title = Widget.mPoliticsListTitle.lock())
         {
             ConfigureSectionText(Title);
-            Title->SetText(L"세력");
+            Title->SetText(
+                UIStrings::Get(L"almanac.politics.title.factions").c_str());
         }
 
         for (int Index = 0; Index < GPoliticsFactionTileCount; ++Index)
         {
             Widget.mPoliticsFactionTiles.push_back(CreatePoliticsFactionTile(
+                Widget,
+                Widget.mWorld,
                 Page,
                 "Almanac_PoliticsFactionTile_" + std::to_string(Index + 1),
                 Index));
@@ -1905,7 +1967,8 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         if (auto Title = Widget.mPoliticsSupportTitle.lock())
         {
             ConfigureSectionText(Title);
-            Title->SetText(L"지지율");
+            Title->SetText(
+                UIStrings::Get(L"almanac.politics.title.support").c_str());
         }
 
         for (int Index = 0; Index < GPoliticsSupportRowCount; ++Index)
@@ -1977,14 +2040,17 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
                 Page,
                 "Almanac_PoliticsDetail_" + std::to_string(Index + 1)));
         }
-    }
+}
 
-    {
+void FAlmanacRenderer::CreateForeignWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Foreign)].lock();
 
         for (int Index = 0; Index < GForeignPowerCount; ++Index)
         {
             Widget.mForeignRows.push_back(CreateForeignPowerRow(
+                Widget,
+                Widget.mWorld,
                 Page,
                 "Almanac_ForeignRow_" + std::to_string(Index + 1),
                 Index));
@@ -2035,14 +2101,17 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
         Widget.mForeignNotice = Page->CreateWidget<CTextBlock>(
             "Almanac_ForeignNotice", 2);
         ConfigureNoticeText(Widget.mForeignNotice.lock());
-    }
+}
 
-    {
+void FAlmanacRenderer::CreateBuildingWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Buildings)].lock();
 
         for (int Index = 0; Index < GBuildingRowCount; ++Index)
         {
             Widget.mBuildingRows.push_back(CreateSelectableBuildingDetailRow(
+                Widget,
+                Widget.mWorld,
                 Page,
                 "Almanac_BuildingRow_" + std::to_string(Index + 1),
                 Index));
@@ -2058,9 +2127,10 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
                 Page,
                 "Almanac_BuildingDetail_" + std::to_string(Index + 1)));
         }
-    }
+}
 
-    {
+void FAlmanacRenderer::CreateConflictWidgets(CAlmanacWidget& Widget)
+{
         auto Page = Widget.mPages[static_cast<size_t>(EAlmanacPage::Conflict)].lock();
 
         Widget.mConflictHeadlineBackground = Page->CreateWidget<CImage>(
@@ -2088,10 +2158,5 @@ void FAlmanacRenderer::CreateWidgets(CAlmanacWidget& Widget)
                 Page,
                 "Almanac_ConflictMetric_" + std::to_string(Index + 1)));
         }
-    }
-
-    ApplySelectedPage(Widget);
-    ApplyOpenState(Widget);
 }
-
 

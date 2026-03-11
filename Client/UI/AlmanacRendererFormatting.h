@@ -52,7 +52,8 @@ namespace
             const double InMillions = AbsValue / 1000000.0;
             wchar_t Buffer[32] = {};
             swprintf_s(Buffer, L"%.2f", InMillions);
-            return Prefix + Buffer + L"백만";
+            return Prefix + Buffer +
+                UIStrings::Get(L"almanac.format.currency.million_suffix");
         }
 
         return FormatCurrency(Value);
@@ -101,17 +102,23 @@ namespace
 
     std::wstring FormatCountWithPercent(int Count, double Ratio)
     {
-        return std::to_wstring(Count) +
-            L"명 (" + FormatPercent(Ratio * 100.0) + L")";
+        return UIStrings::Format(
+            L"almanac.format.count_with_percent",
+            {
+                std::to_wstring(Count),
+                FormatPercent(Ratio * 100.0)
+            });
     }
 
     std::wstring FormatTaxPolicySummary(const FTaxPolicy& TaxPolicy)
     {
-        return
-            L"소비 " + std::to_wstring(TaxPolicy.ConsumptionRatePercent) +
-            L"% / 소득 " + std::to_wstring(TaxPolicy.IncomeRatePercent) +
-            L"% / 재산 " + std::to_wstring(TaxPolicy.PropertyRatePercent) +
-            L"%";
+        return UIStrings::Format(
+            L"almanac.tax_policy.summary_template",
+            {
+                std::to_wstring(TaxPolicy.ConsumptionRatePercent),
+                std::to_wstring(TaxPolicy.IncomeRatePercent),
+                std::to_wstring(TaxPolicy.PropertyRatePercent)
+            });
     }
 
     std::wstring FormatTaxPolicyCompact(const FTaxPolicy& TaxPolicy)
@@ -127,12 +134,12 @@ namespace
     const wchar_t* GetElectionWarningTierLabel(double Score)
     {
         if (Score >= 0.78)
-            return L"재선 위험 높음";
+            return UIStrings::Get(L"almanac.warning.high").c_str();
         if (Score >= 0.52)
-            return L"재선 주의";
+            return UIStrings::Get(L"almanac.warning.caution").c_str();
         if (Score >= 0.32)
-            return L"선거 점검";
-        return L"안정";
+            return UIStrings::Get(L"almanac.warning.check").c_str();
+        return UIStrings::Get(L"almanac.warning.stable").c_str();
     }
 
     FVector4 ResolveElectionWarningTint(double Score)
@@ -153,19 +160,19 @@ namespace
         const FTaxPolicyEventStatus& TaxEventStatus)
     {
         if (GameLost)
-            return L"정권 상실";
+            return UIStrings::Get(L"almanac.warning.game_lost");
 
         if (DaysUntilNextElection < 0)
-            return L"선거 일정 없음";
+            return UIStrings::Get(L"almanac.warning.no_schedule");
 
         if (DaysUntilNextElection > 180 && ElectionWarningScore < 0.32)
-            return L"안정";
+            return UIStrings::Get(L"almanac.warning.stable");
 
         std::wstring Summary =
             std::wstring(GetElectionWarningTierLabel(ElectionWarningScore)) +
             L" / " +
             std::to_wstring(DaysUntilNextElection) +
-            L"일 남음";
+            UIStrings::Get(L"almanac.warning.days_remaining_suffix");
 
         if (TaxEventStatus.Active && !TaxEventStatus.Title.empty())
         {
@@ -173,15 +180,18 @@ namespace
         }
         else if (ElectionWarningScore >= 0.78)
         {
-            Summary += L" / 지지 기반 급락";
+            Summary += UIStrings::Get(
+                L"almanac.warning.fragment.support_collapse");
         }
         else if (ElectionWarningScore >= 0.52)
         {
-            Summary += L" / 야권 결집";
+            Summary += UIStrings::Get(
+                L"almanac.warning.fragment.opposition_rally");
         }
         else if (DaysUntilNextElection <= 90)
         {
-            Summary += L" / 박빙 진입 가능";
+            Summary += UIStrings::Get(
+                L"almanac.warning.fragment.close_race");
         }
 
         return Summary;
@@ -196,33 +206,63 @@ namespace
         case EPoliticalAxis::Economy:
             switch (Stance)
             {
-            case EPoliticalStance::Left:  return L"자본";
-            case EPoliticalStance::Right: return L"공산";
-            default: return L"중립";
+            case EPoliticalStance::Left:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.economy.left").c_str();
+            case EPoliticalStance::Right:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.economy.right").c_str();
+            default:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.neutral").c_str();
             }
         case EPoliticalAxis::ReligionMilitarism:
             switch (Stance)
             {
-            case EPoliticalStance::Left:  return L"종교";
-            case EPoliticalStance::Right: return L"군국";
-            default: return L"중립";
+            case EPoliticalStance::Left:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.religion_militarism.left")
+                    .c_str();
+            case EPoliticalStance::Right:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.religion_militarism.right")
+                    .c_str();
+            default:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.neutral").c_str();
             }
         case EPoliticalAxis::EnvironmentIndustry:
             switch (Stance)
             {
-            case EPoliticalStance::Left:  return L"환경";
-            case EPoliticalStance::Right: return L"산업";
-            default: return L"중립";
+            case EPoliticalStance::Left:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.environment_industry.left")
+                    .c_str();
+            case EPoliticalStance::Right:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.environment_industry.right")
+                    .c_str();
+            default:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.neutral").c_str();
             }
         case EPoliticalAxis::IntellectualConservative:
             switch (Stance)
             {
-            case EPoliticalStance::Left:  return L"지식";
-            case EPoliticalStance::Right: return L"보수";
-            default: return L"중립";
+            case EPoliticalStance::Left:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.intellectual_conservative.left")
+                    .c_str();
+            case EPoliticalStance::Right:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.intellectual_conservative.right")
+                    .c_str();
+            default:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.neutral").c_str();
             }
         default:
-            return L"중립";
+            return UIStrings::Get(L"almanac.politics.compact.neutral").c_str();
         }
     }
 
@@ -235,33 +275,63 @@ namespace
         case EPoliticalAxis::Economy:
             switch (Stance)
             {
-            case EPoliticalStance::Left:  return L"자본주의자";
-            case EPoliticalStance::Right: return L"공산주의자";
-            default: return L"중립";
+            case EPoliticalStance::Left:
+                return UIStrings::Get(
+                    L"almanac.politics.verbose.economy.left").c_str();
+            case EPoliticalStance::Right:
+                return UIStrings::Get(
+                    L"almanac.politics.verbose.economy.right").c_str();
+            default:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.neutral").c_str();
             }
         case EPoliticalAxis::ReligionMilitarism:
             switch (Stance)
             {
-            case EPoliticalStance::Left:  return L"종교인";
-            case EPoliticalStance::Right: return L"군국주의자";
-            default: return L"중립";
+            case EPoliticalStance::Left:
+                return UIStrings::Get(
+                    L"almanac.politics.verbose.religion_militarism.left")
+                    .c_str();
+            case EPoliticalStance::Right:
+                return UIStrings::Get(
+                    L"almanac.politics.verbose.religion_militarism.right")
+                    .c_str();
+            default:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.neutral").c_str();
             }
         case EPoliticalAxis::EnvironmentIndustry:
             switch (Stance)
             {
-            case EPoliticalStance::Left:  return L"환경주의자";
-            case EPoliticalStance::Right: return L"산업주의자";
-            default: return L"중립";
+            case EPoliticalStance::Left:
+                return UIStrings::Get(
+                    L"almanac.politics.verbose.environment_industry.left")
+                    .c_str();
+            case EPoliticalStance::Right:
+                return UIStrings::Get(
+                    L"almanac.politics.verbose.environment_industry.right")
+                    .c_str();
+            default:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.neutral").c_str();
             }
         case EPoliticalAxis::IntellectualConservative:
             switch (Stance)
             {
-            case EPoliticalStance::Left:  return L"지식인";
-            case EPoliticalStance::Right: return L"보수주의자";
-            default: return L"중립";
+            case EPoliticalStance::Left:
+                return UIStrings::Get(
+                    L"almanac.politics.verbose.intellectual_conservative.left")
+                    .c_str();
+            case EPoliticalStance::Right:
+                return UIStrings::Get(
+                    L"almanac.politics.verbose.intellectual_conservative.right")
+                    .c_str();
+            default:
+                return UIStrings::Get(
+                    L"almanac.politics.compact.neutral").c_str();
             }
         default:
-            return L"중립";
+            return UIStrings::Get(L"almanac.politics.compact.neutral").c_str();
         }
     }
 }

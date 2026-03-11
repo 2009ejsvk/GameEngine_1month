@@ -1,4 +1,5 @@
 #include "AlmanacRendererCalc.h"
+#include "UIStrings.h"
 #include "../Citizen/CitizenTypes.h"
 #include <algorithm>
 #include <array>
@@ -14,11 +15,14 @@ namespace
             switch (TaxEventStatus.Type)
             {
             case ETaxPolicyEventType::WorkerTaxStrike:
-                return L"생산 저하 · 노동계 지지 하락";
+                return UIStrings::Get(
+                    L"almanac.tax_event_effect.worker_tax_strike");
             case ETaxPolicyEventType::PropertyTaxBacklash:
-                return L"재산세 반발 · 주거 불만 증폭";
+                return UIStrings::Get(
+                    L"almanac.tax_event_effect.property_tax_backlash");
             case ETaxPolicyEventType::BudgetCrisis:
-                return L"세출 악화 · 국가 지출 위축 · 징수 효율 저하";
+                return UIStrings::Get(
+                    L"almanac.tax_event_effect.budget_crisis");
             default:
                 break;
             }
@@ -26,10 +30,11 @@ namespace
         else if (TaxEventStatus.NotificationDays > 0 &&
             !TaxEventStatus.Summary.empty())
         {
-            return L"최근 혼란 진정 · 정상화 진행 중";
+            return UIStrings::Get(
+                L"almanac.tax_event_effect.recovering");
         }
 
-        return L"직접적인 월드 영향 없음";
+        return UIStrings::Get(L"almanac.tax_event_effect.none");
     }
 }
 

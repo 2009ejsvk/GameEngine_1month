@@ -171,6 +171,16 @@ namespace
         return Result;
     }
 
+    const std::wstring& Ui(const wchar_t* Key)
+    {
+        return UIStrings::Get(Key);
+    }
+
+    const wchar_t* UiText(const wchar_t* Key)
+    {
+        return UIStrings::Get(Key).c_str();
+    }
+
     std::wstring FormatInteger(long long Value)
     {
         const bool Negative = Value < 0;
@@ -220,6 +230,24 @@ namespace
         wchar_t Buffer[32] = {};
         swprintf_s(Buffer, L"x%.2f", Value);
         return Buffer;
+    }
+
+    std::wstring FormatMegawattValue(int Value)
+    {
+        return std::to_wstring(Value) +
+            UIStrings::Get(L"citizen_info.unit.megawatt");
+    }
+
+    std::wstring FormatSignedMegawattValue(int Value)
+    {
+        return std::wstring(Value > 0 ? L"+" : L"") +
+            FormatMegawattValue(Value);
+    }
+
+    std::wstring FormatDayCount(int Value)
+    {
+        return std::to_wstring(Value) +
+            UIStrings::Get(L"citizen_info.unit.day_suffix");
     }
 
     int ParseLeadingInteger(const std::wstring& Text, int DefaultValue = 0)
@@ -286,12 +314,12 @@ namespace
 
     std::wstring NormalizeWealthRequirementText(const std::wstring& Value)
     {
-        if (Value == L"유복")
-            return L"유복함";
-        if (Value == L"부유")
-            return L"부유함";
-        if (Value == L"가난")
-            return L"가난함";
+        if (Value == UIStrings::Get(L"citizen.wealth.well_off"))
+            return UIStrings::Get(L"citizen_info.wealth_profile.well_off");
+        if (Value == UIStrings::Get(L"citizen.wealth.rich"))
+            return UIStrings::Get(L"citizen_info.wealth_profile.rich");
+        if (Value == UIStrings::Get(L"citizen.wealth.poor"))
+            return UIStrings::Get(L"citizen_info.wealth_profile.poor");
 
         return Value;
     }
@@ -430,7 +458,7 @@ namespace
             if (StartsWith(Line, L"효과:"))
             {
                 Result.push_back(
-                    L"효과: " +
+                    UIStrings::Get(L"citizen_info.section.main_effect") + L": " +
                     Trim(Line.substr(wcslen(L"효과:"))));
                 continue;
             }
@@ -438,7 +466,7 @@ namespace
             if (StartsWith(Line, L"비고:"))
             {
                 Result.push_back(
-                    L"비고: " +
+                    UIStrings::Get(L"citizen_info.section.note") + L": " +
                     Trim(Line.substr(wcslen(L"비고:"))));
                 continue;
             }
@@ -494,13 +522,13 @@ namespace
         switch (HousingClass)
         {
         case EBuildingHousingClass::Collective:
-            return L"서민 주거";
+            return UiText(L"citizen_info.building.housing_class.collective");
         case EBuildingHousingClass::Standard:
-            return L"중산층 주거";
+            return UiText(L"citizen_info.building.housing_class.standard");
         case EBuildingHousingClass::Elite:
-            return L"고급 주거";
+            return UiText(L"citizen_info.building.housing_class.elite");
         default:
-            return L"일반";
+            return UiText(L"citizen_info.building.housing_class.default");
         }
     }
 
@@ -510,13 +538,13 @@ namespace
         switch (LeisureClass)
         {
         case EBuildingLeisureClass::Cultural:
-            return L"문화";
+            return UiText(L"citizen_info.building.leisure_class.cultural");
         case EBuildingLeisureClass::Luxury:
-            return L"고급";
+            return UiText(L"citizen_info.building.leisure_class.luxury");
         case EBuildingLeisureClass::General:
-            return L"일반";
+            return UiText(L"citizen_info.building.leisure_class.general");
         default:
-            return L"미분류";
+            return UiText(L"citizen_info.building.leisure_class.unknown");
         }
     }
 
@@ -524,52 +552,60 @@ namespace
     {
         if (Snapshot.Residential)
         {
-            std::wstring Summary =
-                Snapshot.DisplayName +
-                L"은(는) " +
-                std::to_wstring((std::max)(0, Snapshot.Capacity)) +
-                L"명을 수용하는 주거 건물입니다.";
+            std::wstring Summary = UIStrings::Format(
+                L"citizen_info.building.role.residential",
+                {
+                    Snapshot.DisplayName,
+                    std::to_wstring((std::max)(0, Snapshot.Capacity))
+                });
 
             if (Snapshot.CatalogEntry)
             {
                 Summary += L" ";
-                Summary += GetHousingClassDisplayName(
-                    Snapshot.CatalogEntry->HousingClass);
-                Summary += L" 계층을 주로 상대합니다.";
+                Summary += UIStrings::Format(
+                    L"citizen_info.building.role.residential_class_suffix",
+                    {
+                        GetHousingClassDisplayName(
+                            Snapshot.CatalogEntry->HousingClass)
+                    });
             }
 
             return Summary;
         }
 
         if (Snapshot.Harbor)
-            return L"수입/수출과 입국 관문 역할을 담당하는 기반시설입니다.";
+            return UIStrings::Get(L"citizen_info.building.role.harbor");
 
         if (Snapshot.EntertainmentProvider && Snapshot.FoodProvider)
-            return L"음식과 유흥을 동시에 제공하는 서비스 건물입니다.";
+            return UIStrings::Get(
+                L"citizen_info.building.role.food_entertainment");
 
         if (Snapshot.EntertainmentProvider)
         {
             std::wstring Summary =
-                L"관광객과 시민에게 여가 서비스를 제공하는 시설입니다.";
+                UIStrings::Get(L"citizen_info.building.role.entertainment");
 
             if (Snapshot.CatalogEntry)
             {
                 Summary += L" ";
-                Summary += GetLeisureClassDisplayName(
-                    Snapshot.CatalogEntry->LeisureClass);
-                Summary += L" 성향의 방문객에게 적합합니다.";
+                Summary += UIStrings::Format(
+                    L"citizen_info.building.role.entertainment_class_suffix",
+                    {
+                        GetLeisureClassDisplayName(
+                            Snapshot.CatalogEntry->LeisureClass)
+                    });
             }
 
             return Summary;
         }
 
         if (Snapshot.FoodProvider)
-            return L"시민 소비와 외식 흐름을 담당하는 공급 건물입니다.";
+            return UIStrings::Get(L"citizen_info.building.role.food");
 
         if (Snapshot.CanGenerateWorkOutput)
-            return L"인력을 배치해 자원이나 상품을 생산하는 작업 시설입니다.";
+            return UIStrings::Get(L"citizen_info.building.role.work_output");
 
-        return L"도시 운영에 필요한 기능을 담당하는 보조 건물입니다.";
+        return UIStrings::Get(L"citizen_info.building.role.support");
     }
 
     void AppendKeyValue(
@@ -581,6 +617,19 @@ namespace
             return;
 
         AppendLine(Body, std::wstring(Key) + L": " + Value);
+    }
+
+    void AppendKeyValueByKey(
+        std::wstring& Body,
+        const wchar_t* LabelKey,
+        const std::wstring& Value)
+    {
+        if (Value.empty())
+            return;
+
+        AppendLine(
+            Body,
+            UIStrings::Get(LabelKey) + L": " + Value);
     }
 
     bool BuildBuildingUiSnapshot(
@@ -660,24 +709,30 @@ namespace
             {
                 const CitizenInfoDataProvider::FWarehouseSlotRecord& SlotRecord =
                     BuildingRecord.WarehouseSlots[SlotIndex];
-                std::wstring SlotLine =
-                    L"슬롯 " +
-                    std::to_wstring(static_cast<int>(SlotIndex) + 1) +
-                    L": ";
+                std::wstring SlotValue;
 
                 if (SlotRecord.Type == EResourceType::None)
                 {
-                    SlotLine += L"비어 있음";
+                    SlotValue =
+                        UIStrings::Get(L"citizen_info.building.warehouse.empty");
                 }
                 else
                 {
-                    SlotLine += GetResourceTypeDisplayName(SlotRecord.Type);
-                    SlotLine += L" ";
-                    SlotLine += FormatInteger(SlotRecord.Stock);
-                    SlotLine += L" / ";
-                    SlotLine += FormatInteger(SlotRecord.Capacity);
+                    SlotValue =
+                        std::wstring(GetResourceTypeDisplayName(
+                            SlotRecord.Type)) +
+                        L" " +
+                        FormatInteger(SlotRecord.Stock) +
+                        L" / " +
+                        FormatInteger(SlotRecord.Capacity);
                 }
 
+                std::wstring SlotLine = UIStrings::Format(
+                    L"citizen_info.building.warehouse.slot_line",
+                    {
+                        std::to_wstring(static_cast<int>(SlotIndex) + 1),
+                        SlotValue
+                    });
                 OutSnapshot.WarehouseSlotLines.push_back(std::move(SlotLine));
             }
         }
@@ -741,7 +796,7 @@ namespace
 
         if (!Snapshot.OperationModes.empty())
         {
-            AppendLine(Body, L"운영 모드");
+            AppendLine(Body, Ui(L"citizen_info.section.operation_modes"));
             AppendLine(Body, L"  " + Snapshot.OperationModes.front());
         }
 
@@ -750,7 +805,7 @@ namespace
             AppendLine(Body, L"");
             AppendLine(
                 Body,
-                L"거주 현황: " +
+                Ui(L"citizen_info.label.residents_status") + L": " +
                 std::to_wstring(Snapshot.Residents.size()) +
                 L" / " +
                 std::to_wstring(Snapshot.Capacity));
@@ -760,23 +815,26 @@ namespace
             AppendLine(Body, L"");
             AppendLine(
                 Body,
-                L"노동자: " +
+                Ui(L"citizen_info.label.workers") + L": " +
                 std::to_wstring(Snapshot.AssignedEmployees.size()) +
                 L" / " +
                 std::to_wstring(Snapshot.Capacity));
-            AppendKeyValue(
+            AppendKeyValueByKey(
                 Body,
-                L"요구 학력",
+                L"citizen_info.label.required_education",
                 GetCitizenEducationDisplayName(
                     Snapshot.RequiredEducationLevel));
-            AppendKeyValue(Body, L"직업 품질", Snapshot.JobQualityText);
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.job_quality",
+                Snapshot.JobQualityText);
         }
 
         if (Snapshot.Residential && Snapshot.CatalogEntry)
         {
-            AppendKeyValue(
+            AppendKeyValueByKey(
                 Body,
-                L"주거 계층",
+                L"citizen_info.label.housing_class",
                 GetHousingClassDisplayName(
                     Snapshot.CatalogEntry->HousingClass));
         }
@@ -787,42 +845,57 @@ namespace
             !Snapshot.TouristPreferenceText.empty())
         {
             AppendLine(Body, L"");
-            AppendLine(Body, L"서비스");
+            AppendLine(Body, Ui(L"citizen_info.section.service"));
 
             if (Snapshot.ServiceCapacity > 0)
             {
                 AppendLine(
                     Body,
-                    L"방문객: " +
+                    Ui(L"citizen_info.label.visitors") + L": " +
                     std::to_wstring(Snapshot.AssignedVisitors.size()) +
                     L" / " +
                     std::to_wstring(Snapshot.ServiceCapacity));
             }
 
-            AppendKeyValue(Body, L"서비스 품질", Snapshot.ServiceQualityText);
-            AppendKeyValue(Body, L"재산 요구치", Snapshot.WealthRequirementText);
-            AppendKeyValue(Body, L"선호 관광객", Snapshot.TouristPreferenceText);
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.service_quality",
+                Snapshot.ServiceQualityText);
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.wealth_requirement",
+                Snapshot.WealthRequirementText);
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.tourist_preference",
+                Snapshot.TouristPreferenceText);
         }
 
         if (!Snapshot.RequiredPowerText.empty() ||
             !Snapshot.ProducedPowerText.empty())
         {
             AppendLine(Body, L"");
-            AppendLine(Body, L"전력");
-            AppendKeyValue(Body, L"필요 전력", Snapshot.RequiredPowerText);
-            AppendKeyValue(Body, L"생산 전력", Snapshot.ProducedPowerText);
+            AppendLine(Body, Ui(L"citizen_info.section.power"));
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.required_power",
+                Snapshot.RequiredPowerText);
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.produced_power",
+                Snapshot.ProducedPowerText);
         }
 
         if (Snapshot.UsesResourceStock || Snapshot.Harbor)
         {
             AppendLine(Body, L"");
-            AppendLine(Body, L"보관 및 물류");
+            AppendLine(Body, Ui(L"citizen_info.section.storage_logistics"));
 
             if (Snapshot.UsesResourceStock)
             {
                 AppendLine(
                     Body,
-                    L"재고: " +
+                    Ui(L"citizen_info.label.stock") + L": " +
                     FormatInteger(Snapshot.ResourceStock) +
                     L" / " +
                     FormatInteger(Snapshot.MaxResourceStock));
@@ -842,11 +915,11 @@ namespace
             {
                 AppendLine(
                     Body,
-                    L"수출 가능 재고: " +
+                    Ui(L"citizen_info.label.exportable_stock") + L": " +
                     FormatInteger(Snapshot.ExportableStock));
                 AppendLine(
                     Body,
-                    L"선박 진행: " +
+                    Ui(L"citizen_info.label.ship_progress") + L": " +
                     std::to_wstring(static_cast<int>(roundf(
                         Snapshot.HarborShipProgressPercent * 100.f))) +
                     L"%");
@@ -856,14 +929,14 @@ namespace
         if (!Snapshot.EffectText.empty())
         {
             AppendLine(Body, L"");
-            AppendLine(Body, L"주요 효과");
+            AppendLine(Body, Ui(L"citizen_info.section.main_effect"));
             AppendLine(Body, Snapshot.EffectText);
         }
 
         if (!Snapshot.NoteText.empty())
         {
             AppendLine(Body, L"");
-            AppendLine(Body, L"비고");
+            AppendLine(Body, Ui(L"citizen_info.section.note"));
             AppendLine(Body, Snapshot.NoteText);
         }
 
@@ -876,23 +949,35 @@ namespace
     {
         std::wstring Body;
 
-        AppendLine(Body, L"월 인건비: " + FormatMoney(Snapshot.MonthlyWageCost));
-        AppendLine(Body, L"월 유지비: " + FormatMoney(Snapshot.MonthlyUpkeepCost));
         AppendLine(
             Body,
-            L"월 총비용: " +
+            Ui(L"citizen_info.label.monthly_wage_cost") +
+                L": " + FormatMoney(Snapshot.MonthlyWageCost));
+        AppendLine(
+            Body,
+            Ui(L"citizen_info.label.monthly_upkeep_cost") +
+                L": " + FormatMoney(Snapshot.MonthlyUpkeepCost));
+        AppendLine(
+            Body,
+            Ui(L"citizen_info.label.monthly_total_cost") + L": " +
             FormatMoney(
                 static_cast<long long>(Snapshot.MonthlyWageCost) +
                 static_cast<long long>(Snapshot.MonthlyUpkeepCost)));
-        AppendLine(Body, L"일 인건비: " + FormatMoney(Snapshot.DailyWageCost));
-        AppendLine(Body, L"일 유지비: " + FormatMoney(Snapshot.DailyUpkeepCost));
+        AppendLine(
+            Body,
+            Ui(L"citizen_info.label.daily_wage_cost") +
+                L": " + FormatMoney(Snapshot.DailyWageCost));
+        AppendLine(
+            Body,
+            Ui(L"citizen_info.label.daily_upkeep_cost") +
+                L": " + FormatMoney(Snapshot.DailyUpkeepCost));
 
         if (Snapshot.UsesResourceStock)
         {
             AppendLine(Body, L"");
             AppendLine(
                 Body,
-                L"현재 재고: " +
+                Ui(L"citizen_info.label.current_stock") + L": " +
                 FormatInteger(Snapshot.ResourceStock) +
                 L" / " +
                 FormatInteger(Snapshot.MaxResourceStock));
@@ -901,7 +986,7 @@ namespace
         if (Snapshot.Warehouse && !Snapshot.WarehouseSlotLines.empty())
         {
             AppendLine(Body, L"");
-            AppendLine(Body, L"창고 슬롯");
+            AppendLine(Body, Ui(L"citizen_info.section.warehouse_slots"));
 
             for (size_t SlotIndex = 0;
                 SlotIndex < Snapshot.WarehouseSlotLines.size();
@@ -915,13 +1000,13 @@ namespace
         {
             AppendLine(
                 Body,
-                L"선박 도착 진행: " +
+                Ui(L"citizen_info.label.ship_arrival_progress") + L": " +
                 std::to_wstring(static_cast<int>(roundf(
                     Snapshot.HarborShipProgressPercent * 100.f))) +
                 L"%");
             AppendLine(
                 Body,
-                L"수출 가능 총량: " +
+                Ui(L"citizen_info.label.exportable_total") + L": " +
                 FormatInteger(Snapshot.ExportableStock));
         }
 
@@ -930,13 +1015,14 @@ namespace
             AppendLine(Body, L"");
             AppendLine(
                 Body,
-                L"거주자 배정: " +
+                Ui(L"citizen_info.label.resident_assignment") + L": " +
                 std::to_wstring(Snapshot.Residents.size()) +
                 L" / " +
                 std::to_wstring(Snapshot.Capacity));
             AppendLine(
                 Body,
-                L"대표 거주자: " + SummarizeNames(Snapshot.Residents));
+                Ui(L"citizen_info.label.representative_resident") +
+                    L": " + SummarizeNames(Snapshot.Residents));
         }
 
         if (Snapshot.WorkProvider)
@@ -944,15 +1030,15 @@ namespace
             AppendLine(Body, L"");
             AppendLine(
                 Body,
-                L"배정 노동자: " +
+                Ui(L"citizen_info.label.assigned_workers") + L": " +
                 std::to_wstring(Snapshot.AssignedEmployees.size()));
             AppendLine(
                 Body,
-                L"근무 중: " +
+                Ui(L"citizen_info.label.working_now") + L": " +
                 std::to_wstring(Snapshot.WorkingEmployees.size()));
             AppendLine(
                 Body,
-                L"대표 노동자: " +
+                Ui(L"citizen_info.label.representative_worker") + L": " +
                 SummarizeNames(Snapshot.AssignedEmployees));
         }
 
@@ -963,19 +1049,19 @@ namespace
             AppendLine(Body, L"");
             AppendLine(
                 Body,
-                L"배정 방문객: " +
+                Ui(L"citizen_info.label.assigned_visitors") + L": " +
                 std::to_wstring(Snapshot.AssignedVisitors.size()));
             AppendLine(
                 Body,
-                L"현장 체류: " +
+                Ui(L"citizen_info.label.on_site_visitors") + L": " +
                 std::to_wstring(Snapshot.ArrivedVisitors.size()));
             AppendLine(
                 Body,
-                L"도착 임박: " +
+                Ui(L"citizen_info.label.incoming_visitors") + L": " +
                 std::to_wstring(Snapshot.IncomingVisitors.size()));
             AppendLine(
                 Body,
-                L"대표 방문객: " +
+                Ui(L"citizen_info.label.representative_visitor") + L": " +
                 SummarizeNames(Snapshot.ArrivedVisitors));
         }
 
@@ -988,20 +1074,22 @@ namespace
 
         if (!Snapshot.UpgradeHints.empty())
         {
-            AppendLine(Body, L"등록된 업그레이드");
+            AppendLine(Body, Ui(L"citizen_info.section.registered_upgrades"));
 
             for (size_t Index = 0; Index < Snapshot.UpgradeHints.size(); ++Index)
                 AppendLine(Body, L"- " + Snapshot.UpgradeHints[Index]);
         }
         else
         {
-            AppendLine(Body, L"등록된 업그레이드가 없습니다.");
+            AppendLine(Body, Ui(L"citizen_info.upgrades.none"));
         }
 
         if (!Snapshot.OperationModes.empty())
         {
             AppendLine(Body, L"");
-            AppendLine(Body, L"운영 모드 후보");
+            AppendLine(
+                Body,
+                Ui(L"citizen_info.section.operation_mode_candidates"));
 
             for (size_t Index = 0; Index < Snapshot.OperationModes.size(); ++Index)
                 AppendLine(Body, L"- " + Snapshot.OperationModes[Index]);
@@ -1033,18 +1121,19 @@ namespace
 
         AppendLine(
             Body,
-            L"현재 효율: " +
+            Ui(L"citizen_info.label.current_efficiency") + L": " +
             std::to_wstring(BudgetPercent) +
             L"%");
         AppendLine(
             Body,
-            L"예산 보정: " + FormatMultiplier(Snapshot.BudgetScale));
+            Ui(L"citizen_info.label.budget_scale") +
+                L": " + FormatMultiplier(Snapshot.BudgetScale));
 
         if (!Snapshot.IsRoad)
         {
             AppendLine(
                 Body,
-                L"도로 접근성: " +
+                Ui(L"citizen_info.label.road_accessibility") + L": " +
                 std::to_wstring(static_cast<int>(roundf(
                     Snapshot.AccessibilityScore * 100.f))) +
                 L"%");
@@ -1054,24 +1143,24 @@ namespace
         {
             AppendLine(
                 Body,
-                L"거주 충원율: " +
+                Ui(L"citizen_info.label.housing_fill_rate") + L": " +
                 std::to_wstring((std::max)(0, CapacityFillPercent)) +
                 L"%");
             AppendLine(
                 Body,
-                L"주거 만족도 상한: " +
+                Ui(L"citizen_info.label.housing_satisfaction_cap") + L": " +
                 std::to_wstring(Snapshot.HousingCap));
         }
         else if (Snapshot.WorkProvider)
         {
             AppendLine(
                 Body,
-                L"인력 충원율: " +
+                Ui(L"citizen_info.label.worker_fill_rate") + L": " +
                 std::to_wstring((std::max)(0, CapacityFillPercent)) +
                 L"%");
             AppendLine(
                 Body,
-                L"직업 만족도 상한: " +
+                Ui(L"citizen_info.label.job_satisfaction_cap") + L": " +
                 std::to_wstring(Snapshot.JobCap));
         }
 
@@ -1079,7 +1168,7 @@ namespace
         {
             AppendLine(
                 Body,
-                L"음식 만족도 상한: " +
+                Ui(L"citizen_info.label.food_satisfaction_cap") + L": " +
                 std::to_wstring(Snapshot.FoodCap));
         }
 
@@ -1087,7 +1176,7 @@ namespace
         {
             AppendLine(
                 Body,
-                L"유흥 만족도 상한: " +
+                Ui(L"citizen_info.label.fun_satisfaction_cap") + L": " +
                 std::to_wstring(Snapshot.FunCap));
         }
 
@@ -1095,13 +1184,16 @@ namespace
         {
             AppendLine(
                 Body,
-                L"방문 활용도: " +
+                Ui(L"citizen_info.label.visitor_utilization") + L": " +
                 std::to_wstring((std::max)(0, VisitorFillPercent)) +
                 L"%");
         }
 
         if (!Snapshot.RequiredPowerText.empty())
-            AppendKeyValue(Body, L"전력 요구", Snapshot.RequiredPowerText);
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.power_demand",
+                Snapshot.RequiredPowerText);
 
         return Body;
     }
@@ -1111,21 +1203,24 @@ namespace
         std::wstring Body = ResolveRoleSummary(Snapshot);
 
         AppendLine(Body, L"");
-        AppendKeyValue(Body, L"카테고리", Snapshot.CategoryName);
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.category",
+            Snapshot.CategoryName);
 
         if (Snapshot.CatalogEntry)
         {
-            AppendKeyValue(
+            AppendKeyValueByKey(
                 Body,
-                L"등장 시대",
+                L"citizen_info.label.unlock_era",
                 GetBuildingEraDisplayName(Snapshot.CatalogEntry->UnlockEra));
 
             if (Snapshot.CatalogEntry->HousingClass !=
                 EBuildingHousingClass::None)
             {
-                AppendKeyValue(
+                AppendKeyValueByKey(
                     Body,
-                    L"주거 등급",
+                    L"citizen_info.label.housing_grade",
                     GetHousingClassDisplayName(
                         Snapshot.CatalogEntry->HousingClass));
             }
@@ -1133,9 +1228,9 @@ namespace
             if (Snapshot.CatalogEntry->LeisureClass !=
                 EBuildingLeisureClass::None)
             {
-                AppendKeyValue(
+                AppendKeyValueByKey(
                     Body,
-                    L"여가 등급",
+                    L"citizen_info.label.leisure_grade",
                     GetLeisureClassDisplayName(
                         Snapshot.CatalogEntry->LeisureClass));
             }
@@ -1143,17 +1238,17 @@ namespace
             if (Snapshot.CatalogEntry->PrimaryTouristPreference !=
                 ETouristPreference::None)
             {
-                AppendKeyValue(
+                AppendKeyValueByKey(
                     Body,
-                    L"대표 관광객",
+                    L"citizen_info.label.primary_tourist",
                     GetTouristPreferenceDisplayName(
                         Snapshot.CatalogEntry->PrimaryTouristPreference));
             }
         }
 
-        AppendKeyValue(
+        AppendKeyValueByKey(
             Body,
-            L"요구 학력",
+            L"citizen_info.label.required_education",
             GetCitizenEducationDisplayName(
                 Snapshot.RequiredEducationLevel));
 
@@ -1177,11 +1272,11 @@ namespace
         switch (Level)
         {
         case ECitizenWealthLevel::WellOff:
-            return L"유복함";
+            return UiText(L"citizen_info.wealth_profile.well_off");
         case ECitizenWealthLevel::Rich:
-            return L"부유함";
+            return UiText(L"citizen_info.wealth_profile.rich");
         default:
-            return L"가난함";
+            return UiText(L"citizen_info.wealth_profile.poor");
         }
     }
 
@@ -1196,15 +1291,15 @@ namespace
         case ECitizenState::GoingToTeamsterConsumerSource:
         case ECitizenState::GoingToTeamsterConsumerTarget:
         case ECitizenState::GoingToTeamsterOffice:
-            return L"근무";
+            return UiText(L"citizen_info.activity.work");
         case ECitizenState::GoingToFood:
         case ECitizenState::AtFood:
-            return L"식사";
+            return UiText(L"citizen_info.activity.food");
         case ECitizenState::GoingHome:
         case ECitizenState::AtHome:
         case ECitizenState::GoingToFun:
         case ECitizenState::AtFun:
-            return L"여가";
+            return UiText(L"citizen_info.activity.leisure");
         default:
             return UIStrings::Get(L"citizen_info.activity.move").c_str();
         }
@@ -1241,7 +1336,8 @@ namespace
             if (DisplayName.empty() || DisplayName == L"-")
                 return std::wstring(L"-");
 
-            return DisplayName + L" 내부";
+            return DisplayName +
+                UIStrings::Get(L"citizen_info.location.interior_suffix");
         };
 
         switch (Citizen.State)
@@ -1264,7 +1360,7 @@ namespace
         case ECitizenState::GoingToFun:
             return MakeInteriorText(Citizen.FunBuildingName);
         default:
-            return L"트로피코 외부";
+            return UIStrings::Get(L"citizen_info.location.outside_tropico");
         }
     }
 
@@ -1275,8 +1371,8 @@ namespace
         if (Support == EPoliticalSupportLevel::Strong)
         {
             return Axis == EPoliticalAxis::ReligionMilitarism ?
-                L"열렬함" :
-                L"강함";
+                UiText(L"citizen_info.politics.intensity.fervent") :
+                UiText(L"citizen_info.politics.intensity.strong");
         }
 
         return GetPoliticalSupportDisplayName(Support);
@@ -1368,109 +1464,99 @@ namespace CitizenInfoDataProvider
         Result.ShowSectionRibbon = (ClampedTab > 0);
         Result.ShowTitleIcon = false;
 
-        // 부제 – 재산/학력/이민 여부
         {
-            wchar_t SubBuf[128] = {};
-            swprintf_s(SubBuf,
-                L"%s · %s%s",
-                GetCitizenWealthDisplayName(IdentityProfile.WealthLevel),
-                GetCitizenEducationDisplayName(IdentityProfile.EducationLevel),
-                IdentityProfile.IsImmigrant ? L" · 이민자" : L"");
-            Result.Subtitle = SubBuf;
+            Result.Subtitle = UIStrings::Format(
+                L"citizen_info.subtitle.citizen_identity_template",
+                {
+                    GetCitizenWealthDisplayName(
+                        IdentityProfile.WealthLevel),
+                    GetCitizenEducationDisplayName(
+                        IdentityProfile.EducationLevel),
+                    IdentityProfile.IsImmigrant ?
+                        Ui(L"citizen_info.fragment.immigrant") :
+                        std::wstring()
+                });
         }
 
         if (ClampedTab == 0)
         {
-            // ── 탭 0: 기본 정보 (신원 + 여가/복지 만족도) ──────────
             Result.PageTitle =
                 CitizenInfoConstants::GetCitizenPageTitle(ClampedTab);
-            wchar_t Buf[896] = {};
-            swprintf_s(Buf,
-                L"학력: %s  재산: %s%s\n\n"
-                L"[ 여가 ]\n"
-                L"음식: %d    보건: %d\n"
-                L"유흥: %d    신앙: %d\n\n"
-                L"[ 복지 서비스 ]\n"
-                L"주거: %d    직업: %d\n"
-                L"통근 부담: %d\n"
-                L"자유: %d    치안: %d\n\n"
-                L"종합 만족도: %d",
-                GetCitizenEducationDisplayName(IdentityProfile.EducationLevel),
-                GetCitizenWealthDisplayName(IdentityProfile.WealthLevel),
-                IdentityProfile.IsImmigrant ? L"  (이민자)" : L"",
-                ToPercent(Satisfaction.Food),
-                ToPercent(Satisfaction.Health),
-                ToPercent(Satisfaction.Fun),
-                ToPercent(Satisfaction.Faith),
-                ToPercent(Satisfaction.Housing),
-                ToPercent(Satisfaction.Job),
-                ToPercent(Satisfaction.CommuteTimePenalty),
-                ToPercent(Satisfaction.Freedom),
-                ToPercent(Satisfaction.Security),
-                ToPercent(Satisfaction.Overall));
-            Result.BodyText = Buf;
+            Result.BodyText = UIStrings::Format(
+                L"citizen_info.body.citizen_overview",
+                {
+                    GetCitizenEducationDisplayName(
+                        IdentityProfile.EducationLevel),
+                    GetCitizenWealthDisplayName(
+                        IdentityProfile.WealthLevel),
+                    IdentityProfile.IsImmigrant ?
+                        Ui(L"citizen_info.fragment.immigrant_parenthetical") :
+                        std::wstring(),
+                    std::to_wstring(ToPercent(Satisfaction.Food)),
+                    std::to_wstring(ToPercent(Satisfaction.Health)),
+                    std::to_wstring(ToPercent(Satisfaction.Fun)),
+                    std::to_wstring(ToPercent(Satisfaction.Faith)),
+                    std::to_wstring(ToPercent(Satisfaction.Housing)),
+                    std::to_wstring(ToPercent(Satisfaction.Job)),
+                    std::to_wstring(ToPercent(Satisfaction.CommuteTimePenalty)),
+                    std::to_wstring(ToPercent(Satisfaction.Freedom)),
+                    std::to_wstring(ToPercent(Satisfaction.Security)),
+                    std::to_wstring(ToPercent(Satisfaction.Overall))
+                });
         }
         else if (ClampedTab == 1)
         {
-            // ── 탭 1: 정치 (만족도 요약 + 신념) ───────────────────
             Result.PageTitle =
                 CitizenInfoConstants::GetCitizenPageTitle(ClampedTab);
-            wchar_t Buf[768] = {};
-            swprintf_s(Buf,
-                L"[ 만족도 현황 ]\n"
-                L"음식: %d  보건: %d  유흥: %d\n"
-                L"신앙: %d  주거: %d  직업: %d\n"
-                L"자유: %d  치안: %d  종합: %d\n\n"
-                L"[ 신념 ]\n"
-                L"경제: %s · %s\n"
-                L"종교·군국: %s · %s\n"
-                L"환경·산업: %s · %s\n"
-                L"지식·보수: %s · %s",
-                ToPercent(Satisfaction.Food),
-                ToPercent(Satisfaction.Health),
-                ToPercent(Satisfaction.Fun),
-                ToPercent(Satisfaction.Faith),
-                ToPercent(Satisfaction.Housing),
-                ToPercent(Satisfaction.Job),
-                ToPercent(Satisfaction.Freedom),
-                ToPercent(Satisfaction.Security),
-                ToPercent(Satisfaction.Overall),
-                GetPoliticalFactionDisplayName(
-                    EPoliticalAxis::Economy,
-                    PoliticalProfile.Economy.Stance),
-                GetPoliticalSupportDisplayName(
-                    PoliticalProfile.Economy.Support),
-                GetPoliticalFactionDisplayName(
-                    EPoliticalAxis::ReligionMilitarism,
-                    PoliticalProfile.ReligionMilitarism.Stance),
-                GetPoliticalSupportDisplayName(
-                    PoliticalProfile.ReligionMilitarism.Support),
-                GetPoliticalFactionDisplayName(
-                    EPoliticalAxis::EnvironmentIndustry,
-                    PoliticalProfile.EnvironmentIndustry.Stance),
-                GetPoliticalSupportDisplayName(
-                    PoliticalProfile.EnvironmentIndustry.Support),
-                GetPoliticalFactionDisplayName(
-                    EPoliticalAxis::IntellectualConservative,
-                    PoliticalProfile.IntellectualConservative.Stance),
-                GetPoliticalSupportDisplayName(
-                    PoliticalProfile.IntellectualConservative.Support));
-            Result.BodyText = Buf;
+            Result.BodyText = UIStrings::Format(
+                L"citizen_info.body.citizen_politics",
+                {
+                    std::to_wstring(ToPercent(Satisfaction.Food)),
+                    std::to_wstring(ToPercent(Satisfaction.Health)),
+                    std::to_wstring(ToPercent(Satisfaction.Fun)),
+                    std::to_wstring(ToPercent(Satisfaction.Faith)),
+                    std::to_wstring(ToPercent(Satisfaction.Housing)),
+                    std::to_wstring(ToPercent(Satisfaction.Job)),
+                    std::to_wstring(ToPercent(Satisfaction.Freedom)),
+                    std::to_wstring(ToPercent(Satisfaction.Security)),
+                    std::to_wstring(ToPercent(Satisfaction.Overall)),
+                    GetPoliticalFactionDisplayName(
+                        EPoliticalAxis::Economy,
+                        PoliticalProfile.Economy.Stance),
+                    GetPoliticalSupportDisplayName(
+                        PoliticalProfile.Economy.Support),
+                    GetPoliticalFactionDisplayName(
+                        EPoliticalAxis::ReligionMilitarism,
+                        PoliticalProfile.ReligionMilitarism.Stance),
+                    GetPoliticalSupportDisplayName(
+                        PoliticalProfile.ReligionMilitarism.Support),
+                    GetPoliticalFactionDisplayName(
+                        EPoliticalAxis::EnvironmentIndustry,
+                        PoliticalProfile.EnvironmentIndustry.Stance),
+                    GetPoliticalSupportDisplayName(
+                        PoliticalProfile.EnvironmentIndustry.Support),
+                    GetPoliticalFactionDisplayName(
+                        EPoliticalAxis::IntellectualConservative,
+                        PoliticalProfile.IntellectualConservative.Stance),
+                    GetPoliticalSupportDisplayName(
+                        PoliticalProfile.IntellectualConservative.Support)
+                });
         }
         else
         {
-            // ── 탭 2: 성향 (생성형 서술) ───────────────────────────
             Result.PageTitle =
                 CitizenInfoConstants::GetCitizenPageTitle(ClampedTab);
             const int Overall = ToPercent(Satisfaction.Overall);
 
             const wchar_t* SatisfactionDesc =
-                Overall >= 75 ? L"트로피코 생활에 크게 만족하고 있습니다." :
-                Overall >= 55 ? L"트로피코 생활에 어느 정도 만족하고 있습니다." :
-                Overall >= 35 ? L"트로피코 생활에 불만이 있습니다." :
-                                L"트로피코 생활에 크게 불만족하고 있습니다.";
+                Overall >= 75 ?
+                    UiText(L"citizen_info.thoughts.satisfaction.very_high") :
+                Overall >= 55 ?
+                    UiText(L"citizen_info.thoughts.satisfaction.high") :
+                Overall >= 35 ?
+                    UiText(L"citizen_info.thoughts.satisfaction.low") :
+                    UiText(L"citizen_info.thoughts.satisfaction.very_low");
 
-            // 지배적 정치 성향 탐색
             const wchar_t* DominantStance = nullptr;
             int MaxSupport = -1;
             auto CheckAxis =
@@ -1493,18 +1579,20 @@ namespace CitizenInfoDataProvider
             CheckAxis(EPoliticalAxis::IntellectualConservative,
                 PoliticalProfile.IntellectualConservative);
 
-            wchar_t Buf[512] = {};
-            swprintf_s(Buf,
-                L"%s은/는 %s %s 시민입니다%s.\n\n"
-                L"%s\n\n"
-                L"지배적 정치 성향: %s",
-                Result.Title.c_str(),
-                GetCitizenWealthDisplayName(IdentityProfile.WealthLevel),
-                GetCitizenEducationDisplayName(IdentityProfile.EducationLevel),
-                IdentityProfile.IsImmigrant ? L" (이민자)" : L"",
-                SatisfactionDesc,
-                DominantStance ? DominantStance : L"-");
-            Result.BodyText = Buf;
+            Result.BodyText = UIStrings::Format(
+                L"citizen_info.body.citizen_thoughts",
+                {
+                    Result.Title,
+                    GetCitizenWealthDisplayName(
+                        IdentityProfile.WealthLevel),
+                    GetCitizenEducationDisplayName(
+                        IdentityProfile.EducationLevel),
+                    IdentityProfile.IsImmigrant ?
+                        Ui(L"citizen_info.fragment.immigrant_parenthetical") :
+                        std::wstring(),
+                    SatisfactionDesc,
+                    DominantStance ? DominantStance : L"-"
+                });
         }
 
         return Result;
@@ -1551,33 +1639,42 @@ namespace CitizenInfoDataProvider
                 static_cast<int>(Citizen.Name.size() % 4);
             Result.CitizenFooterText = L"TROPICO EXEC. 16FA-923";
 
-            Result.OverviewMetricLabels[0] = L"활동";
+            Result.OverviewMetricLabels[0] =
+                Ui(L"citizen_info.metric.activity");
             Result.OverviewMetricValues[0] =
                 GetCitizenActivityDisplayName(Citizen.State);
-            Result.OverviewMetricLabels[1] = L"위치";
+            Result.OverviewMetricLabels[1] =
+                Ui(L"citizen_info.metric.location");
             Result.OverviewMetricValues[1] =
                 ResolveCitizenLocationText(QuerySource, Citizen);
-            Result.OverviewMetricLabels[2] = L"연령";
-            Result.OverviewMetricValues[2] = L"30 (성인)";
-            Result.OverviewMetricLabels[3] = L"출신";
+            Result.OverviewMetricLabels[2] =
+                Ui(L"citizen_info.metric.age");
+            Result.OverviewMetricValues[2] =
+                Ui(L"citizen_info.value.age_30_adult");
+            Result.OverviewMetricLabels[3] =
+                Ui(L"citizen_info.metric.origin");
             Result.OverviewMetricValues[3] =
                 Citizen.IdentityProfile.IsImmigrant ?
-                    L"프랑스" :
-                    L"트로피코";
-            Result.OverviewMetricLabels[4] = L"재산";
+                    Ui(L"citizen_info.origin.france") :
+                    Ui(L"citizen_info.origin.tropico");
+            Result.OverviewMetricLabels[4] =
+                Ui(L"citizen_info.metric.wealth");
             Result.OverviewMetricValues[4] =
                 GetCitizenProfileWealthDisplayName(
                     Citizen.IdentityProfile.WealthLevel);
-            Result.OverviewMetricLabels[5] = L"교육";
+            Result.OverviewMetricLabels[5] =
+                Ui(L"citizen_info.metric.education");
             Result.OverviewMetricValues[5] =
                 GetCitizenEducationDisplayName(
                     Citizen.IdentityProfile.EducationLevel);
-            Result.OverviewMetricLabels[6] = L"직장";
+            Result.OverviewMetricLabels[6] =
+                Ui(L"citizen_info.metric.job");
             Result.OverviewMetricValues[6] =
                 ResolveBuildingDisplayName(
                     QuerySource,
                     Citizen.WorkBuildingName);
-            Result.OverviewMetricLabels[7] = L"집";
+            Result.OverviewMetricLabels[7] =
+                Ui(L"citizen_info.metric.home");
             Result.OverviewMetricValues[7] =
                 ResolveBuildingDisplayName(
                     QuerySource,
@@ -1587,12 +1684,18 @@ namespace CitizenInfoDataProvider
             Result.OverviewMetricAccentValues[7] =
                 !Citizen.HomeBuildingName.empty();
 
-            Result.CitizenActionLabels[0] = L"매수";
-            Result.CitizenActionLabels[1] = L"살해";
-            Result.CitizenActionLabels[2] = L"사고사로 위장";
-            Result.CitizenActionLabels[3] = L"체포";
-            Result.CitizenActionLabels[4] = L"보호 시설 격리";
-            Result.CitizenActionLabels[5] = L"우주 파견";
+            Result.CitizenActionLabels[0] =
+                Ui(L"citizen_info.action.bribe");
+            Result.CitizenActionLabels[1] =
+                Ui(L"citizen_info.action.kill");
+            Result.CitizenActionLabels[2] =
+                Ui(L"citizen_info.action.stage_accident");
+            Result.CitizenActionLabels[3] =
+                Ui(L"citizen_info.action.arrest");
+            Result.CitizenActionLabels[4] =
+                Ui(L"citizen_info.action.isolate");
+            Result.CitizenActionLabels[5] =
+                Ui(L"citizen_info.action.send_to_space");
         }
         else if (Result.Valid && Result.SelectedTabIndex == 1)
         {
@@ -1601,7 +1704,8 @@ namespace CitizenInfoDataProvider
             Result.PageTitle.clear();
             Result.ShowSectionRibbon = false;
             Result.ShowBuildingSubtitle = true;
-            Result.BuildingSubtitleText = L"↠ 트로피코인 ↞";
+            Result.BuildingSubtitleText =
+                UIStrings::Get(L"citizen_info.subtitle.tropican");
             Result.ShowCitizenPoliticsOverview = true;
             Result.ShowCitizenProfileOverview = false;
             Result.ShowCitizenActionButtons = false;
@@ -1610,15 +1714,15 @@ namespace CitizenInfoDataProvider
 
             Result.CitizenPoliticsSatisfactionLabels =
             {{
-                L"종합 만족도",
-                L"음식",
-                L"보건",
-                L"유흥",
-                L"신앙",
-                L"주거",
-                L"직업",
-                L"자유",
-                L"치안"
+                Ui(L"almanac.satisfaction.overall"),
+                Ui(L"almanac.satisfaction.food"),
+                Ui(L"almanac.satisfaction.health"),
+                Ui(L"almanac.satisfaction.fun"),
+                Ui(L"almanac.satisfaction.faith"),
+                Ui(L"almanac.satisfaction.housing"),
+                Ui(L"almanac.satisfaction.job"),
+                Ui(L"almanac.satisfaction.freedom"),
+                Ui(L"almanac.satisfaction.security")
             }};
             Result.CitizenPoliticsSatisfactionRatios =
             {{
@@ -1644,7 +1748,8 @@ namespace CitizenInfoDataProvider
             Result.PageTitle.clear();
             Result.ShowSectionRibbon = false;
             Result.ShowBuildingSubtitle = true;
-            Result.BuildingSubtitleText = L"↠ 트로피코인 ↞";
+            Result.BuildingSubtitleText =
+                UIStrings::Get(L"citizen_info.subtitle.tropican");
             Result.ShowCitizenThoughtsOverview = true;
             Result.ShowCitizenProfileOverview = false;
             Result.ShowCitizenPoliticsOverview = false;
@@ -1653,11 +1758,11 @@ namespace CitizenInfoDataProvider
             Result.CitizenFooterText.clear();
             Result.CitizenThoughtLines =
             {{
-                L"우리 군대의 군복이 아주 끝내줘!",
-                L"잠을 자면서 돈을 받는 게 내가 바라는\n직업이지.",
-                L"내가 무슨 생각을 하고 싶은지 생각할 수\n있다니!",
-                L"난 노숙자가 아니야. 집을 찾아다니는 게\n직업일 뿐...",
-                L"강국이라면 군대에 아무도 사용법을\n모르는 무기도 많아야 마땅하지."
+                Ui(L"citizen_info.thought.line1"),
+                Ui(L"citizen_info.thought.line2"),
+                Ui(L"citizen_info.thought.line3"),
+                Ui(L"citizen_info.thought.line4"),
+                Ui(L"citizen_info.thought.line5")
             }};
         }
 
@@ -1759,25 +1864,26 @@ namespace CitizenInfoDataProvider
             UseHydroponicFarmWorkOverview(BuildingSnapshot);
         Result.OverviewCommandButtonText =
             Result.ShowOverviewCommandButton ?
-                L"자원 변경" :
+                Ui(L"citizen_info.action.change_resource") :
                 std::wstring();
 
         if (UseHydroponicFarmWorkOverview(BuildingSnapshot))
         {
             Result.ShowBuildingSubtitle = true;
-            Result.BuildingSubtitleText = L"< 코코아 >";
+            Result.BuildingSubtitleText =
+                Ui(L"citizen_info.subtitle.cocoa");
         }
 
         const long long TotalMonthlyCost =
             static_cast<long long>(BuildingSnapshot.MonthlyWageCost) +
             static_cast<long long>(BuildingSnapshot.MonthlyUpkeepCost);
-        Result.BudgetText =
-            L"예산 단계 " +
-            std::to_wstring(BuildingSnapshot.BudgetLevel) +
-            L"  |  " +
-            FormatMultiplier(BuildingSnapshot.BudgetScale) +
-            L"  |  월 비용 " +
-            FormatMoney(TotalMonthlyCost);
+        Result.BudgetText = UIStrings::Format(
+            L"citizen_info.budget.summary_template",
+            {
+                std::to_wstring(BuildingSnapshot.BudgetLevel),
+                FormatMultiplier(BuildingSnapshot.BudgetScale),
+                FormatMoney(TotalMonthlyCost)
+            });
 
         if (BuildingSnapshot.CatalogEntry)
         {
@@ -1806,10 +1912,12 @@ namespace CitizenInfoDataProvider
             const int RequiredPowerMW =
                 ResolveOverviewRequiredPower(BuildingSnapshot);
 
-            Result.OverviewBudgetLabel = L"예산";
+            Result.OverviewBudgetLabel =
+                Ui(L"citizen_info.label.budget");
             Result.OverviewBudgetValue =
                 FormatMoney(BuildingSnapshot.MonthlyUpkeepCost);
-            Result.OverviewOccupancyLabel = L"거주지";
+            Result.OverviewOccupancyLabel =
+                Ui(L"citizen_info.label.residence");
             Result.OverviewOccupancyValue =
                 std::to_wstring(BuildingSnapshot.Residents.size()) +
                 L" / " +
@@ -1820,12 +1928,12 @@ namespace CitizenInfoDataProvider
                 (std::max)(0, BuildingSnapshot.Capacity);
             Result.OverviewMetricLabels =
             {
-                L"주거 품질",
-                L"필요 재산",
-                L"월간 수입",
-                L"전기",
-                L"전력의",
-                L"전력망 현황"
+                Ui(L"citizen_info.label.housing_quality"),
+                Ui(L"citizen_info.label.required_wealth"),
+                Ui(L"citizen_info.label.monthly_income"),
+                Ui(L"citizen_info.label.electricity"),
+                Ui(L"citizen_info.label.power_network"),
+                Ui(L"citizen_info.label.power_grid_status")
             };
             Result.OverviewMetricValues =
             {
@@ -1833,11 +1941,9 @@ namespace CitizenInfoDataProvider
                 NormalizeWealthRequirementText(
                     BuildingSnapshot.WealthRequirementText),
                 FormatMoney(MonthlyIncome),
-                L"-" + std::to_wstring(RequiredPowerMW) + L"메가와트",
+                FormatMegawattValue(-RequiredPowerMW),
                 L"#1",
-                std::wstring(PowerSurplusMW >= 0 ? L"+" : L"") +
-                std::to_wstring(PowerSurplusMW) +
-                    L"메가와트"
+                FormatSignedMegawattValue(PowerSurplusMW)
             };
         }
 
@@ -1845,38 +1951,43 @@ namespace CitizenInfoDataProvider
         {
             if (UseHydroponicFarmWorkOverview(BuildingSnapshot))
             {
-                Result.OverviewWorkModeLabel = L"근무 형태";
-                Result.OverviewWorkModeValue = L"대체로 천연";
-                Result.OverviewBudgetLabel = L"예산";
+                Result.OverviewWorkModeLabel =
+                    Ui(L"citizen_info.label.work_mode");
+                Result.OverviewWorkModeValue =
+                    Ui(L"citizen_info.work_mode.mostly_natural");
+                Result.OverviewBudgetLabel =
+                    Ui(L"citizen_info.label.budget");
                 Result.OverviewBudgetValue = L"$95";
-                Result.OverviewOccupancyLabel = L"노동자";
+                Result.OverviewOccupancyLabel =
+                    Ui(L"citizen_info.label.workers");
                 Result.OverviewOccupancyValue = L"4 / 4";
                 Result.OverviewResidentCount = 4;
                 Result.OverviewResidentCapacity = 4;
                 Result.OverviewMetricLabels =
                 {
-                    L"직업 품질",
-                    L"요구 학력",
-                    L"임금",
-                    L"효율",
-                    L"전기",
-                    L"전력망",
-                    L"전력망 현황",
-                    L"보관소",
-                    L"생산",
-                    L"코코아",
+                    Ui(L"citizen_info.label.job_quality"),
+                    Ui(L"citizen_info.label.required_education"),
+                    Ui(L"citizen_info.label.wage"),
+                    Ui(L"citizen_info.label.efficiency"),
+                    Ui(L"citizen_info.label.electricity"),
+                    Ui(L"citizen_info.label.power_network"),
+                    Ui(L"citizen_info.label.power_grid_status"),
+                    Ui(L"citizen_info.label.storage"),
+                    Ui(L"citizen_info.label.production"),
+                    Ui(L"citizen_info.commodity.cocoa"),
                     L"",
                     L""
                 };
                 Result.OverviewMetricValues =
                 {
                     L"65",
-                    L"고등학교",
+                    GetCitizenEducationDisplayName(
+                        ECitizenEducationLevel::HighSchool),
                     L"$18",
                     L"145%",
-                    L"-30메가와트",
+                    FormatMegawattValue(-30),
                     L"#1",
-                    L"+785메가와트",
+                    FormatSignedMegawattValue(785),
                     L"",
                     L"",
                     L"0 / 2320",
@@ -1886,11 +1997,15 @@ namespace CitizenInfoDataProvider
             }
             else if (UseAquaParkWorkOverview(BuildingSnapshot))
             {
-                Result.OverviewWorkModeLabel = L"근무 형태";
-                Result.OverviewWorkModeValue = L"산뜻하고 깔끔하게";
-                Result.OverviewBudgetLabel = L"예산";
+                Result.OverviewWorkModeLabel =
+                    Ui(L"citizen_info.label.work_mode");
+                Result.OverviewWorkModeValue =
+                    Ui(L"citizen_info.work_mode.fresh_and_clean");
+                Result.OverviewBudgetLabel =
+                    Ui(L"citizen_info.label.budget");
                 Result.OverviewBudgetValue = L"$57 / $75";
-                Result.OverviewOccupancyLabel = L"노동자";
+                Result.OverviewOccupancyLabel =
+                    Ui(L"citizen_info.label.workers");
                 Result.OverviewOccupancyValue = L"1 / 3";
                 Result.OverviewResidentCount = 1;
                 Result.OverviewResidentCapacity = 3;
@@ -1899,34 +2014,36 @@ namespace CitizenInfoDataProvider
                 Result.OverviewVisitorCapacity = 12;
                 Result.OverviewMetricLabels =
                 {
-                    L"직업 품질",
-                    L"요구 학력",
-                    L"임금",
-                    L"효율",
-                    L"전기",
-                    L"전력망",
-                    L"전력망 현황",
-                    L"방문객",
-                    L"서비스 품질",
-                    L"필요 재산",
-                    L"선호하는 유형:",
-                    L"요금/수입",
-                    L"□ 관광객 전용",
+                    Ui(L"citizen_info.label.job_quality"),
+                    Ui(L"citizen_info.label.required_education"),
+                    Ui(L"citizen_info.label.wage"),
+                    Ui(L"citizen_info.label.efficiency"),
+                    Ui(L"citizen_info.label.electricity"),
+                    Ui(L"citizen_info.label.power_network"),
+                    Ui(L"citizen_info.label.power_grid_status"),
+                    Ui(L"citizen_info.label.visitors"),
+                    Ui(L"citizen_info.label.service_quality"),
+                    Ui(L"citizen_info.label.required_wealth"),
+                    Ui(L"citizen_info.label.preferred_type"),
+                    Ui(L"citizen_info.label.fee_income"),
+                    Ui(L"citizen_info.label.tourist_only_checkbox"),
                     L""
                 };
                 Result.OverviewMetricValues =
                 {
                     L"65",
-                    L"무학력",
+                    GetCitizenEducationDisplayName(
+                        ECitizenEducationLevel::Uneducated),
                     L"$9",
                     L"125%",
-                    L"-15메가와트",
+                    FormatMegawattValue(-15),
                     L"#1",
-                    L"+785메가와트",
+                    FormatSignedMegawattValue(785),
                     L"9 / 6 (18)",
                     L"88",
-                    L"유복함",
-                    L"휴양",
+                    Ui(L"citizen_info.wealth_profile.well_off"),
+                    GetTouristPreferenceDisplayName(
+                        ETouristPreference::Relaxation),
                     L"$15 ($0)",
                     L" ",
                     L""
@@ -1934,11 +2051,15 @@ namespace CitizenInfoDataProvider
             }
             else if (UseRestaurantWorkOverview(BuildingSnapshot))
             {
-                Result.OverviewWorkModeLabel = L"근무 형태";
-                Result.OverviewWorkModeValue = L"천 넘긴";
-                Result.OverviewBudgetLabel = L"예산";
+                Result.OverviewWorkModeLabel =
+                    Ui(L"citizen_info.label.work_mode");
+                Result.OverviewWorkModeValue =
+                    Ui(L"citizen_info.work_mode.thousand_plus");
+                Result.OverviewBudgetLabel =
+                    Ui(L"citizen_info.label.budget");
                 Result.OverviewBudgetValue = L"$64";
-                Result.OverviewOccupancyLabel = L"노동자";
+                Result.OverviewOccupancyLabel =
+                    Ui(L"citizen_info.label.workers");
                 Result.OverviewOccupancyValue = L"4 / 4";
                 Result.OverviewResidentCount = 4;
                 Result.OverviewResidentCapacity = 4;
@@ -1947,33 +2068,34 @@ namespace CitizenInfoDataProvider
                 Result.OverviewVisitorCapacity = 12;
                 Result.OverviewMetricLabels =
                 {
-                    L"직업 품질",
-                    L"요구 학력",
-                    L"임금",
-                    L"효율",
-                    L"전기",
-                    L"전력망",
-                    L"전력망 현황",
-                    L"방문객",
-                    L"서비스 품질",
-                    L"필요 재산",
-                    L"요금 수입",
-                    L"□ 관광객 전용",
+                    Ui(L"citizen_info.label.job_quality"),
+                    Ui(L"citizen_info.label.required_education"),
+                    Ui(L"citizen_info.label.wage"),
+                    Ui(L"citizen_info.label.efficiency"),
+                    Ui(L"citizen_info.label.electricity"),
+                    Ui(L"citizen_info.label.power_network"),
+                    Ui(L"citizen_info.label.power_grid_status"),
+                    Ui(L"citizen_info.label.visitors"),
+                    Ui(L"citizen_info.label.service_quality"),
+                    Ui(L"citizen_info.label.required_wealth"),
+                    Ui(L"citizen_info.label.fee_revenue"),
+                    Ui(L"citizen_info.label.tourist_only_checkbox"),
                     L"",
                     L""
                 };
                 Result.OverviewMetricValues =
                 {
                     L"55",
-                    L"무학력",
+                    GetCitizenEducationDisplayName(
+                        ECitizenEducationLevel::Uneducated),
                     L"$13",
                     L"125%",
-                    L"-10메가와트",
+                    FormatMegawattValue(-10),
                     L"#1",
-                    L"+785메가와트",
+                    FormatSignedMegawattValue(785),
                     L"12 / 12",
                     L"96",
-                    L"유복함",
+                    Ui(L"citizen_info.wealth_profile.well_off"),
                     L"$18 ($0)",
                     L" ",
                     L"",
@@ -1982,14 +2104,17 @@ namespace CitizenInfoDataProvider
             }
             else
             {
-                Result.OverviewWorkModeLabel = L"근무 형태";
+                Result.OverviewWorkModeLabel =
+                    Ui(L"citizen_info.label.work_mode");
                 Result.OverviewWorkModeValue =
                     !BuildingSnapshot.OperationModes.empty() ?
-                    BuildingSnapshot.OperationModes.front() :
-                    L"일반 통제";
-                Result.OverviewBudgetLabel = L"예산";
+                        BuildingSnapshot.OperationModes.front() :
+                        Ui(L"citizen_info.work_mode.general_control");
+                Result.OverviewBudgetLabel =
+                    Ui(L"citizen_info.label.budget");
                 Result.OverviewBudgetValue = L"$120";
-                Result.OverviewOccupancyLabel = L"노동자";
+                Result.OverviewOccupancyLabel =
+                    Ui(L"citizen_info.label.workers");
                 Result.OverviewOccupancyValue =
                     std::to_wstring(BuildingSnapshot.AssignedEmployees.size()) +
                     L" / " +
@@ -2000,17 +2125,17 @@ namespace CitizenInfoDataProvider
                     (std::max)(0, BuildingSnapshot.Capacity);
                 Result.OverviewMetricLabels =
                 {
-                    L"직업 품질",
-                    L"요구 학력",
-                    L"임금",
-                    L"효율",
-                    L"항구",
-                    L"다음 도착 시각:",
-                    L"전체 비용:",
-                    L"예상 수익:",
-                    L"보관소",
-                    L"설탕",
-                    L"옥수수",
+                    Ui(L"citizen_info.label.job_quality"),
+                    Ui(L"citizen_info.label.required_education"),
+                    Ui(L"citizen_info.label.wage"),
+                    Ui(L"citizen_info.label.efficiency"),
+                    Ui(L"citizen_info.label.harbor"),
+                    Ui(L"citizen_info.label.next_arrival_time"),
+                    Ui(L"citizen_info.label.total_cost"),
+                    Ui(L"citizen_info.label.expected_revenue"),
+                    Ui(L"citizen_info.label.storage"),
+                    Ui(L"citizen_info.commodity.sugar"),
+                    Ui(L"citizen_info.commodity.corn"),
                     L""
                 };
                 Result.OverviewMetricValues =
@@ -2021,7 +2146,7 @@ namespace CitizenInfoDataProvider
                     L"$18",
                     L"135%",
                     L"",
-                    L"20일",
+                    FormatDayCount(20),
                     L"$25,008",
                     L"$12,561",
                     L"",
@@ -2038,8 +2163,8 @@ namespace CitizenInfoDataProvider
             {
                 Result.OverviewMetricLabels =
                 {
-                    L"수입 (전체)",
-                    L"수입 (전월)",
+                    Ui(L"citizen_info.label.total_income"),
+                    Ui(L"citizen_info.label.last_month_income"),
                     L"",
                     L"",
                     L"",
@@ -2064,8 +2189,8 @@ namespace CitizenInfoDataProvider
                     static_cast<long long>(BuildingSnapshot.MonthlyUpkeepCost);
                 Result.OverviewMetricLabels =
                 {
-                    L"수입 (전체)",
-                    L"수입 (전월)",
+                    Ui(L"citizen_info.label.total_income"),
+                    Ui(L"citizen_info.label.last_month_income"),
                     L"",
                     L"",
                     L"",
@@ -2088,10 +2213,10 @@ namespace CitizenInfoDataProvider
             Result.ShowHeaderNote = true;
             Result.ShowSectionDivider = true;
             Result.HeaderNoteText =
-                L"주거 품질은 효율에 따라 변합니다.";
+                Ui(L"citizen_info.note.housing_quality_efficiency");
             Result.OverviewMetricLabels =
             {
-                L"효율",
+                Ui(L"citizen_info.label.efficiency"),
                 L"",
                 L"",
                 L"",
@@ -2111,9 +2236,10 @@ namespace CitizenInfoDataProvider
 
         if (Result.ShowBuildingUpgradeCard)
         {
-            Result.UpgradeCardTitle = L"태양광 패널 창문";
+            Result.UpgradeCardTitle =
+                Ui(L"citizen_info.upgrade.solar_window.title");
             Result.UpgradeCardDescription =
-                L"건물의 전력 필요량이 -30메가와트\n감소합니다.";
+                Ui(L"citizen_info.upgrade.solar_window.description");
             Result.UpgradeCardIconPath = TEXT(
                 "TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_solarPowerPlant.png");
             Result.UpgradeCardIconTextureKey =
@@ -2125,20 +2251,14 @@ namespace CitizenInfoDataProvider
             Result.ShowSectionDivider = true;
             Result.InformationAccentText =
                 std::to_wstring((std::max)(0, BuildingSnapshot.Capacity));
-            Result.InformationTopText =
-                std::wstring(
-                    L"가구를 수용할 수 있는 고급 주거\n"
-                    L"건물입니다. 입주자의 재산 수준이\n"
-                    L"최소 ") +
-                NormalizeWealthRequirementText(
-                    BuildingSnapshot.WealthRequirementText) +
-                L" 이상이어야 합니다. 적은\n"
-                L"공해를 배출합니다.";
+            Result.InformationTopText = UIStrings::Format(
+                L"citizen_info.information.modern_apartment.top",
+                {
+                    NormalizeWealthRequirementText(
+                        BuildingSnapshot.WealthRequirementText)
+                });
             Result.InformationBottomText =
-                L"콘크리트와 강철로 이루어진 괴물,\n"
-                L"현대식 아파트는 '현대적인 편의 시설\n"
-                L"완비'라는 광고 문구를 이용해\n"
-                L"제정신이 아닌 듯한 월세를 제시합니다.";
+                Ui(L"citizen_info.information.modern_apartment.bottom");
         }
 
         switch (Result.SelectedTabIndex)

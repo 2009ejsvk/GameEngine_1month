@@ -2,6 +2,7 @@
 
 #include "../Building/BuildingTypes.h"
 #include "../Citizen/CitizenTypes.h"
+#include <array>
 #include <memory>
 #include <string>
 #include <utility>
@@ -13,6 +14,29 @@ namespace WorldStats
 {
     constexpr int GBuildingCategoryCount =
         static_cast<int>(EBuildingCategory::Count);
+    constexpr int GResourceTypeCount =
+        static_cast<int>(EResourceType::Count);
+
+    struct FResourceTypeSnapshot
+    {
+        EResourceType Type = EResourceType::None;
+        int TotalStock = 0;
+        int AvailableStock = 0;
+        int ReservedIncoming = 0;
+        int Capacity = 0;
+        int ProducerBuildingCount = 0;
+        int ConsumerBuildingCount = 0;
+        int StorageBuildingCount = 0;
+        int HarborBuildingCount = 0;
+        std::vector<std::pair<std::wstring, int>> TopStockBuildings;
+    };
+
+    struct FBuildingCategorySnapshot
+    {
+        EBuildingCategory Category = EBuildingCategory::Infrastructure;
+        int Count = 0;
+        std::vector<std::pair<std::wstring, int>> TopBuildings;
+    };
 
     struct FWorldStatsSnapshot
     {
@@ -59,6 +83,9 @@ namespace WorldStats
         double AverageFreedom = 0.0;
         double AverageSecurity = 0.0;
         double AverageOverall = 0.0;
+        std::array<FResourceTypeSnapshot, GResourceTypeCount> ResourceTypes = {};
+        std::array<FBuildingCategorySnapshot, GBuildingCategoryCount>
+            BuildingCategories = {};
         std::vector<std::pair<std::wstring, int>> TopBuildings;
         std::vector<std::pair<std::wstring, int>> TopResourceBuildings;
     };

@@ -231,6 +231,9 @@
     <ClCompile Include="UI\AlmanacDataProvider.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
+    <ClCompile Include="UI\AlmanacQueryService.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
     <ClCompile Include="UI\AlmanacPageData.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
@@ -247,6 +250,12 @@
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="UI\AlmanacRendererPages.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererPagesPopulation.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererPagesEconomy.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="UI\AlmanacRendererPagesCore.cpp">
@@ -435,6 +444,9 @@
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="UI\AlmanacDataProvider.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\AlmanacQueryService.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
     <ClInclude Include="UI\AlmanacPageData.h">

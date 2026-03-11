@@ -1,7 +1,8 @@
 #include "AlmanacDataProvider.h"
+#include "AlmanacQueryService.h"
+#include "UIStrings.h"
 #include "../Politics/EdictSystem.h"
 #include "../World/WorldStatsSnapshot.h"
-#include "World/World.h"
 #include <algorithm>
 #include <cmath>
 #include <cwchar>
@@ -26,6 +27,23 @@ namespace
     {
         Body += Line;
         Body += L"\n";
+    }
+
+    std::wstring MakeLabeledValue(
+        const wchar_t* LabelKey,
+        const std::wstring& Value)
+    {
+        return UIStrings::Get(LabelKey) + L": " + Value;
+    }
+
+    std::wstring MakeCountLine(
+        const wchar_t* LabelKey,
+        int Count)
+    {
+        return MakeLabeledValue(
+            LabelKey,
+            std::to_wstring(Count) +
+                UIStrings::Get(L"almanac.unit.person_suffix"));
     }
 
     void ApplyWorldStatsSnapshot(
@@ -88,6 +106,43 @@ namespace
             Snapshot.ResidentialVacancyWealthCount[WealthIndex] =
                 WorldSnapshot.ResidentialVacancyWealthCount[WealthIndex];
         }
+        for (int ResourceIndex = 0;
+            ResourceIndex < static_cast<int>(EResourceType::Count);
+            ++ResourceIndex)
+        {
+            const auto& WorldResource =
+                WorldSnapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)];
+            auto& Resource =
+                Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)];
+            Resource.Type = WorldResource.Type;
+            Resource.TotalStock = WorldResource.TotalStock;
+            Resource.AvailableStock = WorldResource.AvailableStock;
+            Resource.ReservedIncoming = WorldResource.ReservedIncoming;
+            Resource.Capacity = WorldResource.Capacity;
+            Resource.ProducerBuildingCount =
+                WorldResource.ProducerBuildingCount;
+            Resource.ConsumerBuildingCount =
+                WorldResource.ConsumerBuildingCount;
+            Resource.StorageBuildingCount =
+                WorldResource.StorageBuildingCount;
+            Resource.HarborBuildingCount =
+                WorldResource.HarborBuildingCount;
+            Resource.TopStockBuildings = WorldResource.TopStockBuildings;
+        }
+        for (int CategoryIndex = 0;
+            CategoryIndex < BuildingCategoryInfo::GBuildingCategoryCount;
+            ++CategoryIndex)
+        {
+            const auto& WorldCategory =
+                WorldSnapshot.BuildingCategories[
+                    static_cast<size_t>(CategoryIndex)];
+            auto& Category =
+                Snapshot.BuildingCategories[
+                    static_cast<size_t>(CategoryIndex)];
+            Category.Category = WorldCategory.Category;
+            Category.Count = WorldCategory.Count;
+            Category.TopBuildings = WorldCategory.TopBuildings;
+        }
         Snapshot.MonthlyWageCost = WorldSnapshot.MonthlyWageCost;
         Snapshot.MonthlyUpkeepCost = WorldSnapshot.MonthlyUpkeepCost;
         Snapshot.TotalResourceStock = WorldSnapshot.TotalResourceStock;
@@ -122,93 +177,91 @@ namespace
                 WorldSnapshot.BuildingCategoryCount[CategoryIndex];
         }
     }
+
+    void ApplyMainWorldRecord(
+        const AlmanacDataProvider::FAlmanacMainWorldRecord& MainWorldRecord,
+        AlmanacDataProvider::FAlmanacSnapshot& Snapshot)
+    {
+        Snapshot.HasMainWorld = MainWorldRecord.Available;
+
+        if (!MainWorldRecord.Available)
+            return;
+
+        Snapshot.NationalBudget = MainWorldRecord.NationalBudget;
+        Snapshot.DailyExportIncome = MainWorldRecord.DailyExportIncome;
+        Snapshot.DailyTaxIncome = MainWorldRecord.DailyTaxIncome;
+        Snapshot.DailyConsumptionTaxIncome =
+            MainWorldRecord.DailyConsumptionTaxIncome;
+        Snapshot.DailyIncomeTaxIncome =
+            MainWorldRecord.DailyIncomeTaxIncome;
+        Snapshot.DailyPropertyTaxIncome =
+            MainWorldRecord.DailyPropertyTaxIncome;
+        Snapshot.DailyEdictCost = MainWorldRecord.DailyEdictCost;
+        Snapshot.DailyImportExpense = MainWorldRecord.DailyImportExpense;
+        Snapshot.DailyNetChange = MainWorldRecord.DailyNetChange;
+        Snapshot.TaxCollectionEfficiency =
+            MainWorldRecord.TaxCollectionEfficiency;
+        Snapshot.PoliticalSnapshot = MainWorldRecord.PoliticalSnapshot;
+        Snapshot.GovernmentProfile = MainWorldRecord.GovernmentProfile;
+        Snapshot.ElectionStatus = MainWorldRecord.ElectionStatus;
+        Snapshot.DaysUntilNextElection =
+            MainWorldRecord.DaysUntilNextElection;
+        Snapshot.ElectionWarningScore =
+            MainWorldRecord.ElectionWarningScore;
+        Snapshot.TaxEventStatus = MainWorldRecord.TaxEventStatus;
+
+        for (size_t i = 0; i < MainWorldRecord.GovernmentEdictStates.size(); ++i)
+        {
+            const FGovernmentEdictState& EdictState =
+                MainWorldRecord.GovernmentEdictStates[i];
+
+            if (EdictState.Active)
+                ++Snapshot.ActiveEdictCount;
+
+            if (EdictState.Type == EGovernmentEdictType::MartialLaw &&
+                EdictState.Active)
+            {
+                Snapshot.MartialLawActive = true;
+            }
+
+            if (!EdictState.Active)
+                continue;
+
+            const FGovernmentEdictDefinition* Definition =
+                EdictSystem::FindGovernmentEdictDefinition(
+                    EdictState.Type);
+
+            if (!Definition)
+                continue;
+
+            std::wstring Line = Definition->DisplayName;
+
+            if (Definition->Mode == EGovernmentEdictMode::Active)
+            {
+                Line += UIStrings::Format(
+                    L"almanac.edict.remaining_days",
+                    { std::to_wstring(EdictState.RemainingDays) });
+            }
+
+            Snapshot.ActiveEdictLines.push_back(std::move(Line));
+        }
+    }
 }
 
 namespace AlmanacDataProvider
 {
     FAlmanacSnapshot BuildSnapshot(
-        const std::shared_ptr<CWorld>& World)
-    {
-        return BuildSnapshot(
-            World,
-            std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World));
-    }
-
-    FAlmanacSnapshot BuildSnapshot(
-        const std::shared_ptr<CWorld>& World,
-        const std::shared_ptr<IMainWorldAlmanacAccess>& MainWorld)
+        const std::shared_ptr<IAlmanacQuerySource>& QuerySource)
     {
         FAlmanacSnapshot Snapshot;
 
-        if (!World)
+        if (!QuerySource)
             return Snapshot;
 
-        Snapshot.HasMainWorld = MainWorld != nullptr;
+        ApplyMainWorldRecord(QuerySource->QueryMainWorldRecord(), Snapshot);
 
-        if (MainWorld)
-        {
-            Snapshot.NationalBudget = MainWorld->GetNationalBudget();
-            Snapshot.DailyExportIncome = MainWorld->GetLastDailyExportIncome();
-            Snapshot.DailyTaxIncome = MainWorld->GetLastDailyTaxIncome();
-            Snapshot.DailyConsumptionTaxIncome =
-                MainWorld->GetLastDailyConsumptionTaxIncome();
-            Snapshot.DailyIncomeTaxIncome =
-                MainWorld->GetLastDailyIncomeTaxIncome();
-            Snapshot.DailyPropertyTaxIncome =
-                MainWorld->GetLastDailyPropertyTaxIncome();
-            Snapshot.DailyEdictCost = MainWorld->GetLastDailyEdictCost();
-            Snapshot.DailyImportExpense =
-                MainWorld->GetLastDailyImportExpense();
-            Snapshot.DailyNetChange = MainWorld->GetLastDailyNetChange();
-            Snapshot.TaxCollectionEfficiency =
-                MainWorld->GetLastDailyTaxCollectionEfficiency();
-            Snapshot.PoliticalSnapshot = MainWorld->GetPoliticalSnapshot();
-            Snapshot.GovernmentProfile = MainWorld->GetGovernmentProfile();
-            Snapshot.ElectionStatus = MainWorld->GetElectionStatus();
-            Snapshot.DaysUntilNextElection =
-                MainWorld->GetDaysUntilNextElection();
-            Snapshot.ElectionWarningScore =
-                MainWorld->GetElectionWarningScore();
-            Snapshot.TaxEventStatus = MainWorld->GetTaxPolicyEventStatus();
-
-            const auto& EdictStates = MainWorld->GetGovernmentEdictStates();
-
-            for (size_t i = 0; i < EdictStates.size(); ++i)
-            {
-                if (EdictStates[i].Active)
-                    ++Snapshot.ActiveEdictCount;
-
-                if (EdictStates[i].Type == EGovernmentEdictType::MartialLaw &&
-                    EdictStates[i].Active)
-                {
-                    Snapshot.MartialLawActive = true;
-                }
-
-                if (!EdictStates[i].Active)
-                    continue;
-
-                const FGovernmentEdictDefinition* Definition =
-                    EdictSystem::FindGovernmentEdictDefinition(
-                        EdictStates[i].Type);
-
-                if (!Definition)
-                    continue;
-
-                std::wstring Line = Definition->DisplayName;
-
-                if (Definition->Mode == EGovernmentEdictMode::Active)
-                {
-                    Line += L" (";
-                    Line += std::to_wstring(EdictStates[i].RemainingDays);
-                    Line += L"일 남음)";
-                }
-
-                Snapshot.ActiveEdictLines.push_back(std::move(Line));
-            }
-        }
-
-        const WorldStats::FWorldStatsSnapshot WorldSnapshot =
-            WorldStats::BuildSnapshot(World);
+        WorldStats::FWorldStatsSnapshot WorldSnapshot;
+        QuerySource->QueryWorldStats(WorldSnapshot);
         ApplyWorldStatsSnapshot(WorldSnapshot, Snapshot);
 
         if (Snapshot.PoliticalSnapshot.ActiveCitizenCount > 0)
@@ -307,13 +360,20 @@ namespace AlmanacDataProvider
         }
 
         if (Snapshot.RebelRiskScore >= 66.0)
-            Snapshot.RebelRiskLabel = L"높음";
+            Snapshot.RebelRiskLabel = UIStrings::Get(L"almanac.rebel_risk.high");
         else if (Snapshot.RebelRiskScore >= 33.0)
-            Snapshot.RebelRiskLabel = L"중간";
+            Snapshot.RebelRiskLabel = UIStrings::Get(L"almanac.rebel_risk.medium");
         else
-            Snapshot.RebelRiskLabel = L"낮음";
+            Snapshot.RebelRiskLabel = UIStrings::Get(L"almanac.rebel_risk.low");
 
         return Snapshot;
+    }
+
+    FAlmanacSnapshot BuildSnapshot(
+        const std::shared_ptr<CWorld>& World)
+    {
+        return BuildSnapshot(
+            AlmanacQueryService::CreateWorldQuerySource(World));
     }
 
     std::wstring BuildYearbookSummaryText(
@@ -325,100 +385,208 @@ namespace AlmanacDataProvider
         {
             AppendLine(
                 Body,
-                L"종합 만족도: " + FormatFixed1(Snapshot.AverageOverall) +
-                L" / 100");
-            AppendLine(Body, L"음식: " + FormatFixed1(Snapshot.AverageFood));
-            AppendLine(Body, L"보건: " + FormatFixed1(Snapshot.AverageHealth));
-            AppendLine(Body, L"유흥: " + FormatFixed1(Snapshot.AverageFun));
-            AppendLine(Body, L"신앙: " + FormatFixed1(Snapshot.AverageFaith));
-            AppendLine(Body, L"주거: " + FormatFixed1(Snapshot.AverageHousing));
-            AppendLine(Body, L"직업: " + FormatFixed1(Snapshot.AverageJob));
-            AppendLine(Body, L"자유: " + FormatFixed1(Snapshot.AverageFreedom));
+                MakeLabeledValue(
+                    L"almanac.yearbook.overall_satisfaction",
+                    FormatFixed1(Snapshot.AverageOverall) + L" / 100"));
             AppendLine(
                 Body,
-                L"치안: " + FormatFixed1(Snapshot.AverageSecurity));
+                MakeLabeledValue(
+                    L"almanac.satisfaction.food",
+                    FormatFixed1(Snapshot.AverageFood)));
             AppendLine(
                 Body,
-                L"무주택자 수: " + std::to_wstring(Snapshot.HomelessCount) +
-                L"명");
+                MakeLabeledValue(
+                    L"almanac.satisfaction.health",
+                    FormatFixed1(Snapshot.AverageHealth)));
             AppendLine(
                 Body,
-                L"실업자 수: " + std::to_wstring(Snapshot.UnemployedCount) +
-                L"명");
+                MakeLabeledValue(
+                    L"almanac.satisfaction.fun",
+                    FormatFixed1(Snapshot.AverageFun)));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.faith",
+                    FormatFixed1(Snapshot.AverageFaith)));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.housing",
+                    FormatFixed1(Snapshot.AverageHousing)));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.job",
+                    FormatFixed1(Snapshot.AverageJob)));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.freedom",
+                    FormatFixed1(Snapshot.AverageFreedom)));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.security",
+                    FormatFixed1(Snapshot.AverageSecurity)));
+            AppendLine(
+                Body,
+                MakeCountLine(
+                    L"almanac.yearbook.homeless_count",
+                    Snapshot.HomelessCount));
+            AppendLine(
+                Body,
+                MakeCountLine(
+                    L"almanac.yearbook.unemployed_count",
+                    Snapshot.UnemployedCount));
         }
         else
         {
-            Body +=
-                L"종합 만족도: -\n"
-                L"음식: -\n"
-                L"보건: -\n"
-                L"유흥: -\n"
-                L"신앙: -\n"
-                L"주거: -\n"
-                L"직업: -\n"
-                L"자유: -\n"
-                L"치안: -\n"
-                L"무주택자 수: 0명\n"
-                L"실업자 수: 0명\n";
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.yearbook.overall_satisfaction",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.food",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.health",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.fun",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.faith",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.housing",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.job",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.freedom",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.security",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeCountLine(L"almanac.yearbook.homeless_count", 0));
+            AppendLine(
+                Body,
+                MakeCountLine(L"almanac.yearbook.unemployed_count", 0));
         }
 
-        Body += L"\n정권 평가\n";
+        Body += L"\n";
+        AppendLine(
+            Body,
+            UIStrings::Get(L"almanac.yearbook.section.government_assessment"));
 
         if (Snapshot.PoliticalSnapshot.ActiveCitizenCount > 0)
         {
             AppendLine(
                 Body,
-                L"현 정권 지지: " +
-                std::to_wstring(Snapshot.PoliticalSnapshot.IncumbentCount) +
-                L"명");
+                MakeCountLine(
+                    L"almanac.yearbook.incumbent_support",
+                    Snapshot.PoliticalSnapshot.IncumbentCount));
             AppendLine(
                 Body,
-                L"야권 지지: " +
-                std::to_wstring(Snapshot.PoliticalSnapshot.OppositionCount) +
-                L"명");
+                MakeCountLine(
+                    L"almanac.yearbook.opposition_support",
+                    Snapshot.PoliticalSnapshot.OppositionCount));
             AppendLine(
                 Body,
-                L"기권/부동층: " +
-                std::to_wstring(Snapshot.PoliticalSnapshot.AbstainCount) +
-                L"명");
+                MakeCountLine(
+                    L"almanac.yearbook.abstain_support",
+                    Snapshot.PoliticalSnapshot.AbstainCount));
             AppendLine(
                 Body,
-                L"평균 지지 점수: " +
-                FormatFixed1(Snapshot.PoliticalSnapshot.AverageSupportScore) +
-                L" / 100");
+                MakeLabeledValue(
+                    L"almanac.yearbook.average_support_score",
+                    FormatFixed1(Snapshot.PoliticalSnapshot.AverageSupportScore) +
+                        L" / 100"));
             AppendLine(
                 Body,
-                L"생활 평가: " +
-                FormatFixed1(Snapshot.PoliticalSnapshot.AverageLifeScore));
+                MakeLabeledValue(
+                    L"almanac.yearbook.life_score",
+                    FormatFixed1(Snapshot.PoliticalSnapshot.AverageLifeScore)));
             AppendLine(
                 Body,
-                L"정부 이념 일치: " +
-                FormatFixed1(
-                    Snapshot.PoliticalSnapshot.
-                        AverageGovernmentIdeologyScore));
+                MakeLabeledValue(
+                    L"almanac.yearbook.ideology_alignment",
+                    FormatFixed1(
+                        Snapshot.PoliticalSnapshot.
+                            AverageGovernmentIdeologyScore)));
             AppendLine(
                 Body,
-                L"건물 선호 효과: " +
-                FormatFixed1(Snapshot.PoliticalSnapshot.AverageBuildingScore));
+                MakeLabeledValue(
+                    L"almanac.yearbook.building_preference_effect",
+                    FormatFixed1(Snapshot.PoliticalSnapshot.AverageBuildingScore)));
             AppendLine(
                 Body,
-                L"최근 행동 효과: " +
-                FormatFixed1(Snapshot.PoliticalSnapshot.AverageActionScore));
+                MakeLabeledValue(
+                    L"almanac.yearbook.recent_action_effect",
+                    FormatFixed1(Snapshot.PoliticalSnapshot.AverageActionScore)));
         }
         else
         {
-            Body +=
-                L"현 정권 지지: 0명\n"
-                L"야권 지지: 0명\n"
-                L"기권/부동층: 0명\n"
-                L"평균 지지 점수: -\n"
-                L"생활 평가: -\n"
-                L"정부 이념 일치: -\n"
-                L"건물 선호 효과: -\n"
-                L"최근 행동 효과: -\n";
+            AppendLine(
+                Body,
+                MakeCountLine(L"almanac.yearbook.incumbent_support", 0));
+            AppendLine(
+                Body,
+                MakeCountLine(L"almanac.yearbook.opposition_support", 0));
+            AppendLine(
+                Body,
+                MakeCountLine(L"almanac.yearbook.abstain_support", 0));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.yearbook.average_support_score",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.yearbook.life_score",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.yearbook.ideology_alignment",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.yearbook.building_preference_effect",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.yearbook.recent_action_effect",
+                    UIStrings::Get(L"almanac.value.empty")));
         }
 
-        Body += L"\n정부 노선\n";
+        Body += L"\n";
+        AppendLine(
+            Body,
+            UIStrings::Get(L"almanac.yearbook.section.government_line"));
 
         for (int AxisIndex = 0;
             AxisIndex < static_cast<int>(EPoliticalAxis::Count);
@@ -436,11 +604,15 @@ namespace AlmanacDataProvider
                 L" (" + GetPoliticalSupportDisplayName(Choice.Support) + L")");
         }
 
-        Body += L"\n활성 칙령\n";
+        Body += L"\n";
+        AppendLine(
+            Body,
+            UIStrings::Get(L"almanac.yearbook.section.active_edicts"));
 
         if (Snapshot.ActiveEdictLines.empty())
         {
-            Body += L"- 없음\n";
+            Body += L"- ";
+            AppendLine(Body, UIStrings::Get(L"almanac.yearbook.none"));
         }
         else
         {
@@ -451,7 +623,10 @@ namespace AlmanacDataProvider
             }
         }
 
-        Body += L"\n정치 성향 인원\n";
+        Body += L"\n";
+        AppendLine(
+            Body,
+            UIStrings::Get(L"almanac.yearbook.section.political_counts"));
 
         for (int AxisIndex = 0;
             AxisIndex < static_cast<int>(EPoliticalAxis::Count);
@@ -468,21 +643,21 @@ namespace AlmanacDataProvider
             Body += std::to_wstring(
                 Snapshot.PoliticalCount[AxisIndex][
                     static_cast<int>(EPoliticalStance::Left)]);
-            Body += L"명 / ";
+            Body += UIStrings::Get(L"almanac.yearbook.people_separator");
             Body += GetPoliticalFactionDisplayName(
                 Axis, EPoliticalStance::Neutral);
             Body += L" ";
             Body += std::to_wstring(
                 Snapshot.PoliticalCount[AxisIndex][
                     static_cast<int>(EPoliticalStance::Neutral)]);
-            Body += L"명 / ";
+            Body += UIStrings::Get(L"almanac.yearbook.people_separator");
             Body += GetPoliticalFactionDisplayName(
                 Axis, EPoliticalStance::Right);
             Body += L" ";
             Body += std::to_wstring(
                 Snapshot.PoliticalCount[AxisIndex][
                     static_cast<int>(EPoliticalStance::Right)]);
-            Body += L"명\n";
+            Body += UIStrings::Get(L"almanac.yearbook.people_suffix_newline");
         }
 
         return Body;

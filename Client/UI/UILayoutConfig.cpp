@@ -143,6 +143,7 @@ namespace UIConfig
     float AlmanacWidePageColumnGap  = 24.f;
     float AlmanacPageTitleHeight    = 28.f;
     float AlmanacPageFrameTop       = 34.f;
+    float AlmanacOffscreenHideOffset = 200.f;
 
     // 건물 선택 UI
     float BuildingPanelWidthRatio          = 0.24f;
@@ -175,6 +176,8 @@ namespace UIConfig
     float CitizenPanelMaxWidth        = 410.f;
     float CitizenPanelTopOffset       = 58.f;
     float CitizenPanelBottomMargin    = 10.f;
+    float CitizenPanelRightInset      = 10.f;
+    float CitizenPanelMinHeight       = 420.f;
     float CitizenPanelInnerMarginX    = 18.f;
     float CitizenPanelInnerTopOffset  = 16.f;
     float CitizenPanelInnerBottomInset = 28.f;
@@ -437,6 +440,7 @@ namespace UIConfig
             else if (Key == "AlmanacWidePageColumnGap")   AlmanacWidePageColumnGap   = Val;
             else if (Key == "AlmanacPageTitleHeight")     AlmanacPageTitleHeight     = Val;
             else if (Key == "AlmanacPageFrameTop")        AlmanacPageFrameTop        = Val;
+            else if (Key == "AlmanacOffscreenHideOffset") AlmanacOffscreenHideOffset = Val;
             else return false;
             return true;
         }
@@ -471,6 +475,8 @@ namespace UIConfig
             else if (Key == "CitizenPanelMaxWidth")       CitizenPanelMaxWidth       = Val;
             else if (Key == "CitizenPanelTopOffset")      CitizenPanelTopOffset      = Val;
             else if (Key == "CitizenPanelBottomMargin")   CitizenPanelBottomMargin   = Val;
+            else if (Key == "CitizenPanelRightInset")     CitizenPanelRightInset     = Val;
+            else if (Key == "CitizenPanelMinHeight")      CitizenPanelMinHeight      = Val;
             else if (Key == "CitizenPanelInnerMarginX")   CitizenPanelInnerMarginX   = Val;
             else if (Key == "CitizenPanelInnerTopOffset") CitizenPanelInnerTopOffset = Val;
             else if (Key == "CitizenPanelInnerBottomInset") CitizenPanelInnerBottomInset = Val;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AlmanacWidget.h"
+#include "UIStrings.h"
 #include "TropicoUiStyle.h"
 #include "TropicoUiTheme.h"
 #include <Windows.h>
@@ -99,30 +100,30 @@ namespace
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Raids.png")
     };
 
-    constexpr const wchar_t* GPageTitles[static_cast<size_t>(EAlmanacPage::Count)] =
+    constexpr const wchar_t* GPageTitleKeys[static_cast<size_t>(EAlmanacPage::Count)] =
     {
-        L"개요",
-        L"만족도",
-        L"국민",
-        L"경제",
-        L"자원 개요",
-        L"정치",
-        L"대외관계",
-        L"건물 목록",
-        L"분쟁"
+        L"almanac.page.overview",
+        L"almanac.page.satisfaction",
+        L"almanac.page.population",
+        L"almanac.page.economy",
+        L"almanac.page.resources",
+        L"almanac.page.politics",
+        L"almanac.page.foreign",
+        L"almanac.page.buildings",
+        L"almanac.page.conflict"
     };
 
-    constexpr const wchar_t* GSatisfactionLabels[GSatisfactionRowCount] =
+    constexpr const wchar_t* GSatisfactionLabelKeys[GSatisfactionRowCount] =
     {
-        L"종합 만족도",
-        L"음식",
-        L"보건",
-        L"유흥",
-        L"신앙",
-        L"주거",
-        L"직업",
-        L"자유",
-        L"치안"
+        L"almanac.satisfaction.overall",
+        L"almanac.satisfaction.food",
+        L"almanac.satisfaction.health",
+        L"almanac.satisfaction.fun",
+        L"almanac.satisfaction.faith",
+        L"almanac.satisfaction.housing",
+        L"almanac.satisfaction.job",
+        L"almanac.satisfaction.freedom",
+        L"almanac.satisfaction.security"
     };
 
     constexpr const TCHAR* GSatisfactionIcons[GSatisfactionRowCount] =
@@ -159,11 +160,29 @@ namespace
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\FlagIcons\\T_ICO_flags_eu.png")
     };
 
-    constexpr const wchar_t* GSatisfactionTrendLabels[GSatisfactionGraphPointCount] =
+    constexpr const wchar_t* GSatisfactionTrendLabelKeys[GSatisfactionGraphPointCount] =
     {
-        L"3년전",
-        L"2년전",
-        L"1년전",
-        L"현재 연도"
+        L"almanac.trend.years_ago_3",
+        L"almanac.trend.years_ago_2",
+        L"almanac.trend.years_ago_1",
+        L"almanac.trend.current_year"
     };
+
+    inline const std::wstring& GetPageTitle(EAlmanacPage Page)
+    {
+        return UIStrings::Get(
+            GPageTitleKeys[static_cast<size_t>(Page)]);
+    }
+
+    inline const std::wstring& GetSatisfactionLabel(int Index)
+    {
+        return UIStrings::Get(
+            GSatisfactionLabelKeys[static_cast<size_t>(Index)]);
+    }
+
+    inline const std::wstring& GetSatisfactionTrendLabel(int Index)
+    {
+        return UIStrings::Get(
+            GSatisfactionTrendLabelKeys[static_cast<size_t>(Index)]);
+    }
 }

@@ -155,6 +155,7 @@ namespace UIConfig
     extern float AlmanacWidePageColumnGap;
     extern float AlmanacPageTitleHeight;
     extern float AlmanacPageFrameTop;
+    extern float AlmanacOffscreenHideOffset;
 
     // ── 건물 선택 UI ─────────────────────────────────────────
     extern float BuildingPanelWidthRatio;
@@ -187,6 +188,8 @@ namespace UIConfig
     extern float CitizenPanelMaxWidth;
     extern float CitizenPanelTopOffset;
     extern float CitizenPanelBottomMargin;
+    extern float CitizenPanelRightInset;
+    extern float CitizenPanelMinHeight;
     extern float CitizenPanelInnerMarginX;
     extern float CitizenPanelInnerTopOffset;
     extern float CitizenPanelInnerBottomInset;

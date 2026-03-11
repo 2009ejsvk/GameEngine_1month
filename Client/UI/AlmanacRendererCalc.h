@@ -14,7 +14,7 @@ namespace AlmanacRendererCalc
         bool ElectionWarningActive = false;
         FVector4 ElectionWarningTint = FVector4(0.31f, 0.27f, 0.21f, 1.f);
         std::wstring ElectionWarningSummary;
-        std::wstring TaxEventWorldEffectSummary = L"직접적인 월드 영향 없음";
+        std::wstring TaxEventWorldEffectSummary;
     };
 
     double ClampSatisfactionValue(double Value);

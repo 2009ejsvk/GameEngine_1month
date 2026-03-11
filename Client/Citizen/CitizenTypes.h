@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../UI/UIStrings.h"
 #include <string>
 
 // 시민 FSM 상태
@@ -34,11 +35,11 @@ inline const wchar_t* GetCitizenEducationDisplayName(
     switch (Level)
     {
     case ECitizenEducationLevel::HighSchool:
-        return L"고졸";
+        return UIStrings::Get(L"citizen.education.high_school").c_str();
     case ECitizenEducationLevel::College:
-        return L"대졸";
+        return UIStrings::Get(L"citizen.education.college").c_str();
     default:
-        return L"무학력";
+        return UIStrings::Get(L"citizen.education.uneducated").c_str();
     }
 }
 
@@ -54,11 +55,11 @@ inline const wchar_t* GetCitizenWealthDisplayName(ECitizenWealthLevel Level)
     switch (Level)
     {
     case ECitizenWealthLevel::WellOff:
-        return L"유복";
+        return UIStrings::Get(L"citizen.wealth.well_off").c_str();
     case ECitizenWealthLevel::Rich:
-        return L"부유";
+        return UIStrings::Get(L"citizen.wealth.rich").c_str();
     default:
-        return L"가난";
+        return UIStrings::Get(L"citizen.wealth.poor").c_str();
     }
 }
 
@@ -175,11 +176,19 @@ inline const wchar_t* GetPoliticalAxisDisplayName(EPoliticalAxis Axis)
 {
     switch (Axis)
     {
-    case EPoliticalAxis::Economy:                 return L"경제";
-    case EPoliticalAxis::ReligionMilitarism:      return L"신념";
-    case EPoliticalAxis::EnvironmentIndustry:     return L"산업";
-    case EPoliticalAxis::IntellectualConservative: return L"사회";
-    default: return L"정치";
+    case EPoliticalAxis::Economy:
+        return UIStrings::Get(L"citizen.politics.axis.economy").c_str();
+    case EPoliticalAxis::ReligionMilitarism:
+        return UIStrings::Get(
+            L"citizen.politics.axis.religion_militarism").c_str();
+    case EPoliticalAxis::EnvironmentIndustry:
+        return UIStrings::Get(
+            L"citizen.politics.axis.environment_industry").c_str();
+    case EPoliticalAxis::IntellectualConservative:
+        return UIStrings::Get(
+            L"citizen.politics.axis.intellectual_conservative").c_str();
+    default:
+        return UIStrings::Get(L"citizen.politics.axis.default").c_str();
     }
 }
 
@@ -191,32 +200,59 @@ inline const wchar_t* GetPoliticalFactionDisplayName(
     case EPoliticalAxis::Economy:
         switch (Stance)
         {
-        case EPoliticalStance::Left:  return L"자본주의자";
-        case EPoliticalStance::Right: return L"공산주의자";
-        default: return L"무관심";
+        case EPoliticalStance::Left:
+            return UIStrings::Get(
+                L"citizen.politics.faction.economy.left").c_str();
+        case EPoliticalStance::Right:
+            return UIStrings::Get(
+                L"citizen.politics.faction.economy.right").c_str();
+        default:
+            return UIStrings::Get(
+                L"citizen.politics.faction.neutral").c_str();
         }
     case EPoliticalAxis::ReligionMilitarism:
         switch (Stance)
         {
-        case EPoliticalStance::Left:  return L"종교인";
-        case EPoliticalStance::Right: return L"군국주의자";
-        default: return L"무관심";
+        case EPoliticalStance::Left:
+            return UIStrings::Get(
+                L"citizen.politics.faction.religion_militarism.left").c_str();
+        case EPoliticalStance::Right:
+            return UIStrings::Get(
+                L"citizen.politics.faction.religion_militarism.right").c_str();
+        default:
+            return UIStrings::Get(
+                L"citizen.politics.faction.neutral").c_str();
         }
     case EPoliticalAxis::EnvironmentIndustry:
         switch (Stance)
         {
-        case EPoliticalStance::Left:  return L"환경주의자";
-        case EPoliticalStance::Right: return L"실업가";
-        default: return L"무관심";
+        case EPoliticalStance::Left:
+            return UIStrings::Get(
+                L"citizen.politics.faction.environment_industry.left").c_str();
+        case EPoliticalStance::Right:
+            return UIStrings::Get(
+                L"citizen.politics.faction.environment_industry.right").c_str();
+        default:
+            return UIStrings::Get(
+                L"citizen.politics.faction.neutral").c_str();
         }
     case EPoliticalAxis::IntellectualConservative:
         switch (Stance)
         {
-        case EPoliticalStance::Left:  return L"지식인";
-        case EPoliticalStance::Right: return L"보수주의자";
-        default: return L"무관심";
+        case EPoliticalStance::Left:
+            return UIStrings::Get(
+                L"citizen.politics.faction.intellectual_conservative.left")
+                .c_str();
+        case EPoliticalStance::Right:
+            return UIStrings::Get(
+                L"citizen.politics.faction.intellectual_conservative.right")
+                .c_str();
+        default:
+            return UIStrings::Get(
+                L"citizen.politics.faction.neutral").c_str();
         }
-    default: return L"무관심";
+    default:
+        return UIStrings::Get(L"citizen.politics.faction.neutral").c_str();
     }
 }
 
@@ -224,8 +260,11 @@ inline const wchar_t* GetPoliticalSupportDisplayName(EPoliticalSupportLevel Supp
 {
     switch (Support)
     {
-    case EPoliticalSupportLevel::Weak:   return L"약함";
-    case EPoliticalSupportLevel::Strong: return L"강함";
-    default: return L"보통";
+    case EPoliticalSupportLevel::Weak:
+        return UIStrings::Get(L"citizen.politics.support.weak").c_str();
+    case EPoliticalSupportLevel::Strong:
+        return UIStrings::Get(L"citizen.politics.support.strong").c_str();
+    default:
+        return UIStrings::Get(L"citizen.politics.support.normal").c_str();
     }
 }

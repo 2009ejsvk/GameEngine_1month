@@ -5,13 +5,60 @@
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
 #include <algorithm>
+#include <cassert>
+#include <cmath>
 
 using namespace CitizenInfoRendererInternal;
+
+void FCitizenInfoRenderer::ValidateSnapshotForDebug(
+    const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot)
+{
+#ifndef NDEBUG
+    auto IsRatio = [](float Value)
+    {
+        return std::isfinite(Value) &&
+            Value >= -0.01f &&
+            Value <= 1.01f;
+    };
+
+    const int VisibleTabCount =
+        Snapshot.Mode == CitizenInfoDataProvider::EPanelMode::Citizen ?
+            GCitizenTabCount :
+            GBuildingTabCount;
+
+    assert(Snapshot.SelectedTabIndex >= 0);
+    assert(Snapshot.SelectedTabIndex < VisibleTabCount);
+    assert(Snapshot.BudgetLevel >= 1);
+    assert(Snapshot.BudgetLevel <= GBudgetLevelCount);
+    assert(Snapshot.OverviewResidentCount >= 0);
+    assert(Snapshot.OverviewResidentCapacity >= 0);
+    assert(Snapshot.OverviewVisitorCount >= 0);
+    assert(Snapshot.OverviewVisitorCapacity >= 0);
+    assert(Snapshot.CitizenPortraitSlotCount >= 0);
+    assert(
+        Snapshot.CitizenPortraitSlotCount <=
+        CCitizenInfoWidget::GOverviewResidentSlotCount);
+    assert(
+        Snapshot.CitizenPortraitOccupiedSlot == -1 ||
+        (Snapshot.CitizenPortraitOccupiedSlot >= 0 &&
+            Snapshot.CitizenPortraitOccupiedSlot <
+                Snapshot.CitizenPortraitSlotCount));
+    assert(IsRatio(Snapshot.CitizenPoliticsSupportRatio));
+
+    for (float Ratio : Snapshot.CitizenPoliticsSatisfactionRatios)
+    {
+        assert(IsRatio(Ratio));
+    }
+#else
+    (void)Snapshot;
+#endif
+}
 
 void FCitizenInfoRenderer::ApplySnapshot(
     CCitizenInfoWidget& Widget,
     const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot)
 {
+    ValidateSnapshotForDebug(Snapshot);
     const bool IsCitizenMode =
         (Snapshot.Mode == CitizenInfoDataProvider::EPanelMode::Citizen);
     const bool ShowCitizenProfile = Snapshot.ShowCitizenProfileOverview;

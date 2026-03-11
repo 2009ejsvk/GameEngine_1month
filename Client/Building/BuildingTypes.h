@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../UI/UIStrings.h"
 #include "Vector4.h"
 #include <algorithm>
 #include <array>
@@ -34,15 +35,15 @@ inline const wchar_t* GetBuildingEraDisplayName(EBuildingEra Era)
     switch (Era)
     {
     case EBuildingEra::Colonial:
-        return L"식민지 시대";
+        return UIStrings::Get(L"building.era.colonial").c_str();
     case EBuildingEra::WorldWars:
-        return L"세계대전 시대";
+        return UIStrings::Get(L"building.era.world_wars").c_str();
     case EBuildingEra::ColdWar:
-        return L"냉전 시대";
+        return UIStrings::Get(L"building.era.cold_war").c_str();
     case EBuildingEra::Modern:
-        return L"현대 시대";
+        return UIStrings::Get(L"building.era.modern").c_str();
     default:
-        return L"시대 미정";
+        return UIStrings::Get(L"building.era.unknown").c_str();
     }
 }
 
@@ -79,19 +80,23 @@ inline const wchar_t* GetTouristPreferenceDisplayName(
     switch (Preference)
     {
     case ETouristPreference::Cultural:
-        return L"문화";
+        return UIStrings::Get(L"building.tourist_preference.cultural").c_str();
     case ETouristPreference::Family:
-        return L"아동";
+        return UIStrings::Get(L"building.tourist_preference.family").c_str();
     case ETouristPreference::Backpacker:
-        return L"배낭여행";
+        return UIStrings::Get(
+            L"building.tourist_preference.backpacker").c_str();
     case ETouristPreference::Relaxation:
-        return L"휴양";
+        return UIStrings::Get(
+            L"building.tourist_preference.relaxation").c_str();
     case ETouristPreference::ThrillSeeker:
-        return L"스릴중독";
+        return UIStrings::Get(
+            L"building.tourist_preference.thrill_seeker").c_str();
     case ETouristPreference::Celebrity:
-        return L"유명인";
+        return UIStrings::Get(
+            L"building.tourist_preference.celebrity").c_str();
     default:
-        return L"미기재";
+        return UIStrings::Get(L"building.tourist_preference.unknown").c_str();
     }
 }
 
@@ -110,15 +115,16 @@ inline const wchar_t* GetResourceTypeDisplayName(EResourceType Type)
     switch (Type)
     {
     case EResourceType::Food:
-        return L"식량";
+        return UIStrings::Get(L"building.resource_type.food").c_str();
     case EResourceType::RawGoods:
-        return L"원자재";
+        return UIStrings::Get(L"building.resource_type.raw_goods").c_str();
     case EResourceType::ManufacturedGoods:
-        return L"공산품";
+        return UIStrings::Get(
+            L"building.resource_type.manufactured_goods").c_str();
     case EResourceType::LuxuryGoods:
-        return L"고급 상품";
+        return UIStrings::Get(L"building.resource_type.luxury_goods").c_str();
     default:
-        return L"없음";
+        return UIStrings::Get(L"building.resource_type.none").c_str();
     }
 }
 
