@@ -1,5 +1,7 @@
 #include "EdictDataProvider.h"
+#include "EdictConstants.h"
 #include "EdictWidget.h"
+#include "UIStrings.h"
 #include "../Politics/EdictSystem.h"
 #include "../World/MainWorldAccess.h"
 #include "World/World.h"
@@ -10,19 +12,10 @@
 
 namespace
 {
-    constexpr int GEdictSlotsPerPage = 14;
-    constexpr int GTaxPolicyRowCount = 3;
-    constexpr bool GEnableTaxPolicyPanel = false;
+    using EdictConstants::GEdictSlotsPerPage;
+    using EdictConstants::GTaxPolicyRowCount;
     constexpr const TCHAR* GCostIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_money.png");
-
-    const wchar_t* GCategoryLabels[] =
-    {
-        L"식민지 시대",
-        L"세계대전 시대",
-        L"냉전 시대",
-        L"현대 시대"
-    };
 
     const ETaxPolicyType GTaxPolicyTypes[GTaxPolicyRowCount] =
     {
@@ -37,7 +30,8 @@ namespace
         bool CoolingDown = false;
         bool CanApply = false;
         long long ActivationCost = 0;
-        std::wstring StatusText = L"상태 확인 중";
+        std::wstring StatusText =
+            UIStrings::Get(L"edict.status.checking");
         std::wstring RequirementText;
     };
 
@@ -98,12 +92,19 @@ namespace
 
     const wchar_t* GetCategoryLabel(EEdictUiCategory Category)
     {
-        const int Index = static_cast<int>(Category);
-
-        if (Index < 0 || Index >= static_cast<int>(std::size(GCategoryLabels)))
-            return L"칙령";
-
-        return GCategoryLabels[Index];
+        switch (Category)
+        {
+        case EEdictUiCategory::Colonial:
+            return UIStrings::Get(L"edict.category.colonial").c_str();
+        case EEdictUiCategory::WorldWars:
+            return UIStrings::Get(L"edict.category.world_wars").c_str();
+        case EEdictUiCategory::ColdWar:
+            return UIStrings::Get(L"edict.category.cold_war").c_str();
+        case EEdictUiCategory::Modern:
+            return UIStrings::Get(L"edict.category.modern").c_str();
+        default:
+            return UIStrings::Get(L"edict.category.fallback").c_str();
+        }
     }
 
     ETaxPolicyEventType ResolveRequiredTaxPolicyEvent(
@@ -128,13 +129,13 @@ namespace
         switch (Type)
         {
         case ETaxPolicyEventType::WorkerTaxStrike:
-            return L"근로층 세금 파업";
+            return UIStrings::Get(L"edict.tax_event.worker_tax_strike").c_str();
         case ETaxPolicyEventType::PropertyTaxBacklash:
-            return L"재산세 반발";
+            return UIStrings::Get(L"edict.tax_event.property_tax_backlash").c_str();
         case ETaxPolicyEventType::BudgetCrisis:
-            return L"국고 위기";
+            return UIStrings::Get(L"edict.tax_event.budget_crisis").c_str();
         default:
-            return L"세금 사건";
+            return UIStrings::Get(L"edict.tax_event.generic").c_str();
         }
     }
 
@@ -148,8 +149,9 @@ namespace
 
         if (!Definition.Implemented)
         {
-            Info.StatusText = L"준비 중";
-            Info.RequirementText = L"아직 구현되지 않은 칙령입니다.";
+            Info.StatusText = UIStrings::Get(L"edict.status.preparing");
+            Info.RequirementText =
+                UIStrings::Get(L"edict.requirement.not_implemented");
             Info.ActivationCost = 0;
             return Info;
         }
@@ -174,35 +176,33 @@ namespace
             if (State->Active)
             {
                 Info.CanApply = true;
-                Info.StatusText = L"활성";
+                Info.StatusText = UIStrings::Get(L"edict.status.active");
                 return Info;
             }
 
             Info.CanApply = true;
-            Info.StatusText = L"사용 가능";
+            Info.StatusText = UIStrings::Get(L"edict.status.available");
         }
         else
         {
             if (State->Active)
             {
-                Info.StatusText =
-                    L"시행 중 (" +
-                    std::to_wstring((std::max)(0, State->RemainingDays)) +
-                    L"일 남음)";
+                Info.StatusText = UIStrings::Format(
+                    L"edict.status.active_template",
+                    { std::to_wstring((std::max)(0, State->RemainingDays)) });
                 return Info;
             }
 
             if (State->CooldownDays > 0)
             {
-                Info.StatusText =
-                    L"재사용 대기 (" +
-                    std::to_wstring(State->CooldownDays) +
-                    L"일)";
+                Info.StatusText = UIStrings::Format(
+                    L"edict.status.cooldown_template",
+                    { std::to_wstring(State->CooldownDays) });
                 return Info;
             }
 
             Info.CanApply = true;
-            Info.StatusText = L"시행 가능";
+            Info.StatusText = UIStrings::Get(L"edict.status.can_apply");
         }
 
         const ETaxPolicyEventType RequiredTaxEvent =
@@ -217,9 +217,10 @@ namespace
                 TaxEventStatus.Type != RequiredTaxEvent)
             {
                 Info.CanApply = false;
-                Info.StatusText = L"조건 미충족";
+                Info.StatusText =
+                    UIStrings::Get(L"edict.status.requirement_missing");
                 Info.RequirementText =
-                    std::wstring(L"대응 사건 필요: ") +
+                    UIStrings::Get(L"edict.requirement.event_prefix") +
                     GetTaxPolicyEventDisplayName(RequiredTaxEvent);
                 return Info;
             }
@@ -229,8 +230,10 @@ namespace
             Info.ActivationCost > MainWorld->GetNationalBudget())
         {
             Info.CanApply = false;
-            Info.StatusText = L"예산 부족";
-            Info.RequirementText = L"예산 부족";
+            Info.StatusText =
+                UIStrings::Get(L"edict.status.budget_shortage");
+            Info.RequirementText =
+                UIStrings::Get(L"edict.status.budget_shortage");
             return Info;
         }
 
@@ -269,7 +272,11 @@ namespace
         const std::shared_ptr<IMainWorldEdictReadAccess>& MainWorld)
     {
         EdictDataProvider::FEdictTaxPolicySnapshot Result;
-        Result.ShowPanel = GEnableTaxPolicyPanel;
+        Result.ShowPanel = EdictConstants::IsTaxPolicyPanelEnabled();
+
+        if (!Result.ShowPanel)
+            return Result;
+
         Result.Rows.resize(GTaxPolicyRowCount);
 
         const FTaxPolicy* TaxPolicy = nullptr;
@@ -301,23 +308,26 @@ namespace
                 MainWorld->GetTaxPolicyEventStatus();
 
             Result.SummaryText =
-                L"오늘 세수 " +
-                FormatCurrency(MainWorld->GetLastDailyTaxIncome()) +
-                L"\n다음 일일 정산부터 반영";
+                UIStrings::Format(
+                    L"edict.tax_policy.daily_income_template",
+                    { FormatCurrency(MainWorld->GetLastDailyTaxIncome()) });
 
             if (TaxEventStatus.Active)
             {
                 Result.SummaryText +=
-                    L"\n활성 사건: " +
-                    TaxEventStatus.Title +
-                    L" (" +
-                    std::to_wstring((std::max)(0, TaxEventStatus.RemainingDays)) +
-                    L"일)";
+                    UIStrings::Format(
+                        L"edict.tax_policy.active_event_template",
+                        {
+                            TaxEventStatus.Title,
+                            std::to_wstring(
+                                (std::max)(0, TaxEventStatus.RemainingDays))
+                        });
             }
         }
         else
         {
-            Result.SummaryText = L"세금 보고 준비 중";
+            Result.SummaryText =
+                UIStrings::Get(L"edict.tax_policy.summary_pending");
         }
 
         return Result;
@@ -362,17 +372,15 @@ namespace
         if (!Definition.Implemented)
         {
             Result.CostText = L"$0";
-            Result.InfoText = L"준비 중  |  참고용 칙령";
-            Result.BodyText =
-                L"아이콘과 시대 배치만 연결된 칙령입니다.\n"
-                L"실제 효과와 적용 로직은 아직 연결되지 않았습니다.";
+            Result.InfoText = UIStrings::Get(L"edict.detail.reference_only");
+            Result.BodyText = UIStrings::Get(L"edict.detail.reference_body");
             Result.RequirementText =
-                L"미구현: 아직 게임 로직이 연결되지 않았습니다.";
+                UIStrings::Get(L"edict.detail.not_implemented");
             Result.RequirementTone =
                 EdictDataProvider::EEdictRequirementTone::Warning;
             Result.ActionMode =
                 EdictDataProvider::EEdictActionVisualMode::Waiting;
-            Result.ActionLabel = L"준비 중";
+            Result.ActionLabel = UIStrings::Get(L"edict.action.preparing");
             return Result;
         }
 
@@ -383,8 +391,8 @@ namespace
             Availability.StatusText +
             L"  |  " +
             (Definition.Mode == EGovernmentEdictMode::Passive ?
-                L"상시 칙령" :
-                L"기간 칙령");
+                UIStrings::Get(L"edict.detail.passive") :
+                UIStrings::Get(L"edict.detail.active"));
         Result.CostText = FormatCurrency(Availability.ActivationCost);
 
         if (!Definition.EffectText.empty())
@@ -398,9 +406,9 @@ namespace
         if (Definition.MonthlyUpkeep > 0)
         {
             Result.BodyText +=
-                L"\n\n매달 유지비 " +
+                UIStrings::Get(L"edict.detail.monthly_upkeep_prefix") +
                 FormatCurrency(Definition.MonthlyUpkeep) +
-                L"이 소요됩니다.";
+                UIStrings::Get(L"edict.detail.monthly_upkeep_suffix");
         }
 
         if (Definition.Mode == EGovernmentEdictMode::Active)
@@ -408,9 +416,9 @@ namespace
             const int DurationMonths =
                 FormatDaysToMonths(Definition.DurationDays);
             Result.InfoText +=
-                L"  |  지속 " +
+                UIStrings::Get(L"edict.detail.duration_prefix") +
                 std::to_wstring(DurationMonths) +
-                L"개월";
+                UIStrings::Get(L"edict.detail.duration_suffix");
         }
 
         if (Definition.CooldownDays > 0)
@@ -418,9 +426,9 @@ namespace
             const int CooldownMonths =
                 FormatDaysToMonths(Definition.CooldownDays);
             Result.InfoText +=
-                L"  |  재사용 " +
+                UIStrings::Get(L"edict.detail.cooldown_prefix") +
                 std::to_wstring(CooldownMonths) +
-                L"개월";
+                UIStrings::Get(L"edict.detail.cooldown_suffix");
         }
 
         if (!Availability.CanApply &&
@@ -429,14 +437,15 @@ namespace
             !Availability.RequirementText.empty())
         {
             Result.RequirementText =
-                L"미충족: " + Availability.RequirementText;
+                UIStrings::Get(L"edict.requirement.unmet_prefix") +
+                Availability.RequirementText;
         }
 
         if (MainWorld && RequiredTaxEvent != ETaxPolicyEventType::None)
         {
             Result.BodyText +=
-                L"\n\n필요 사건: " +
-                std::wstring(GetTaxPolicyEventDisplayName(RequiredTaxEvent));
+                UIStrings::Get(L"edict.detail.required_event_prefix") +
+                GetTaxPolicyEventDisplayName(RequiredTaxEvent);
 
             const FTaxPolicyEventStatus& TaxEventStatus =
                 MainWorld->GetTaxPolicyEventStatus();
@@ -444,22 +453,25 @@ namespace
             if (TaxEventStatus.Active &&
                 TaxEventStatus.Type == RequiredTaxEvent)
             {
-                Result.InfoText += L"  |  대응 가능";
+                Result.InfoText += UIStrings::Get(L"edict.detail.event_ready");
             }
             else if (!Availability.CanApply)
             {
                 if (TaxEventStatus.Active)
                 {
                     Result.RequirementText =
-                        L"미충족: 현재 사건은 " + TaxEventStatus.Title;
+                        UIStrings::Get(
+                            L"edict.requirement.current_event_prefix") +
+                        TaxEventStatus.Title;
                 }
                 else if (Result.RequirementText.empty())
                 {
                     Result.RequirementText =
-                        L"미충족: " +
+                        UIStrings::Get(L"edict.requirement.unmet_prefix") +
                         std::wstring(
                             GetTaxPolicyEventDisplayName(RequiredTaxEvent)) +
-                        L" 발생 필요";
+                        UIStrings::Get(
+                            L"edict.requirement.event_needed_suffix");
                 }
             }
         }
@@ -469,7 +481,8 @@ namespace
             !Availability.CoolingDown)
         {
             Result.RequirementTone =
-                Availability.RequirementText == L"예산 부족" ?
+                Availability.RequirementText ==
+                    UIStrings::Get(L"edict.status.budget_shortage") ?
                 EdictDataProvider::EEdictRequirementTone::BudgetShortage :
                 EdictDataProvider::EEdictRequirementTone::Warning;
         }
@@ -482,38 +495,44 @@ namespace
         {
             Result.ActionMode =
                 EdictDataProvider::EEdictActionVisualMode::Active;
-            Result.ActionLabel = L"활성";
+            Result.ActionLabel = UIStrings::Get(L"edict.action.active");
         }
         else if (Availability.CoolingDown)
         {
             Result.ActionMode =
                 EdictDataProvider::EEdictActionVisualMode::CoolingDown;
-            Result.ActionLabel = L"대기";
+            Result.ActionLabel = UIStrings::Get(L"edict.action.waiting");
         }
         else if (Availability.CanApply)
         {
             Result.ActionMode =
                 EdictDataProvider::EEdictActionVisualMode::Primary;
-            Result.ActionLabel = L"시행";
+            Result.ActionLabel = UIStrings::Get(L"edict.action.apply");
             Result.ActionEnabled = true;
         }
-        else if (Availability.RequirementText == L"예산 부족")
+        else if (
+            Availability.RequirementText ==
+                UIStrings::Get(L"edict.status.budget_shortage"))
         {
             Result.ActionMode =
                 EdictDataProvider::EEdictActionVisualMode::BudgetShortage;
-            Result.ActionLabel = L"예산 부족";
+            Result.ActionLabel =
+                UIStrings::Get(L"edict.action.budget_shortage");
         }
         else if (!Result.RequirementText.empty())
         {
             Result.ActionMode =
                 EdictDataProvider::EEdictActionVisualMode::Requirement;
-            Result.ActionLabel = L"조건 필요";
+            Result.ActionLabel =
+                UIStrings::Get(L"edict.action.requirement");
         }
         else
         {
             Result.ActionMode =
                 EdictDataProvider::EEdictActionVisualMode::Waiting;
-            Result.ActionLabel = MainWorld ? L"대기" : L"정보 없음";
+            Result.ActionLabel = MainWorld ?
+                UIStrings::Get(L"edict.action.waiting") :
+                UIStrings::Get(L"edict.action.no_info");
         }
 
         return Result;

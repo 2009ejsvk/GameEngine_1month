@@ -111,7 +111,7 @@ void FEdictRenderer::CreateWidgets(CEdictWidget& Widget)
         const int CategoryIndex =
             (std::max)(0, (std::min)(GEdictCategoryCount - 1,
                 static_cast<int>(Widget.mSelectedCategory)));
-        TitleText->SetText(GCategoryLabels[CategoryIndex]);
+        TitleText->SetText(GetCategoryLabelText(CategoryIndex).c_str());
         TitleText->SetFontSize(32.f);
         TitleText->SetAlignH(ETextAlignH::Center);
         TitleText->SetAlignV(ETextAlignV::Middle);
@@ -370,7 +370,8 @@ void FEdictRenderer::CreateWidgets(CEdictWidget& Widget)
 
     if (DetailTitleText)
     {
-        DetailTitleText->SetText(TEXT("칙령 정보"));
+        DetailTitleText->SetText(
+            UIStrings::Get(L"edict.detail.panel_title").c_str());
         DetailTitleText->SetFontSize(26.f);
         DetailTitleText->SetAlignH(ETextAlignH::Center);
         DetailTitleText->SetAlignV(ETextAlignV::Middle);
@@ -446,7 +447,8 @@ void FEdictRenderer::CreateWidgets(CEdictWidget& Widget)
 
     if (DetailBodyText)
     {
-        DetailBodyText->SetText(TEXT("칙령을 클릭하면 상세 정보가 표시됩니다."));
+        DetailBodyText->SetText(
+            UIStrings::Get(L"edict.detail.placeholder").c_str());
         DetailBodyText->SetFontSize(15.f);
         DetailBodyText->SetAlignH(ETextAlignH::Left);
         DetailBodyText->SetAlignV(ETextAlignV::Top);
@@ -497,7 +499,8 @@ void FEdictRenderer::CreateWidgets(CEdictWidget& Widget)
 
         if (ApplyButtonText)
         {
-            ApplyButtonText->SetText(TEXT("시행"));
+            ApplyButtonText->SetText(
+                UIStrings::Get(L"edict.action.apply").c_str());
             ApplyButtonText->SetFontSize(20.f);
             ApplyButtonText->SetAlignH(ETextAlignH::Center);
             ApplyButtonText->SetAlignV(ETextAlignV::Middle);
@@ -517,7 +520,8 @@ void FEdictRenderer::CreateWidgets(CEdictWidget& Widget)
 
     if (TaxPolicyTitleText)
     {
-        TaxPolicyTitleText->SetText(TEXT("세금 정책"));
+        TaxPolicyTitleText->SetText(
+            UIStrings::Get(L"edict.tax_policy.title").c_str());
         TaxPolicyTitleText->SetFontSize(16.f);
         TaxPolicyTitleText->SetAlignH(ETextAlignH::Left);
         TaxPolicyTitleText->SetAlignV(ETextAlignV::Middle);
@@ -533,7 +537,8 @@ void FEdictRenderer::CreateWidgets(CEdictWidget& Widget)
 
     if (TaxPolicySummaryText)
     {
-        TaxPolicySummaryText->SetText(TEXT("다음 일일 정산부터 반영"));
+        TaxPolicySummaryText->SetText(
+            UIStrings::Get(L"edict.tax_policy.summary_apply_next").c_str());
         TaxPolicySummaryText->SetFontSize(11.f);
         TaxPolicySummaryText->SetAlignH(ETextAlignH::Left);
         TaxPolicySummaryText->SetAlignV(ETextAlignV::Top);

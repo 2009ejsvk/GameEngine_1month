@@ -1,5 +1,6 @@
 #include "TopHudRenderer.h"
 #include "TopHudWidget.h"
+#include "UIStrings.h"
 #include "TropicoUiStyle.h"
 #include "UILayoutConfig.h"
 #include "UI/Button.h"
@@ -59,16 +60,16 @@ namespace
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Almanac.png")
     };
 
-    const wchar_t* const GMenuLabels[GMenuButtonCount] =
+    const wchar_t* const GMenuLabelKeys[GMenuButtonCount] =
     {
-        L"임무",
-        L"건설",
-        L"칙령",
-        L"헌법",
-        L"무역",
-        L"원정",
-        L"연구",
-        L"연감"
+        L"top_hud.menu.mission",
+        L"top_hud.menu.construction",
+        L"top_hud.menu.edict",
+        L"top_hud.menu.constitution",
+        L"top_hud.menu.trade",
+        L"top_hud.menu.raid",
+        L"top_hud.menu.research",
+        L"top_hud.menu.almanac"
     };
 
     void ConfigureIconButtonStyle(const std::shared_ptr<CButton>& Button)
@@ -191,7 +192,7 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
     if (BudgetLabelText)
     {
-        BudgetLabelText->SetText(TEXT("예산"));
+        BudgetLabelText->SetText(UIStrings::Get(L"top_hud.label.budget").c_str());
         BudgetLabelText->SetFontSize(12.f);
         BudgetLabelText->SetAlignH(ETextAlignH::Left);
         BudgetLabelText->SetAlignV(ETextAlignV::Middle);
@@ -269,7 +270,7 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
     if (NpcLabelText)
     {
-        NpcLabelText->SetText(TEXT("인구"));
+        NpcLabelText->SetText(UIStrings::Get(L"top_hud.label.population").c_str());
         NpcLabelText->SetFontSize(12.f);
         NpcLabelText->SetAlignH(ETextAlignH::Left);
         NpcLabelText->SetAlignV(ETextAlignV::Middle);
@@ -301,7 +302,7 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
     if (SupportLabelText)
     {
-        SupportLabelText->SetText(TEXT("지지율"));
+        SupportLabelText->SetText(UIStrings::Get(L"top_hud.label.support").c_str());
         SupportLabelText->SetFontSize(12.f);
         SupportLabelText->SetAlignH(ETextAlignH::Left);
         SupportLabelText->SetAlignV(ETextAlignV::Middle);
@@ -317,7 +318,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
     if (ElectionText)
     {
-        ElectionText->SetText(TEXT("차기 선거 -"));
+        ElectionText->SetText(
+            UIStrings::Get(L"top_hud.placeholder.election").c_str());
         ConfigureInfoText(ElectionText, 15.f, 238, 229, 198);
         Widget.mElectionText = ElectionText;
     }
@@ -327,7 +329,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
     if (TaxPolicyText)
     {
-        TaxPolicyText->SetText(TEXT("세금 -"));
+        TaxPolicyText->SetText(
+            UIStrings::Get(L"top_hud.placeholder.tax_policy").c_str());
         ConfigureInfoText(TaxPolicyText, 13.f, 186, 173, 144);
         Widget.mTaxPolicyText = TaxPolicyText;
     }
@@ -337,7 +340,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
     if (EventText)
     {
-        EventText->SetText(TEXT("현재 상태 안정"));
+        EventText->SetText(
+            UIStrings::Get(L"top_hud.placeholder.event_stable").c_str());
         ConfigureInfoText(EventText, 13.f, 208, 226, 198);
         Widget.mEventText = EventText;
     }
@@ -369,7 +373,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
     if (GameOverTitleText)
     {
-        GameOverTitleText->SetText(TEXT("정권 상실"));
+        GameOverTitleText->SetText(
+            UIStrings::Get(L"top_hud.game_over.title").c_str());
         GameOverTitleText->SetFontSize(26.f);
         GameOverTitleText->SetAlignH(ETextAlignH::Center);
         GameOverTitleText->SetAlignV(ETextAlignV::Middle);
@@ -500,7 +505,7 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         if (!MenuText)
             continue;
 
-        MenuText->SetText(GMenuLabels[i]);
+        MenuText->SetText(UIStrings::Get(GMenuLabelKeys[i]).c_str());
         MenuText->SetFontSize(12.f);
         MenuText->SetAlignH(ETextAlignH::Center);
         MenuText->SetAlignV(ETextAlignV::Middle);

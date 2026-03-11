@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EdictConstants.h"
 #include "../Politics/PoliticalTypes.h"
 #include "UI/WidgetContainer.h"
 #include <string>
@@ -72,6 +73,7 @@ private:
     int   mPageCount = 1;
     float mPanelWidth = 1120.f;
     float mPanelHeight = 760.f;
+    bool  mShowTaxPolicyPanel = false;
     std::wstring mFeedbackMessage;
     int   mLastLayoutWidth = 0;
     int   mLastLayoutHeight = 0;

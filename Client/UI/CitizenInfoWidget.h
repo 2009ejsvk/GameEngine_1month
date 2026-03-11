@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CitizenInfoConstants.h"
 #include "UI/WidgetContainer.h"
 #include <array>
 #include <string>
@@ -30,18 +31,11 @@ private:
         Building
     };
 
-    enum class EBuildingInfoTab
-    {
-        Overview = 0,
-        Statistics,
-        Upgrades,
-        Efficiency,
-        Information,
-        Count
-    };
-
-    static constexpr int GBuildingTabCount =
-        static_cast<int>(EBuildingInfoTab::Count);
+    using ECitizenInfoTab = CitizenInfoConstants::ECitizenInfoTab;
+    using EBuildingInfoTab = CitizenInfoConstants::EBuildingInfoTab;
+    static constexpr int GCitizenTabCount = CitizenInfoConstants::GCitizenTabCount;
+    static constexpr int GBuildingTabCount = CitizenInfoConstants::GBuildingTabCount;
+    static constexpr int GTabButtonCount = CitizenInfoConstants::GTabButtonCount;
     static constexpr int GBudgetLevelCount = 5;
     static constexpr int GOverviewResidentSlotCount = 16;
     static constexpr int GOverviewVisitorSlotCount = 12;
@@ -54,96 +48,204 @@ private:
     static constexpr int GCitizenThoughtCount = 5;
     static constexpr int GCitizenThoughtDividerCount = 4;
 
-    EPanelMode mPanelMode = EPanelMode::Citizen;
-    EBuildingInfoTab mSelectedBuildingTab = EBuildingInfoTab::Overview;
+    using WImage = std::weak_ptr<class CImage>;
+    using WText = std::weak_ptr<class CTextBlock>;
+    using WButton = std::weak_ptr<class CButton>;
 
-    std::weak_ptr<class CImage> mPanelImage;
-    std::weak_ptr<class CImage> mInnerFrame;
-    std::weak_ptr<class CImage> mTitleRibbon;
-    std::weak_ptr<class CImage> mSectionRibbon;
-    std::weak_ptr<class CImage> mScrollTrack;
-    std::weak_ptr<class CImage> mScrollThumb;
-    std::weak_ptr<class CImage> mTitleIcon;
-    std::weak_ptr<class CTextBlock> mTitleText;
-    std::weak_ptr<class CTextBlock> mSubtitleText;
-    std::weak_ptr<class CImage> mSectionDivider;
-    std::weak_ptr<class CTextBlock> mPageTitleText;
-    std::weak_ptr<class CTextBlock> mBodyText;
-    std::weak_ptr<class CTextBlock> mBudgetText;
-    std::weak_ptr<class CButton> mCloseButton;
-    std::weak_ptr<class CButton> mDemolishButton;
-    std::weak_ptr<class CButton> mMoveButton;
-    std::weak_ptr<class CButton> mCloneButton;
-    std::weak_ptr<class CButton> mOverviewCommandButton;
-    std::weak_ptr<class CTextBlock> mOverviewCommandButtonText;
-    std::array<std::weak_ptr<class CButton>, GBuildingTabCount> mTabButtons;
-    std::array<std::weak_ptr<class CTextBlock>, GBuildingTabCount>
-        mTabButtonTexts;
-    std::array<std::weak_ptr<class CImage>, GBuildingTabCount>
-        mTabButtonIcons;
-    std::array<std::weak_ptr<class CButton>, GBudgetLevelCount> mBudgetButtons;
-    std::array<std::weak_ptr<class CTextBlock>, GBudgetLevelCount>
-        mBudgetButtonTexts;
-    std::weak_ptr<class CTextBlock> mOverviewWorkModeLabel;
-    std::weak_ptr<class CImage> mOverviewWorkModeBackground;
-    std::weak_ptr<class CTextBlock> mOverviewWorkModeText;
-    std::weak_ptr<class CTextBlock> mOverviewBudgetLabel;
-    std::weak_ptr<class CTextBlock> mOverviewBudgetValue;
-    std::weak_ptr<class CTextBlock> mOverviewOccupancyLabel;
-    std::weak_ptr<class CTextBlock> mOverviewOccupancyValue;
-    std::array<std::weak_ptr<class CImage>, GOverviewResidentSlotCount>
-        mOverviewResidentIcons;
-    std::array<std::weak_ptr<class CImage>, GOverviewVisitorSlotCount>
-        mOverviewVisitorIcons;
-    std::array<std::weak_ptr<class CTextBlock>, GOverviewMetricRowCount>
-        mOverviewMetricLabels;
-    std::array<std::weak_ptr<class CTextBlock>, GOverviewMetricRowCount>
-        mOverviewMetricValues;
-    std::weak_ptr<class CImage> mUpgradeCardBackground;
-    std::weak_ptr<class CImage> mUpgradeCardIcon;
-    std::weak_ptr<class CTextBlock> mUpgradeCardTitle;
-    std::weak_ptr<class CTextBlock> mUpgradeDescriptionText;
-    std::weak_ptr<class CTextBlock> mInformationAccentText;
-    std::weak_ptr<class CTextBlock> mInformationTopText;
-    std::weak_ptr<class CTextBlock> mInformationBottomText;
-    std::array<std::weak_ptr<class CImage>, GCitizenPoliticsSectionCount>
-        mCitizenPoliticsSectionBackgrounds;
-    std::array<std::weak_ptr<class CTextBlock>, GCitizenPoliticsSectionCount>
-        mCitizenPoliticsSectionTitles;
-    std::array<std::weak_ptr<class CTextBlock>, GCitizenPoliticsSatisfactionCount>
-        mCitizenPoliticsSatisfactionLabels;
-    std::array<std::weak_ptr<class CImage>, GCitizenPoliticsSatisfactionCount>
-        mCitizenPoliticsSatisfactionRails;
-    std::array<std::weak_ptr<class CImage>, GCitizenPoliticsSatisfactionCount>
-        mCitizenPoliticsSatisfactionFills;
-    std::array<std::weak_ptr<class CTextBlock>, GCitizenPoliticsOpinionCount>
-        mCitizenPoliticsOpinionTexts;
-    std::array<std::weak_ptr<class CImage>, GCitizenPoliticsSupportIconCount>
-        mCitizenPoliticsSupportIcons;
-    std::weak_ptr<class CImage> mCitizenPoliticsSupportRail;
-    std::weak_ptr<class CImage> mCitizenPoliticsSupportThumb;
-    std::weak_ptr<class CImage> mCitizenThoughtTitleBackground;
-    std::weak_ptr<class CTextBlock> mCitizenThoughtTitleText;
-    std::array<std::weak_ptr<class CTextBlock>, GCitizenThoughtCount>
-        mCitizenThoughtTexts;
-    std::array<std::weak_ptr<class CImage>, GCitizenThoughtDividerCount>
-        mCitizenThoughtDividers;
-    std::array<std::weak_ptr<class CButton>, GCitizenActionButtonCount>
-        mCitizenActionButtons;
-    std::array<std::weak_ptr<class CTextBlock>, GCitizenActionButtonCount>
-        mCitizenActionButtonTexts;
-    std::array<std::weak_ptr<class CImage>, GCitizenActionButtonCount>
-        mCitizenActionButtonIcons;
-    std::weak_ptr<class CTextBlock> mCitizenFooterText;
-    std::string mTrackedCitizenName;
-    std::string mTrackedBuildingName;
-    float mPanelWidth = 360.f;
-    float mPanelHeight = 720.f;
-    float mPanelTop = 56.f;
-    std::array<float, GCitizenPoliticsSatisfactionCount>
-        mCitizenPoliticsSatisfactionFillRatios = {};
-    float mCitizenPoliticsSupportRatio = 0.f;
-    FVector2 mRequestedScreenPos = FVector2(0.f, 0.f);
+    struct FPanelChromeWidgets
+    {
+        WImage PanelImage;
+        WImage InnerFrame;
+        WImage TitleRibbon;
+        WImage SectionRibbon;
+        WImage ScrollTrack;
+        WImage ScrollThumb;
+        WImage TitleIcon;
+        WText TitleText;
+        WText SubtitleText;
+        WImage SectionDivider;
+        WText PageTitleText;
+        WText BodyText;
+        WText BudgetText;
+        WButton CloseButton;
+        std::array<WButton, GTabButtonCount> TabButtons;
+        std::array<WText, GTabButtonCount> TabButtonTexts;
+        std::array<WImage, GTabButtonCount> TabButtonIcons;
+    };
+
+    struct FBuildingPanelWidgets
+    {
+        WButton DemolishButton;
+        WButton MoveButton;
+        WButton CloneButton;
+        WButton OverviewCommandButton;
+        WText OverviewCommandButtonText;
+        std::array<WButton, GBudgetLevelCount> BudgetButtons;
+        std::array<WText, GBudgetLevelCount> BudgetButtonTexts;
+        WText OverviewWorkModeLabel;
+        WImage OverviewWorkModeBackground;
+        WText OverviewWorkModeText;
+        WText OverviewBudgetLabel;
+        WText OverviewBudgetValue;
+        WText OverviewOccupancyLabel;
+        WText OverviewOccupancyValue;
+        std::array<WImage, GOverviewResidentSlotCount> OverviewResidentIcons;
+        std::array<WImage, GOverviewVisitorSlotCount> OverviewVisitorIcons;
+        std::array<WText, GOverviewMetricRowCount> OverviewMetricLabels;
+        std::array<WText, GOverviewMetricRowCount> OverviewMetricValues;
+        WImage UpgradeCardBackground;
+        WImage UpgradeCardIcon;
+        WText UpgradeCardTitle;
+        WText UpgradeDescriptionText;
+        WText InformationAccentText;
+        WText InformationTopText;
+        WText InformationBottomText;
+    };
+
+    struct FCitizenPanelWidgets
+    {
+        std::array<WImage, GCitizenPoliticsSectionCount>
+            PoliticsSectionBackgrounds;
+        std::array<WText, GCitizenPoliticsSectionCount>
+            PoliticsSectionTitles;
+        std::array<WText, GCitizenPoliticsSatisfactionCount>
+            PoliticsSatisfactionLabels;
+        std::array<WImage, GCitizenPoliticsSatisfactionCount>
+            PoliticsSatisfactionRails;
+        std::array<WImage, GCitizenPoliticsSatisfactionCount>
+            PoliticsSatisfactionFills;
+        std::array<WText, GCitizenPoliticsOpinionCount>
+            PoliticsOpinionTexts;
+        std::array<WImage, GCitizenPoliticsSupportIconCount>
+            PoliticsSupportIcons;
+        WImage PoliticsSupportRail;
+        WImage PoliticsSupportThumb;
+        WImage ThoughtTitleBackground;
+        WText ThoughtTitleText;
+        std::array<WText, GCitizenThoughtCount> ThoughtTexts;
+        std::array<WImage, GCitizenThoughtDividerCount> ThoughtDividers;
+        std::array<WButton, GCitizenActionButtonCount> ActionButtons;
+        std::array<WText, GCitizenActionButtonCount> ActionButtonTexts;
+        std::array<WImage, GCitizenActionButtonCount> ActionButtonIcons;
+        WText FooterText;
+    };
+
+    struct FPanelState
+    {
+        EPanelMode PanelMode = EPanelMode::Citizen;
+        ECitizenInfoTab SelectedCitizenTab = ECitizenInfoTab::Overview;
+        EBuildingInfoTab SelectedBuildingTab = EBuildingInfoTab::Overview;
+        std::string TrackedCitizenName;
+        std::string TrackedBuildingName;
+        float PanelWidth = 360.f;
+        float PanelHeight = 720.f;
+        float PanelTop = 56.f;
+        std::array<float, GCitizenPoliticsSatisfactionCount>
+            CitizenPoliticsSatisfactionFillRatios = {};
+        float CitizenPoliticsSupportRatio = 0.f;
+        FVector2 RequestedScreenPos = FVector2(0.f, 0.f);
+    };
+
+    // Primary ownership is grouped by mode/concern; aliases below keep
+    // existing renderer code working while callers migrate gradually.
+    FPanelChromeWidgets mChrome;
+    FBuildingPanelWidgets mBuildingPanel;
+    FCitizenPanelWidgets mCitizenPanel;
+    FPanelState mState;
+
+    // Compatibility aliases for existing renderer/data-provider code.
+    EPanelMode& mPanelMode = mState.PanelMode;
+    ECitizenInfoTab& mSelectedCitizenTab = mState.SelectedCitizenTab;
+    EBuildingInfoTab& mSelectedBuildingTab = mState.SelectedBuildingTab;
+
+    WImage& mPanelImage = mChrome.PanelImage;
+    WImage& mInnerFrame = mChrome.InnerFrame;
+    WImage& mTitleRibbon = mChrome.TitleRibbon;
+    WImage& mSectionRibbon = mChrome.SectionRibbon;
+    WImage& mScrollTrack = mChrome.ScrollTrack;
+    WImage& mScrollThumb = mChrome.ScrollThumb;
+    WImage& mTitleIcon = mChrome.TitleIcon;
+    WText& mTitleText = mChrome.TitleText;
+    WText& mSubtitleText = mChrome.SubtitleText;
+    WImage& mSectionDivider = mChrome.SectionDivider;
+    WText& mPageTitleText = mChrome.PageTitleText;
+    WText& mBodyText = mChrome.BodyText;
+    WText& mBudgetText = mChrome.BudgetText;
+    WButton& mCloseButton = mChrome.CloseButton;
+    std::array<WButton, GTabButtonCount>& mTabButtons = mChrome.TabButtons;
+    std::array<WText, GTabButtonCount>& mTabButtonTexts = mChrome.TabButtonTexts;
+    std::array<WImage, GTabButtonCount>& mTabButtonIcons = mChrome.TabButtonIcons;
+
+    WButton& mDemolishButton = mBuildingPanel.DemolishButton;
+    WButton& mMoveButton = mBuildingPanel.MoveButton;
+    WButton& mCloneButton = mBuildingPanel.CloneButton;
+    WButton& mOverviewCommandButton = mBuildingPanel.OverviewCommandButton;
+    WText& mOverviewCommandButtonText = mBuildingPanel.OverviewCommandButtonText;
+    std::array<WButton, GBudgetLevelCount>& mBudgetButtons = mBuildingPanel.BudgetButtons;
+    std::array<WText, GBudgetLevelCount>& mBudgetButtonTexts = mBuildingPanel.BudgetButtonTexts;
+    WText& mOverviewWorkModeLabel = mBuildingPanel.OverviewWorkModeLabel;
+    WImage& mOverviewWorkModeBackground = mBuildingPanel.OverviewWorkModeBackground;
+    WText& mOverviewWorkModeText = mBuildingPanel.OverviewWorkModeText;
+    WText& mOverviewBudgetLabel = mBuildingPanel.OverviewBudgetLabel;
+    WText& mOverviewBudgetValue = mBuildingPanel.OverviewBudgetValue;
+    WText& mOverviewOccupancyLabel = mBuildingPanel.OverviewOccupancyLabel;
+    WText& mOverviewOccupancyValue = mBuildingPanel.OverviewOccupancyValue;
+    std::array<WImage, GOverviewResidentSlotCount>& mOverviewResidentIcons =
+        mBuildingPanel.OverviewResidentIcons;
+    std::array<WImage, GOverviewVisitorSlotCount>& mOverviewVisitorIcons =
+        mBuildingPanel.OverviewVisitorIcons;
+    std::array<WText, GOverviewMetricRowCount>& mOverviewMetricLabels =
+        mBuildingPanel.OverviewMetricLabels;
+    std::array<WText, GOverviewMetricRowCount>& mOverviewMetricValues =
+        mBuildingPanel.OverviewMetricValues;
+    WImage& mUpgradeCardBackground = mBuildingPanel.UpgradeCardBackground;
+    WImage& mUpgradeCardIcon = mBuildingPanel.UpgradeCardIcon;
+    WText& mUpgradeCardTitle = mBuildingPanel.UpgradeCardTitle;
+    WText& mUpgradeDescriptionText = mBuildingPanel.UpgradeDescriptionText;
+    WText& mInformationAccentText = mBuildingPanel.InformationAccentText;
+    WText& mInformationTopText = mBuildingPanel.InformationTopText;
+    WText& mInformationBottomText = mBuildingPanel.InformationBottomText;
+
+    std::array<WImage, GCitizenPoliticsSectionCount>& mCitizenPoliticsSectionBackgrounds =
+        mCitizenPanel.PoliticsSectionBackgrounds;
+    std::array<WText, GCitizenPoliticsSectionCount>& mCitizenPoliticsSectionTitles =
+        mCitizenPanel.PoliticsSectionTitles;
+    std::array<WText, GCitizenPoliticsSatisfactionCount>& mCitizenPoliticsSatisfactionLabels =
+        mCitizenPanel.PoliticsSatisfactionLabels;
+    std::array<WImage, GCitizenPoliticsSatisfactionCount>& mCitizenPoliticsSatisfactionRails =
+        mCitizenPanel.PoliticsSatisfactionRails;
+    std::array<WImage, GCitizenPoliticsSatisfactionCount>& mCitizenPoliticsSatisfactionFills =
+        mCitizenPanel.PoliticsSatisfactionFills;
+    std::array<WText, GCitizenPoliticsOpinionCount>& mCitizenPoliticsOpinionTexts =
+        mCitizenPanel.PoliticsOpinionTexts;
+    std::array<WImage, GCitizenPoliticsSupportIconCount>& mCitizenPoliticsSupportIcons =
+        mCitizenPanel.PoliticsSupportIcons;
+    WImage& mCitizenPoliticsSupportRail = mCitizenPanel.PoliticsSupportRail;
+    WImage& mCitizenPoliticsSupportThumb = mCitizenPanel.PoliticsSupportThumb;
+    WImage& mCitizenThoughtTitleBackground = mCitizenPanel.ThoughtTitleBackground;
+    WText& mCitizenThoughtTitleText = mCitizenPanel.ThoughtTitleText;
+    std::array<WText, GCitizenThoughtCount>& mCitizenThoughtTexts =
+        mCitizenPanel.ThoughtTexts;
+    std::array<WImage, GCitizenThoughtDividerCount>& mCitizenThoughtDividers =
+        mCitizenPanel.ThoughtDividers;
+    std::array<WButton, GCitizenActionButtonCount>& mCitizenActionButtons =
+        mCitizenPanel.ActionButtons;
+    std::array<WText, GCitizenActionButtonCount>& mCitizenActionButtonTexts =
+        mCitizenPanel.ActionButtonTexts;
+    std::array<WImage, GCitizenActionButtonCount>& mCitizenActionButtonIcons =
+        mCitizenPanel.ActionButtonIcons;
+    WText& mCitizenFooterText = mCitizenPanel.FooterText;
+
+    std::string& mTrackedCitizenName = mState.TrackedCitizenName;
+    std::string& mTrackedBuildingName = mState.TrackedBuildingName;
+    float& mPanelWidth = mState.PanelWidth;
+    float& mPanelHeight = mState.PanelHeight;
+    float& mPanelTop = mState.PanelTop;
+    std::array<float, GCitizenPoliticsSatisfactionCount>&
+        mCitizenPoliticsSatisfactionFillRatios =
+            mState.CitizenPoliticsSatisfactionFillRatios;
+    float& mCitizenPoliticsSupportRatio = mState.CitizenPoliticsSupportRatio;
+    FVector2& mRequestedScreenPos = mState.RequestedScreenPos;
 
 public:
     virtual bool Init();
@@ -165,7 +267,10 @@ public:
 
 private:
     void RefreshFromState();
-    void SelectBuildingTab(EBuildingInfoTab Tab);
+    int GetSelectedTabIndexForCurrentMode() const;
+    bool SelectCurrentModeTab(int TabIndex);
+    bool SelectCitizenTab(ECitizenInfoTab Tab);
+    bool SelectBuildingTab(EBuildingInfoTab Tab);
     void SetBuildingBudgetLevel(int Level);
     void OnCloseButtonClick();
     void OnDemolishButtonClick();

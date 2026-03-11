@@ -106,20 +106,43 @@ namespace UIConfig
     extern float EdictApplyButtonHeight;
     extern float EdictScrollTrackWidth;
     extern float EdictCloseButtonSize;
+    extern bool EdictEnableTaxPolicyPanel;
+    extern float EdictTaxPolicyPanelWidth;
+    extern float EdictTaxPolicyPanelHeight;
+    extern float EdictTaxPolicySummaryHeight;
 
     // ── 연감 UI ──────────────────────────────────────────────
     extern float AlmanacPanelWidth;
     extern float AlmanacPanelHeight;
+    extern float AlmanacPanelTopOffset;
     extern float AlmanacHeaderHeight;
     extern float AlmanacHeaderPadding;
+    extern float AlmanacRibbonTopOffset;
+    extern float AlmanacFrameInsetX;
+    extern float AlmanacFrameHeaderOverlap;
+    extern float AlmanacFrameBottomInset;
+    extern float AlmanacRailLeftInset;
+    extern float AlmanacRailTopInset;
+    extern float AlmanacRailBottomInset;
+    extern float AlmanacRailThumbTopOffset;
+    extern float AlmanacRailThumbMinHeight;
+    extern float AlmanacRailThumbExpand;
+    extern float AlmanacRailToContentGap;
     extern float AlmanacContentMarginX;
     extern float AlmanacContentMarginTop;
     extern float AlmanacContentMarginBottom;
+    extern float AlmanacContentTopInset;
+    extern float AlmanacContentBottomInset;
     extern float AlmanacTabSize;
     extern float AlmanacTabGap;
     extern float AlmanacTabBaseOffsetY;
     extern float AlmanacTabSelectedOffsetY;
     extern float AlmanacTitleFontSize;
+    extern float AlmanacTitlePaddingX;
+    extern float AlmanacTitlePaddingY;
+    extern float AlmanacCloseButtonSize;
+    extern float AlmanacCloseButtonOffsetX;
+    extern float AlmanacCloseButtonOffsetY;
     extern float AlmanacMetricRowHeight;
     extern float AlmanacMetricRowGap;
     extern float AlmanacDetailRowHeight;
@@ -128,6 +151,10 @@ namespace UIConfig
     extern float AlmanacCardGapX;
     extern float AlmanacCardGapY;
     extern float AlmanacLeftPanelRatio;
+    extern float AlmanacPageColumnGap;
+    extern float AlmanacWidePageColumnGap;
+    extern float AlmanacPageTitleHeight;
+    extern float AlmanacPageFrameTop;
 
     // ── 건물 선택 UI ─────────────────────────────────────────
     extern float BuildingPanelWidthRatio;
@@ -159,15 +186,26 @@ namespace UIConfig
     extern float CitizenPanelMinWidth;
     extern float CitizenPanelMaxWidth;
     extern float CitizenPanelTopOffset;
+    extern float CitizenPanelBottomMargin;
     extern float CitizenPanelInnerMarginX;
+    extern float CitizenPanelInnerTopOffset;
+    extern float CitizenPanelInnerBottomInset;
     extern float CitizenTitleFontSize;
     extern float CitizenSubtitleFontSize;
     extern float CitizenBodyFontSize;
     extern float CitizenTitleRibbonHeight;
     extern float CitizenSectionRibbonHeight;
+    extern float CitizenSectionRibbonOffsetY;
     extern float CitizenScrollTrackWidth;
+    extern float CitizenScrollBottomInset;
     extern float CitizenScrollThumbHeight;
+    extern float CitizenScrollThumbTopOffset;
     extern float CitizenCloseButtonSize;
+    extern float CitizenCloseButtonOffsetY;
+    extern float CitizenBudgetBaseOffsetY;
+    extern float CitizenActionStackTopOffset;
+    extern float CitizenFooterBottomInset;
+    extern float CitizenBodyBottomInset;
 
     // ── 런타임 리로드 ────────────────────────────────────────
     // Update 루프에서 호출하세요.

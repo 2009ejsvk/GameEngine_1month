@@ -1,14 +1,14 @@
 #pragma once
 
+#include "../Building/BuildingTypes.h"
+#include "../Citizen/CitizenTypes.h"
 #include <array>
 #include <memory>
 #include <string>
 #include <tchar.h>
+#include <vector>
 
 class CWorld;
-struct FNpcSatisfaction;
-struct FNpcPoliticalProfile;
-struct FCitizenIdentityProfile;
 
 namespace CitizenInfoDataProvider
 {
@@ -85,6 +85,89 @@ namespace CitizenInfoDataProvider
         std::string UpgradeCardIconTextureKey;
     };
 
+    struct FWarehouseSlotRecord
+    {
+        EResourceType Type = EResourceType::None;
+        int Stock = 0;
+        int Capacity = 0;
+    };
+
+    struct FCitizenInfoBuildingRecord
+    {
+        bool Valid = false;
+        std::wstring ObjectName;
+        std::wstring DisplayName;
+        std::wstring CategoryName;
+        std::string BuildingId;
+        bool Residential = false;
+        bool WorkProvider = false;
+        bool FoodProvider = false;
+        bool EntertainmentProvider = false;
+        bool UsesResourceStock = false;
+        bool Harbor = false;
+        bool Warehouse = false;
+        bool IsRoad = false;
+        bool CanGenerateWorkOutput = false;
+        int Capacity = 0;
+        int BudgetLevel = 3;
+        int DaysInMonth = 30;
+        int MonthlyWageCost = 0;
+        int MonthlyUpkeepCost = 0;
+        int DailyWageCost = 0;
+        int DailyUpkeepCost = 0;
+        int HousingCap = 100;
+        int JobCap = 100;
+        int FoodCap = 100;
+        int FunCap = 100;
+        int ResourceStock = 0;
+        int ExportableStock = 0;
+        int MaxResourceStock = 0;
+        int TotalProducedPowerMW = 0;
+        int TotalRequiredPowerMW = 0;
+        float BudgetScale = 1.f;
+        float AccessibilityScore = 0.f;
+        float HarborShipProgressPercent = 0.f;
+        ECitizenEducationLevel RequiredEducationLevel =
+            ECitizenEducationLevel::Uneducated;
+        std::vector<FWarehouseSlotRecord> WarehouseSlots;
+        std::vector<std::string> Residents;
+        std::vector<std::string> AssignedEmployees;
+        std::vector<std::string> WorkingEmployees;
+        std::vector<std::string> AssignedVisitors;
+        std::vector<std::string> ArrivedVisitors;
+        std::vector<std::string> IncomingVisitors;
+    };
+
+    struct FCitizenInfoCitizenRecord
+    {
+        bool Valid = false;
+        std::string Name;
+        FNpcSatisfaction Satisfaction;
+        FCitizenIdentityProfile IdentityProfile;
+        FNpcPoliticalProfile PoliticalProfile;
+        ECitizenState State = ECitizenState::Wander;
+        std::string HomeBuildingName;
+        std::string WorkBuildingName;
+        std::string FoodBuildingName;
+        std::string FoodVisitBuildingName;
+        std::string FunBuildingName;
+    };
+
+    class ICitizenInfoQuerySource
+    {
+    public:
+        virtual ~ICitizenInfoQuerySource() = default;
+
+        virtual bool TryGetBuildingRecord(
+            const std::string& BuildingName,
+            FCitizenInfoBuildingRecord& OutRecord) const = 0;
+        virtual bool TryGetCitizenRecord(
+            const std::string& CitizenName,
+            FCitizenInfoCitizenRecord& OutRecord) const = 0;
+        virtual std::wstring ResolveBuildingDisplayName(
+            const std::string& BuildingName) const = 0;
+    };
+
     FCitizenInfoSnapshot BuildCitizenSnapshot(
         const std::string& CitizenName,
         const FNpcSatisfaction& Satisfaction,
@@ -93,12 +176,22 @@ namespace CitizenInfoDataProvider
         int TabIndex = 0);
 
     FCitizenInfoSnapshot BuildTrackedCitizenSnapshot(
+        const std::shared_ptr<ICitizenInfoQuerySource>& QuerySource,
+        const std::string& CitizenName,
+        int SelectedCitizenTabIndex = 0);
+
+    FCitizenInfoSnapshot BuildTrackedCitizenSnapshot(
         const std::shared_ptr<CWorld>& World,
         const std::string& CitizenName,
-        int TabIndex = 0);
+        int SelectedCitizenTabIndex = 0);
+
+    FCitizenInfoSnapshot BuildTrackedBuildingSnapshot(
+        const std::shared_ptr<ICitizenInfoQuerySource>& QuerySource,
+        const std::string& BuildingName,
+        int SelectedBuildingTabIndex);
 
     FCitizenInfoSnapshot BuildTrackedBuildingSnapshot(
         const std::shared_ptr<CWorld>& World,
         const std::string& BuildingName,
-        int SelectedTabIndex);
+        int SelectedBuildingTabIndex);
 }

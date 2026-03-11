@@ -94,20 +94,43 @@ namespace UIConfig
     float EdictApplyButtonHeight    = 38.f;
     float EdictScrollTrackWidth     = 10.f;
     float EdictCloseButtonSize      = 40.f;
+    bool EdictEnableTaxPolicyPanel  = false;
+    float EdictTaxPolicyPanelWidth  = 296.f;
+    float EdictTaxPolicyPanelHeight = 168.f;
+    float EdictTaxPolicySummaryHeight = 40.f;
 
     // 연감 UI
     float AlmanacPanelWidth         = 1120.f;
     float AlmanacPanelHeight        = 756.f;
+    float AlmanacPanelTopOffset     = 18.f;
     float AlmanacHeaderHeight       = 82.f;
     float AlmanacHeaderPadding      = 30.f;
+    float AlmanacRibbonTopOffset    = 18.f;
+    float AlmanacFrameInsetX        = 16.f;
+    float AlmanacFrameHeaderOverlap = 10.f;
+    float AlmanacFrameBottomInset   = 14.f;
+    float AlmanacRailLeftInset      = 8.f;
+    float AlmanacRailTopInset       = 22.f;
+    float AlmanacRailBottomInset    = 46.f;
+    float AlmanacRailThumbTopOffset = 10.f;
+    float AlmanacRailThumbMinHeight = 88.f;
+    float AlmanacRailThumbExpand    = 1.f;
+    float AlmanacRailToContentGap   = 14.f;
     float AlmanacContentMarginX     = 42.f;
     float AlmanacContentMarginTop   = 20.f;
     float AlmanacContentMarginBottom = 30.f;
+    float AlmanacContentTopInset    = 18.f;
+    float AlmanacContentBottomInset = 18.f;
     float AlmanacTabSize            = 64.f;
     float AlmanacTabGap             = 10.f;
     float AlmanacTabBaseOffsetY     = 22.f;
     float AlmanacTabSelectedOffsetY = 6.f;
     float AlmanacTitleFontSize      = 30.f;
+    float AlmanacTitlePaddingX      = 34.f;
+    float AlmanacTitlePaddingY      = 1.f;
+    float AlmanacCloseButtonSize    = 40.f;
+    float AlmanacCloseButtonOffsetX = 44.f;
+    float AlmanacCloseButtonOffsetY = 10.f;
     float AlmanacMetricRowHeight    = 46.f;
     float AlmanacMetricRowGap       = 6.f;
     float AlmanacDetailRowHeight    = 42.f;
@@ -116,6 +139,10 @@ namespace UIConfig
     float AlmanacCardGapX           = 18.f;
     float AlmanacCardGapY           = 18.f;
     float AlmanacLeftPanelRatio     = 0.47f;
+    float AlmanacPageColumnGap      = 22.f;
+    float AlmanacWidePageColumnGap  = 24.f;
+    float AlmanacPageTitleHeight    = 28.f;
+    float AlmanacPageFrameTop       = 34.f;
 
     // 건물 선택 UI
     float BuildingPanelWidthRatio          = 0.24f;
@@ -147,15 +174,26 @@ namespace UIConfig
     float CitizenPanelMinWidth        = 320.f;
     float CitizenPanelMaxWidth        = 410.f;
     float CitizenPanelTopOffset       = 58.f;
+    float CitizenPanelBottomMargin    = 10.f;
     float CitizenPanelInnerMarginX    = 18.f;
+    float CitizenPanelInnerTopOffset  = 16.f;
+    float CitizenPanelInnerBottomInset = 28.f;
     float CitizenTitleFontSize        = 26.f;
     float CitizenSubtitleFontSize     = 15.f;
     float CitizenBodyFontSize         = 18.f;
     float CitizenTitleRibbonHeight    = 44.f;
     float CitizenSectionRibbonHeight  = 34.f;
+    float CitizenSectionRibbonOffsetY = 28.f;
     float CitizenScrollTrackWidth     = 15.f;
+    float CitizenScrollBottomInset    = 52.f;
     float CitizenScrollThumbHeight    = 94.f;
+    float CitizenScrollThumbTopOffset = 14.f;
     float CitizenCloseButtonSize      = 34.f;
+    float CitizenCloseButtonOffsetY   = 4.f;
+    float CitizenBudgetBaseOffsetY    = 36.f;
+    float CitizenActionStackTopOffset = 238.f;
+    float CitizenFooterBottomInset    = 28.f;
+    float CitizenBodyBottomInset      = 22.f;
 
     // 게임 오버 팝업
     float GameOverPanelWidth        = 720.f;
@@ -200,6 +238,39 @@ namespace UIConfig
             S.erase(std::find_if(S.rbegin(), S.rend(),
                 [](unsigned char C) { return !std::isspace(C); }).base(),
                 S.end());
+        }
+
+        bool TryParseBoolValue(std::string Value, bool& Result)
+        {
+            TrimString(Value);
+            std::transform(
+                Value.begin(),
+                Value.end(),
+                Value.begin(),
+                [](unsigned char C)
+                {
+                    return static_cast<char>(std::tolower(C));
+                });
+
+            if (Value == "1" ||
+                Value == "true" ||
+                Value == "on" ||
+                Value == "yes")
+            {
+                Result = true;
+                return true;
+            }
+
+            if (Value == "0" ||
+                Value == "false" ||
+                Value == "off" ||
+                Value == "no")
+            {
+                Result = false;
+                return true;
+            }
+
+            return false;
         }
 
         // ── 서브 함수: 상태바 / 패널 / 버튼 ──────────────────
@@ -304,7 +375,20 @@ namespace UIConfig
             else if (Key == "EdictApplyButtonHeight")   EdictApplyButtonHeight   = Val;
             else if (Key == "EdictScrollTrackWidth")    EdictScrollTrackWidth    = Val;
             else if (Key == "EdictCloseButtonSize")     EdictCloseButtonSize     = Val;
+            else if (Key == "EdictTaxPolicyPanelWidth") EdictTaxPolicyPanelWidth = Val;
+            else if (Key == "EdictTaxPolicyPanelHeight") EdictTaxPolicyPanelHeight = Val;
+            else if (Key == "EdictTaxPolicySummaryHeight") EdictTaxPolicySummaryHeight = Val;
             else return false;
+            return true;
+        }
+
+        bool ApplyValue_EdictFlags(const std::string& Key, bool Val)
+        {
+            if (Key == "EdictEnableTaxPolicyPanel")
+                EdictEnableTaxPolicyPanel = Val;
+            else
+                return false;
+
             return true;
         }
 
@@ -312,16 +396,35 @@ namespace UIConfig
         {
             if      (Key == "AlmanacPanelWidth")          AlmanacPanelWidth          = Val;
             else if (Key == "AlmanacPanelHeight")         AlmanacPanelHeight         = Val;
+            else if (Key == "AlmanacPanelTopOffset")      AlmanacPanelTopOffset      = Val;
             else if (Key == "AlmanacHeaderHeight")        AlmanacHeaderHeight        = Val;
             else if (Key == "AlmanacHeaderPadding")       AlmanacHeaderPadding       = Val;
+            else if (Key == "AlmanacRibbonTopOffset")     AlmanacRibbonTopOffset     = Val;
+            else if (Key == "AlmanacFrameInsetX")         AlmanacFrameInsetX         = Val;
+            else if (Key == "AlmanacFrameHeaderOverlap")  AlmanacFrameHeaderOverlap  = Val;
+            else if (Key == "AlmanacFrameBottomInset")    AlmanacFrameBottomInset    = Val;
+            else if (Key == "AlmanacRailLeftInset")       AlmanacRailLeftInset       = Val;
+            else if (Key == "AlmanacRailTopInset")        AlmanacRailTopInset        = Val;
+            else if (Key == "AlmanacRailBottomInset")     AlmanacRailBottomInset     = Val;
+            else if (Key == "AlmanacRailThumbTopOffset")  AlmanacRailThumbTopOffset  = Val;
+            else if (Key == "AlmanacRailThumbMinHeight")  AlmanacRailThumbMinHeight  = Val;
+            else if (Key == "AlmanacRailThumbExpand")     AlmanacRailThumbExpand     = Val;
+            else if (Key == "AlmanacRailToContentGap")    AlmanacRailToContentGap    = Val;
             else if (Key == "AlmanacContentMarginX")      AlmanacContentMarginX      = Val;
             else if (Key == "AlmanacContentMarginTop")    AlmanacContentMarginTop    = Val;
             else if (Key == "AlmanacContentMarginBottom") AlmanacContentMarginBottom = Val;
+            else if (Key == "AlmanacContentTopInset")     AlmanacContentTopInset     = Val;
+            else if (Key == "AlmanacContentBottomInset")  AlmanacContentBottomInset  = Val;
             else if (Key == "AlmanacTabSize")             AlmanacTabSize             = Val;
             else if (Key == "AlmanacTabGap")              AlmanacTabGap              = Val;
             else if (Key == "AlmanacTabBaseOffsetY")      AlmanacTabBaseOffsetY      = Val;
             else if (Key == "AlmanacTabSelectedOffsetY")  AlmanacTabSelectedOffsetY  = Val;
             else if (Key == "AlmanacTitleFontSize")       AlmanacTitleFontSize       = Val;
+            else if (Key == "AlmanacTitlePaddingX")       AlmanacTitlePaddingX       = Val;
+            else if (Key == "AlmanacTitlePaddingY")       AlmanacTitlePaddingY       = Val;
+            else if (Key == "AlmanacCloseButtonSize")     AlmanacCloseButtonSize     = Val;
+            else if (Key == "AlmanacCloseButtonOffsetX")  AlmanacCloseButtonOffsetX  = Val;
+            else if (Key == "AlmanacCloseButtonOffsetY")  AlmanacCloseButtonOffsetY  = Val;
             else if (Key == "AlmanacMetricRowHeight")     AlmanacMetricRowHeight     = Val;
             else if (Key == "AlmanacMetricRowGap")        AlmanacMetricRowGap        = Val;
             else if (Key == "AlmanacDetailRowHeight")     AlmanacDetailRowHeight     = Val;
@@ -330,6 +433,10 @@ namespace UIConfig
             else if (Key == "AlmanacCardGapX")            AlmanacCardGapX            = Val;
             else if (Key == "AlmanacCardGapY")            AlmanacCardGapY            = Val;
             else if (Key == "AlmanacLeftPanelRatio")      AlmanacLeftPanelRatio      = Val;
+            else if (Key == "AlmanacPageColumnGap")       AlmanacPageColumnGap       = Val;
+            else if (Key == "AlmanacWidePageColumnGap")   AlmanacWidePageColumnGap   = Val;
+            else if (Key == "AlmanacPageTitleHeight")     AlmanacPageTitleHeight     = Val;
+            else if (Key == "AlmanacPageFrameTop")        AlmanacPageFrameTop        = Val;
             else return false;
             return true;
         }
@@ -363,21 +470,32 @@ namespace UIConfig
             else if (Key == "CitizenPanelMinWidth")       CitizenPanelMinWidth       = Val;
             else if (Key == "CitizenPanelMaxWidth")       CitizenPanelMaxWidth       = Val;
             else if (Key == "CitizenPanelTopOffset")      CitizenPanelTopOffset      = Val;
+            else if (Key == "CitizenPanelBottomMargin")   CitizenPanelBottomMargin   = Val;
             else if (Key == "CitizenPanelInnerMarginX")   CitizenPanelInnerMarginX   = Val;
+            else if (Key == "CitizenPanelInnerTopOffset") CitizenPanelInnerTopOffset = Val;
+            else if (Key == "CitizenPanelInnerBottomInset") CitizenPanelInnerBottomInset = Val;
             else if (Key == "CitizenTitleFontSize")       CitizenTitleFontSize       = Val;
             else if (Key == "CitizenSubtitleFontSize")    CitizenSubtitleFontSize    = Val;
             else if (Key == "CitizenBodyFontSize")        CitizenBodyFontSize        = Val;
             else if (Key == "CitizenTitleRibbonHeight")   CitizenTitleRibbonHeight   = Val;
             else if (Key == "CitizenSectionRibbonHeight") CitizenSectionRibbonHeight = Val;
+            else if (Key == "CitizenSectionRibbonOffsetY") CitizenSectionRibbonOffsetY = Val;
             else if (Key == "CitizenScrollTrackWidth")    CitizenScrollTrackWidth    = Val;
+            else if (Key == "CitizenScrollBottomInset")   CitizenScrollBottomInset   = Val;
             else if (Key == "CitizenScrollThumbHeight")   CitizenScrollThumbHeight   = Val;
+            else if (Key == "CitizenScrollThumbTopOffset") CitizenScrollThumbTopOffset = Val;
             else if (Key == "CitizenCloseButtonSize")     CitizenCloseButtonSize     = Val;
+            else if (Key == "CitizenCloseButtonOffsetY")  CitizenCloseButtonOffsetY  = Val;
+            else if (Key == "CitizenBudgetBaseOffsetY")   CitizenBudgetBaseOffsetY   = Val;
+            else if (Key == "CitizenActionStackTopOffset") CitizenActionStackTopOffset = Val;
+            else if (Key == "CitizenFooterBottomInset")   CitizenFooterBottomInset   = Val;
+            else if (Key == "CitizenBodyBottomInset")     CitizenBodyBottomInset     = Val;
             else return false;
             return true;
         }
 
         // 키 이름으로 값 적용 (서브함수들 위임)
-        void ApplyValue(const std::string& Key, float Val)
+        void ApplyFloatValue(const std::string& Key, float Val)
         {
             if (ApplyValue_HUD(Key, Val))            return;
             if (ApplyValue_Panel(Key, Val))          return;
@@ -417,7 +535,15 @@ namespace UIConfig
 
                 try
                 {
-                    ApplyValue(Key, std::stof(Value));
+                    bool BoolValue = false;
+
+                    if (TryParseBoolValue(Value, BoolValue) &&
+                        ApplyValue_EdictFlags(Key, BoolValue))
+                    {
+                        continue;
+                    }
+
+                    ApplyFloatValue(Key, std::stof(Value));
                 }
                 catch (...)
                 {

@@ -1,4 +1,5 @@
 #include "TopHudDataProvider.h"
+#include "UIStrings.h"
 #include "../World/MainWorldAccess.h"
 #include "World/World.h"
 #include <algorithm>
@@ -65,7 +66,7 @@ namespace
     std::wstring FormatTaxPolicyCompact(const FTaxPolicy& TaxPolicy)
     {
         return
-            L"세금 " +
+            UIStrings::Get(L"top_hud.fragment.tax_policy_prefix") +
             std::to_wstring(TaxPolicy.ConsumptionRatePercent) +
             L"/" +
             std::to_wstring(TaxPolicy.IncomeRatePercent) +
@@ -77,12 +78,19 @@ namespace
     const wchar_t* GetElectionWarningTierLabel(double Score)
     {
         if (Score >= 0.78)
-            return L"재선 위험 높음";
+            return UIStrings::Get(L"top_hud.warning.high").c_str();
         if (Score >= 0.52)
-            return L"재선 주의";
+            return UIStrings::Get(L"top_hud.warning.caution").c_str();
         if (Score >= 0.32)
-            return L"선거 점검";
-        return L"안정";
+            return UIStrings::Get(L"top_hud.warning.check").c_str();
+        return UIStrings::Get(L"top_hud.warning.stable").c_str();
+    }
+
+    std::wstring FormatOneDecimal(double Value)
+    {
+        wchar_t Buffer[32] = {};
+        swprintf_s(Buffer, L"%.1f", Value);
+        return Buffer;
     }
 
     bool HasElectionWarning(int DaysUntilElection, double Score)
@@ -142,13 +150,13 @@ namespace TopHudDataProvider
 
         if (ElectionStatus.GameLost)
         {
-            Result.ElectionText = L"선거 패배";
+            Result.ElectionText = UIStrings::Get(L"top_hud.election.defeat");
             Result.ElectionTextColor = MakeColor(232, 86, 72, 255);
         }
         else
         {
             Result.ElectionText =
-                L"차기 선거 " +
+                UIStrings::Get(L"top_hud.fragment.next_election_prefix") +
                 FormatDate(
                     ElectionStatus.NextElectionYear,
                     ElectionStatus.NextElectionMonth,
@@ -156,22 +164,24 @@ namespace TopHudDataProvider
 
             if (DaysUntilElection >= 0)
             {
-                Result.ElectionText += L" | ";
+                Result.ElectionText += UIStrings::Get(L"top_hud.fragment.separator");
                 Result.ElectionText += std::to_wstring(DaysUntilElection);
-                Result.ElectionText += L"일";
+                Result.ElectionText += UIStrings::Get(L"top_hud.fragment.day_suffix");
             }
 
             if (ElectionWarningActive)
             {
-                Result.ElectionText += L" | ";
+                Result.ElectionText += UIStrings::Get(L"top_hud.fragment.separator");
                 Result.ElectionText +=
                     std::wstring(GetElectionWarningTierLabel(ElectionWarningScore));
             }
             else if (ElectionStatus.HasRecordedElection)
             {
                 Result.ElectionText += ElectionStatus.IncumbentWonLastElection ?
-                    L" | 직전 승리" :
-                    L" | 직전 패배";
+                    UIStrings::Get(L"top_hud.fragment.separator") +
+                        UIStrings::Get(L"top_hud.fragment.last_win") :
+                    UIStrings::Get(L"top_hud.fragment.separator") +
+                        UIStrings::Get(L"top_hud.fragment.last_loss");
             }
 
             if (ElectionWarningScore >= 0.78)
@@ -187,24 +197,26 @@ namespace TopHudDataProvider
         Result.TaxPolicyText =
             FormatTaxPolicyCompact(MainWorld->GetTaxPolicy());
 
-        Result.EventText = L"현재 상태 안정";
+        Result.EventText = UIStrings::Get(L"top_hud.placeholder.event_stable");
         Result.EventTextColor = MakeColor(208, 226, 198, 255);
 
         if (TaxEventStatus.Active)
         {
-            Result.EventText = std::wstring(L"경고 ") + TaxEventStatus.Title;
+            Result.EventText =
+                UIStrings::Get(L"top_hud.fragment.warning_prefix") +
+                TaxEventStatus.Title;
 
             if (ElectionWarningActive)
             {
-                Result.EventText += L" | ";
+                Result.EventText += UIStrings::Get(L"top_hud.fragment.separator");
                 Result.EventText += GetElectionWarningTierLabel(ElectionWarningScore);
             }
             else
             {
-                Result.EventText += L" | ";
+                Result.EventText += UIStrings::Get(L"top_hud.fragment.separator");
                 Result.EventText +=
                     std::to_wstring((std::max)(0, TaxEventStatus.RemainingDays));
-                Result.EventText += L"일";
+                Result.EventText += UIStrings::Get(L"top_hud.fragment.day_suffix");
             }
 
             if (ElectionWarningScore >= 0.78 ||
@@ -224,13 +236,13 @@ namespace TopHudDataProvider
         }
         else if (ElectionWarningActive)
         {
-            Result.EventText = L"선거 경고 | 지지 기반 흔들림";
+            Result.EventText = UIStrings::Get(L"top_hud.event.election_warning");
 
             if (DaysUntilElection >= 0)
             {
-                Result.EventText += L" | ";
+                Result.EventText += UIStrings::Get(L"top_hud.fragment.separator");
                 Result.EventText += std::to_wstring(DaysUntilElection);
-                Result.EventText += L"일";
+                Result.EventText += UIStrings::Get(L"top_hud.fragment.day_suffix");
             }
 
             if (ElectionWarningScore >= 0.78)
@@ -243,33 +255,31 @@ namespace TopHudDataProvider
         else if (TaxEventStatus.NotificationDays > 0 &&
             !TaxEventStatus.Summary.empty())
         {
-            Result.EventText = std::wstring(L"최근 경고 | ") +
+            Result.EventText =
+                UIStrings::Get(L"top_hud.fragment.recent_warning_prefix") +
                 TaxEventStatus.Summary;
             Result.EventTextColor = MakeColor(228, 214, 188, 255);
         }
 
         Result.GameLost = ElectionStatus.GameLost;
         Result.CanUseButtons = !ElectionStatus.GameLost;
-        Result.GameOverTitleText = L"정권 상실";
+        Result.GameOverTitleText = UIStrings::Get(L"top_hud.game_over.title");
 
         if (ElectionStatus.GameLost)
         {
-            wchar_t Buffer[512] = {};
-            swprintf_s(
-                Buffer,
-                L"%04d.%02d.%02d 선거에서 재집권에 실패했습니다.\n"
-                L"지지 %d / 야당 %d / 기권 %d\n"
-                L"득표율 %.1f%% / 투표율 %.1f%%\n"
-                L"시뮬레이션이 정지되었습니다.",
-                ElectionStatus.LastElectionYear,
-                ElectionStatus.LastElectionMonth,
-                ElectionStatus.LastElectionDay,
-                ElectionStatus.LastIncumbentVotes,
-                ElectionStatus.LastOppositionVotes,
-                ElectionStatus.LastAbstainVotes,
-                ElectionStatus.LastVoteShare,
-                ElectionStatus.LastTurnoutPercent);
-            Result.GameOverBodyText = Buffer;
+            Result.GameOverBodyText = UIStrings::Format(
+                L"top_hud.game_over.body_template",
+                {
+                    FormatDate(
+                        ElectionStatus.LastElectionYear,
+                        ElectionStatus.LastElectionMonth,
+                        ElectionStatus.LastElectionDay),
+                    std::to_wstring(ElectionStatus.LastIncumbentVotes),
+                    std::to_wstring(ElectionStatus.LastOppositionVotes),
+                    std::to_wstring(ElectionStatus.LastAbstainVotes),
+                    FormatOneDecimal(ElectionStatus.LastVoteShare),
+                    FormatOneDecimal(ElectionStatus.LastTurnoutPercent)
+                });
         }
 
         const float MonthProgress = MainWorld->GetSimulationMonthProgress();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "UIStrings.h"
 #include <memory>
 #include <string>
 #include <tchar.h>
@@ -49,8 +50,9 @@ namespace EdictDataProvider
 
     struct FEdictTaxPolicySnapshot
     {
-        std::wstring TitleText = L"세금 정책";
-        std::wstring SummaryText = L"세금 보고 준비 중";
+        std::wstring TitleText = UIStrings::Get(L"edict.tax_policy.title");
+        std::wstring SummaryText =
+            UIStrings::Get(L"edict.tax_policy.summary_pending");
         std::vector<FEdictTaxPolicyRowSnapshot> Rows;
         bool ShowPanel = false;
     };
@@ -58,19 +60,17 @@ namespace EdictDataProvider
     struct FEdictDetailSnapshot
     {
         bool HasSelection = false;
-        std::wstring Title = L"칙령 선택";
+        std::wstring Title = UIStrings::Get(L"edict.detail.default_title");
         std::wstring CostText = L"$0";
-        std::wstring InfoText = L"왼쪽 카드에서 칙령을 선택하세요.";
-        std::wstring BodyText =
-            L"카드를 고르면 효과와 제약 조건이 아래 패널에 표시됩니다.\n"
-            L"현재 시행 중인 칙령은 금색 강조와 체크 표시로 구분됩니다.";
+        std::wstring InfoText = UIStrings::Get(L"edict.detail.default_info");
+        std::wstring BodyText = UIStrings::Get(L"edict.detail.default_body");
         std::wstring FeedbackText;
         std::wstring RequirementText;
         EEdictRequirementTone RequirementTone =
             EEdictRequirementTone::None;
         EEdictActionVisualMode ActionMode =
             EEdictActionVisualMode::Waiting;
-        std::wstring ActionLabel = L"시행";
+        std::wstring ActionLabel = UIStrings::Get(L"edict.action.apply");
         bool ActionEnabled = false;
     };
 

@@ -20,6 +20,7 @@ bool CCitizenInfoWidget::Init()
     CWidgetContainer::Init();
 
     mPanelMode = EPanelMode::Citizen;
+    mSelectedCitizenTab = ECitizenInfoTab::Overview;
     mSelectedBuildingTab = EBuildingInfoTab::Overview;
     mTrackedCitizenName.clear();
     mTrackedBuildingName.clear();
@@ -61,7 +62,7 @@ void CCitizenInfoWidget::OpenCitizen(
     mPanelMode = EPanelMode::Citizen;
     mTrackedCitizenName = CitizenName;
     mTrackedBuildingName.clear();
-    mSelectedBuildingTab = EBuildingInfoTab::Overview;
+    mSelectedCitizenTab = ECitizenInfoTab::Overview;
 
     SetEnable(true);
     RefreshFromState();
@@ -93,20 +94,21 @@ void CCitizenInfoWidget::OpenBuilding(
 void CCitizenInfoWidget::RefreshFromState()
 {
     CitizenInfoDataProvider::FCitizenInfoSnapshot Snapshot;
+    const int SelectedTabIndex = GetSelectedTabIndexForCurrentMode();
 
     if (mPanelMode == EPanelMode::Citizen)
     {
         Snapshot = CitizenInfoDataProvider::BuildTrackedCitizenSnapshot(
             mWorld.lock(),
             mTrackedCitizenName,
-            static_cast<int>(mSelectedBuildingTab));
+            SelectedTabIndex);
     }
     else
     {
         Snapshot = CitizenInfoDataProvider::BuildTrackedBuildingSnapshot(
             mWorld.lock(),
             mTrackedBuildingName,
-            static_cast<int>(mSelectedBuildingTab));
+            SelectedTabIndex);
     }
 
     if (!Snapshot.Valid)
@@ -122,12 +124,46 @@ void CCitizenInfoWidget::RefreshFromState()
     FCitizenInfoRenderer::RefreshLayout(*this);
 }
 
-void CCitizenInfoWidget::SelectBuildingTab(EBuildingInfoTab Tab)
+int CCitizenInfoWidget::GetSelectedTabIndexForCurrentMode() const
+{
+    if (mPanelMode == EPanelMode::Citizen)
+        return static_cast<int>(mSelectedCitizenTab);
+
+    return static_cast<int>(mSelectedBuildingTab);
+}
+
+bool CCitizenInfoWidget::SelectCurrentModeTab(int TabIndex)
+{
+    if (mPanelMode == EPanelMode::Citizen)
+    {
+        if (TabIndex < 0 || TabIndex >= GCitizenTabCount)
+            return false;
+
+        return SelectCitizenTab(static_cast<ECitizenInfoTab>(TabIndex));
+    }
+
+    if (TabIndex < 0 || TabIndex >= GBuildingTabCount)
+        return false;
+
+    return SelectBuildingTab(static_cast<EBuildingInfoTab>(TabIndex));
+}
+
+bool CCitizenInfoWidget::SelectCitizenTab(ECitizenInfoTab Tab)
+{
+    if (mSelectedCitizenTab == Tab)
+        return false;
+
+    mSelectedCitizenTab = Tab;
+    return true;
+}
+
+bool CCitizenInfoWidget::SelectBuildingTab(EBuildingInfoTab Tab)
 {
     if (mSelectedBuildingTab == Tab)
-        return;
+        return false;
 
     mSelectedBuildingTab = Tab;
+    return true;
 }
 
 void CCitizenInfoWidget::SetBuildingBudgetLevel(int Level)

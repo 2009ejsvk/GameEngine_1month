@@ -222,10 +222,19 @@
     <ClCompile Include="UI\BuildMenuDataProvider.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
+    <ClCompile Include="UI\BuildMenuQueryService.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
     <ClCompile Include="UI\BuildMenuRenderer.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
     <ClCompile Include="UI\AlmanacDataProvider.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacPageData.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererCalc.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="UI\AlmanacRenderer.cpp">
@@ -235,6 +244,12 @@
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="UI\AlmanacRendererLayout.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererPages.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererPagesCore.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="UI\EdictDataProvider.cpp">
@@ -252,7 +267,19 @@
     <ClCompile Include="UI\CitizenInfoDataProvider.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
+    <ClCompile Include="UI\CitizenInfoQueryService.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
     <ClCompile Include="UI\CitizenInfoRenderer.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CitizenInfoRendererCreate.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CitizenInfoRendererLayout.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\UIStrings.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
     <ClCompile Include="UI\TopHudDataProvider.cpp">
@@ -401,10 +428,25 @@
     <ClInclude Include="UI\BuildMenuDataProvider.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
+    <ClInclude Include="UI\BuildMenuQueryService.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
     <ClInclude Include="UI\BuildMenuRenderer.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="UI\AlmanacDataProvider.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\AlmanacPageData.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\AlmanacRendererConstants.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\AlmanacRendererCalc.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\AlmanacRendererFormatting.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
     <ClInclude Include="UI\AlmanacRenderer.h">
@@ -413,7 +455,13 @@
     <ClInclude Include="UI\AlmanacRendererInternal.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
+    <ClInclude Include="UI\AlmanacRendererWidgetHelpers.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
     <ClInclude Include="UI\EdictDataProvider.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\EdictConstants.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
     <ClInclude Include="UI\EdictRenderer.h">
@@ -425,7 +473,19 @@
     <ClInclude Include="UI\CitizenInfoDataProvider.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
+    <ClInclude Include="UI\CitizenInfoConstants.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CitizenInfoQueryService.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
     <ClInclude Include="UI\CitizenInfoRenderer.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CitizenInfoRendererInternal.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\UIStrings.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="UI\TopHudDataProvider.h">

@@ -1,14 +1,11 @@
 #include "AlmanacWidget.h"
 #include "AlmanacDataProvider.h"
+#include "AlmanacPageData.h"
+#include "AlmanacRendererConstants.h"
 #include "AlmanacRenderer.h"
 #include "Device.h"
 #include "World/World.h"
 #include <cmath>
-
-namespace
-{
-    constexpr float GDataRefreshIntervalSeconds = 0.5f;
-}
 
 CAlmanacWidget::CAlmanacWidget()
 {
@@ -49,6 +46,9 @@ void CAlmanacWidget::Update(float DeltaTime)
     if (!mOpen)
         return;
 
+    if (AlmanacPageData::ReloadIfChanged(DeltaTime))
+        RefreshData();
+
     mDataRefreshAccum += DeltaTime;
 
     if (mDataRefreshAccum >= GDataRefreshIntervalSeconds)
@@ -87,6 +87,7 @@ void CAlmanacWidget::SetOpen(bool Open)
 
     if (mOpen)
     {
+        AlmanacPageData::ReloadIfChanged(GDataRefreshIntervalSeconds);
         mDataRefreshAccum = 0.f;
         mLayoutDirty = true;
         FAlmanacRenderer::RefreshLayout(*this);

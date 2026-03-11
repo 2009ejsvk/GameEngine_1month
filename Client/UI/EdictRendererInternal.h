@@ -1,9 +1,11 @@
 #pragma once
 
+#include "EdictConstants.h"
 #include "EdictDataProvider.h"
 #include "EdictWidget.h"
 #include "TropicoUiStyle.h"
 #include "TropicoUiTheme.h"
+#include "UIStrings.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
@@ -15,16 +17,10 @@
 
 namespace
 {
+    using namespace EdictConstants;
     using namespace TropicoUiAssets;
     using namespace TropicoUiStyle;
     using namespace TropicoUiTheme;
-
-    constexpr int GEdictCategoryCount = 4;
-    constexpr int GEdictSlotsPerPage = 14;
-    constexpr int GEdictSlotColumnCount = 7;
-    constexpr int GEdictSlotRowCount = 2;
-    constexpr int GTaxPolicyRowCount = 3;
-    constexpr bool GEnableTaxPolicyPanel = false;
 
     constexpr const TCHAR* GEdictMenuPanelTexture = GMainMenuPanelTexture;
     constexpr const TCHAR* GCostIconTexture = TEXT(
@@ -36,14 +32,6 @@ namespace
     constexpr const TCHAR* GEdictActiveCheckTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_research_popUp_check.png");
 
-    const wchar_t* GCategoryLabels[GEdictCategoryCount] =
-    {
-        L"식민지 시대",
-        L"세계대전 시대",
-        L"냉전 시대",
-        L"현대 시대"
-    };
-
     const TCHAR* const GCategoryTabIcons[GEdictCategoryCount] =
     {
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\EdictCategories\\T_ICO_general.png"),
@@ -51,6 +39,23 @@ namespace
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\EdictCategories\\T_ICO_defense.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\EdictCategories\\T_ICO_education.png")
     };
+
+    inline const std::wstring& GetCategoryLabelText(int CategoryIndex)
+    {
+        switch (CategoryIndex)
+        {
+        case 0:
+            return UIStrings::Get(L"edict.category.colonial");
+        case 1:
+            return UIStrings::Get(L"edict.category.world_wars");
+        case 2:
+            return UIStrings::Get(L"edict.category.cold_war");
+        case 3:
+            return UIStrings::Get(L"edict.category.modern");
+        default:
+            return UIStrings::Get(L"edict.category.fallback");
+        }
+    }
 
     void ConfigureEdictSlotButtonVisual(
         const std::shared_ptr<CButton>& Button,

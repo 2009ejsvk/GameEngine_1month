@@ -26,7 +26,64 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     const float PanelWidth  = PanelBaseWidth  * Scale;
     const float PanelHeight = PanelBaseHeight * Scale;
     const float PanelLeft   = (ScreenWidth  - PanelWidth)  * 0.5f;
-    const float PanelTop    = (ScreenHeight - PanelHeight) * 0.5f + 18.f * Scale;
+    struct FAlmanacChromeMetrics
+    {
+        float PanelTopOffset;
+        float RibbonTopOffset;
+        float FrameInsetX;
+        float FrameHeaderOverlap;
+        float FrameBottomInset;
+        float RailLeftInset;
+        float RailTopInset;
+        float RailBottomInset;
+        float RailThumbTopOffset;
+        float RailThumbMinHeight;
+        float RailThumbExpand;
+        float RailToContentGap;
+        float ContentTopInset;
+        float ContentBottomInset;
+        float TitlePaddingX;
+        float TitlePaddingY;
+        float CloseButtonSize;
+        float CloseButtonOffsetX;
+        float CloseButtonOffsetY;
+    } Chrome =
+    {
+        UIConfig::AlmanacPanelTopOffset * Scale,
+        UIConfig::AlmanacRibbonTopOffset * Scale,
+        UIConfig::AlmanacFrameInsetX * Scale,
+        UIConfig::AlmanacFrameHeaderOverlap * Scale,
+        UIConfig::AlmanacFrameBottomInset * Scale,
+        UIConfig::AlmanacRailLeftInset * Scale,
+        UIConfig::AlmanacRailTopInset * Scale,
+        UIConfig::AlmanacRailBottomInset * Scale,
+        UIConfig::AlmanacRailThumbTopOffset * Scale,
+        UIConfig::AlmanacRailThumbMinHeight * Scale,
+        UIConfig::AlmanacRailThumbExpand * Scale,
+        UIConfig::AlmanacRailToContentGap * Scale,
+        UIConfig::AlmanacContentTopInset * Scale,
+        UIConfig::AlmanacContentBottomInset * Scale,
+        UIConfig::AlmanacTitlePaddingX * Scale,
+        UIConfig::AlmanacTitlePaddingY * Scale,
+        UIConfig::AlmanacCloseButtonSize * Scale,
+        UIConfig::AlmanacCloseButtonOffsetX * Scale,
+        UIConfig::AlmanacCloseButtonOffsetY * Scale
+    };
+    struct FAlmanacPageMetrics
+    {
+        float ColumnGap;
+        float WideColumnGap;
+        float TitleHeight;
+        float FrameTop;
+    } PageMetrics =
+    {
+        UIConfig::AlmanacPageColumnGap * Scale,
+        UIConfig::AlmanacWidePageColumnGap * Scale,
+        UIConfig::AlmanacPageTitleHeight * Scale,
+        UIConfig::AlmanacPageFrameTop * Scale
+    };
+    const float PanelTop =
+        (ScreenHeight - PanelHeight) * 0.5f + Chrome.PanelTopOffset;
 
     // INI 제어 가능한 변수
     const float HeaderHeight  = UIConfig::AlmanacHeaderHeight  * Scale;
@@ -52,25 +109,25 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     const float RibbonHeight = HeaderHeight * 0.64f;
     const float RibbonLeft =
         PanelLeft + (PanelWidth - RibbonWidth) * 0.5f;
-    const float RibbonTop = PanelTop + 18.f * Scale;
-    const float FrameLeft = PanelLeft + 16.f * Scale;
-    const float FrameTop = PanelTop + HeaderHeight - 10.f * Scale;
-    const float FrameWidth = PanelWidth - 32.f * Scale;
+    const float RibbonTop = PanelTop + Chrome.RibbonTopOffset;
+    const float FrameLeft = PanelLeft + Chrome.FrameInsetX;
+    const float FrameTop = PanelTop + HeaderHeight - Chrome.FrameHeaderOverlap;
+    const float FrameWidth = PanelWidth - Chrome.FrameInsetX * 2.f;
     const float FrameHeight =
-        PanelHeight - (FrameTop - PanelTop) - 14.f * Scale;
-    const float RailTrackLeft = FrameLeft + 8.f * Scale;
-    const float RailTrackTop = FrameTop + 22.f * Scale;
+        PanelHeight - (FrameTop - PanelTop) - Chrome.FrameBottomInset;
+    const float RailTrackLeft = FrameLeft + Chrome.RailLeftInset;
+    const float RailTrackTop = FrameTop + Chrome.RailTopInset;
     const float RailTrackWidth = 10.f * Scale;
-    const float RailTrackHeight = FrameHeight - 46.f * Scale;
+    const float RailTrackHeight = FrameHeight - Chrome.RailBottomInset;
     const float RailThumbHeight =
-        (std::max)(88.f * Scale, RailTrackHeight * 0.18f);
+        (std::max)(Chrome.RailThumbMinHeight, RailTrackHeight * 0.18f);
     const float ContentLeft =
-        RailTrackLeft + RailTrackWidth + 14.f * Scale + ContentMarginX * 0.45f;
-    const float ContentTop = FrameTop + 18.f * Scale + ContentMarginTop;
+        RailTrackLeft + RailTrackWidth + Chrome.RailToContentGap + ContentMarginX * 0.45f;
+    const float ContentTop = FrameTop + Chrome.ContentTopInset + ContentMarginTop;
     const float ContentWidth =
         FrameLeft + FrameWidth - ContentMarginX * 0.65f - ContentLeft;
     const float ContentHeight =
-        FrameTop + FrameHeight - ContentMarginBottom - 18.f * Scale - ContentTop;
+        FrameTop + FrameHeight - ContentMarginBottom - Chrome.ContentBottomInset - ContentTop;
 
     if (auto Background = Widget.mPanelBackground.lock())
     {
@@ -98,23 +155,33 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     if (auto RailThumb = Widget.mLeftRailThumb.lock())
     {
-        RailThumb->SetPos(RailTrackLeft - 1.f * Scale, RailTrackTop + 10.f * Scale);
-        RailThumb->SetSize(RailTrackWidth + 2.f * Scale, RailThumbHeight);
+        RailThumb->SetPos(
+            RailTrackLeft - Chrome.RailThumbExpand,
+            RailTrackTop + Chrome.RailThumbTopOffset);
+        RailThumb->SetSize(
+            RailTrackWidth + Chrome.RailThumbExpand * 2.f,
+            RailThumbHeight);
     }
 
     if (auto TitleText = Widget.mTitleText.lock())
     {
         TitleText->SetFontSize(UIConfig::AlmanacTitleFontSize * Scale);
-        TitleText->SetPos(RibbonLeft + 34.f * Scale, RibbonTop + 1.f * Scale);
-        TitleText->SetSize(RibbonWidth - 68.f * Scale, RibbonHeight - 2.f * Scale);
+        TitleText->SetPos(
+            RibbonLeft + Chrome.TitlePaddingX,
+            RibbonTop + Chrome.TitlePaddingY);
+        TitleText->SetSize(
+            RibbonWidth - Chrome.TitlePaddingX * 2.f,
+            RibbonHeight - Chrome.TitlePaddingY * 2.f);
     }
 
     if (auto CloseButton = Widget.mCloseButton.lock())
     {
         CloseButton->SetPos(
-            PanelLeft + PanelWidth - HeaderPadding - 44.f * Scale,
-            PanelTop + 10.f * Scale);
-        CloseButton->SetSize(40.f * Scale, 40.f * Scale);
+            PanelLeft + PanelWidth - HeaderPadding - Chrome.CloseButtonOffsetX,
+            PanelTop + Chrome.CloseButtonOffsetY);
+        CloseButton->SetSize(
+            Chrome.CloseButtonSize,
+            Chrome.CloseButtonSize);
     }
 
     // 상단 탭 배치
@@ -404,8 +471,8 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
     // ── 페이지별 레이아웃 ──────────────────────────────────────
 
     const float LeftWide  = ContentWidth * LeftPanelRatio;
-    const float RightWide = ContentWidth - LeftWide - 22.f * Scale;
-    const float SepX      = LeftWide + 22.f * Scale;
+    const float RightWide = ContentWidth - LeftWide - PageMetrics.ColumnGap;
+    const float SepX      = LeftWide + PageMetrics.ColumnGap;
 
     // 개요 카드
     auto LayoutOverviewCard =
@@ -605,15 +672,15 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     // 만족도
     const float SatisfactionLeftWide = ContentWidth * 0.46f;
-    const float SatisfactionRightX = SatisfactionLeftWide + 24.f * Scale;
+    const float SatisfactionRightX = SatisfactionLeftWide + PageMetrics.WideColumnGap;
     const float SatisfactionRightW = ContentWidth - SatisfactionRightX;
     const float SatisfactionRowHeight = 44.f * Scale;
     const float SatisfactionRowGap = 5.f * Scale;
     const float SatisfactionDetailRowHeight = 36.f * Scale;
     const float SatisfactionDetailGap = 4.f * Scale;
     const float SatisfactionChartTitleTop = 0.f;
-    const float SatisfactionChartTitleHeight = 28.f * Scale;
-    const float SatisfactionChartFrameTop = 34.f * Scale;
+    const float SatisfactionChartTitleHeight = PageMetrics.TitleHeight;
+    const float SatisfactionChartFrameTop = PageMetrics.FrameTop;
     const float SatisfactionChartFrameHeight = 206.f * Scale;
     const float SatisfactionDetailTop =
         SatisfactionChartFrameTop + SatisfactionChartFrameHeight + 12.f * Scale;
@@ -862,7 +929,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         SelectedPopulationIndex == 8 ||
         SelectedPopulationIndex == 9;
     const float PopulationLeftWide = ContentWidth * 0.47f;
-    const float PopulationRightX = PopulationLeftWide + 22.f * Scale;
+    const float PopulationRightX = PopulationLeftWide + PageMetrics.ColumnGap;
     const float PopulationRightW = ContentWidth - PopulationRightX;
     const float PopulationDetailRowHeight = 31.f * Scale;
     const float PopulationDetailGap = 3.f * Scale;
@@ -890,8 +957,8 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
             Value->SetFontSize(15.f * Scale);
     }
 
-    const float PopulationTitleHeight = 28.f * Scale;
-    const float PopulationTrendFrameTop = 34.f * Scale;
+    const float PopulationTitleHeight = PageMetrics.TitleHeight;
+    const float PopulationTrendFrameTop = PageMetrics.FrameTop;
     const float PopulationTrendFrameHeight = 206.f * Scale;
     const float PopulationSummaryTop =
         PopulationTrendFrameTop + PopulationTrendFrameHeight + 8.f * Scale;
@@ -908,7 +975,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
                 8.f * Scale :
             PopulationSummaryTop + PopulationSummaryHeight + 14.f * Scale;
     const float PopulationChangeFrameTop =
-        PopulationChangeTitleTop + 34.f * Scale;
+        PopulationChangeTitleTop + PageMetrics.FrameTop;
     const float PopulationChangeFrameHeight =
         ShowPopulationOverviewCharts ? 150.f * Scale : 0.f;
     const float PopulationChangeSummaryTop =
@@ -1214,7 +1281,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     // 경제
     const float EconomyLeftWide = ContentWidth * 0.47f;
-    const float EconomyRightX = EconomyLeftWide + 22.f * Scale;
+    const float EconomyRightX = EconomyLeftWide + PageMetrics.ColumnGap;
     const float EconomyRightW = ContentWidth - EconomyRightX;
     const float EconomyDetailRowHeight = 31.f * Scale;
     const float EconomyDetailGap = 3.f * Scale;
@@ -1234,8 +1301,8 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         EconomyDetailRowHeight,
         EconomyDetailGap);
 
-    const float EconomyTitleHeight = 28.f * Scale;
-    const float EconomyTrendFrameTop = 34.f * Scale;
+    const float EconomyTitleHeight = PageMetrics.TitleHeight;
+    const float EconomyTrendFrameTop = PageMetrics.FrameTop;
     const float EconomyTrendFrameHeight = 146.f * Scale;
     const float EconomyMidSummaryTop =
         EconomyTrendFrameTop + EconomyTrendFrameHeight + 8.f * Scale;
@@ -1550,16 +1617,16 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     // 자원
     const float ResourceLeftWide = ContentWidth * 0.46f;
-    const float ResourceRightX = ResourceLeftWide + 22.f * Scale;
+    const float ResourceRightX = ResourceLeftWide + PageMetrics.ColumnGap;
     const float ResourceRightW = ContentWidth - ResourceRightX;
-    const float ResourceTitleHeight = 28.f * Scale;
-    const float ResourceFilterTop = 34.f * Scale;
+    const float ResourceTitleHeight = PageMetrics.TitleHeight;
+    const float ResourceFilterTop = PageMetrics.FrameTop;
     const float ResourceFilterHeight = 30.f * Scale;
     const float ResourceRowHeight = 32.f * Scale;
     const float ResourceRowGap = 3.f * Scale;
     const float ResourceRowsTop =
         ResourceFilterTop + ResourceFilterHeight + 6.f * Scale;
-    const float ResourceProductionFrameTop = 34.f * Scale;
+    const float ResourceProductionFrameTop = PageMetrics.FrameTop;
     const float ResourceProductionFrameHeight = 128.f * Scale;
     const float ResourceDistributionTitleTop =
         ResourceProductionFrameTop + ResourceProductionFrameHeight + 8.f * Scale;
@@ -1810,10 +1877,10 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     // 정치
     const float PoliticsLeftWide = ContentWidth * 0.48f;
-    const float PoliticsRightX = PoliticsLeftWide + 22.f * Scale;
+    const float PoliticsRightX = PoliticsLeftWide + PageMetrics.ColumnGap;
     const float PoliticsRightW = ContentWidth - PoliticsRightX;
     const float PoliticsTitleTop = 0.f;
-    const float PoliticsTitleHeight = 28.f * Scale;
+    const float PoliticsTitleHeight = PageMetrics.TitleHeight;
     const float PoliticsTileTop = PoliticsTitleHeight + 10.f * Scale;
     const float PoliticsTileGapX = 78.f * Scale;
     const float PoliticsTileGapY = 8.f * Scale;
@@ -1951,12 +2018,12 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     // 대외관계
     const float ForeignLeftWide = ContentWidth * 0.49f;
-    const float ForeignRightX = ForeignLeftWide + 22.f * Scale;
+    const float ForeignRightX = ForeignLeftWide + PageMetrics.ColumnGap;
     const float ForeignRightW = ContentWidth - ForeignRightX;
     const float ForeignRowTop = 10.f * Scale;
     const float ForeignRowHeight = 46.f * Scale;
     const float ForeignRowGap = 8.f * Scale;
-    const float ForeignTitleHeight = 28.f * Scale;
+    const float ForeignTitleHeight = PageMetrics.TitleHeight;
     const float ForeignStatusTop = 36.f * Scale;
     const float ForeignDetailsTop = 62.f * Scale;
     const float ForeignDetailRowHeight = 29.f * Scale;
@@ -2033,11 +2100,11 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     // 건물 목록
     const float BuildingLeftWide = ContentWidth * 0.49f;
-    const float BuildingRightX = BuildingLeftWide + 22.f * Scale;
+    const float BuildingRightX = BuildingLeftWide + PageMetrics.ColumnGap;
     const float BuildingRightW = ContentWidth - BuildingRightX;
     const float BuildingRowHeight = 33.f * Scale;
     const float BuildingRowGap = 4.f * Scale;
-    const float BuildingTitleHeight = 28.f * Scale;
+    const float BuildingTitleHeight = PageMetrics.TitleHeight;
     const float BuildingDetailTop = BuildingTitleHeight + 12.f * Scale;
     const float BuildingDetailRowHeight = 34.f * Scale;
     const float BuildingDetailGap = 5.f * Scale;
@@ -2066,7 +2133,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
 
     // 분쟁
     const float ConflictLeft    = ContentWidth * 0.54f;
-    const float ConflictRight   = ContentWidth - ConflictLeft - 22.f * Scale;
+    const float ConflictRight   = ContentWidth - ConflictLeft - PageMetrics.ColumnGap;
     const float ConflictDetailGap = 8.f * Scale;
     const float ConflictDetailRowH =
         (std::max)(30.f * Scale,
@@ -2092,7 +2159,7 @@ void FAlmanacRenderer::RefreshLayout(CAlmanacWidget& Widget)
         ConflictDetailRowH, ConflictDetailGap);
     LayoutMetricRows(
         Widget.mConflictMetrics,
-        ConflictLeft + 22.f * Scale, 0.f, ConflictRight,
+        ConflictLeft + PageMetrics.ColumnGap, 0.f, ConflictRight,
         MetricRowHeight + 8.f * Scale, MetricRowGap + 2.f * Scale);
 
     Widget.mLayoutDirty = false;

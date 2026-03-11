@@ -307,20 +307,65 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     const float InfoPanelHeight =
         DetailFrameTop + DetailFrameHeight - InfoPanelTop - 14.f * Scale;
     const float FeedbackGap = 8.f * Scale;
+    const bool ShowTaxPanel = Widget.mShowTaxPolicyPanel;
+    const float TaxPanelGap = 14.f * Scale;
+    const float MaxTaxPanelWidth =
+        (std::max)(0.f, DetailInnerWidth - 260.f * Scale);
+    const bool HasTaxPanelColumn = ShowTaxPanel && MaxTaxPanelWidth > 0.f;
+    const float TaxPanelWidth = HasTaxPanelColumn ?
+        (std::min)(UIConfig::EdictTaxPolicyPanelWidth * Scale, MaxTaxPanelWidth) :
+        0.f;
+    const float DetailContentWidth = HasTaxPanelColumn ?
+        DetailInnerWidth - TaxPanelWidth - TaxPanelGap :
+        DetailInnerWidth;
     const float DetailBodyLeft = DetailInnerLeft + 14.f * Scale;
     const float DetailBodyTop = FeedbackTop + FeedbackHeight + FeedbackGap;
-    const float DetailBodyWidth = DetailInnerWidth - 28.f * Scale;
+    const float DetailBodyWidth = (std::max)(0.f, DetailContentWidth - 28.f * Scale);
     const float RequirementHeight = 28.f * Scale;
     const float RequirementTop =
         InfoPanelTop + InfoPanelHeight - RequirementHeight - 8.f * Scale;
     const float DetailBodyBottom = RequirementTop - 10.f * Scale;
     const float DetailBodyHeight =
         (std::max)(0.f, DetailBodyBottom - DetailBodyTop);
-    const float TaxPanelHeight = 0.f;
-    const float TaxSummaryHeight = 0.f;
-    const bool ShowTaxPanel = GEnableTaxPolicyPanel && TaxPanelHeight > 0.f;
-    const float TaxButtonWidth = 0.f;
-    const float TaxButtonHeight = 0.f;
+    const float TaxPanelLeft = DetailInnerLeft + DetailContentWidth + TaxPanelGap;
+    const float TaxPanelTop = DetailFrameTop + 46.f * Scale;
+    const float TaxPanelHeight = HasTaxPanelColumn ?
+        (std::min)(
+            UIConfig::EdictTaxPolicyPanelHeight * Scale,
+            (std::max)(
+                0.f,
+                DetailFrameTop + DetailFrameHeight - TaxPanelTop - 12.f * Scale)) :
+        0.f;
+    const bool LayoutTaxPanel =
+        HasTaxPanelColumn &&
+        TaxPanelWidth > 0.f &&
+        TaxPanelHeight > 0.f;
+    const float TaxInnerPadding = 12.f * Scale;
+    const float TaxTitleHeight = 22.f * Scale;
+    const float TaxSummaryHeight = LayoutTaxPanel ?
+        (std::min)(
+            UIConfig::EdictTaxPolicySummaryHeight * Scale,
+            (std::max)(24.f * Scale, TaxPanelHeight * 0.28f)) :
+        0.f;
+    const float TaxRowGap = 6.f * Scale;
+    const float TaxButtonWidth = 24.f * Scale;
+    const float TaxButtonHeight = 24.f * Scale;
+    const float TaxButtonGap = 6.f * Scale;
+    const float TaxContentLeft = TaxPanelLeft + TaxInnerPadding;
+    const float TaxContentTop = TaxPanelTop + TaxInnerPadding;
+    const float TaxContentWidth =
+        (std::max)(0.f, TaxPanelWidth - TaxInnerPadding * 2.f);
+    const float TaxRowsTop = TaxContentTop + TaxTitleHeight + 8.f * Scale;
+    const float TaxRowsBottom =
+        TaxPanelTop + TaxPanelHeight - TaxSummaryHeight - TaxInnerPadding - 8.f * Scale;
+    const float TaxRowHeight = LayoutTaxPanel ?
+        (std::max)(
+            24.f * Scale,
+            (TaxRowsBottom - TaxRowsTop - TaxRowGap * static_cast<float>(GTaxPolicyRowCount - 1)) /
+                static_cast<float>(GTaxPolicyRowCount)) :
+        0.f;
+    const float TaxSummaryTop =
+        TaxPanelTop + TaxPanelHeight - TaxSummaryHeight - TaxInnerPadding;
 
     if (DetailTitleText)
     {
@@ -351,13 +396,13 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     if (DetailInfoPanel)
     {
         DetailInfoPanel->SetPos(DetailInnerLeft, InfoPanelTop);
-        DetailInfoPanel->SetSize(DetailInnerWidth, InfoPanelHeight);
+        DetailInfoPanel->SetSize(DetailContentWidth, InfoPanelHeight);
     }
 
     if (DetailInfoText)
     {
         DetailInfoText->SetPos(DetailInnerLeft, DetailInfoTop);
-        DetailInfoText->SetSize(DetailInnerWidth, DetailInfoHeight);
+        DetailInfoText->SetSize(DetailContentWidth, DetailInfoHeight);
         DetailInfoText->SetFontSize(12.5f * Scale);
     }
 
@@ -373,7 +418,7 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     if (FeedbackText)
     {
         FeedbackText->SetPos(DetailInnerLeft, FeedbackTop);
-        FeedbackText->SetSize(DetailInnerWidth, FeedbackHeight);
+        FeedbackText->SetSize(DetailContentWidth, FeedbackHeight);
         FeedbackText->SetFontSize(12.5f * Scale);
     }
 
@@ -387,22 +432,31 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     if (RequirementText)
     {
         RequirementText->SetPos(DetailInnerLeft, RequirementTop);
-        RequirementText->SetSize(DetailInnerWidth, RequirementHeight);
+        RequirementText->SetSize(DetailContentWidth, RequirementHeight);
         RequirementText->SetFontSize(13.5f * Scale);
     }
 
     if (TaxInfoPanel)
     {
-        TaxInfoPanel->SetPos(0.f, 0.f);
-        TaxInfoPanel->SetSize(0.f, 0.f);
-        TaxInfoPanel->SetEnable(Widget.mOpen && ShowTaxPanel);
+        TaxInfoPanel->SetPos(
+            LayoutTaxPanel ? TaxPanelLeft : 0.f,
+            LayoutTaxPanel ? TaxPanelTop : 0.f);
+        TaxInfoPanel->SetSize(
+            LayoutTaxPanel ? TaxPanelWidth : 0.f,
+            LayoutTaxPanel ? TaxPanelHeight : 0.f);
+        TaxInfoPanel->SetEnable(Widget.mOpen && LayoutTaxPanel);
     }
 
     if (TaxPolicyTitleText)
     {
-        TaxPolicyTitleText->SetPos(0.f, 0.f);
-        TaxPolicyTitleText->SetSize(0.f, 0.f);
-        TaxPolicyTitleText->SetEnable(Widget.mOpen && ShowTaxPanel);
+        TaxPolicyTitleText->SetPos(
+            LayoutTaxPanel ? TaxContentLeft : 0.f,
+            LayoutTaxPanel ? TaxContentTop : 0.f);
+        TaxPolicyTitleText->SetSize(
+            LayoutTaxPanel ? TaxContentWidth : 0.f,
+            LayoutTaxPanel ? TaxTitleHeight : 0.f);
+        TaxPolicyTitleText->SetFontSize(14.5f * Scale);
+        TaxPolicyTitleText->SetEnable(Widget.mOpen && LayoutTaxPanel);
     }
 
     for (int i = 0; i < GTaxPolicyRowCount; ++i)
@@ -410,39 +464,61 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
         auto RowText = Widget.mTaxPolicyRowTexts[i].lock();
         auto DecreaseButton = Widget.mTaxDecreaseButtons[i].lock();
         auto IncreaseButton = Widget.mTaxIncreaseButtons[i].lock();
+        const float RowTop =
+            TaxRowsTop + (TaxRowHeight + TaxRowGap) * static_cast<float>(i);
+        const float TaxButtonGroupWidth = TaxButtonWidth * 2.f + TaxButtonGap;
+        const float TaxButtonsLeft =
+            TaxContentLeft + TaxContentWidth - TaxButtonGroupWidth;
 
         if (RowText)
         {
-            RowText->SetPos(0.f, 0.f);
-            RowText->SetSize(0.f, 0.f);
-            RowText->SetEnable(Widget.mOpen && ShowTaxPanel);
+            RowText->SetPos(
+                LayoutTaxPanel ? TaxContentLeft : 0.f,
+                LayoutTaxPanel ? RowTop : 0.f);
+            RowText->SetSize(
+                LayoutTaxPanel ?
+                    (std::max)(0.f, TaxContentWidth - TaxButtonGroupWidth - 10.f * Scale) :
+                    0.f,
+                LayoutTaxPanel ? TaxRowHeight : 0.f);
+            RowText->SetFontSize(11.5f * Scale);
+            RowText->SetEnable(Widget.mOpen && LayoutTaxPanel);
         }
 
         if (DecreaseButton)
         {
-            DecreaseButton->SetPos(0.f, 0.f);
+            DecreaseButton->SetPos(
+                LayoutTaxPanel ? TaxButtonsLeft : 0.f,
+                LayoutTaxPanel ? (RowTop + (TaxRowHeight - TaxButtonHeight) * 0.5f) : 0.f);
             DecreaseButton->SetSize(TaxButtonWidth, TaxButtonHeight);
-            DecreaseButton->SetEnable(Widget.mOpen && ShowTaxPanel);
+            DecreaseButton->SetEnable(Widget.mOpen && LayoutTaxPanel);
         }
 
         if (IncreaseButton)
         {
-            IncreaseButton->SetPos(0.f, 0.f);
+            IncreaseButton->SetPos(
+                LayoutTaxPanel ? (TaxButtonsLeft + TaxButtonWidth + TaxButtonGap) : 0.f,
+                LayoutTaxPanel ? (RowTop + (TaxRowHeight - TaxButtonHeight) * 0.5f) : 0.f);
             IncreaseButton->SetSize(TaxButtonWidth, TaxButtonHeight);
-            IncreaseButton->SetEnable(Widget.mOpen && ShowTaxPanel);
+            IncreaseButton->SetEnable(Widget.mOpen && LayoutTaxPanel);
         }
     }
 
     if (TaxPolicySummaryText)
     {
-        TaxPolicySummaryText->SetPos(0.f, 0.f);
-        TaxPolicySummaryText->SetSize(0.f, 0.f);
-        TaxPolicySummaryText->SetEnable(Widget.mOpen && ShowTaxPanel);
+        TaxPolicySummaryText->SetPos(
+            LayoutTaxPanel ? TaxContentLeft : 0.f,
+            LayoutTaxPanel ? TaxSummaryTop : 0.f);
+        TaxPolicySummaryText->SetSize(
+            LayoutTaxPanel ? TaxContentWidth : 0.f,
+            LayoutTaxPanel ? TaxSummaryHeight : 0.f);
+        TaxPolicySummaryText->SetFontSize(10.5f * Scale);
+        TaxPolicySummaryText->SetEnable(Widget.mOpen && LayoutTaxPanel);
     }
 }
 
 void FEdictRenderer::ApplyOpenState(CEdictWidget& Widget)
 {
+    const bool ShowTaxPanel = Widget.mOpen && Widget.mShowTaxPolicyPanel;
     auto MenuBackground = Widget.mMenuBackground.lock();
     auto MenuTitleRibbon = Widget.mMenuTitleRibbon.lock();
     auto MenuGridFrame = Widget.mMenuGridFrame.lock();
@@ -479,7 +555,7 @@ void FEdictRenderer::ApplyOpenState(CEdictWidget& Widget)
     if (DetailInfoPanel)
         DetailInfoPanel->SetEnable(Widget.mOpen);
     if (TaxInfoPanel)
-        TaxInfoPanel->SetEnable(Widget.mOpen);
+        TaxInfoPanel->SetEnable(ShowTaxPanel);
     if (DetailCostIcon)
         DetailCostIcon->SetEnable(Widget.mOpen);
     if (ScrollTrack)
@@ -503,9 +579,9 @@ void FEdictRenderer::ApplyOpenState(CEdictWidget& Widget)
     if (RequirementText)
         RequirementText->SetEnable(Widget.mOpen);
     if (TaxPolicyTitleText)
-        TaxPolicyTitleText->SetEnable(Widget.mOpen);
+        TaxPolicyTitleText->SetEnable(ShowTaxPanel);
     if (TaxPolicySummaryText)
-        TaxPolicySummaryText->SetEnable(Widget.mOpen);
+        TaxPolicySummaryText->SetEnable(ShowTaxPanel);
     if (PrevPageButton)
         PrevPageButton->SetEnable(Widget.mOpen);
     if (NextPageButton)
@@ -568,11 +644,11 @@ void FEdictRenderer::ApplyOpenState(CEdictWidget& Widget)
         auto IncreaseButton = Widget.mTaxIncreaseButtons[i].lock();
 
         if (RowText)
-            RowText->SetEnable(Widget.mOpen);
+            RowText->SetEnable(ShowTaxPanel);
         if (DecreaseButton)
-            DecreaseButton->SetEnable(Widget.mOpen);
+            DecreaseButton->SetEnable(ShowTaxPanel);
         if (IncreaseButton)
-            IncreaseButton->SetEnable(Widget.mOpen);
+            IncreaseButton->SetEnable(ShowTaxPanel);
     }
 }
 

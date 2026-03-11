@@ -1,9 +1,8 @@
 #include "CitizenInfoDataProvider.h"
+#include "CitizenInfoConstants.h"
+#include "CitizenInfoQueryService.h"
+#include "UIStrings.h"
 #include "../Building/BuildingCatalog.h"
-#include "../Map/BuildingMarkerOrb.h"
-#include "../Map/PlacementAreaObject.h"
-#include "../World/MainWorldAccess.h"
-#include "World/World.h"
 #include <Windows.h>
 #include <algorithm>
 #include <cmath>
@@ -12,9 +11,11 @@
 
 namespace
 {
+    using CitizenInfoConstants::GBuildingTabCount;
+    using CitizenInfoConstants::GCitizenTabCount;
+
     struct FBuildingUiSnapshot
     {
-        std::shared_ptr<CPlacementAreaObject> Building;
         const FBuildingCatalogEntry* CatalogEntry = nullptr;
         std::wstring ObjectName;
         std::wstring DisplayName;
@@ -60,6 +61,8 @@ namespace
         float BudgetScale = 1.f;
         float AccessibilityScore = 0.f;
         float HarborShipProgressPercent = 0.f;
+        ECitizenEducationLevel RequiredEducationLevel =
+            ECitizenEducationLevel::Uneducated;
         bool Residential = false;
         bool WorkProvider = false;
         bool FoodProvider = false;
@@ -67,9 +70,9 @@ namespace
         bool UsesResourceStock = false;
         bool Harbor = false;
         bool Warehouse = false;
+        bool IsRoad = false;
+        bool CanGenerateWorkOutput = false;
     };
-
-    constexpr int GBuildingTabCount = 5;
 
     std::wstring Utf8ToWide(const std::string& Text)
     {
@@ -563,7 +566,7 @@ namespace
         if (Snapshot.FoodProvider)
             return L"시민 소비와 외식 흐름을 담당하는 공급 건물입니다.";
 
-        if (Snapshot.Building && Snapshot.Building->CanGenerateWorkOutput())
+        if (Snapshot.CanGenerateWorkOutput)
             return L"인력을 배치해 자원이나 상품을 생산하는 작업 시설입니다.";
 
         return L"도시 운영에 필요한 기능을 담당하는 보조 건물입니다.";
@@ -581,102 +584,103 @@ namespace
     }
 
     bool BuildBuildingUiSnapshot(
-        const std::shared_ptr<CWorld>& World,
+        const std::shared_ptr<CitizenInfoDataProvider::ICitizenInfoQuerySource>&
+            QuerySource,
         const std::string& BuildingName,
         FBuildingUiSnapshot& OutSnapshot)
     {
-        if (!World || BuildingName.empty())
+        if (!QuerySource || BuildingName.empty())
             return false;
 
-        auto Building =
-            World->FindObject<CPlacementAreaObject>(BuildingName).lock();
+        CitizenInfoDataProvider::FCitizenInfoBuildingRecord BuildingRecord;
 
-        if (!Building || !Building->GetAlive() || !Building->GetEnable())
+        if (!QuerySource->TryGetBuildingRecord(BuildingName, BuildingRecord) ||
+            !BuildingRecord.Valid)
+        {
             return false;
+        }
 
         OutSnapshot = FBuildingUiSnapshot();
-        OutSnapshot.Building = Building;
         OutSnapshot.CatalogEntry =
-            FindBuildingCatalogEntry(Building->GetBuildingId());
-        OutSnapshot.ObjectName = Utf8ToWide(Building->GetName());
-        OutSnapshot.DisplayName = Utf8ToWide(
-            Building->GetBuildingDisplayName());
-        OutSnapshot.CategoryName = Utf8ToWide(
-            Building->GetBuildingCategoryName());
+            FindBuildingCatalogEntry(BuildingRecord.BuildingId);
+        OutSnapshot.ObjectName = BuildingRecord.ObjectName;
+        OutSnapshot.DisplayName = BuildingRecord.DisplayName;
+        OutSnapshot.CategoryName = BuildingRecord.CategoryName;
         OutSnapshot.DetailText = OutSnapshot.CatalogEntry ?
             OutSnapshot.CatalogEntry->DetailText :
             std::wstring();
-        OutSnapshot.Residential = Building->IsResidential();
-        OutSnapshot.WorkProvider =
-            !OutSnapshot.Residential &&
-            Building->GetCapacity() > 0;
-        OutSnapshot.FoodProvider = Building->IsFoodProvider();
+        OutSnapshot.RequiredEducationLevel =
+            BuildingRecord.RequiredEducationLevel;
+        OutSnapshot.Residential = BuildingRecord.Residential;
+        OutSnapshot.WorkProvider = BuildingRecord.WorkProvider;
+        OutSnapshot.FoodProvider = BuildingRecord.FoodProvider;
         OutSnapshot.EntertainmentProvider =
-            Building->IsEntertainmentProvider();
-        OutSnapshot.Harbor = Building->IsHarbor();
-        OutSnapshot.Warehouse = Building->IsWarehouse();
-        OutSnapshot.Capacity = (std::max)(0, Building->GetCapacity());
-        OutSnapshot.BudgetLevel = Building->GetBudgetLevel();
-        OutSnapshot.BudgetScale = Building->GetBudgetSatisfactionScale();
-        OutSnapshot.AccessibilityScore = Building->GetAccessibilityScore();
-        OutSnapshot.HousingCap = Building->GetHousingSatisfactionCap();
-        OutSnapshot.JobCap = Building->GetEffectiveJobSatisfactionCap();
-        OutSnapshot.FoodCap = Building->GetFoodSatisfactionCap();
-        OutSnapshot.FunCap = Building->GetFunSatisfactionCap();
-        OutSnapshot.ResourceStock = Building->GetResourceStock();
-        OutSnapshot.ExportableStock = Building->GetExportableResourceStock();
-        OutSnapshot.MaxResourceStock = Building->GetMaxResourceStock();
+            BuildingRecord.EntertainmentProvider;
+        OutSnapshot.UsesResourceStock = BuildingRecord.UsesResourceStock;
+        OutSnapshot.Harbor = BuildingRecord.Harbor;
+        OutSnapshot.Warehouse = BuildingRecord.Warehouse;
+        OutSnapshot.IsRoad = BuildingRecord.IsRoad;
+        OutSnapshot.CanGenerateWorkOutput =
+            BuildingRecord.CanGenerateWorkOutput;
+        OutSnapshot.Capacity = BuildingRecord.Capacity;
+        OutSnapshot.BudgetLevel = BuildingRecord.BudgetLevel;
+        OutSnapshot.DaysInMonth = BuildingRecord.DaysInMonth;
+        OutSnapshot.MonthlyWageCost = BuildingRecord.MonthlyWageCost;
+        OutSnapshot.MonthlyUpkeepCost = BuildingRecord.MonthlyUpkeepCost;
+        OutSnapshot.DailyWageCost = BuildingRecord.DailyWageCost;
+        OutSnapshot.DailyUpkeepCost = BuildingRecord.DailyUpkeepCost;
+        OutSnapshot.HousingCap = BuildingRecord.HousingCap;
+        OutSnapshot.JobCap = BuildingRecord.JobCap;
+        OutSnapshot.FoodCap = BuildingRecord.FoodCap;
+        OutSnapshot.FunCap = BuildingRecord.FunCap;
+        OutSnapshot.ResourceStock = BuildingRecord.ResourceStock;
+        OutSnapshot.ExportableStock = BuildingRecord.ExportableStock;
+        OutSnapshot.MaxResourceStock = BuildingRecord.MaxResourceStock;
+        OutSnapshot.TotalProducedPowerMW =
+            BuildingRecord.TotalProducedPowerMW;
+        OutSnapshot.TotalRequiredPowerMW =
+            BuildingRecord.TotalRequiredPowerMW;
+        OutSnapshot.BudgetScale = BuildingRecord.BudgetScale;
+        OutSnapshot.AccessibilityScore =
+            BuildingRecord.AccessibilityScore;
         OutSnapshot.HarborShipProgressPercent =
-            Building->GetHarborShipProgressPercent();
-        OutSnapshot.UsesResourceStock =
-            OutSnapshot.ResourceStock > 0 ||
-            Building->CanGenerateWorkOutput() ||
-            OutSnapshot.FoodProvider ||
-            OutSnapshot.Harbor ||
-            OutSnapshot.Warehouse;
+            BuildingRecord.HarborShipProgressPercent;
+        OutSnapshot.Residents = BuildingRecord.Residents;
+        OutSnapshot.AssignedEmployees = BuildingRecord.AssignedEmployees;
+        OutSnapshot.WorkingEmployees = BuildingRecord.WorkingEmployees;
+        OutSnapshot.AssignedVisitors = BuildingRecord.AssignedVisitors;
+        OutSnapshot.ArrivedVisitors = BuildingRecord.ArrivedVisitors;
+        OutSnapshot.IncomingVisitors = BuildingRecord.IncomingVisitors;
 
         if (OutSnapshot.Warehouse)
         {
-            for (int SlotIndex = 0;
-                SlotIndex < Building->GetWarehouseSlotCount();
+            for (size_t SlotIndex = 0;
+                SlotIndex < BuildingRecord.WarehouseSlots.size();
                 ++SlotIndex)
             {
-                const EResourceType SlotType =
-                    Building->GetWarehouseSlotType(SlotIndex);
+                const CitizenInfoDataProvider::FWarehouseSlotRecord& SlotRecord =
+                    BuildingRecord.WarehouseSlots[SlotIndex];
                 std::wstring SlotLine =
-                    L"슬롯 " + std::to_wstring(SlotIndex + 1) + L": ";
+                    L"슬롯 " +
+                    std::to_wstring(static_cast<int>(SlotIndex) + 1) +
+                    L": ";
 
-                if (SlotType == EResourceType::None)
+                if (SlotRecord.Type == EResourceType::None)
                 {
                     SlotLine += L"비어 있음";
                 }
                 else
                 {
-                    SlotLine += GetResourceTypeDisplayName(SlotType);
+                    SlotLine += GetResourceTypeDisplayName(SlotRecord.Type);
                     SlotLine += L" ";
-                    SlotLine += FormatInteger(Building->GetResourceStock(SlotType));
+                    SlotLine += FormatInteger(SlotRecord.Stock);
                     SlotLine += L" / ";
-                    SlotLine += FormatInteger(
-                        Building->GetResourceTypeCapacity(SlotType));
+                    SlotLine += FormatInteger(SlotRecord.Capacity);
                 }
 
                 OutSnapshot.WarehouseSlotLines.push_back(std::move(SlotLine));
             }
         }
-
-        auto MainWorld =
-            std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World);
-
-        if (MainWorld)
-            OutSnapshot.DaysInMonth =
-                (std::max)(1, MainWorld->GetSimulationMonthDayCount());
-
-        OutSnapshot.MonthlyWageCost = Building->GetMonthlyWageCost();
-        OutSnapshot.MonthlyUpkeepCost = Building->GetMonthlyUpkeepCost();
-        OutSnapshot.DailyWageCost =
-            Building->GetDailyWageCost(OutSnapshot.DaysInMonth);
-        OutSnapshot.DailyUpkeepCost =
-            Building->GetDailyUpkeepCost(OutSnapshot.DaysInMonth);
 
         OutSnapshot.RequiredPowerText =
             ExtractDetailValue(OutSnapshot.DetailText, L"필요 전력:");
@@ -728,150 +732,6 @@ namespace
             ExtractBulletSection(OutSnapshot.DetailText, L"업그레이드");
         OutSnapshot.NarrativeLines =
             ExtractNarrativeLines(OutSnapshot.DetailText);
-
-        std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
-
-        if (World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
-        {
-            for (size_t Index = 0; Index < BuildingList.size(); ++Index)
-            {
-                auto OtherBuilding = BuildingList[Index].lock();
-
-                if (!OtherBuilding ||
-                    !OtherBuilding->GetAlive() ||
-                    !OtherBuilding->GetEnable() ||
-                    !OtherBuilding->HasPlacedArea())
-                {
-                    continue;
-                }
-
-                const FBuildingCatalogEntry* Entry =
-                    FindBuildingCatalogEntry(OtherBuilding->GetBuildingId());
-
-                if (!Entry)
-                    continue;
-
-                OutSnapshot.TotalProducedPowerMW +=
-                    (std::max)(
-                        0,
-                        (std::max)(
-                            ExtractPowerValueMW(
-                                Entry->DetailText,
-                                L"생산 전력:"),
-                            ExtractPowerValueMW(
-                                Entry->DetailText,
-                                L"발전량:")));
-                OutSnapshot.TotalRequiredPowerMW +=
-                    (std::max)(
-                        0,
-                        ExtractPowerValueMW(
-                            Entry->DetailText,
-                            L"필요 전력:"));
-            }
-        }
-
-        std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
-
-        if (!World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
-            return true;
-
-        for (size_t Index = 0; Index < OrbList.size(); ++Index)
-        {
-            auto Orb = OrbList[Index].lock();
-
-            if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
-                continue;
-
-            const std::string OrbName = Orb->GetName();
-
-            if (Orb->GetHomeBuilding() == BuildingName)
-                PushUnique(OutSnapshot.Residents, OrbName);
-
-            if (OutSnapshot.WorkProvider &&
-                Orb->GetWorkBuilding() == BuildingName)
-            {
-                PushUnique(OutSnapshot.AssignedEmployees, OrbName);
-
-                if (Orb->GetCitizenState() == ECitizenState::AtWork)
-                    PushUnique(OutSnapshot.WorkingEmployees, OrbName);
-            }
-
-            if (OutSnapshot.EntertainmentProvider &&
-                Orb->GetFunBuilding() == BuildingName)
-            {
-                PushUnique(OutSnapshot.AssignedVisitors, OrbName);
-
-                if (Orb->GetCitizenState() == ECitizenState::AtFun)
-                    PushUnique(OutSnapshot.ArrivedVisitors, OrbName);
-            }
-
-            if (!OutSnapshot.FoodProvider)
-                continue;
-
-            const ECitizenState OrbState = Orb->GetCitizenState();
-
-            if (OrbState == ECitizenState::AtFood)
-            {
-                const std::string& VisitFoodBuilding =
-                    Orb->GetFoodVisitBuilding();
-                const bool IsVisitBuildingMatched =
-                    VisitFoodBuilding == BuildingName ||
-                    (VisitFoodBuilding.empty() &&
-                        Orb->GetFoodBuilding() == BuildingName);
-
-                if (!IsVisitBuildingMatched)
-                    continue;
-
-                PushUnique(OutSnapshot.AssignedVisitors, OrbName);
-                PushUnique(OutSnapshot.ArrivedVisitors, OrbName);
-                continue;
-            }
-
-            if (OrbState != ECitizenState::GoingToFood ||
-                Orb->GetFoodBuilding() != BuildingName)
-            {
-                continue;
-            }
-
-            FVector3 MarkerPos = FVector3::Zero;
-
-            if (!Building->GetClosestMarkerWorldPos(
-                Orb->GetWorldPos(), MarkerPos))
-            {
-                continue;
-            }
-
-            FVector3 OrbPos = Orb->GetWorldPos();
-            OrbPos.z = MarkerPos.z;
-
-            const float NearDistance =
-                (std::max)(8.f, Orb->GetArrivalDistance() * 2.f);
-
-            if (OrbPos.Distance(MarkerPos) > NearDistance)
-                continue;
-
-            PushUnique(OutSnapshot.AssignedVisitors, OrbName);
-            PushUnique(OutSnapshot.IncomingVisitors, OrbName);
-        }
-
-        std::sort(
-            OutSnapshot.Residents.begin(),
-            OutSnapshot.Residents.end());
-        std::sort(
-            OutSnapshot.AssignedEmployees.begin(),
-            OutSnapshot.AssignedEmployees.end());
-        std::sort(
-            OutSnapshot.WorkingEmployees.begin(),
-            OutSnapshot.WorkingEmployees.end());
-        std::sort(
-            OutSnapshot.AssignedVisitors.begin(),
-            OutSnapshot.AssignedVisitors.end());
-        std::sort(
-            OutSnapshot.ArrivedVisitors.begin(),
-            OutSnapshot.ArrivedVisitors.end());
-        std::sort(
-            OutSnapshot.IncomingVisitors.begin(),
-            OutSnapshot.IncomingVisitors.end());
         return true;
     }
 
@@ -908,7 +768,7 @@ namespace
                 Body,
                 L"요구 학력",
                 GetCitizenEducationDisplayName(
-                    Snapshot.Building->GetRequiredEducationLevel()));
+                    Snapshot.RequiredEducationLevel));
             AppendKeyValue(Body, L"직업 품질", Snapshot.JobQualityText);
         }
 
@@ -1007,7 +867,9 @@ namespace
             AppendLine(Body, Snapshot.NoteText);
         }
 
-        return Body.empty() ? L"건물 데이터 준비 중입니다." : Body;
+        return Body.empty() ?
+            UIStrings::Get(L"citizen_info.building.data_pending") :
+            Body;
     }
 
     std::wstring BuildStatisticsBody(const FBuildingUiSnapshot& Snapshot)
@@ -1178,7 +1040,7 @@ namespace
             Body,
             L"예산 보정: " + FormatMultiplier(Snapshot.BudgetScale));
 
-        if (Snapshot.Building && !Snapshot.Building->IsRoad())
+        if (!Snapshot.IsRoad)
         {
             AppendLine(
                 Body,
@@ -1293,7 +1155,7 @@ namespace
             Body,
             L"요구 학력",
             GetCitizenEducationDisplayName(
-                Snapshot.Building->GetRequiredEducationLevel()));
+                Snapshot.RequiredEducationLevel));
 
         if (!Snapshot.NarrativeLines.empty())
         {
@@ -1344,44 +1206,37 @@ namespace
         case ECitizenState::AtFun:
             return L"여가";
         default:
-            return L"이동";
+            return UIStrings::Get(L"citizen_info.activity.move").c_str();
         }
     }
 
     std::wstring ResolveBuildingDisplayName(
-        const std::shared_ptr<CWorld>& World,
+        const std::shared_ptr<CitizenInfoDataProvider::ICitizenInfoQuerySource>&
+            QuerySource,
         const std::string& BuildingName)
     {
         if (BuildingName.empty())
             return L"-";
 
-        if (!World)
+        if (!QuerySource)
             return Utf8ToWide(BuildingName);
 
-        auto Building =
-            World->FindObject<CPlacementAreaObject>(BuildingName).lock();
-
-        if (!Building || !Building->GetAlive() || !Building->GetEnable())
-            return Utf8ToWide(BuildingName);
-
-        const std::wstring DisplayName =
-            Utf8ToWide(Building->GetBuildingDisplayName());
-
-        return DisplayName.empty() ? Utf8ToWide(BuildingName) : DisplayName;
+        return QuerySource->ResolveBuildingDisplayName(BuildingName);
     }
 
     std::wstring ResolveCitizenLocationText(
-        const std::shared_ptr<CWorld>& World,
-        const std::shared_ptr<CBuildingMarkerOrb>& Citizen)
+        const std::shared_ptr<CitizenInfoDataProvider::ICitizenInfoQuerySource>&
+            QuerySource,
+        const CitizenInfoDataProvider::FCitizenInfoCitizenRecord& Citizen)
     {
-        if (!Citizen)
+        if (!Citizen.Valid)
             return L"-";
 
         auto MakeInteriorText =
             [&](const std::string& BuildingName)
         {
             const std::wstring DisplayName =
-                ResolveBuildingDisplayName(World, BuildingName);
+                ResolveBuildingDisplayName(QuerySource, BuildingName);
 
             if (DisplayName.empty() || DisplayName == L"-")
                 return std::wstring(L"-");
@@ -1389,11 +1244,11 @@ namespace
             return DisplayName + L" 내부";
         };
 
-        switch (Citizen->GetCitizenState())
+        switch (Citizen.State)
         {
         case ECitizenState::AtHome:
         case ECitizenState::GoingHome:
-            return MakeInteriorText(Citizen->GetHomeBuilding());
+            return MakeInteriorText(Citizen.HomeBuildingName);
         case ECitizenState::AtWork:
         case ECitizenState::GoingToWork:
         case ECitizenState::GoingToTeamsterSource:
@@ -1401,13 +1256,13 @@ namespace
         case ECitizenState::GoingToTeamsterConsumerSource:
         case ECitizenState::GoingToTeamsterConsumerTarget:
         case ECitizenState::GoingToTeamsterOffice:
-            return MakeInteriorText(Citizen->GetWorkBuilding());
+            return MakeInteriorText(Citizen.WorkBuildingName);
         case ECitizenState::AtFood:
         case ECitizenState::GoingToFood:
-            return MakeInteriorText(Citizen->GetFoodBuilding());
+            return MakeInteriorText(Citizen.FoodBuildingName);
         case ECitizenState::AtFun:
         case ECitizenState::GoingToFun:
-            return MakeInteriorText(Citizen->GetFunBuilding());
+            return MakeInteriorText(Citizen.FunBuildingName);
         default:
             return L"트로피코 외부";
         }
@@ -1493,7 +1348,8 @@ namespace CitizenInfoDataProvider
         const FNpcPoliticalProfile& PoliticalProfile,
         int TabIndex)
     {
-        const int ClampedTab = (std::max)(0, (std::min)(2, TabIndex));
+        const int ClampedTab =
+            (std::max)(0, (std::min)(GCitizenTabCount - 1, TabIndex));
 
         auto ToPercent = [](float Value)
         {
@@ -1526,7 +1382,8 @@ namespace CitizenInfoDataProvider
         if (ClampedTab == 0)
         {
             // ── 탭 0: 기본 정보 (신원 + 여가/복지 만족도) ──────────
-            Result.PageTitle = L"기본";
+            Result.PageTitle =
+                CitizenInfoConstants::GetCitizenPageTitle(ClampedTab);
             wchar_t Buf[896] = {};
             swprintf_s(Buf,
                 L"학력: %s  재산: %s%s\n\n"
@@ -1556,7 +1413,8 @@ namespace CitizenInfoDataProvider
         else if (ClampedTab == 1)
         {
             // ── 탭 1: 정치 (만족도 요약 + 신념) ───────────────────
-            Result.PageTitle = L"정치";
+            Result.PageTitle =
+                CitizenInfoConstants::GetCitizenPageTitle(ClampedTab);
             wchar_t Buf[768] = {};
             swprintf_s(Buf,
                 L"[ 만족도 현황 ]\n"
@@ -1602,7 +1460,8 @@ namespace CitizenInfoDataProvider
         else
         {
             // ── 탭 2: 성향 (생성형 서술) ───────────────────────────
-            Result.PageTitle = L"성향";
+            Result.PageTitle =
+                CitizenInfoConstants::GetCitizenPageTitle(ClampedTab);
             const int Overall = ToPercent(Satisfaction.Overall);
 
             const wchar_t* SatisfactionDesc =
@@ -1652,24 +1511,27 @@ namespace CitizenInfoDataProvider
     }
 
     FCitizenInfoSnapshot BuildTrackedCitizenSnapshot(
-        const std::shared_ptr<CWorld>& World,
+        const std::shared_ptr<ICitizenInfoQuerySource>& QuerySource,
         const std::string& CitizenName,
-        int TabIndex)
+        int SelectedCitizenTabIndex)
     {
-        if (!World || CitizenName.empty())
+        if (!QuerySource || CitizenName.empty())
             return FCitizenInfoSnapshot();
 
-        auto Citizen = World->FindObject<CBuildingMarkerOrb>(CitizenName).lock();
+        FCitizenInfoCitizenRecord Citizen;
 
-        if (!Citizen || !Citizen->GetAlive() || !Citizen->GetEnable())
+        if (!QuerySource->TryGetCitizenRecord(CitizenName, Citizen) ||
+            !Citizen.Valid)
+        {
             return FCitizenInfoSnapshot();
+        }
 
         FCitizenInfoSnapshot Result = BuildCitizenSnapshot(
-            CitizenName,
-            Citizen->GetSatisfaction(),
-            Citizen->GetIdentityProfile(),
-            Citizen->GetPoliticalProfile(),
-            TabIndex);
+            Citizen.Name,
+            Citizen.Satisfaction,
+            Citizen.IdentityProfile,
+            Citizen.PoliticalProfile,
+            SelectedCitizenTabIndex);
 
         if (Result.Valid && Result.SelectedTabIndex == 0)
         {
@@ -1678,47 +1540,52 @@ namespace CitizenInfoDataProvider
             Result.PageTitle.clear();
             Result.ShowSectionRibbon = false;
             Result.ShowBuildingSubtitle = true;
-            Result.BuildingSubtitleText = L"↠ 트로피코인 ↞";
+            Result.BuildingSubtitleText =
+                UIStrings::Get(L"citizen_info.subtitle.tropican");
             Result.ShowCitizenProfileOverview = true;
             Result.ShowCitizenActionButtons = true;
             Result.ShowSectionDivider = true;
             Result.CitizenPortraitSlotCount = 11;
             Result.CitizenPortraitOccupiedSlot = 4;
             Result.CitizenPortraitVariant =
-                static_cast<int>(CitizenName.size() % 4);
+                static_cast<int>(Citizen.Name.size() % 4);
             Result.CitizenFooterText = L"TROPICO EXEC. 16FA-923";
 
             Result.OverviewMetricLabels[0] = L"활동";
             Result.OverviewMetricValues[0] =
-                GetCitizenActivityDisplayName(Citizen->GetCitizenState());
+                GetCitizenActivityDisplayName(Citizen.State);
             Result.OverviewMetricLabels[1] = L"위치";
             Result.OverviewMetricValues[1] =
-                ResolveCitizenLocationText(World, Citizen);
+                ResolveCitizenLocationText(QuerySource, Citizen);
             Result.OverviewMetricLabels[2] = L"연령";
             Result.OverviewMetricValues[2] = L"30 (성인)";
             Result.OverviewMetricLabels[3] = L"출신";
             Result.OverviewMetricValues[3] =
-                Citizen->GetIdentityProfile().IsImmigrant ?
+                Citizen.IdentityProfile.IsImmigrant ?
                     L"프랑스" :
                     L"트로피코";
             Result.OverviewMetricLabels[4] = L"재산";
             Result.OverviewMetricValues[4] =
                 GetCitizenProfileWealthDisplayName(
-                    Citizen->GetIdentityProfile().WealthLevel);
+                    Citizen.IdentityProfile.WealthLevel);
             Result.OverviewMetricLabels[5] = L"교육";
             Result.OverviewMetricValues[5] =
                 GetCitizenEducationDisplayName(
-                    Citizen->GetIdentityProfile().EducationLevel);
+                    Citizen.IdentityProfile.EducationLevel);
             Result.OverviewMetricLabels[6] = L"직장";
             Result.OverviewMetricValues[6] =
-                ResolveBuildingDisplayName(World, Citizen->GetWorkBuilding());
+                ResolveBuildingDisplayName(
+                    QuerySource,
+                    Citizen.WorkBuildingName);
             Result.OverviewMetricLabels[7] = L"집";
             Result.OverviewMetricValues[7] =
-                ResolveBuildingDisplayName(World, Citizen->GetHomeBuilding());
+                ResolveBuildingDisplayName(
+                    QuerySource,
+                    Citizen.HomeBuildingName);
             Result.OverviewMetricAccentValues[6] =
-                !Citizen->GetWorkBuilding().empty();
+                !Citizen.WorkBuildingName.empty();
             Result.OverviewMetricAccentValues[7] =
-                !Citizen->GetHomeBuilding().empty();
+                !Citizen.HomeBuildingName.empty();
 
             Result.CitizenActionLabels[0] = L"매수";
             Result.CitizenActionLabels[1] = L"살해";
@@ -1755,20 +1622,20 @@ namespace CitizenInfoDataProvider
             }};
             Result.CitizenPoliticsSatisfactionRatios =
             {{
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Overall / 100.f)),
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Food / 100.f)),
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Health / 100.f)),
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Fun / 100.f)),
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Faith / 100.f)),
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Housing / 100.f)),
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Job / 100.f)),
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Freedom / 100.f)),
-                (std::max)(0.f, (std::min)(1.f, Citizen->GetSatisfaction().Security / 100.f))
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Overall / 100.f)),
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Food / 100.f)),
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Health / 100.f)),
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Fun / 100.f)),
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Faith / 100.f)),
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Housing / 100.f)),
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Job / 100.f)),
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Freedom / 100.f)),
+                (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Security / 100.f))
             }};
             Result.CitizenPoliticsOpinionLines =
-                BuildCitizenOpinionLines(Citizen->GetPoliticalProfile());
+                BuildCitizenOpinionLines(Citizen.PoliticalProfile);
             Result.CitizenPoliticsSupportRatio =
-                BuildCitizenSupportRatio(Citizen->GetSatisfaction());
+                BuildCitizenSupportRatio(Citizen.Satisfaction);
         }
         else if (Result.Valid && Result.SelectedTabIndex == 2)
         {
@@ -1797,20 +1664,41 @@ namespace CitizenInfoDataProvider
         return Result;
     }
 
-    FCitizenInfoSnapshot BuildTrackedBuildingSnapshot(
+    FCitizenInfoSnapshot BuildTrackedCitizenSnapshot(
         const std::shared_ptr<CWorld>& World,
+        const std::string& CitizenName,
+        int SelectedCitizenTabIndex)
+    {
+        return BuildTrackedCitizenSnapshot(
+            CitizenInfoQueryService::CreateWorldQuerySource(World),
+            CitizenName,
+            SelectedCitizenTabIndex);
+    }
+
+    FCitizenInfoSnapshot BuildTrackedBuildingSnapshot(
+        const std::shared_ptr<ICitizenInfoQuerySource>& QuerySource,
         const std::string& BuildingName,
-        int SelectedTabIndex)
+        int SelectedBuildingTabIndex)
     {
         FBuildingUiSnapshot BuildingSnapshot;
 
-        if (!BuildBuildingUiSnapshot(World, BuildingName, BuildingSnapshot))
+        if (!BuildBuildingUiSnapshot(
+            QuerySource,
+            BuildingName,
+            BuildingSnapshot))
+        {
             return FCitizenInfoSnapshot();
+        }
 
         FCitizenInfoSnapshot Result;
         Result.Valid = true;
         Result.Mode = EPanelMode::Building;
-        Result.SelectedTabIndex = (std::max)(0, (std::min)(GBuildingTabCount - 1, SelectedTabIndex));
+        Result.SelectedTabIndex =
+            (std::max)(
+                0,
+                (std::min)(
+                    GBuildingTabCount - 1,
+                    SelectedBuildingTabIndex));
         Result.BudgetLevel = BuildingSnapshot.BudgetLevel;
         Result.Title = BuildingSnapshot.DisplayName.empty() ?
             BuildingSnapshot.ObjectName :
@@ -1836,16 +1724,9 @@ namespace CitizenInfoDataProvider
             Result.Subtitle = BuildingSnapshot.CategoryName;
         }
 
-        static const wchar_t* GPageTitles[GBuildingTabCount] =
-        {
-            L"",
-            L"통계",
-            L"업그레이드",
-            L"효율",
-            L"정보"
-        };
-
-        Result.PageTitle = GPageTitles[Result.SelectedTabIndex];
+        Result.PageTitle =
+            CitizenInfoConstants::GetBuildingPageTitle(
+                Result.SelectedTabIndex);
         Result.ShowTabButtons = true;
         Result.ShowSectionRibbon = Result.SelectedTabIndex != 0;
         Result.ShowBudgetControls = Result.SelectedTabIndex == 0;
@@ -2136,7 +2017,7 @@ namespace CitizenInfoDataProvider
                 {
                     L"50",
                     GetCitizenEducationDisplayName(
-                        BuildingSnapshot.Building->GetRequiredEducationLevel()),
+                        BuildingSnapshot.RequiredEducationLevel),
                     L"$18",
                     L"135%",
                     L"",
@@ -2291,5 +2172,16 @@ namespace CitizenInfoDataProvider
         }
 
         return Result;
+    }
+
+    FCitizenInfoSnapshot BuildTrackedBuildingSnapshot(
+        const std::shared_ptr<CWorld>& World,
+        const std::string& BuildingName,
+        int SelectedBuildingTabIndex)
+    {
+        return BuildTrackedBuildingSnapshot(
+            CitizenInfoQueryService::CreateWorldQuerySource(World),
+            BuildingName,
+            SelectedBuildingTabIndex);
     }
 }

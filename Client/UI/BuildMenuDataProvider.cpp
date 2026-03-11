@@ -1,10 +1,7 @@
 #include "BuildMenuDataProvider.h"
-#include "AlmanacDataProvider.h"
+#include "BuildMenuQueryService.h"
 #include "../Building/BuildingCatalog.h"
 #include "../Building/BuildingCategoryInfo.h"
-#include "../Map/BuildingMarkerOrb.h"
-#include "../World/MainWorldAccess.h"
-#include "World/World.h"
 #include <algorithm>
 #include <cmath>
 #include <cwchar>
@@ -302,28 +299,6 @@ namespace
         return L"$" + Digits;
     }
 
-    int CollectAliveNpcCount(CWorld* World)
-    {
-        if (!World)
-            return 0;
-
-        std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
-        int NpcCount = 0;
-
-        if (World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
-        {
-            for (size_t i = 0; i < OrbList.size(); ++i)
-            {
-                auto Orb = OrbList[i].lock();
-
-                if (Orb && Orb->GetAlive())
-                    ++NpcCount;
-            }
-        }
-
-        return NpcCount;
-    }
-
     std::vector<int> CollectCategoryEntryIndices(
         EBuildingCategory SelectedCategory)
     {
@@ -345,54 +320,49 @@ namespace
     }
 
     BuildMenuDataProvider::FBuildMenuStatusSnapshot BuildStatusSnapshot(
-        const std::shared_ptr<CWorld>& World)
+        const std::shared_ptr<BuildMenuDataProvider::IBuildMenuQuerySource>& QuerySource)
     {
         BuildMenuDataProvider::FBuildMenuStatusSnapshot Result;
         Result.YearbookBodyText = BuildDefaultYearbookBodyText();
 
-        Result.NpcCountText =
-            L"NPC: " + std::to_wstring(CollectAliveNpcCount(World.get()));
-
-        if (!World)
+        if (!QuerySource)
             return Result;
 
-        auto MainWorldBuildMenu =
-            std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World);
+        const BuildMenuDataProvider::FBuildMenuStatusRecord StatusRecord =
+            QuerySource->QueryStatus();
+        Result.NpcCountText =
+            L"NPC: " + std::to_wstring(StatusRecord.AliveNpcCount);
 
-        if (MainWorldBuildMenu)
+        if (StatusRecord.HasSimulationData)
         {
             Result.BudgetText =
                 L"국가 예산: " +
-                FormatCurrency(MainWorldBuildMenu->GetNationalBudget());
+                FormatCurrency(StatusRecord.NationalBudget);
 
             wchar_t DateBuffer[64] = {};
             swprintf_s(
                 DateBuffer,
                 L"날짜: %04d-%02d-%02d",
-                MainWorldBuildMenu->GetSimulationYear(),
-                MainWorldBuildMenu->GetSimulationMonth(),
-                MainWorldBuildMenu->GetSimulationDay());
+                StatusRecord.SimulationYear,
+                StatusRecord.SimulationMonth,
+                StatusRecord.SimulationDay);
             Result.DateText = DateBuffer;
 
-            Result.MonthProgress =
-                MainWorldBuildMenu->GetSimulationMonthProgress();
+            Result.MonthProgress = StatusRecord.SimulationMonthProgress;
 
             wchar_t ProgressBuffer[96] = {};
             swprintf_s(
                 ProgressBuffer,
                 L"월 진행: %d%%  |  %d / %d일",
                 static_cast<int>(roundf(Result.MonthProgress * 100.f)),
-                MainWorldBuildMenu->GetSimulationDay(),
-                MainWorldBuildMenu->GetSimulationMonthDayCount());
+                StatusRecord.SimulationDay,
+                StatusRecord.SimulationMonthDayCount);
             Result.MonthProgressText = ProgressBuffer;
         }
 
-        const auto MainWorldAlmanac =
-            std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World);
-        const AlmanacDataProvider::FAlmanacSnapshot AlmanacSnapshot =
-            AlmanacDataProvider::BuildSnapshot(World, MainWorldAlmanac);
-        Result.YearbookBodyText =
-            AlmanacDataProvider::BuildYearbookSummaryText(AlmanacSnapshot);
+        if (!StatusRecord.YearbookBodyText.empty())
+            Result.YearbookBodyText = StatusRecord.YearbookBodyText;
+
         return Result;
     }
 
@@ -509,18 +479,31 @@ namespace
 namespace BuildMenuDataProvider
 {
     FBuildMenuSnapshot BuildSnapshot(
-        const std::shared_ptr<CWorld>& World,
+        const std::shared_ptr<IBuildMenuQuerySource>& QuerySource,
         EBuildingCategory SelectedCategory,
         int RequestedPage,
         int PreviewEntryIndex)
     {
         FBuildMenuSnapshot Result;
-        Result.Status = BuildStatusSnapshot(World);
+        Result.Status = BuildStatusSnapshot(QuerySource);
         Result.Catalog = BuildCatalogSnapshot(
             SelectedCategory,
             RequestedPage,
             PreviewEntryIndex);
         Result.Detail = BuildDetailSnapshot(Result.Catalog.PreviewEntryIndex);
         return Result;
+    }
+
+    FBuildMenuSnapshot BuildSnapshot(
+        const std::shared_ptr<CWorld>& World,
+        EBuildingCategory SelectedCategory,
+        int RequestedPage,
+        int PreviewEntryIndex)
+    {
+        return BuildSnapshot(
+            BuildMenuQueryService::CreateWorldQuerySource(World),
+            SelectedCategory,
+            RequestedPage,
+            PreviewEntryIndex);
     }
 }

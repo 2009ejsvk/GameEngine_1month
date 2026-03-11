@@ -13,6 +13,7 @@ void FEdictRenderer::ApplySnapshot(
     Widget.mPreviewEntryIndex = Snapshot.Catalog.PreviewEntryIndex;
     Widget.mSelectedEntryIndex = Snapshot.Catalog.SelectedEntryIndex;
     Widget.mVisibleEntryIndices = Snapshot.Catalog.VisibleEntryIndices;
+    Widget.mShowTaxPolicyPanel = Snapshot.TaxPolicy.ShowPanel;
 
     for (int i = 0; i < static_cast<int>(Widget.mCategoryButtons.size()); ++i)
     {

@@ -1,6 +1,7 @@
 #include "EdictWidget.h"
 #include "EdictDataProvider.h"
 #include "EdictRenderer.h"
+#include "UIStrings.h"
 #include "../Politics/EdictSystem.h"
 #include "../World/GovernmentCommandService.h"
 #include "World/Input.h"
@@ -24,9 +25,10 @@ bool CEdictWidget::Init()
     mSelectedEntryIndex = -1;
     mCurrentPage = 0;
     mPageCount = 1;
-    mVisibleEntryIndices.assign(14, -1);
+    mVisibleEntryIndices.assign(EdictConstants::GEdictSlotsPerPage, -1);
     mPanelWidth = 1120.f;
     mPanelHeight = 760.f;
+    mShowTaxPolicyPanel = false;
     mFeedbackMessage.clear();
     mLastLayoutWidth = 0;
     mLastLayoutHeight = 0;
@@ -205,7 +207,7 @@ void CEdictWidget::AdjustTaxPolicy(ETaxPolicyType Type, int DeltaPercent)
 
     if (!MainWorld)
     {
-        mFeedbackMessage = L"지금은 행정 정보를 확인할 수 없습니다.";
+        mFeedbackMessage = UIStrings::Get(L"edict.feedback.no_admin");
         RefreshFromState();
         return;
     }
@@ -240,7 +242,7 @@ void CEdictWidget::OnApplyButtonClick()
     if (EntryIndex < 0 ||
         EntryIndex >= static_cast<int>(Definitions.size()))
     {
-        mFeedbackMessage = L"먼저 칙령을 선택하세요.";
+        mFeedbackMessage = UIStrings::Get(L"edict.feedback.select_edict");
         RefreshFromState();
         return;
     }
@@ -250,7 +252,7 @@ void CEdictWidget::OnApplyButtonClick()
 
     if (!MainWorld)
     {
-        mFeedbackMessage = L"지금은 행정 정보를 확인할 수 없습니다.";
+        mFeedbackMessage = UIStrings::Get(L"edict.feedback.no_admin");
         RefreshFromState();
         return;
     }
