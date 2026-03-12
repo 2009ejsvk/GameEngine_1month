@@ -55,6 +55,8 @@ namespace
 
         const float CoverageRadius =
             GameConstants::Orb::TeamsterCoverageRadiusTiles;
+        if (CoverageRadius <= 0.f)
+            return true;
         return DistSq <= CoverageRadius * CoverageRadius;
     }
 
@@ -855,7 +857,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
                 return;
             }
 
-            if (RequireHarbor && !Building->IsHarbor())
+            if (RequireHarbor && !Building->CanExportStoredResources())
                 return;
 
             const int AvailableAmount =
@@ -1373,7 +1375,7 @@ std::string CBuildingMarkerOrb::FindHarborName() const
         auto Building = BuildingList[i].lock();
 
         if (!IsOperationalBuilding(Building) ||
-            !Building->IsHarbor())
+            !Building->CanExportStoredResources())
         {
             continue;
         }

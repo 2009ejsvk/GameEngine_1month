@@ -7,3 +7,11 @@ build_1_7	0	1700	DA_T6StorageQuayBP	Storage Quay
 build_1_8	0	4000	DA_T6Warehouse_BuildingBP	Warehouse
 build_1_13	0	0	DA_BusStop	Bus Stop
 build_1_14	500	2000	DA_Tunnel	Tunnel
+build_5_20	2800	5600		Night Club
+build_8_1	0	700		Chapel
+build_8_2	0	800		Grocery
+build_8_3	1500	3000		Church
+build_8_4	1750	3500		Clinic
+build_8_5	2000	5000		Fire Station
+build_8_6	4000	8000		Cathedral
+build_8_7	6000	15000		Hospital

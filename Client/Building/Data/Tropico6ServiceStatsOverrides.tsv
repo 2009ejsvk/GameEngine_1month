@@ -1,0 +1,69 @@
+# BuildingId	Capacity	ServiceCapacity	HouseholdCapacity	BaseJobQuality	BaseServiceQuality	BaseHousingQuality	AllowedWealthMask	TouristPreference	SizeX	SizeY	SourceDisplayName
+build_4_1			1			10	1		1	1	판잣집
+build_4_2			2			48	2		2	1	시골 주택
+build_4_3			6			32	1		2	2	합숙소
+build_4_4			1			68	4		3	2	저택
+build_4_5			3			64	2		2	1	단독주택
+build_4_6			9			38	1		3	1	간이 숙박소
+build_4_7			10			52	2		3	2	아파트
+build_4_8			20			36	1		3	3	서민 아파트
+build_4_9			16			40	1		3	2	공동주택
+build_4_10			16			80	2		3	2	현대식 아파트
+build_4_11			3			90	4		3	2	현대식 저택
+build_4_12			2			90	4		3	2	보안 저택
+build_5_1	3	12		40	32		1	Cultural			주점
+build_5_2	6	36		45	45		1	Family			서커스
+build_5_3	1	6		45	20		0	None			버스커
+build_5_4	2	16		45	30		0	Backpacker			식물원
+build_5_5	6	24		45	60		1	Family			유원지 부두
+build_5_6	4	12		45	65		2	None			레스토랑
+build_5_7	3	12		50	50		2	Family			오락실
+build_5_8	4	20		40	45		1	Relaxation			패스트푸드 체인점
+build_5_9	4	24		60	70		1	Relaxation			영화관
+build_5_10	3	18		50	70		2	Relaxation			아쿠아 파크
+build_5_11	3	18		50	70		1	ThrillSeeker			롤러코스터
+build_5_12	12	60		50	80		2	None			경기장
+build_5_13	4	24		50	60		2	Cultural			극장
+build_5_14	4	16		60	75		4	Cultural			오페라 극장
+build_5_15	4	16		50	65		2	Cultural			카바레
+build_5_16	4	24		60	70		2	ThrillSeeker			카지노
+build_5_17	4	12		60	70		2	Relaxation			칵테일 바
+build_5_18	4	20		45	60		2	Relaxation			골프 코스
+build_5_19	4	12		65	80		4	Cultural			고급 레스토랑
+build_5_20	4	20		50	65		2	ThrillSeeker			나이트클럽
+build_5_21	4	12		60	65		2	ThrillSeeker			스노클 베이
+build_5_22	4	20		55	65		2	Relaxation			해변 휴양지
+build_5_23	2	12		50	75		2	ThrillSeeker			행글라이딩
+build_5_24	4	20		75	70		2	Cultural			현대 미술관
+build_5_25	4	8		75	95		4	None			요트 클럽
+build_7_1				55			2				여객선 터미널
+build_7_2			1		40		2				통나무집
+build_7_3			2		57		4				바닷가 별장
+build_7_4			6		46		2				카바나 마을
+build_7_5			8		32		2				모텔
+build_7_6			12		50		2				호텔
+build_7_7			4		45		2				전망대
+build_7_8			12		55		2				기념품 매장
+build_7_9			24		60		2				여행사
+build_7_10			24		75		2				고대 유적
+build_7_11			16		60		2				원주민 마을
+build_7_12				65			4				공항
+build_7_13			18		50		2				저가 호텔
+build_7_14			8		70		2				가족 휴양지
+build_7_15			6		80		8				고급 호텔
+build_7_16			16		70		4				초고층 호텔
+build_7_17			12		70		4				유람선
+build_8_1	2	8		55	45		0		3	3	예배당
+build_8_2	4	16		55	45		1		3	2	식료품점
+build_8_3	3	18		65	60		0		4	2	교회
+build_8_4	2	12		70	60		1		3	1	진료소
+build_8_5	4			65					3	3	소방서
+build_8_6	4	32		80	80		0		5	4	성당
+build_8_7	4	24		65	80		2		3	3	병원
+build_8_8	6			50					5	4	정신병원
+build_8_9	3			30					4	3	쓰레기장
+build_8_10	8	40		55	50		2		4	4	쇼핑몰
+build_8_11	4			40					4	4	폐기물 처리장
+build_8_12	5	25		70	90		4	Celebrity	3	3	중독 치료소
+build_8_13	5	25		70	85		4	Celebrity	3	3	미용 농원
+build_8_14	5			70					2	3	세관

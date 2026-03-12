@@ -96,6 +96,12 @@
     <ClCompile Include="World\MainWorld.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
+    <ClCompile Include="World\MainWorldInfrastructureRuntime.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\MainWorldTradeRuntime.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
     <ClCompile Include="World\MainWorldBootstrap.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
@@ -121,6 +127,9 @@
       <Filter>06. Setting</Filter>
     </ClCompile>
     <ClCompile Include="Building\BuildingCatalog.cpp">
+      <Filter>12. Building</Filter>
+    </ClCompile>
+    <ClCompile Include="Building\BuildingCatalogDerived.cpp">
       <Filter>12. Building</Filter>
     </ClCompile>
     <ClCompile Include="Citizen\CitizenCommuteCalc.cpp">
@@ -193,6 +202,9 @@
       <Filter>11. Map</Filter>
     </ClCompile>
     <ClCompile Include="Map\PlacementAreaObject.cpp">
+      <Filter>11. Map</Filter>
+    </ClCompile>
+    <ClCompile Include="Map\PlacementBuildingRoleResolver.cpp">
       <Filter>11. Map</Filter>
     </ClCompile>
     <ClCompile Include="Map\PlacementAreaObjectNavigation.cpp">
@@ -318,7 +330,19 @@
     <ClCompile Include="UI\TradeWidget.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
+    <ClCompile Include="UI\TradeWidgetRuntime.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CitizenInfoBuildingRuntime.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
     <ClCompile Include="Politics\EdictSystem.cpp">
+      <Filter>15. Politics</Filter>
+    </ClCompile>
+    <ClCompile Include="Politics\EdictSystemRuntime.cpp">
+      <Filter>15. Politics</Filter>
+    </ClCompile>
+    <ClCompile Include="Politics\EdictSystemSerialization.cpp">
       <Filter>15. Politics</Filter>
     </ClCompile>
     <ClCompile Include="Politics\PoliticsSystem.cpp">
@@ -333,6 +357,15 @@
       <Filter>06. Setting</Filter>
     </ClInclude>
     <ClInclude Include="World\MainWorld.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\MainWorldInfrastructureRuntime.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\MainWorldTradeDiplomacyState.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\MainWorldTradeRuntime.h">
       <Filter>02. World</Filter>
     </ClInclude>
     <ClInclude Include="World\MainWorldAccess.h">
@@ -380,6 +413,12 @@
     <ClInclude Include="UI\TradeWidget.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
+    <ClInclude Include="UI\TradeWidgetRuntime.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CitizenInfoBuildingRuntime.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
     <ClInclude Include="World\StartWorld.h">
       <Filter>02. World</Filter>
     </ClInclude>
@@ -407,6 +446,12 @@
     <ClInclude Include="Map\PlacementAreaObject.h">
       <Filter>11. Map</Filter>
     </ClInclude>
+    <ClInclude Include="Map\PlacementAreaRuntimeState.h">
+      <Filter>11. Map</Filter>
+    </ClInclude>
+    <ClInclude Include="Map\PlacementBuildingRoleResolver.h">
+      <Filter>11. Map</Filter>
+    </ClInclude>
     <ClInclude Include="Map\PlacementController.h">
       <Filter>11. Map</Filter>
     </ClInclude>
@@ -414,6 +459,9 @@
       <Filter>11. Map</Filter>
     </ClInclude>
     <ClInclude Include="Building\BuildingCatalog.h">
+      <Filter>12. Building</Filter>
+    </ClInclude>
+    <ClInclude Include="Building\BuildingCatalogDerived.h">
       <Filter>12. Building</Filter>
     </ClInclude>
     <ClInclude Include="Building\BuildingTypes.h">
@@ -540,6 +588,12 @@
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="Politics\EdictSystem.h">
+      <Filter>15. Politics</Filter>
+    </ClInclude>
+    <ClInclude Include="Politics\EdictSystemRuntime.h">
+      <Filter>15. Politics</Filter>
+    </ClInclude>
+    <ClInclude Include="Politics\EdictSystemSerialization.h">
       <Filter>15. Politics</Filter>
     </ClInclude>
     <ClInclude Include="Politics\PoliticalTypes.h">

@@ -346,18 +346,18 @@ void CMainWorld::ResetWorldState()
     mEraProgress = FEraProgressState();
     EdictSystem::InitializeGovernmentEdictStates(mGovernmentEdicts);
     mEdictModifiers = FGovernmentEdictModifiers();
-    mActiveTradeRoutes.clear();
-    mCompletedTradeRoutes.clear();
-    mForeignPowerStandingStates = {};
-    mForeignPowerStates = {};
+    mTradeDiplomacyState.ActiveTradeRoutes.clear();
+    mTradeDiplomacyState.CompletedTradeRoutes.clear();
+    mTradeDiplomacyState.ForeignPowerStandingStates = {};
+    mTradeDiplomacyState.ForeignPowerStates = {};
     mFactionDemands = {};
     mFactionDemandCooldownDays = {};
     mFactionDemandModifierDays = {};
-    mForeignPowerDemands = {};
-    mForeignDemandCooldownDays = {};
-    mNextTradeRouteId = 1;
-    mNextTradeRouteCompletionRecordId = 1;
-    mTradeRouteCompletionNotificationVersion = 0;
+    mTradeDiplomacyState.ForeignPowerDemands = {};
+    mTradeDiplomacyState.ForeignDemandCooldownDays = {};
+    mTradeDiplomacyState.NextTradeRouteId = 1;
+    mTradeDiplomacyState.NextTradeRouteCompletionRecordId = 1;
+    mTradeDiplomacyState.TradeRouteCompletionNotificationVersion = 0;
     ResourceTradePricing::ResetWorldMarketPriceState();
 }
 

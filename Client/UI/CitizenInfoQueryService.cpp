@@ -374,6 +374,8 @@ namespace
 
         const float CoverageRadius =
             GameConstants::Orb::TeamsterCoverageRadiusTiles;
+        if (CoverageRadius <= 0.f)
+            return true;
         return DistSq <= CoverageRadius * CoverageRadius;
     }
 
@@ -678,8 +680,7 @@ namespace
             if (OutRecord.Harbor)
                 PopulateHarborTradePolicy(*Building, OutRecord);
 
-            if (OutRecord.BuildingId == "build_8_13" ||
-                OutRecord.DisplayName == L"세관")
+            if (IsCustomsOfficeBuildingId(OutRecord.BuildingId))
             {
                 PopulateCustomsTradeSummary(OutRecord);
             }

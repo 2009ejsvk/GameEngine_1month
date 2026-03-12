@@ -168,7 +168,7 @@ void CPlacementAreaObject::ResetPlacementState()
     mPreviewCenterIndex = -1;
     mPreviewDirection = 0;
     mMarkerTileIndices.clear();
-    mAccessibilityScore = 0.f;
+    mRuntime.AccessibilityScore = 0.f;
 }
 
 void CPlacementAreaObject::EnsurePlacementObject()

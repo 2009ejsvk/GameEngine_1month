@@ -361,7 +361,7 @@ bool CPlacementAreaObject::IsAreaPlaceable(
 
 void CPlacementAreaObject::RefreshAccessibilityScore()
 {
-    mAccessibilityScore = 0.f;
+    mRuntime.AccessibilityScore = 0.f;
 
     if (IsRoad() ||
         !mTileMapPrepared ||
@@ -408,7 +408,7 @@ void CPlacementAreaObject::RefreshAccessibilityScore()
     if (PerimeterTileCount <= 0)
         return;
 
-    mAccessibilityScore =
+    mRuntime.AccessibilityScore =
         static_cast<float>(RoadConnectedTileCount) /
         static_cast<float>(PerimeterTileCount);
 }

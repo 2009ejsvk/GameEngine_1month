@@ -228,14 +228,34 @@ namespace
                 0);
     }
 
+    int ResolveDeliveredCargoAmount(
+        int RequestedAmount,
+        int LossPercent)
+    {
+        if (RequestedAmount <= 0)
+            return 0;
+
+        if (LossPercent <= 0 || RequestedAmount <= 1)
+            return (std::max)(1, RequestedAmount);
+
+        const int LossAmount = (std::min)(
+            RequestedAmount - 1,
+            static_cast<int>(
+                static_cast<long long>(RequestedAmount) * LossPercent / 100ll));
+        return (std::max)(1, RequestedAmount - LossAmount);
+    }
+
     long long SettleHarborExportIncome(
         const std::shared_ptr<CPlacementAreaObject>& Harbor,
         const TradePolicy::FExportTradePolicy& ExportPolicy,
         double ExportMultiplier,
         FHarborTradeDemandSnapshot& DemandSnapshot)
     {
-        if (!IsOperationalBuilding(Harbor) || !Harbor->IsHarbor())
+        if (!IsOperationalBuilding(Harbor) ||
+            !Harbor->CanExportStoredResources())
+        {
             return 0;
+        }
 
         const int ShipCapacity =
             TradePolicy::GetHarborExportShipCapacityUnits(ExportPolicy);
@@ -245,6 +265,7 @@ namespace
 
         long long ExportIncome = 0;
         int RemainingShipCapacity = ShipCapacity;
+        const int CargoLossPercent = Harbor->GetTeamsterCargoLossPercent();
         std::vector<FHarborExportCandidate> Candidates;
 
         for (int ResourceIndex = 1;
@@ -329,9 +350,12 @@ namespace
                 continue;
             }
 
+            const int DeliveredAmount = ResolveDeliveredCargoAmount(
+                AmountToExport,
+                CargoLossPercent);
             ExportIncome += ResourceTradePricing::ComputeExportValue(
                 Candidate.Type,
-                AmountToExport);
+                DeliveredAmount);
             RemainingShipCapacity -= AmountToExport;
 
             const size_t ResourceArrayIndex =
@@ -715,25 +739,29 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
                 static_cast<double>(
                     GovernmentProfile.TaxPolicy.PropertyRatePercent) / 100.0);
 
-        if (Building->IsHarbor())
+        if (Building->CanExportStoredResources())
         {
             const bool ShipArrived =
                 Building->AdvanceHarborShipProgressAndCheckArrival(
                     DaysInMonth);
 
-            if (!ShipArrived)
-                continue;
+            if (ShipArrived)
+            {
+                Result.ExportIncome += SettleHarborExportIncome(
+                    Building,
+                    GovernmentProfile.ExportTradePolicy,
+                    EventEffects.ExportMultiplier,
+                    HarborTradeDemand);
 
-            Result.ExportIncome += SettleHarborExportIncome(
-                Building,
-                GovernmentProfile.ExportTradePolicy,
-                EventEffects.ExportMultiplier,
-                HarborTradeDemand);
-            Result.ImportExpense += SettleHarborImportExpense(
-                Building,
-                HarborTradeDemand,
-                GovernmentProfile.ImportTradePolicy,
-                RemainingImportBudget);
+                if (Building->IsHarbor())
+                {
+                    Result.ImportExpense += SettleHarborImportExpense(
+                        Building,
+                        HarborTradeDemand,
+                        GovernmentProfile.ImportTradePolicy,
+                        RemainingImportBudget);
+                }
+            }
         }
 
         if (Building->IsWarehouse())

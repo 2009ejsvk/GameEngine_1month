@@ -473,7 +473,7 @@ namespace
             {
                 return GetEffectiveBuildMenuCategory(Entry) ==
                         EBuildingCategory::GovernmentFinance &&
-                    Entry.DisplayName == L"세관";
+                    IsCustomsOfficeCatalogEntry(Entry);
             };
 
         auto ShouldIncludeEntry =

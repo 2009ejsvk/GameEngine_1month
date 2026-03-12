@@ -1,4 +1,5 @@
 #include "CitizenInfoDataProvider.h"
+#include "CitizenInfoBuildingRuntime.h"
 #include "CitizenInfoConstants.h"
 #include "CitizenInfoQueryService.h"
 #include "UIStrings.h"
@@ -14,6 +15,7 @@ namespace
 {
     using CitizenInfoConstants::GBuildingTabCount;
     using CitizenInfoConstants::GCitizenTabCount;
+    using FBuildingUiSnapshot = CitizenInfoBuildingRuntime::FBuildingUiSnapshot;
 
     std::string BuildCatalogIconTextureKey(
         const FBuildingCatalogEntry& Entry)
@@ -25,6 +27,7 @@ namespace
             std::to_string(::GetRuntimeConfigGeneration());
     }
 
+    #if 0
     struct FBuildingUiSnapshot
     {
         const FBuildingCatalogEntry* CatalogEntry = nullptr;
@@ -126,6 +129,7 @@ namespace
         bool IsRoad = false;
         bool CanGenerateWorkOutput = false;
     };
+    #endif
 
     std::wstring Utf8ToWide(const std::string& Text)
     {
@@ -529,6 +533,7 @@ namespace
         }
     }
 
+    #if 0
     bool HasBuildingId(
         const FBuildingUiSnapshot& Snapshot,
         const char* BuildingId)
@@ -545,8 +550,7 @@ namespace
 
     bool IsCustomsOfficeBuilding(const FBuildingUiSnapshot& Snapshot)
     {
-        return HasBuildingId(Snapshot, "build_8_13") ||
-            Snapshot.DisplayName == L"세관";
+        return IsCustomsOfficeBuildingId(Snapshot.BuildingId);
     }
 
     int ComputeAverageCustomsDiplomacyExportBiasPercent()
@@ -623,9 +627,11 @@ namespace
             return std::wstring();
         }
 
-        return Snapshot.CatalogEntry->OperationModeDefs[
-            static_cast<size_t>(ModeIndex)].EffectSummary;
+        return GetOperationModeEffectSummary(
+            *Snapshot.CatalogEntry,
+            ModeIndex);
     }
+    #endif
 
     int ResolveOverviewHousingQuality(const FBuildingUiSnapshot& Snapshot)
     {
@@ -1316,6 +1322,7 @@ namespace
         }
     }
 
+    #if 0
     bool BuildBuildingUiSnapshot(
         const std::shared_ptr<CitizenInfoDataProvider::ICitizenInfoQuerySource>&
             QuerySource,
@@ -1689,6 +1696,7 @@ namespace
             ExtractNarrativeLines(OutSnapshot.DetailText);
         return true;
     }
+    #endif
 
     std::wstring BuildOverviewBody(const FBuildingUiSnapshot& Snapshot)
     {
@@ -2476,7 +2484,7 @@ namespace
         std::wstring Body =
             L"해당 건물의 근무 형태를 선택하십시오.";
         const std::wstring Description =
-            ResolveCustomsModeDescription(
+            CitizenInfoBuildingRuntime::ResolveCustomsModeDescription(
                 Snapshot,
                 Snapshot.ActiveOperationModeIndex);
 
@@ -3088,7 +3096,7 @@ namespace CitizenInfoDataProvider
     {
         FBuildingUiSnapshot BuildingSnapshot;
 
-        if (!BuildBuildingUiSnapshot(
+        if (!CitizenInfoBuildingRuntime::BuildBuildingUiSnapshot(
             QuerySource,
             BuildingName,
             BuildingSnapshot))
@@ -3110,7 +3118,8 @@ namespace CitizenInfoDataProvider
             BuildingSnapshot.ObjectName :
             BuildingSnapshot.DisplayName;
         const bool IsCustomsOffice =
-            IsCustomsOfficeBuilding(BuildingSnapshot);
+            CitizenInfoBuildingRuntime::IsCustomsOfficeBuilding(
+                BuildingSnapshot);
         const bool ShowCustomsModePage =
             IsCustomsOffice &&
             Result.SelectedTabIndex == 0 &&
@@ -3171,7 +3180,8 @@ namespace CitizenInfoDataProvider
             Result.ShowSectionRibbon = false;
         const bool ShowHydroponicCommand =
             Result.SelectedTabIndex == 0 &&
-            IsHydroponicFarmBuilding(BuildingSnapshot);
+            CitizenInfoBuildingRuntime::IsHydroponicFarmBuilding(
+                BuildingSnapshot);
         const bool ShowOperationModeCommand =
             Result.SelectedTabIndex == 0 &&
             !BuildingSnapshot.Harbor &&
@@ -3467,9 +3477,11 @@ namespace CitizenInfoDataProvider
                         L"70",
                     GetCitizenEducationDisplayName(
                         BuildingSnapshot.RequiredEducationLevel),
-                    ResolveCustomsPerWorkerWage(BuildingSnapshot),
+                    CitizenInfoBuildingRuntime::ResolveCustomsPerWorkerWage(
+                        BuildingSnapshot),
                     std::to_wstring(
-                    ResolveCustomsEfficiencyPercent(BuildingSnapshot)) +
+                    CitizenInfoBuildingRuntime::ResolveCustomsEfficiencyPercent(
+                        BuildingSnapshot)) +
                         L"%"
                 };
             }
@@ -3544,9 +3556,11 @@ namespace CitizenInfoDataProvider
             if (IsCustomsOffice)
             {
                 const int DiplomacyModifier =
-                    ComputeAverageCustomsDiplomacyExportBiasPercent();
+                    CitizenInfoBuildingRuntime::
+                        ComputeAverageCustomsDiplomacyExportBiasPercent();
                 const int BudgetModifier =
-                    ResolveCustomsBudgetModifierPercent(BuildingSnapshot);
+                    CitizenInfoBuildingRuntime::
+                        ResolveCustomsBudgetModifierPercent(BuildingSnapshot);
                 Result.ShowHeaderNote = true;
                 Result.ShowSectionDivider = true;
                 Result.HeaderNoteText =
@@ -3560,7 +3574,9 @@ namespace CitizenInfoDataProvider
                 Result.OverviewMetricValues =
                 {
                     std::to_wstring(
-                        ResolveCustomsEfficiencyPercent(BuildingSnapshot)) +
+                        CitizenInfoBuildingRuntime::
+                            ResolveCustomsEfficiencyPercent(
+                                BuildingSnapshot)) +
                         L"%",
                     std::wstring(
                         DiplomacyModifier > 0 ? L"+" : L"") +

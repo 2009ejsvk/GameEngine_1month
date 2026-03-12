@@ -1,10 +1,8 @@
 #include "TradeWidget.h"
+#include "TradeWidgetRuntime.h"
 #include "TropicoUiStyle.h"
-#include "../Economy/ResourceTradePricing.h"
-#include "../Economy/TradeDiplomacyRuntime.h"
 #include "../World/GovernmentCommandService.h"
 #include "../World/MainWorldAccess.h"
-#include "../World/WorldStatsSnapshot.h"
 #include "Device.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -16,391 +14,12 @@
 #include <string>
 #include <vector>
 
+using namespace TradeWidgetRuntime;
+
 namespace
 {
     using namespace TropicoUiAssets;
     using namespace TropicoUiStyle;
-
-    constexpr int GTradePageCount = 5;
-    constexpr int GTradeSortCount = 4;
-    constexpr int GTradeVisibleProposalCount = 10;
-    constexpr int GTradeDetailRowCount = 9;
-    constexpr int GTradeAmountPresetCount = 3;
-    constexpr int GTradeModifierSectionCount = 5;
-    constexpr std::array<int, GTradeAmountPresetCount> GTradeAmountPresets =
-    {
-        1000,
-        3000,
-        6000
-    };
-
-    enum class ETradePageType
-    {
-        Proposals = 0,
-        ProductPrices,
-        PriceModifiers,
-        ActiveRoutes,
-        CompletedRoutes,
-        Count
-    };
-
-    enum class ETradeFilterType
-    {
-        All = 0,
-        Food,
-        ConsumerGoods,
-        LuxuryGoods,
-        Minerals,
-        ProcessedResources,
-        RawMaterials,
-        LocalResources,
-        PlantationGoods,
-        Count
-    };
-
-    struct FTradeProposal
-    {
-        bool ImportRoute = false;
-        EResourceType ResourceType = EResourceType::None;
-        EResourceMarketClass MarketClass = EResourceMarketClass::None;
-        int ForeignPowerIndex = 0;
-        int Relation = 0;
-        int Standing = 0;
-        int TradeModifier = 0;
-        int BasePricePerThousand = 0;
-        int OfferPricePerThousand = 0;
-        int MarginPercent = 0;
-        int MaxAmount = 0;
-        int AvailabilityUnits = 0;
-        int Score = 0;
-        std::wstring PartnerName;
-        std::wstring CategoryName;
-    };
-
-    struct FActiveTradeRouteView
-    {
-        int RouteId = 0;
-        bool ImportRoute = false;
-        EResourceType ResourceType = EResourceType::None;
-        EResourceMarketClass MarketClass = EResourceMarketClass::None;
-        int ForeignPowerIndex = 0;
-        int ContractUnits = 0;
-        int FulfilledUnits = 0;
-        int RemainingDays = 0;
-        int TotalDurationDays = 0;
-        int RoutePricePerThousand = 0;
-        int StandardPricePerThousand = 0;
-        int DeltaPercent = 0;
-        std::wstring PartnerName;
-        std::wstring CategoryName;
-    };
-
-    struct FTradePriceItem
-    {
-        EResourceType ResourceType = EResourceType::None;
-        EResourceMarketClass MarketClass = EResourceMarketClass::None;
-        int ExportPricePerThousand = 0;
-        int ImportPricePerThousand = 0;
-        int ExportIndexPercent = 0;
-        int ImportIndexPercent = 0;
-        int ExportDeltaPercent = 0;
-        int ImportDeltaPercent = 0;
-        std::wstring CategoryName;
-    };
-
-    struct FCompletedTradeRouteView
-    {
-        int RecordId = 0;
-        int RouteId = 0;
-        bool ImportRoute = false;
-        EResourceType ResourceType = EResourceType::None;
-        EResourceMarketClass MarketClass = EResourceMarketClass::None;
-        int ForeignPowerIndex = 0;
-        int ContractUnits = 0;
-        int FulfilledUnits = 0;
-        int ElapsedDays = 0;
-        int TotalDurationDays = 0;
-        long long SettledValue = 0;
-        ETradeRouteEndReason EndReason = ETradeRouteEndReason::Completed;
-        int CompletionRewardModifier = 0;
-        int SecondaryRelationModifier = 0;
-        int StandingModifier = 0;
-        std::wstring PartnerName;
-        std::wstring CategoryName;
-    };
-
-    struct FTradeModifierLine
-    {
-        std::wstring Label;
-        int Percent = 0;
-    };
-
-    struct FTradeModifierPageSnapshot
-    {
-        std::wstring EventSummary;
-        std::vector<FTradeModifierLine> GeneralExportLines;
-        int GeneralExportTotalPercent = 0;
-        std::vector<FTradeModifierLine> ExportRouteLines;
-        int ExportRouteTotalPercent = 0;
-        std::vector<FTradeModifierLine> ImportRouteLines;
-        int ImportRouteTotalPercent = 0;
-        std::vector<FTradeModifierLine> PersonalExportLines;
-    };
-
-    struct FTradeWidgetSnapshot
-    {
-        std::wstring TitleText;
-        std::wstring CountdownText;
-        std::array<std::wstring, GTradePageCount> PageTexts = {};
-        std::wstring FilterText;
-        std::array<std::wstring, GTradeSortCount> SortTexts = {};
-        std::vector<FTradeProposal> VisibleProposals;
-        FTradeProposal SelectedProposal;
-        bool HasSelectedProposal = false;
-        std::vector<FActiveTradeRouteView> VisibleRoutes;
-        FActiveTradeRouteView SelectedRoute;
-        bool HasSelectedRoute = false;
-        std::vector<FCompletedTradeRouteView> VisibleCompletedRoutes;
-        FCompletedTradeRouteView SelectedCompletedRoute;
-        bool HasSelectedCompletedRoute = false;
-        std::vector<FTradePriceItem> VisiblePrices;
-        FTradePriceItem SelectedPrice;
-        bool HasSelectedPrice = false;
-        FTradeModifierPageSnapshot ModifierPage;
-    };
-
-    const wchar_t* GetForeignPowerName(int Index)
-    {
-        static const wchar_t* Names[TradeDiplomacyRuntime::GForeignPowerCount] =
-        {
-            L"중국",
-            L"러시아",
-            L"미국",
-            L"중동",
-            L"유럽연합"
-        };
-
-        if (Index < 0 ||
-            Index >= TradeDiplomacyRuntime::GForeignPowerCount)
-        {
-            return L"해외";
-        }
-
-        return Names[Index];
-    }
-
-    std::wstring FormatCurrency(long long Value)
-    {
-        bool Negative = Value < 0;
-        unsigned long long AbsValue = Negative ?
-            static_cast<unsigned long long>(-Value) :
-            static_cast<unsigned long long>(Value);
-        std::wstring Digits = std::to_wstring(AbsValue);
-
-        for (int Index = static_cast<int>(Digits.size()) - 3;
-            Index > 0;
-            Index -= 3)
-        {
-            Digits.insert(static_cast<size_t>(Index), 1, L',');
-        }
-
-        if (Negative)
-            Digits.insert(Digits.begin(), L'-');
-
-        return L"$" + Digits;
-    }
-
-    std::wstring FormatSignedPercent(int Value)
-    {
-        if (Value > 0)
-            return L"+" + std::to_wstring(Value) + L"%";
-        if (Value < 0)
-            return std::to_wstring(Value) + L"%";
-        return L"0%";
-    }
-
-    std::wstring FormatSignedInteger(int Value)
-    {
-        if (Value > 0)
-            return L"+" + std::to_wstring(Value);
-
-        return std::to_wstring(Value);
-    }
-
-    std::wstring FormatInteger(int Value)
-    {
-        std::wstring Digits = std::to_wstring((std::max)(0, Value));
-
-        for (int Index = static_cast<int>(Digits.size()) - 3;
-            Index > 0;
-            Index -= 3)
-        {
-            Digits.insert(static_cast<size_t>(Index), 1, L',');
-        }
-
-        return Digits;
-    }
-
-    std::wstring FormatTradeProgress(int CurrentValue, int TotalValue)
-    {
-        return FormatInteger(CurrentValue) +
-            L" / " +
-            FormatInteger(TotalValue);
-    }
-
-    std::wstring FormatRemainingTradeTime(int RemainingDays)
-    {
-        const int SafeDays = (std::max)(0, RemainingDays);
-        const int Months = SafeDays / 30;
-        const int Days = SafeDays % 30;
-
-        return std::to_wstring(Months) +
-            L"개월 " +
-            std::to_wstring(Days) +
-            L"일";
-    }
-
-    int RoundDownToThousand(int Value)
-    {
-        if (Value < 1000)
-            return 0;
-
-        return (Value / 1000) * 1000;
-    }
-
-    int RoundUpToThousand(int Value)
-    {
-        if (Value <= 0)
-            return 0;
-
-        return ((Value + 999) / 1000) * 1000;
-    }
-
-    int ClampInt(int Value, int MinValue, int MaxValue)
-    {
-        return (std::max)(MinValue, (std::min)(MaxValue, Value));
-    }
-
-    double ClampDouble(double Value, double MinValue, double MaxValue)
-    {
-        return (std::max)(MinValue, (std::min)(MaxValue, Value));
-    }
-
-    double ResolvePartnerWeight(
-        EResourceMarketClass MarketClass,
-        int ForeignPowerIndex)
-    {
-        static const std::array<double, 5> FoodWeights =
-        {
-            0.15, 0.10, 0.15, 0.35, 0.25
-        };
-        static const std::array<double, 5> RawWeights =
-        {
-            0.40, 0.30, 0.05, 0.15, 0.10
-        };
-        static const std::array<double, 5> ProcessedWeights =
-        {
-            0.35, 0.20, 0.20, 0.05, 0.20
-        };
-        static const std::array<double, 5> LuxuryWeights =
-        {
-            0.10, 0.00, 0.35, 0.20, 0.35
-        };
-        static const std::array<double, 5> DefaultWeights =
-        {
-            0.20, 0.20, 0.20, 0.20, 0.20
-        };
-
-        const int SafeIndex = ClampInt(ForeignPowerIndex, 0, 4);
-
-        switch (MarketClass)
-        {
-        case EResourceMarketClass::Food:
-            return FoodWeights[static_cast<size_t>(SafeIndex)];
-        case EResourceMarketClass::RawGoods:
-            return RawWeights[static_cast<size_t>(SafeIndex)];
-        case EResourceMarketClass::ManufacturedGoods:
-            return ProcessedWeights[static_cast<size_t>(SafeIndex)];
-        case EResourceMarketClass::LuxuryGoods:
-            return LuxuryWeights[static_cast<size_t>(SafeIndex)];
-        default:
-            return DefaultWeights[static_cast<size_t>(SafeIndex)];
-        }
-    }
-
-    const wchar_t* GetFilterDisplayText(ETradeFilterType FilterType)
-    {
-        switch (FilterType)
-        {
-        case ETradeFilterType::Food:
-            return L"음식";
-        case ETradeFilterType::ConsumerGoods:
-            return L"소비재";
-        case ETradeFilterType::LuxuryGoods:
-            return L"사치품";
-        case ETradeFilterType::Minerals:
-            return L"광물";
-        case ETradeFilterType::ProcessedResources:
-            return L"가공된 자원";
-        case ETradeFilterType::RawMaterials:
-            return L"원자재";
-        case ETradeFilterType::LocalResources:
-            return L"지역 자원";
-        case ETradeFilterType::PlantationGoods:
-            return L"대규모 농장 상품";
-        case ETradeFilterType::All:
-        default:
-            return L"모든 상품";
-        }
-    }
-
-    bool MatchesFilter(ETradeFilterType FilterType, EResourceType Type)
-    {
-        switch (FilterType)
-        {
-        case ETradeFilterType::All:
-            return true;
-        case ETradeFilterType::Food:
-            return GetResourceMarketClass(Type) == EResourceMarketClass::Food;
-        case ETradeFilterType::ConsumerGoods:
-            return Type == EResourceType::CannedGoods ||
-                Type == EResourceType::Cheese ||
-                Type == EResourceType::Textiles ||
-                Type == EResourceType::Plastic ||
-                Type == EResourceType::Apparel ||
-                Type == EResourceType::Juice;
-        case ETradeFilterType::LuxuryGoods:
-            return GetResourceMarketClass(Type) == EResourceMarketClass::LuxuryGoods;
-        case ETradeFilterType::Minerals:
-            return Type == EResourceType::Ore ||
-                Type == EResourceType::Oil ||
-                Type == EResourceType::Steel ||
-                Type == EResourceType::Jewelry;
-        case ETradeFilterType::ProcessedResources:
-            return GetResourceMarketClass(Type) ==
-                    EResourceMarketClass::ManufacturedGoods ||
-                Type == EResourceType::CannedGoods ||
-                Type == EResourceType::Cheese;
-        case ETradeFilterType::RawMaterials:
-            return GetResourceMarketClass(Type) == EResourceMarketClass::RawGoods;
-        case ETradeFilterType::LocalResources:
-            return Type == EResourceType::Coconuts ||
-                Type == EResourceType::Logs ||
-                Type == EResourceType::Fish ||
-                Type == EResourceType::Crops ||
-                Type == EResourceType::AnimalProducts ||
-                Type == EResourceType::Ore;
-        case ETradeFilterType::PlantationGoods:
-            return Type == EResourceType::Coconuts ||
-                Type == EResourceType::Crops ||
-                Type == EResourceType::Rum ||
-                Type == EResourceType::Cigars ||
-                Type == EResourceType::Chocolate ||
-                Type == EResourceType::Juice;
-        default:
-            return true;
-        }
-    }
 
     void ConfigureTitleText(const std::shared_ptr<CTextBlock>& Text)
     {
@@ -491,6 +110,7 @@ namespace
         Text->SetShadowTextColor(245, 234, 208, 140);
     }
 
+    #if 0
     int BuildMonthsUntilNextProposal(int CurrentMonth)
     {
         if (CurrentMonth <= 1)
@@ -1522,6 +1142,8 @@ namespace
         return Snapshot;
     }
 
+    #endif
+
     void ConfigureTradeButton(
         const std::shared_ptr<CButton>& Button,
         const std::string& TextureKeyBase)
@@ -1554,6 +1176,7 @@ namespace
         ConfigureIconSlotButtonStyle(Button);
     }
 
+    #if 0
     long long ResolveTradeTotalPrice(
         const FTradeProposal& Proposal,
         int Amount)
@@ -1563,6 +1186,7 @@ namespace
         return static_cast<long long>(Proposal.OfferPricePerThousand) *
             SafeAmount / 1000LL;
     }
+    #endif
 }
 
 CTradeWidget::CTradeWidget()
@@ -2867,179 +2491,73 @@ void CTradeWidget::RefreshFromState()
             &Snapshot.SelectedCompletedRoute :
             nullptr;
 
+    const FTradeDetailSnapshot DetailSnapshot = BuildDetailSnapshot(
+        mWorld.lock(),
+        Snapshot,
+        mSelectedPageIndex,
+        mSelectedAmountIndex);
+
     if (DetailTitleText)
     {
         DetailTitleText->SetEnable(mOpen);
+        DetailTitleText->SetText(DetailSnapshot.TitleText.c_str());
+    }
 
-        if (SelectedPrice)
+    for (int Index = 0; Index < GTradeDetailRowCount; ++Index)
+    {
+        auto Label = mDetailRows[static_cast<size_t>(Index)].Label.lock();
+        auto Value = mDetailRows[static_cast<size_t>(Index)].Value.lock();
+        const auto& Row = DetailSnapshot.Rows[static_cast<size_t>(Index)];
+
+        if (Label)
         {
-            DetailTitleText->SetText(
-                GetResourceTypeDisplayName(SelectedPrice->ResourceType));
+            Label->SetEnable(mOpen);
+            Label->SetText(Row.Label.c_str());
         }
-        else if (SelectedRoute)
+
+        if (Value)
         {
-            DetailTitleText->SetText(
-                (std::wstring(
-                    SelectedRoute->ImportRoute ? L"수입: " : L"수출: ") +
-                    std::wstring(
-                        GetResourceTypeDisplayName(SelectedRoute->ResourceType)))
-                    .c_str());
-        }
-        else if (SelectedCompletedRoute)
-        {
-            DetailTitleText->SetText(
-                (std::wstring(
-                    SelectedCompletedRoute->ImportRoute ? L"수입: " : L"수출: ") +
-                    std::wstring(
-                        GetResourceTypeDisplayName(
-                            SelectedCompletedRoute->ResourceType)))
-                    .c_str());
-        }
-        else if (SelectedProposal)
-        {
-            DetailTitleText->SetText(
-                (SelectedProposal->PartnerName +
-                    L" | " +
-                    (SelectedProposal->ImportRoute ? L"수입 제안" : L"수출 제안"))
-                    .c_str());
-        }
-        else
-        {
-            DetailTitleText->SetText(
-                ShowingCompletedRoutes ? L"이행 완료 기록 없음" :
-                ShowingActiveRoutes ? L"활성 계약 없음" :
-                ShowingProductPrices ? L"상품 없음" :
-                L"제안 없음");
+            Value->SetEnable(mOpen);
+            Value->SetText(Row.Value.c_str());
+
+            switch (Row.Tone)
+            {
+            case ETradeDetailValueTone::Positive:
+                Value->SetTextColor(48, 114, 62, 255);
+                break;
+            case ETradeDetailValueTone::Negative:
+                Value->SetTextColor(138, 68, 54, 255);
+                break;
+            case ETradeDetailValueTone::Default:
+            default:
+                Value->SetTextColor(58, 46, 26, 255);
+                break;
+            }
         }
     }
 
-    std::array<std::wstring, GTradeDetailRowCount> DetailLabels = {};
-    std::array<std::wstring, GTradeDetailRowCount> DetailValues = {};
-
-    if (SelectedPrice)
+    if (ShowingProductPrices)
     {
-        const EResourceType Type = SelectedPrice->ResourceType;
-        const int StorageBias =
-            ResourceTradePricing::GetStorageBiasPercent(Type);
-        const int BalanceBias =
-            ResourceTradePricing::GetBalanceBiasPercent(Type);
-        const int TemporalBias =
-            ResourceTradePricing::GetTemporalBiasPercent(Type);
-        const int EventBias =
-            ResourceTradePricing::GetEventBiasPercent(Type);
-        const int DiplomacyBias =
-            ResourceTradePricing::GetDiplomacyExportBiasPercent(Type);
-        const int EdictBias =
-            ResourceTradePricing::GetEdictExportBiasPercent(Type);
-        int RelatedImportOffers = 0;
-        int RelatedExportOffers = 0;
-        int ActiveImportRoutes = 0;
-        int ActiveExportRoutes = 0;
-
-        auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(mWorld.lock());
-
-        if (TradeAccess)
-        {
-            const auto& ActiveRoutes = TradeAccess->GetActiveTradeRoutes();
-
-            for (size_t Index = 0; Index < ActiveRoutes.size(); ++Index)
-            {
-                if (ActiveRoutes[Index].ResourceType != Type)
-                    continue;
-
-                if (ActiveRoutes[Index].ImportRoute)
-                    ++ActiveImportRoutes;
-                else
-                    ++ActiveExportRoutes;
-            }
-        }
-
-        auto ReadAccess =
-            std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(mWorld.lock());
-        auto HudAccess =
-            std::dynamic_pointer_cast<IMainWorldHudAccess>(mWorld.lock());
-
-        if (ReadAccess && HudAccess)
-        {
-            const std::vector<FTradeProposal> AllProposals =
-                BuildTradeProposals(
-                    mWorld.lock(),
-                    HudAccess->GetSimulationYear(),
-                    HudAccess->GetSimulationMonth(),
-                    ReadAccess->GetGovernmentProfile(),
-                    ReadAccess->GetGovernmentEdictStates(),
-                    HudAccess->GetTaxPolicyEventStatus());
-
-            for (size_t Index = 0; Index < AllProposals.size(); ++Index)
-            {
-                if (AllProposals[Index].ResourceType != Type)
-                    continue;
-
-                if (AllProposals[Index].ImportRoute)
-                    ++RelatedImportOffers;
-                else
-                    ++RelatedExportOffers;
-            }
-        }
-
-        DetailLabels =
-        {
-            L"범주",
-            L"현재 수출가 (1,000)",
-            L"현재 수입가 (1,000)",
-            L"기준 대비",
-            L"전일 변동",
-            L"재고 압박",
-            L"수급 균형",
-            L"외교 / 칙령",
-            L"이벤트 / 시장 파동"
-        };
-        DetailValues[0] = SelectedPrice->CategoryName;
-        DetailValues[1] =
-            FormatCurrency(SelectedPrice->ExportPricePerThousand);
-        DetailValues[2] =
-            FormatCurrency(SelectedPrice->ImportPricePerThousand);
-        DetailValues[3] =
-            L"수출 " +
-            std::to_wstring(SelectedPrice->ExportIndexPercent) +
-            L"% | 수입 " +
-            std::to_wstring(SelectedPrice->ImportIndexPercent) +
-            L"%";
-        DetailValues[4] =
-            L"수출 " +
-            FormatSignedPercent(SelectedPrice->ExportDeltaPercent) +
-            L" | 수입 " +
-            FormatSignedPercent(SelectedPrice->ImportDeltaPercent);
-        DetailValues[5] = FormatSignedPercent(StorageBias);
-        DetailValues[6] = FormatSignedPercent(BalanceBias);
-        DetailValues[7] =
-            L"외교 " +
-            FormatSignedPercent(DiplomacyBias) +
-            L" | 칙령 " +
-            FormatSignedPercent(EdictBias);
-        DetailValues[8] =
-            L"이벤트 " +
-            FormatSignedPercent(EventBias) +
-            L" | 파동 " +
-            FormatSignedPercent(TemporalBias);
-
         if (AmountTitleText)
         {
-            AmountTitleText->SetEnable(mOpen);
-            AmountTitleText->SetText(L"무역로");
+            AmountTitleText->SetEnable(mOpen && DetailSnapshot.ShowAmountTitle);
+            AmountTitleText->SetText(
+                DetailSnapshot.ShowAmountTitle ?
+                    DetailSnapshot.AmountTitleText.c_str() :
+                    L"");
         }
 
         for (int Index = 0; Index < GTradeAmountPresetCount; ++Index)
         {
             auto Button = mAmountButtons[static_cast<size_t>(Index)].lock();
             auto Text = mAmountButtonTexts[static_cast<size_t>(Index)].lock();
+            const auto& AmountSnapshot =
+                DetailSnapshot.AmountButtons[static_cast<size_t>(Index)];
 
             if (Button)
             {
-                const bool Visible = Index < 2;
-                Button->SetEnable(mOpen && Visible);
-                Button->ButtonEnable(false);
+                Button->SetEnable(mOpen && AmountSnapshot.Visible);
+                Button->ButtonEnable(AmountSnapshot.Enabled);
                 Button->SetTint(
                     EButtonState::Normal,
                     FVector4(0.96f, 0.96f, 0.96f, 1.f));
@@ -3047,232 +2565,8 @@ void CTradeWidget::RefreshFromState()
 
             if (Text)
             {
-                Text->SetEnable(mOpen && Index < 2);
-
-                if (Index == 0)
-                {
-                    Text->SetText(
-                        (std::wstring(L"관련 제안\n수입: ") +
-                            std::to_wstring(RelatedImportOffers) +
-                            L"  수출: " +
-                            std::to_wstring(RelatedExportOffers)).c_str());
-                }
-                else if (Index == 1)
-                {
-                    Text->SetText(
-                        (std::wstring(L"체결한 계약\n수입: ") +
-                            std::to_wstring(ActiveImportRoutes) +
-                            L"  수출: " +
-                            std::to_wstring(ActiveExportRoutes)).c_str());
-                }
-            }
-        }
-    }
-    else if (SelectedRoute)
-    {
-        DetailLabels =
-        {
-            L"범주",
-            L"무역국",
-            L"진행량",
-            L"남은 기간",
-            SelectedRoute->ImportRoute ? L"현재 비용" : L"현재 수익",
-            L"표준 단가 (1,000)",
-            L"계약 단가 (1,000)",
-            L"편차",
-            L"계약 총량"
-        };
-        DetailValues[0] = SelectedRoute->CategoryName;
-        DetailValues[1] = SelectedRoute->PartnerName;
-        DetailValues[2] = FormatTradeProgress(
-            SelectedRoute->FulfilledUnits,
-            SelectedRoute->ContractUnits);
-        DetailValues[3] =
-            FormatRemainingTradeTime(SelectedRoute->RemainingDays);
-        DetailValues[4] = FormatCurrency(
-            static_cast<long long>(SelectedRoute->RoutePricePerThousand) *
-            static_cast<long long>(SelectedRoute->FulfilledUnits) / 1000LL);
-        DetailValues[5] =
-            FormatCurrency(SelectedRoute->StandardPricePerThousand);
-        DetailValues[6] =
-            FormatCurrency(SelectedRoute->RoutePricePerThousand);
-        DetailValues[7] =
-            std::to_wstring(std::abs(SelectedRoute->DeltaPercent)) +
-            L"% 표준 " +
-            (SelectedRoute->DeltaPercent >= 0 ? L"이상" : L"이하");
-        DetailValues[8] =
-            FormatInteger(SelectedRoute->ContractUnits) + L" 단위";
-    }
-    else if (SelectedCompletedRoute)
-    {
-        DetailLabels =
-        {
-            L"범주",
-            L"무역국",
-            L"이행량",
-            L"지속 기간",
-            L"종료 사유",
-            SelectedCompletedRoute->ImportRoute ? L"비용" : L"수익",
-            L"완료 보상",
-            L"관계 변화",
-            L"standing 변화"
-        };
-        DetailValues[0] = SelectedCompletedRoute->CategoryName;
-        DetailValues[1] = SelectedCompletedRoute->PartnerName;
-        DetailValues[2] = FormatTradeProgress(
-            SelectedCompletedRoute->FulfilledUnits,
-            SelectedCompletedRoute->ContractUnits);
-        DetailValues[3] =
-            FormatRemainingTradeTime(SelectedCompletedRoute->ElapsedDays);
-        DetailValues[4] =
-            GetTradeRouteEndReasonDisplayName(SelectedCompletedRoute->EndReason);
-        DetailValues[5] = FormatCurrency(SelectedCompletedRoute->SettledValue);
-        DetailValues[6] =
-            FormatSignedInteger(
-                SelectedCompletedRoute->CompletionRewardModifier);
-        DetailValues[7] =
-            FormatSignedInteger(
-                SelectedCompletedRoute->SecondaryRelationModifier);
-        DetailValues[8] =
-            FormatSignedInteger(SelectedCompletedRoute->StandingModifier);
-    }
-    else if (SelectedProposal)
-    {
-        DetailLabels =
-        {
-            L"거래 유형",
-            L"상품",
-            L"분류",
-            L"무역국 / standing",
-            L"기준 단가 (1,000)",
-            L"제안 단가 (1,000)",
-            L"차익",
-            L"최대 물량",
-            L"총 계약금"
-        };
-        const int SelectedAmount =
-            GTradeAmountPresets[static_cast<size_t>(ClampInt(
-                mSelectedAmountIndex,
-                0,
-                GTradeAmountPresetCount - 1))];
-
-        DetailValues[0] =
-            SelectedProposal->ImportRoute ? L"수입 계약" : L"수출 계약";
-        DetailValues[1] =
-            GetResourceTypeDisplayName(SelectedProposal->ResourceType);
-        DetailValues[2] = SelectedProposal->CategoryName;
-        DetailValues[3] =
-            SelectedProposal->PartnerName +
-            L" / " +
-            FormatSignedInteger(SelectedProposal->Standing);
-        DetailValues[4] =
-            FormatCurrency(SelectedProposal->BasePricePerThousand);
-        DetailValues[5] =
-            FormatCurrency(SelectedProposal->OfferPricePerThousand);
-        DetailValues[6] =
-            FormatSignedPercent(SelectedProposal->MarginPercent);
-        DetailValues[7] =
-            FormatInteger(SelectedProposal->MaxAmount) + L" 단위";
-        DetailValues[8] =
-            FormatCurrency(ResolveTradeTotalPrice(
-                *SelectedProposal,
-                (std::min)(SelectedAmount, SelectedProposal->MaxAmount)));
-    }
-    else
-    {
-        for (int Index = 0; Index < GTradeDetailRowCount; ++Index)
-        {
-            DetailLabels[static_cast<size_t>(Index)] = L"-";
-            DetailValues[static_cast<size_t>(Index)] = L"-";
-        }
-
-        if (ShowingProductPrices)
-        {
-            if (AmountTitleText)
-            {
-                AmountTitleText->SetEnable(false);
-                AmountTitleText->SetText(L"");
-            }
-
-            for (int Index = 0; Index < GTradeAmountPresetCount; ++Index)
-            {
-                auto Button = mAmountButtons[static_cast<size_t>(Index)].lock();
-                auto Text = mAmountButtonTexts[static_cast<size_t>(Index)].lock();
-
-                if (Button)
-                {
-                    Button->SetEnable(false);
-                    Button->ButtonEnable(false);
-                }
-
-                if (Text)
-                {
-                    Text->SetEnable(false);
-                    Text->SetText(L"");
-                }
-            }
-        }
-    }
-
-    for (int Index = 0; Index < GTradeDetailRowCount; ++Index)
-    {
-        auto Label = mDetailRows[static_cast<size_t>(Index)].Label.lock();
-        auto Value = mDetailRows[static_cast<size_t>(Index)].Value.lock();
-
-        if (Label)
-        {
-            Label->SetEnable(mOpen);
-            Label->SetText(DetailLabels[static_cast<size_t>(Index)].c_str());
-        }
-
-        if (Value)
-        {
-            Value->SetEnable(mOpen);
-            Value->SetText(DetailValues[static_cast<size_t>(Index)].c_str());
-
-            if (!ShowingActiveRoutes &&
-                !ShowingCompletedRoutes &&
-                Index == 6 &&
-                SelectedProposal)
-            {
-                Value->SetTextColor(
-                    SelectedProposal->MarginPercent >= 0 ? 48 : 138,
-                    SelectedProposal->MarginPercent >= 0 ? 114 : 68,
-                    SelectedProposal->MarginPercent >= 0 ? 62 : 54,
-                    255);
-            }
-            else if (ShowingActiveRoutes &&
-                Index == 7 &&
-                SelectedRoute)
-            {
-                const bool FavorableDelta = SelectedRoute->ImportRoute ?
-                    SelectedRoute->DeltaPercent <= 0 :
-                    SelectedRoute->DeltaPercent >= 0;
-                Value->SetTextColor(
-                    FavorableDelta ? 48 : 138,
-                    FavorableDelta ? 114 : 68,
-                    FavorableDelta ? 62 : 54,
-                    255);
-            }
-            else if (ShowingCompletedRoutes &&
-                SelectedCompletedRoute &&
-                Index >= 6)
-            {
-                const int ModifierValue =
-                    Index == 6 ?
-                        SelectedCompletedRoute->CompletionRewardModifier :
-                    Index == 7 ?
-                        SelectedCompletedRoute->SecondaryRelationModifier :
-                        SelectedCompletedRoute->StandingModifier;
-                Value->SetTextColor(
-                    ModifierValue >= 0 ? 48 : 138,
-                    ModifierValue >= 0 ? 114 : 68,
-                    ModifierValue >= 0 ? 62 : 54,
-                    255);
-            }
-            else
-            {
-                Value->SetTextColor(58, 46, 26, 255);
+                Text->SetEnable(mOpen && AmountSnapshot.Visible);
+                Text->SetText(AmountSnapshot.Text.c_str());
             }
         }
     }

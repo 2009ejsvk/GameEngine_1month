@@ -60,7 +60,7 @@ namespace GameConstants
         int ServiceStockPerCapacity = 3;
         float ServiceStockRegenPerCapacityPerSecond = 0.25f;
         float TeamsterSpeedMultiplier = 3.f;
-        float TeamsterCoverageRadiusTiles = 25.f;
+        float TeamsterCoverageRadiusTiles = 0.f;
         int TeamsterTransferUnit = 1000;
         int TeamsterConsumerRestockThreshold = 250;
         int TeamsterConsumerTargetStock = 1000;
@@ -190,7 +190,7 @@ namespace
         Orb::ServiceStockPerCapacity = 3;
         Orb::ServiceStockRegenPerCapacityPerSecond = 0.25f;
         Orb::TeamsterSpeedMultiplier = 3.f;
-        Orb::TeamsterCoverageRadiusTiles = 25.f;
+        Orb::TeamsterCoverageRadiusTiles = 0.f;
         Orb::TeamsterTransferUnit = 1000;
         Orb::TeamsterConsumerRestockThreshold = 250;
         Orb::TeamsterConsumerTargetStock = 1000;

@@ -1,4 +1,5 @@
 #include "BuildingCatalog.h"
+#include "BuildingCatalogDerived.h"
 #include "BuildingCategoryInfo.h"
 #include "../RuntimeConfigRegistry.h"
 #include "Asset/PathManager.h"
@@ -55,31 +56,6 @@ namespace
 
 namespace
 {
-    EPlacementTemplateType ResolveTemplateTypeByBuildingId(
-        const std::string& BuildingId)
-    {
-        // 구 TSV와의 호환을 위해 기존 예외 규칙을 fallback으로 유지한다.
-        struct FTemplateRule
-        {
-            const char* BuildingId;
-            EPlacementTemplateType TemplateType;
-        };
-
-        static const std::vector<FTemplateRule> GRules =
-        {
-            { "build_1_1", EPlacementTemplateType::SingleTileMarker },
-            { "build_1_12", EPlacementTemplateType::SingleTileMarker },
-        };
-
-        for (const FTemplateRule& Rule : GRules)
-        {
-            if (BuildingId == Rule.BuildingId)
-                return Rule.TemplateType;
-        }
-
-        return EPlacementTemplateType::Diamond3x3SingleMarker;
-    }
-
     std::string TrimAsciiWhitespace(
         const std::string& Text)
     {
@@ -275,6 +251,119 @@ namespace
         std::wstring SourceDisplayName;
     };
 
+    struct FCatalogServiceStatsOverrideRecord
+    {
+        std::string BuildingId;
+        bool HasCapacity = false;
+        int Capacity = 0;
+        bool HasServiceCapacity = false;
+        int ServiceCapacity = 0;
+        bool HasHouseholdCapacity = false;
+        int HouseholdCapacity = 0;
+        bool HasBaseJobQuality = false;
+        int BaseJobQuality = 0;
+        bool HasBaseServiceQuality = false;
+        int BaseServiceQuality = 0;
+        bool HasBaseHousingQuality = false;
+        int BaseHousingQuality = 0;
+        bool HasAllowedWealthMask = false;
+        unsigned int AllowedWealthMask = GBuildingWealthMaskAll;
+        bool HasTouristPreference = false;
+        ETouristPreference TouristPreference =
+            ETouristPreference::None;
+        bool HasSize = false;
+        int SizeX = 1;
+        int SizeY = 1;
+        std::wstring SourceDisplayName;
+    };
+
+    struct FCatalogSizeOverrideRecord
+    {
+        std::string BuildingId;
+        int SizeX = 1;
+        int SizeY = 1;
+        std::wstring SourceDisplayName;
+    };
+
+    struct FCatalogOperationModeOverrideRecord
+    {
+        std::string BuildingId;
+        int ModeIndex = 0;
+        std::wstring DisplayName;
+        std::wstring EffectSummary;
+        bool HasProductionMultiplier = false;
+        float ProductionMultiplier = 1.f;
+        bool HasInputConsumptionMultiplier = false;
+        float InputConsumptionMultiplier = 1.f;
+        bool HasServiceThroughputMultiplier = false;
+        float ServiceThroughputMultiplier = 1.f;
+        bool HasPollutionMultiplier = false;
+        float PollutionMultiplier = 1.f;
+        bool HasWageMultiplier = false;
+        float WageMultiplier = 1.f;
+        bool HasUpkeepMultiplier = false;
+        float UpkeepMultiplier = 1.f;
+        bool HasExportPriceDeltaPercent = false;
+        int ExportPriceDeltaPercent = 0;
+        bool HasImportPriceDeltaPercent = false;
+        int ImportPriceDeltaPercent = 0;
+        bool HasCapacityDelta = false;
+        int CapacityDelta = 0;
+        bool HasServiceCapacityDelta = false;
+        int ServiceCapacityDelta = 0;
+        bool HasHousingQualityDelta = false;
+        int HousingQualityDelta = 0;
+        bool HasJobQualityDelta = false;
+        int JobQualityDelta = 0;
+        bool HasGenericServiceQualityDelta = false;
+        int GenericServiceQualityDelta = 0;
+        bool HasUnlockEra = false;
+        EBuildingEra UnlockEra = EBuildingEra::Colonial;
+        std::wstring RequiredResearch;
+        std::wstring SourceDisplayName;
+    };
+
+    struct FCatalogRuntimeUpgradeOverrideRecord
+    {
+        std::string BuildingId;
+        int UpgradeIndex = 0;
+        std::wstring DisplayName;
+        std::wstring EffectSummary;
+        bool HasUnlockEra = false;
+        EBuildingEra UnlockEra = EBuildingEra::Colonial;
+        EBuildingCostState CostState = EBuildingCostState::None;
+        int Cost = 0;
+        bool HasProductionMultiplier = false;
+        float ProductionMultiplier = 1.f;
+        bool HasInputConsumptionMultiplier = false;
+        float InputConsumptionMultiplier = 1.f;
+        bool HasUpkeepMultiplier = false;
+        float UpkeepMultiplier = 1.f;
+        bool HasWarehouseSlotCapacityMultiplier = false;
+        float WarehouseSlotCapacityMultiplier = 1.f;
+        bool HasCapacityDelta = false;
+        int CapacityDelta = 0;
+        bool HasServiceCapacityDelta = false;
+        int ServiceCapacityDelta = 0;
+        bool HasPerWorkerServiceCapacityDelta = false;
+        int PerWorkerServiceCapacityDelta = 0;
+        bool HasHousingQualityDelta = false;
+        int HousingQualityDelta = 0;
+        bool HasJobQualityDelta = false;
+        int JobQualityDelta = 0;
+        bool HasGenericServiceQualityDelta = false;
+        int GenericServiceQualityDelta = 0;
+        bool HasRequiredPowerDeltaMW = false;
+        int RequiredPowerDeltaMW = 0;
+        bool HasPollutionMultiplier = false;
+        float PollutionMultiplier = 1.f;
+        bool HasUpkeepFlatDelta = false;
+        int UpkeepFlatDelta = 0;
+        bool HasWarehouseSlotCapacityDelta = false;
+        int WarehouseSlotCapacityDelta = 0;
+        std::wstring SourceDisplayName;
+    };
+
     bool TryParseCatalogCostText(
         const std::wstring& Text,
         EBuildingCostState& OutState,
@@ -285,6 +374,14 @@ namespace
         const wchar_t* Prefix,
         EBuildingCostState& OutState,
         int& OutCost);
+
+    bool TryParseSignedInteger(
+        const std::wstring& Text,
+        int& OutValue);
+
+    bool TryParseFirstFloat(
+        const std::wstring& Text,
+        double& OutValue);
 
     std::wstring Utf8ToWide(const std::string& Text)
     {
@@ -536,6 +633,114 @@ namespace
         return Paths;
     }
 
+    std::vector<std::wstring> BuildCatalogServiceStatsOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\Tropico6ServiceStatsOverrides.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\Tropico6ServiceStatsOverrides.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildCatalogSizeOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\BuildingSizeOverrides.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\BuildingSizeOverrides.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildCatalogOperationModeOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\BuildingOperationModes.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\BuildingOperationModes.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildCatalogRuntimeUpgradeOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\BuildingUpgrades.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\BuildingUpgrades.tsv"));
+        }
+
+        return Paths;
+    }
+
     bool LoadUtf8TextFile(
         const std::wstring& FullPath,
         std::string& OutText)
@@ -736,6 +941,125 @@ namespace
         return true;
     }
 
+    bool TryParseCatalogIntegerField(
+        const std::string& Field,
+        int& OutValue)
+    {
+        const std::wstring ValueText = Utf8ToWide(
+            UnescapeCatalogField(Field));
+
+        if (ValueText.empty())
+            return false;
+
+        return TryParseSignedInteger(ValueText, OutValue);
+    }
+
+    bool TryParseCatalogFloatField(
+        const std::string& Field,
+        float& OutValue)
+    {
+        const std::wstring ValueText = Utf8ToWide(
+            UnescapeCatalogField(Field));
+
+        if (ValueText.empty())
+            return false;
+
+        double ParsedValue = 0.0;
+
+        if (!TryParseFirstFloat(ValueText, ParsedValue))
+            return false;
+
+        OutValue = static_cast<float>(ParsedValue);
+        return true;
+    }
+
+    unsigned int NormalizeAllowedWealthMaskOverride(int RawMask)
+    {
+        if (RawMask <= 0)
+            return GBuildingWealthMaskAll;
+
+        unsigned int Normalized = GBuildingWealthMaskNone;
+
+        if ((RawMask & 1) != 0)
+        {
+            Normalized |=
+                GBuildingWealthMaskPoor |
+                GBuildingWealthMaskWellOff |
+                GBuildingWealthMaskRich;
+        }
+
+        if ((RawMask & 2) != 0)
+            Normalized |= GBuildingWealthMaskWellOff | GBuildingWealthMaskRich;
+
+        if ((RawMask & 4) != 0)
+            Normalized |= GBuildingWealthMaskRich;
+
+        // 현재 엔진은 부/중산층/서민 3단계만 사용하므로
+        // "더럽게 부유"는 최고 티어인 Rich 로 접어서 반영한다.
+        if ((RawMask & 8) != 0)
+            Normalized |= GBuildingWealthMaskRich;
+
+        return Normalized == GBuildingWealthMaskNone ?
+            GBuildingWealthMaskAll :
+            Normalized;
+    }
+
+    bool TryParseTouristPreferenceKey(
+        const std::string& Key,
+        ETouristPreference& OutPreference)
+    {
+        const std::string Normalized = TrimAsciiWhitespace(Key);
+
+        if (Normalized.empty() ||
+            EqualsIgnoreCaseAscii(Normalized, "None"))
+        {
+            OutPreference = ETouristPreference::None;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(Normalized, "Cultural") ||
+            Normalized == "문화")
+        {
+            OutPreference = ETouristPreference::Cultural;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(Normalized, "Family") ||
+            Normalized == "아동")
+        {
+            OutPreference = ETouristPreference::Family;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(Normalized, "Backpacker") ||
+            Normalized == "배낭여행")
+        {
+            OutPreference = ETouristPreference::Backpacker;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(Normalized, "Relaxation") ||
+            Normalized == "휴양")
+        {
+            OutPreference = ETouristPreference::Relaxation;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(Normalized, "ThrillSeeker") ||
+            EqualsIgnoreCaseAscii(Normalized, "Thrill Seeker") ||
+            Normalized == "스릴중독")
+        {
+            OutPreference = ETouristPreference::ThrillSeeker;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(Normalized, "Celebrity") ||
+            Normalized == "유명인")
+        {
+            OutPreference = ETouristPreference::Celebrity;
+        }
+        else
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     bool TryParseResourceTypeKey(
         const std::string& Key,
         EResourceType& OutType)
@@ -808,30 +1132,6 @@ namespace
             return false;
 
         return true;
-    }
-
-    void ResolveCategoryDefaultFlags(
-        EBuildingCategory Category,
-        bool& OutResidential,
-        bool& OutFoodProvider,
-        bool& OutEntertainmentProvider)
-    {
-        OutResidential = false;
-        OutFoodProvider = false;
-        OutEntertainmentProvider = false;
-
-        switch (Category)
-        {
-        case EBuildingCategory::Housing:
-            OutResidential = true;
-            break;
-        case EBuildingCategory::Entertainment:
-        case EBuildingCategory::LuxuryEntertainment:
-            OutEntertainmentProvider = true;
-            break;
-        default:
-            break;
-        }
     }
 
     bool LoadExternalCatalogRecords(
@@ -1720,6 +2020,756 @@ namespace
         return false;
     }
 
+    bool LoadCatalogServiceStatsOverrideRecords(
+        std::vector<FCatalogServiceStatsOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogServiceStatsOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (!Fields.empty() && !Fields[0].empty())
+                    {
+                        FCatalogServiceStatsOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+
+                        int ParsedValue = 0;
+
+                        if (Fields.size() >= 2 &&
+                            TryParseCatalogIntegerField(
+                                Fields[1],
+                                ParsedValue))
+                        {
+                            Record.HasCapacity = true;
+                            Record.Capacity = (std::max)(0, ParsedValue);
+                        }
+
+                        if (Fields.size() >= 3 &&
+                            TryParseCatalogIntegerField(
+                                Fields[2],
+                                ParsedValue))
+                        {
+                            Record.HasServiceCapacity = true;
+                            Record.ServiceCapacity = (std::max)(0, ParsedValue);
+                        }
+
+                        if (Fields.size() >= 4 &&
+                            TryParseCatalogIntegerField(
+                                Fields[3],
+                                ParsedValue))
+                        {
+                            Record.HasHouseholdCapacity = true;
+                            Record.HouseholdCapacity = (std::max)(0, ParsedValue);
+                        }
+
+                        if (Fields.size() >= 5 &&
+                            TryParseCatalogIntegerField(
+                                Fields[4],
+                                ParsedValue))
+                        {
+                            Record.HasBaseJobQuality = true;
+                            Record.BaseJobQuality =
+                                (std::max)(0, (std::min)(100, ParsedValue));
+                        }
+
+                        if (Fields.size() >= 6 &&
+                            TryParseCatalogIntegerField(
+                                Fields[5],
+                                ParsedValue))
+                        {
+                            Record.HasBaseServiceQuality = true;
+                            Record.BaseServiceQuality =
+                                (std::max)(0, (std::min)(100, ParsedValue));
+                        }
+
+                        if (Fields.size() >= 7 &&
+                            TryParseCatalogIntegerField(
+                                Fields[6],
+                                ParsedValue))
+                        {
+                            Record.HasBaseHousingQuality = true;
+                            Record.BaseHousingQuality =
+                                (std::max)(0, (std::min)(100, ParsedValue));
+                        }
+
+                        if (Fields.size() >= 8 &&
+                            TryParseCatalogIntegerField(
+                                Fields[7],
+                                ParsedValue))
+                        {
+                            Record.HasAllowedWealthMask = true;
+                            Record.AllowedWealthMask =
+                                NormalizeAllowedWealthMaskOverride(ParsedValue);
+                        }
+
+                        if (Fields.size() >= 9)
+                        {
+                            const std::string TouristPreferenceKey =
+                                UnescapeCatalogField(Fields[8]);
+                            if (!TouristPreferenceKey.empty())
+                            {
+                                Record.HasTouristPreference =
+                                    TryParseTouristPreferenceKey(
+                                        TouristPreferenceKey,
+                                        Record.TouristPreference);
+                            }
+                        }
+
+                        int ParsedSizeX = 0;
+                        int ParsedSizeY = 0;
+                        if (Fields.size() >= 11 &&
+                            TryParseCatalogIntegerField(
+                                Fields[9],
+                                ParsedSizeX) &&
+                            TryParseCatalogIntegerField(
+                                Fields[10],
+                                ParsedSizeY))
+                        {
+                            Record.HasSize = ParsedSizeX > 0 && ParsedSizeY > 0;
+                            Record.SizeX = (std::max)(1, ParsedSizeX);
+                            Record.SizeY = (std::max)(1, ParsedSizeY);
+                        }
+
+                        if (Fields.size() >= 12)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[11]));
+                        }
+
+                        if (Record.HasCapacity ||
+                            Record.HasServiceCapacity ||
+                            Record.HasHouseholdCapacity ||
+                            Record.HasBaseJobQuality ||
+                            Record.HasBaseServiceQuality ||
+                            Record.HasBaseHousingQuality ||
+                            Record.HasAllowedWealthMask ||
+                            Record.HasTouristPreference ||
+                            Record.HasSize)
+                        {
+                            OutRecords.push_back(std::move(Record));
+                        }
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogServiceStatsOverrideRecord& A,
+                    const FCatalogServiceStatsOverrideRecord& B)
+                {
+                    return A.BuildingId < B.BuildingId;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
+    bool LoadCatalogSizeOverrideRecords(
+        std::vector<FCatalogSizeOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogSizeOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (Fields.size() >= 3 && !Fields[0].empty())
+                    {
+                        int ParsedSizeX = 0;
+                        int ParsedSizeY = 0;
+                        if (!TryParseCatalogIntegerField(
+                                Fields[1],
+                                ParsedSizeX) ||
+                            !TryParseCatalogIntegerField(
+                                Fields[2],
+                                ParsedSizeY) ||
+                            ParsedSizeX <= 0 ||
+                            ParsedSizeY <= 0)
+                        {
+                            continue;
+                        }
+
+                        FCatalogSizeOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+                        Record.SizeX = ParsedSizeX;
+                        Record.SizeY = ParsedSizeY;
+
+                        if (Fields.size() >= 4)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[3]));
+                        }
+
+                        OutRecords.push_back(std::move(Record));
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogSizeOverrideRecord& A,
+                    const FCatalogSizeOverrideRecord& B)
+                {
+                    return A.BuildingId < B.BuildingId;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
+    bool LoadCatalogOperationModeOverrideRecords(
+        std::vector<FCatalogOperationModeOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogOperationModeOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (Fields.size() >= 3 && !Fields[0].empty())
+                    {
+                        char* EndPtr = nullptr;
+                        const long ParsedModeIndex =
+                            strtol(Fields[1].c_str(), &EndPtr, 10);
+
+                        if (!(EndPtr && *EndPtr == 0 && ParsedModeIndex >= 0))
+                            continue;
+
+                        FCatalogOperationModeOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+                        Record.ModeIndex = static_cast<int>(ParsedModeIndex);
+                        Record.DisplayName = Utf8ToWide(
+                            UnescapeCatalogField(Fields[2]));
+
+                        if (Fields.size() >= 4)
+                        {
+                            Record.EffectSummary = Utf8ToWide(
+                                UnescapeCatalogField(Fields[3]));
+                        }
+
+                        float ParsedFloatValue = 0.f;
+                        int ParsedIntValue = 0;
+
+                        if (Fields.size() >= 5 &&
+                            TryParseCatalogFloatField(
+                                Fields[4],
+                                ParsedFloatValue))
+                        {
+                            Record.HasProductionMultiplier = true;
+                            Record.ProductionMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 6 &&
+                            TryParseCatalogFloatField(
+                                Fields[5],
+                                ParsedFloatValue))
+                        {
+                            Record.HasInputConsumptionMultiplier = true;
+                            Record.InputConsumptionMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 7 &&
+                            TryParseCatalogFloatField(
+                                Fields[6],
+                                ParsedFloatValue))
+                        {
+                            Record.HasServiceThroughputMultiplier = true;
+                            Record.ServiceThroughputMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 8 &&
+                            TryParseCatalogFloatField(
+                                Fields[7],
+                                ParsedFloatValue))
+                        {
+                            Record.HasPollutionMultiplier = true;
+                            Record.PollutionMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 9 &&
+                            TryParseCatalogFloatField(
+                                Fields[8],
+                                ParsedFloatValue))
+                        {
+                            Record.HasWageMultiplier = true;
+                            Record.WageMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 10 &&
+                            TryParseCatalogFloatField(
+                                Fields[9],
+                                ParsedFloatValue))
+                        {
+                            Record.HasUpkeepMultiplier = true;
+                            Record.UpkeepMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 11 &&
+                            TryParseCatalogIntegerField(
+                                Fields[10],
+                                ParsedIntValue))
+                        {
+                            Record.HasExportPriceDeltaPercent = true;
+                            Record.ExportPriceDeltaPercent = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 12 &&
+                            TryParseCatalogIntegerField(
+                                Fields[11],
+                                ParsedIntValue))
+                        {
+                            Record.HasImportPriceDeltaPercent = true;
+                            Record.ImportPriceDeltaPercent = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 13 &&
+                            TryParseCatalogIntegerField(
+                                Fields[12],
+                                ParsedIntValue))
+                        {
+                            Record.HasCapacityDelta = true;
+                            Record.CapacityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 14 &&
+                            TryParseCatalogIntegerField(
+                                Fields[13],
+                                ParsedIntValue))
+                        {
+                            Record.HasServiceCapacityDelta = true;
+                            Record.ServiceCapacityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 15 &&
+                            TryParseCatalogIntegerField(
+                                Fields[14],
+                                ParsedIntValue))
+                        {
+                            Record.HasHousingQualityDelta = true;
+                            Record.HousingQualityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 16 &&
+                            TryParseCatalogIntegerField(
+                                Fields[15],
+                                ParsedIntValue))
+                        {
+                            Record.HasJobQualityDelta = true;
+                            Record.JobQualityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 17 &&
+                            TryParseCatalogIntegerField(
+                                Fields[16],
+                                ParsedIntValue))
+                        {
+                            Record.HasGenericServiceQualityDelta = true;
+                            Record.GenericServiceQualityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 18)
+                        {
+                            Record.RequiredResearch = Utf8ToWide(
+                                UnescapeCatalogField(Fields[17]));
+                        }
+
+                        if (Fields.size() >= 19)
+                        {
+                            const std::string EraKey =
+                                UnescapeCatalogField(Fields[18]);
+                            if (!EraKey.empty())
+                            {
+                                Record.HasUnlockEra =
+                                    TryParseBuildingEraKey(
+                                        EraKey,
+                                        Record.UnlockEra);
+                            }
+                        }
+
+                        if (Fields.size() >= 20)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[19]));
+                        }
+
+                        OutRecords.push_back(std::move(Record));
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogOperationModeOverrideRecord& A,
+                    const FCatalogOperationModeOverrideRecord& B)
+                {
+                    if (A.BuildingId != B.BuildingId)
+                        return A.BuildingId < B.BuildingId;
+
+                    return A.ModeIndex < B.ModeIndex;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
+    bool LoadCatalogRuntimeUpgradeOverrideRecords(
+        std::vector<FCatalogRuntimeUpgradeOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogRuntimeUpgradeOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (Fields.size() >= 3 && !Fields[0].empty())
+                    {
+                        char* EndPtr = nullptr;
+                        const long ParsedUpgradeIndex =
+                            strtol(Fields[1].c_str(), &EndPtr, 10);
+
+                        if (!(EndPtr && *EndPtr == 0 &&
+                                ParsedUpgradeIndex >= 0))
+                        {
+                            continue;
+                        }
+
+                        FCatalogRuntimeUpgradeOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+                        Record.UpgradeIndex =
+                            static_cast<int>(ParsedUpgradeIndex);
+                        Record.DisplayName = Utf8ToWide(
+                            UnescapeCatalogField(Fields[2]));
+
+                        if (Fields.size() >= 4)
+                        {
+                            Record.EffectSummary = Utf8ToWide(
+                                UnescapeCatalogField(Fields[3]));
+                        }
+
+                        if (Fields.size() >= 5)
+                        {
+                            const std::string EraKey =
+                                UnescapeCatalogField(Fields[4]);
+                            if (!EraKey.empty())
+                            {
+                                Record.HasUnlockEra =
+                                    TryParseBuildingEraKey(
+                                        EraKey,
+                                        Record.UnlockEra);
+                            }
+                        }
+
+                        if (Fields.size() >= 6)
+                        {
+                            const std::wstring CostText = Utf8ToWide(
+                                UnescapeCatalogField(Fields[5]));
+                            if (!CostText.empty())
+                            {
+                                TryParseCatalogCostText(
+                                    CostText,
+                                    Record.CostState,
+                                    Record.Cost);
+                            }
+                        }
+
+                        float ParsedFloatValue = 0.f;
+                        int ParsedIntValue = 0;
+
+                        if (Fields.size() >= 7 &&
+                            TryParseCatalogFloatField(
+                                Fields[6],
+                                ParsedFloatValue))
+                        {
+                            Record.HasProductionMultiplier = true;
+                            Record.ProductionMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 8 &&
+                            TryParseCatalogFloatField(
+                                Fields[7],
+                                ParsedFloatValue))
+                        {
+                            Record.HasInputConsumptionMultiplier = true;
+                            Record.InputConsumptionMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 9 &&
+                            TryParseCatalogFloatField(
+                                Fields[8],
+                                ParsedFloatValue))
+                        {
+                            Record.HasUpkeepMultiplier = true;
+                            Record.UpkeepMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 10 &&
+                            TryParseCatalogFloatField(
+                                Fields[9],
+                                ParsedFloatValue))
+                        {
+                            Record.HasWarehouseSlotCapacityMultiplier = true;
+                            Record.WarehouseSlotCapacityMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 11 &&
+                            TryParseCatalogIntegerField(
+                                Fields[10],
+                                ParsedIntValue))
+                        {
+                            Record.HasCapacityDelta = true;
+                            Record.CapacityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 12 &&
+                            TryParseCatalogIntegerField(
+                                Fields[11],
+                                ParsedIntValue))
+                        {
+                            Record.HasServiceCapacityDelta = true;
+                            Record.ServiceCapacityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 13 &&
+                            TryParseCatalogIntegerField(
+                                Fields[12],
+                                ParsedIntValue))
+                        {
+                            Record.HasPerWorkerServiceCapacityDelta = true;
+                            Record.PerWorkerServiceCapacityDelta =
+                                ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 14 &&
+                            TryParseCatalogIntegerField(
+                                Fields[13],
+                                ParsedIntValue))
+                        {
+                            Record.HasHousingQualityDelta = true;
+                            Record.HousingQualityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 15 &&
+                            TryParseCatalogIntegerField(
+                                Fields[14],
+                                ParsedIntValue))
+                        {
+                            Record.HasJobQualityDelta = true;
+                            Record.JobQualityDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 16 &&
+                            TryParseCatalogIntegerField(
+                                Fields[15],
+                                ParsedIntValue))
+                        {
+                            Record.HasGenericServiceQualityDelta = true;
+                            Record.GenericServiceQualityDelta =
+                                ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 17 &&
+                            TryParseCatalogIntegerField(
+                                Fields[16],
+                                ParsedIntValue))
+                        {
+                            Record.HasRequiredPowerDeltaMW = true;
+                            Record.RequiredPowerDeltaMW = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 18 &&
+                            TryParseCatalogFloatField(
+                                Fields[17],
+                                ParsedFloatValue))
+                        {
+                            Record.HasPollutionMultiplier = true;
+                            Record.PollutionMultiplier =
+                                (std::max)(0.f, ParsedFloatValue);
+                        }
+
+                        if (Fields.size() >= 19 &&
+                            TryParseCatalogIntegerField(
+                                Fields[18],
+                                ParsedIntValue))
+                        {
+                            Record.HasUpkeepFlatDelta = true;
+                            Record.UpkeepFlatDelta = ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 20 &&
+                            TryParseCatalogIntegerField(
+                                Fields[19],
+                                ParsedIntValue))
+                        {
+                            Record.HasWarehouseSlotCapacityDelta = true;
+                            Record.WarehouseSlotCapacityDelta =
+                                ParsedIntValue;
+                        }
+
+                        if (Fields.size() >= 21)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[20]));
+                        }
+
+                        OutRecords.push_back(std::move(Record));
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogRuntimeUpgradeOverrideRecord& A,
+                    const FCatalogRuntimeUpgradeOverrideRecord& B)
+                {
+                    if (A.BuildingId != B.BuildingId)
+                        return A.BuildingId < B.BuildingId;
+
+                    return A.UpgradeIndex < B.UpgradeIndex;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
     bool IsAbsolutePath(const std::wstring& Path)
     {
         if (Path.size() >= 2 && Path[1] == L':')
@@ -2114,6 +3164,69 @@ namespace
         return It != Records.end() ? &(*It) : nullptr;
     }
 
+    const FCatalogServiceStatsOverrideRecord*
+        FindCatalogServiceStatsOverrideRecord(
+            const std::vector<FCatalogServiceStatsOverrideRecord>& Records,
+            const std::string& BuildingId)
+    {
+        const auto It = std::find_if(
+            Records.begin(),
+            Records.end(),
+            [&](const FCatalogServiceStatsOverrideRecord& Record)
+            {
+                return Record.BuildingId == BuildingId;
+            });
+
+        return It != Records.end() ? &(*It) : nullptr;
+    }
+
+    const FCatalogSizeOverrideRecord* FindCatalogSizeOverrideRecord(
+        const std::vector<FCatalogSizeOverrideRecord>& Records,
+        const std::string& BuildingId)
+    {
+        const auto It = std::find_if(
+            Records.begin(),
+            Records.end(),
+            [&](const FCatalogSizeOverrideRecord& Record)
+            {
+                return Record.BuildingId == BuildingId;
+            });
+
+        return It != Records.end() ? &(*It) : nullptr;
+    }
+
+    std::vector<const FCatalogOperationModeOverrideRecord*>
+        FindCatalogOperationModeOverrideRecords(
+            const std::vector<FCatalogOperationModeOverrideRecord>& Records,
+            const std::string& BuildingId)
+    {
+        std::vector<const FCatalogOperationModeOverrideRecord*> Result;
+
+        for (const FCatalogOperationModeOverrideRecord& Record : Records)
+        {
+            if (Record.BuildingId == BuildingId)
+                Result.push_back(&Record);
+        }
+
+        return Result;
+    }
+
+    std::vector<const FCatalogRuntimeUpgradeOverrideRecord*>
+        FindCatalogRuntimeUpgradeOverrideRecords(
+            const std::vector<FCatalogRuntimeUpgradeOverrideRecord>& Records,
+            const std::string& BuildingId)
+    {
+        std::vector<const FCatalogRuntimeUpgradeOverrideRecord*> Result;
+
+        for (const FCatalogRuntimeUpgradeOverrideRecord& Record : Records)
+        {
+            if (Record.BuildingId == BuildingId)
+                Result.push_back(&Record);
+        }
+
+        return Result;
+    }
+
     bool ShouldApplyCostOverride(EBuildingCostState CurrentState)
     {
         return CurrentState == EBuildingCostState::None ||
@@ -2199,34 +3312,302 @@ namespace
         }
     }
 
-    bool ShouldUseRecipeTable(
-        const FBuildingCatalogEntry& Entry)
+    void ApplyBaseQualityMetadata(FBuildingCatalogEntry& Entry)
     {
-        if (Entry.Residential ||
-            Entry.BuildingKind == EPlacementBuildingKind::Road ||
-            Entry.BuildingKind == EPlacementBuildingKind::Harbor ||
-            Entry.BuildingKind == EPlacementBuildingKind::TransportOffice ||
-            Entry.Id == "build_1_7" ||
-            Entry.Id == "build_1_8" ||
-            Entry.Id == "build_1_12")
-        {
-            return false;
-        }
+        if (Entry.BaseHousingQuality > 0)
+            Entry.HousingSatisfactionCap = Entry.BaseHousingQuality;
 
-        if (Entry.Category == EBuildingCategory::Industry)
-            return true;
+        if (Entry.BaseJobQuality > 0)
+            Entry.JobSatisfactionCap = Entry.BaseJobQuality;
 
-        if (Entry.Category == EBuildingCategory::FoodResource)
-            return Entry.Id != "build_2_5";
+        if (Entry.BaseServiceQuality <= 0)
+            return;
 
-        return Entry.FoodProvider;
+        if (Entry.FoodProvider)
+            Entry.FoodSatisfactionCap = Entry.BaseServiceQuality;
+        if (Entry.EntertainmentProvider)
+            Entry.FunSatisfactionCap = Entry.BaseServiceQuality;
+        if (Entry.HealthProvider)
+            Entry.HealthSatisfactionCap = Entry.BaseServiceQuality;
+        if (Entry.FaithProvider)
+            Entry.FaithSatisfactionCap = Entry.BaseServiceQuality;
     }
 
-    bool NameContains(
-        const std::wstring& Name,
-        const wchar_t* Pattern)
+    void ApplyCatalogServiceStatsOverride(
+        const FCatalogServiceStatsOverrideRecord& OverrideRecord,
+        FBuildingCatalogEntry& Entry)
     {
-        return Pattern && Name.find(Pattern) != std::wstring::npos;
+        if (OverrideRecord.HasCapacity)
+            Entry.Capacity = OverrideRecord.Capacity;
+
+        if (OverrideRecord.HasServiceCapacity)
+        {
+            Entry.ServiceCapacity = OverrideRecord.ServiceCapacity;
+            Entry.ServiceCapacityUsesHouseholds = false;
+        }
+
+        if (OverrideRecord.HasHouseholdCapacity)
+            Entry.HouseholdCapacity = OverrideRecord.HouseholdCapacity;
+
+        if (OverrideRecord.HasBaseHousingQuality)
+            Entry.BaseHousingQuality = OverrideRecord.BaseHousingQuality;
+
+        if (OverrideRecord.HasBaseJobQuality)
+            Entry.BaseJobQuality = OverrideRecord.BaseJobQuality;
+
+        if (OverrideRecord.HasBaseServiceQuality)
+            Entry.BaseServiceQuality = OverrideRecord.BaseServiceQuality;
+
+        if (OverrideRecord.HasAllowedWealthMask)
+            Entry.AllowedWealthMask = OverrideRecord.AllowedWealthMask;
+
+        if (OverrideRecord.HasTouristPreference)
+        {
+            Entry.PrimaryTouristPreference =
+                OverrideRecord.TouristPreference;
+        }
+
+        if (OverrideRecord.HasSize)
+        {
+            Entry.BuildingSizeX = OverrideRecord.SizeX;
+            Entry.BuildingSizeY = OverrideRecord.SizeY;
+        }
+
+        ApplyBaseQualityMetadata(Entry);
+    }
+
+    void ApplyCatalogSizeOverride(
+        const FCatalogSizeOverrideRecord& OverrideRecord,
+        FBuildingCatalogEntry& Entry)
+    {
+        Entry.BuildingSizeX = (std::max)(1, OverrideRecord.SizeX);
+        Entry.BuildingSizeY = (std::max)(1, OverrideRecord.SizeY);
+    }
+
+    void ApplyCatalogOperationModeOverride(
+        const FBuildingCatalogEntry& Entry,
+        const FCatalogOperationModeOverrideRecord& OverrideRecord,
+        std::vector<FBuildingOperationModeDef>& ModeDefs)
+    {
+        if (OverrideRecord.ModeIndex < 0)
+            return;
+
+        const size_t SafeModeIndex =
+            static_cast<size_t>(OverrideRecord.ModeIndex);
+
+        if (ModeDefs.size() <= SafeModeIndex)
+            ModeDefs.resize(SafeModeIndex + 1);
+
+        FBuildingOperationModeDef& ModeDef = ModeDefs[SafeModeIndex];
+
+        if (!OverrideRecord.DisplayName.empty())
+            ModeDef.DisplayName = OverrideRecord.DisplayName;
+
+        if (!OverrideRecord.EffectSummary.empty())
+        {
+            ModeDef.EffectSummary = OverrideRecord.EffectSummary;
+            ModeDef.Effect = FBuildingOperationModeEffect();
+
+            const std::vector<std::wstring> Clauses =
+                SplitOperationModeSummaryClauses(ModeDef.EffectSummary);
+            for (size_t ClauseIndex = 0;
+                ClauseIndex < Clauses.size();
+                ++ClauseIndex)
+            {
+                ApplyOperationModeEffectClause(
+                    Entry,
+                    Clauses[ClauseIndex],
+                    ModeDef.Effect);
+            }
+        }
+
+        if (OverrideRecord.HasUnlockEra)
+        {
+            ModeDef.HasUnlockEra = true;
+            ModeDef.UnlockEra = OverrideRecord.UnlockEra;
+        }
+
+        if (!OverrideRecord.RequiredResearch.empty())
+            ModeDef.RequiredResearch = OverrideRecord.RequiredResearch;
+
+        if (OverrideRecord.HasProductionMultiplier)
+        {
+            ModeDef.Effect.ProductionMultiplier =
+                OverrideRecord.ProductionMultiplier;
+        }
+
+        if (OverrideRecord.HasInputConsumptionMultiplier)
+        {
+            ModeDef.Effect.InputConsumptionMultiplier =
+                OverrideRecord.InputConsumptionMultiplier;
+        }
+
+        if (OverrideRecord.HasServiceThroughputMultiplier)
+        {
+            ModeDef.Effect.ServiceThroughputMultiplier =
+                OverrideRecord.ServiceThroughputMultiplier;
+        }
+
+        if (OverrideRecord.HasPollutionMultiplier)
+        {
+            ModeDef.Effect.PollutionMultiplier =
+                OverrideRecord.PollutionMultiplier;
+        }
+
+        if (OverrideRecord.HasWageMultiplier)
+            ModeDef.Effect.WageMultiplier = OverrideRecord.WageMultiplier;
+
+        if (OverrideRecord.HasUpkeepMultiplier)
+            ModeDef.Effect.UpkeepMultiplier = OverrideRecord.UpkeepMultiplier;
+
+        if (OverrideRecord.HasExportPriceDeltaPercent)
+        {
+            ModeDef.Effect.ExportTradeRoutePriceDeltaPercent =
+                OverrideRecord.ExportPriceDeltaPercent;
+        }
+
+        if (OverrideRecord.HasImportPriceDeltaPercent)
+        {
+            ModeDef.Effect.ImportTradeRoutePriceDeltaPercent =
+                OverrideRecord.ImportPriceDeltaPercent;
+        }
+
+        if (OverrideRecord.HasCapacityDelta)
+            ModeDef.Effect.CapacityDelta = OverrideRecord.CapacityDelta;
+
+        if (OverrideRecord.HasServiceCapacityDelta)
+        {
+            ModeDef.Effect.ServiceCapacityDelta =
+                OverrideRecord.ServiceCapacityDelta;
+        }
+
+        if (OverrideRecord.HasHousingQualityDelta)
+        {
+            ModeDef.Effect.HousingQualityDelta =
+                OverrideRecord.HousingQualityDelta;
+        }
+
+        if (OverrideRecord.HasJobQualityDelta)
+            ModeDef.Effect.JobQualityDelta = OverrideRecord.JobQualityDelta;
+
+        if (OverrideRecord.HasGenericServiceQualityDelta)
+        {
+            ModeDef.Effect.GenericServiceQualityDelta =
+                OverrideRecord.GenericServiceQualityDelta;
+        }
+    }
+
+    void ApplyCatalogRuntimeUpgradeOverride(
+        const FCatalogRuntimeUpgradeOverrideRecord& OverrideRecord,
+        std::vector<FBuildingRuntimeUpgradeDef>& UpgradeDefs)
+    {
+        if (OverrideRecord.UpgradeIndex < 0)
+            return;
+
+        const size_t SafeUpgradeIndex =
+            static_cast<size_t>(OverrideRecord.UpgradeIndex);
+
+        if (UpgradeDefs.size() <= SafeUpgradeIndex)
+            UpgradeDefs.resize(SafeUpgradeIndex + 1);
+
+        FBuildingRuntimeUpgradeDef& UpgradeDef =
+            UpgradeDefs[SafeUpgradeIndex];
+
+        if (!OverrideRecord.DisplayName.empty())
+            UpgradeDef.DisplayName = OverrideRecord.DisplayName;
+
+        if (!OverrideRecord.EffectSummary.empty())
+            UpgradeDef.EffectSummary = OverrideRecord.EffectSummary;
+
+        if (OverrideRecord.HasUnlockEra)
+        {
+            UpgradeDef.HasUnlockEra = true;
+            UpgradeDef.UnlockEra = OverrideRecord.UnlockEra;
+        }
+
+        if (OverrideRecord.CostState != EBuildingCostState::None)
+        {
+            UpgradeDef.CostState = OverrideRecord.CostState;
+            UpgradeDef.Cost = OverrideRecord.Cost;
+        }
+
+        if (OverrideRecord.HasProductionMultiplier)
+        {
+            UpgradeDef.Effect.ProductionMultiplier =
+                OverrideRecord.ProductionMultiplier;
+        }
+
+        if (OverrideRecord.HasInputConsumptionMultiplier)
+        {
+            UpgradeDef.Effect.InputConsumptionMultiplier =
+                OverrideRecord.InputConsumptionMultiplier;
+        }
+
+        if (OverrideRecord.HasUpkeepMultiplier)
+        {
+            UpgradeDef.Effect.UpkeepMultiplier =
+                OverrideRecord.UpkeepMultiplier;
+        }
+
+        if (OverrideRecord.HasWarehouseSlotCapacityMultiplier)
+        {
+            UpgradeDef.Effect.WarehouseSlotCapacityMultiplier =
+                OverrideRecord.WarehouseSlotCapacityMultiplier;
+        }
+
+        if (OverrideRecord.HasCapacityDelta)
+            UpgradeDef.Effect.CapacityDelta = OverrideRecord.CapacityDelta;
+
+        if (OverrideRecord.HasServiceCapacityDelta)
+        {
+            UpgradeDef.Effect.ServiceCapacityDelta =
+                OverrideRecord.ServiceCapacityDelta;
+        }
+
+        if (OverrideRecord.HasPerWorkerServiceCapacityDelta)
+        {
+            UpgradeDef.Effect.PerWorkerServiceCapacityDelta =
+                OverrideRecord.PerWorkerServiceCapacityDelta;
+        }
+
+        if (OverrideRecord.HasHousingQualityDelta)
+        {
+            UpgradeDef.Effect.HousingQualityDelta =
+                OverrideRecord.HousingQualityDelta;
+        }
+
+        if (OverrideRecord.HasJobQualityDelta)
+            UpgradeDef.Effect.JobQualityDelta = OverrideRecord.JobQualityDelta;
+
+        if (OverrideRecord.HasGenericServiceQualityDelta)
+        {
+            UpgradeDef.Effect.GenericServiceQualityDelta =
+                OverrideRecord.GenericServiceQualityDelta;
+        }
+
+        if (OverrideRecord.HasRequiredPowerDeltaMW)
+        {
+            UpgradeDef.Effect.RequiredPowerDeltaMW =
+                OverrideRecord.RequiredPowerDeltaMW;
+        }
+
+        if (OverrideRecord.HasPollutionMultiplier)
+        {
+            UpgradeDef.Effect.PollutionMultiplier =
+                OverrideRecord.PollutionMultiplier;
+        }
+
+        if (OverrideRecord.HasUpkeepFlatDelta)
+        {
+            UpgradeDef.Effect.UpkeepFlatDelta =
+                OverrideRecord.UpkeepFlatDelta;
+        }
+
+        if (OverrideRecord.HasWarehouseSlotCapacityDelta)
+        {
+            UpgradeDef.Effect.WarehouseSlotCapacityDelta =
+                OverrideRecord.WarehouseSlotCapacityDelta;
+        }
     }
 
     void AddPoliticalSignal(
@@ -2472,6 +3853,60 @@ namespace
 
         OutValue = (std::max)(0, (std::min)(100, ParsedValue));
         return true;
+    }
+
+    bool TryParseBuildingSize(
+        const std::wstring& DetailText,
+        int& OutSizeX,
+        int& OutSizeY)
+    {
+        std::wstring SizeLine;
+        if (!TryExtractDetailLineValue(DetailText, L"크기:", SizeLine))
+            return false;
+
+        if (SizeLine.find(L"미기재") != std::wstring::npos)
+            return false;
+
+        for (size_t Index = 0; Index < SizeLine.size(); ++Index)
+        {
+            if (!iswdigit(SizeLine[Index]))
+                continue;
+
+            wchar_t* EndPtr = nullptr;
+            const long ParsedX = wcstol(SizeLine.c_str() + Index, &EndPtr, 10);
+            if (EndPtr == SizeLine.c_str() + Index)
+                continue;
+
+            size_t Cursor = static_cast<size_t>(EndPtr - SizeLine.c_str());
+            while (Cursor < SizeLine.size() && iswspace(SizeLine[Cursor]))
+                ++Cursor;
+
+            if (Cursor >= SizeLine.size() ||
+                (SizeLine[Cursor] != L'x' &&
+                    SizeLine[Cursor] != L'X' &&
+                    SizeLine[Cursor] != L'×'))
+            {
+                continue;
+            }
+
+            ++Cursor;
+            while (Cursor < SizeLine.size() && iswspace(SizeLine[Cursor]))
+                ++Cursor;
+
+            if (Cursor >= SizeLine.size() || !iswdigit(SizeLine[Cursor]))
+                continue;
+
+            wchar_t* EndPtrY = nullptr;
+            const long ParsedY = wcstol(SizeLine.c_str() + Cursor, &EndPtrY, 10);
+            if (EndPtrY == SizeLine.c_str() + Cursor)
+                continue;
+
+            OutSizeX = (std::max)(1, static_cast<int>(ParsedX));
+            OutSizeY = (std::max)(1, static_cast<int>(ParsedY));
+            return true;
+        }
+
+        return false;
     }
 
     bool TryExtractWealthRequirementValue(
@@ -2877,9 +4312,6 @@ namespace
         else
             OutDelta += ParsedInteger;
     }
-
-    std::vector<std::wstring> ExtractUpgradeHints(
-        const std::wstring& DetailText);
 
     void ApplyOperationModeClause(
         const FBuildingCatalogEntry& Entry,
@@ -3341,7 +4773,7 @@ namespace
     {
         std::vector<FBuildingRuntimeUpgradeDef> Result;
         const std::vector<std::wstring> UpgradeLines =
-            ExtractUpgradeHints(Entry.DetailText);
+            ExtractUpgradeHintsFromDetail(Entry.DetailText);
 
         for (size_t LineIndex = 0; LineIndex < UpgradeLines.size(); ++LineIndex)
         {
@@ -3365,577 +4797,6 @@ namespace
         }
 
         return Result;
-    }
-
-    bool IsCatalogIdOneOf(
-        const std::string& Id,
-        std::initializer_list<const char*> Candidates)
-    {
-        for (const char* Candidate : Candidates)
-        {
-            if (Candidate && Id == Candidate)
-                return true;
-        }
-
-        return false;
-    }
-
-    EBuildingEra ParseUnlockEra(const std::wstring& DetailText)
-    {
-        if (DetailText.find(L"식민지 시대") != std::wstring::npos)
-            return EBuildingEra::Colonial;
-
-        if (DetailText.find(L"세계대전 시대") != std::wstring::npos)
-            return EBuildingEra::WorldWars;
-
-        if (DetailText.find(L"냉전 시대") != std::wstring::npos)
-            return EBuildingEra::ColdWar;
-
-        if (DetailText.find(L"현대 시대") != std::wstring::npos)
-            return EBuildingEra::Modern;
-
-        return EBuildingEra::Colonial;
-    }
-
-    ECitizenEducationLevel ParseRequiredEducationLevel(
-        const std::wstring& DetailText)
-    {
-        std::wstring WorkerLine;
-        if (TryExtractDetailLineValue(
-                DetailText,
-                L"필요 인력:",
-                WorkerLine))
-        {
-            if (WorkerLine.find(L"대졸") != std::wstring::npos)
-                return ECitizenEducationLevel::College;
-
-            if (WorkerLine.find(L"고졸") != std::wstring::npos)
-                return ECitizenEducationLevel::HighSchool;
-
-            if (WorkerLine.find(L"무학력") != std::wstring::npos ||
-                WorkerLine.find(L"없음") != std::wstring::npos)
-            {
-                return ECitizenEducationLevel::Uneducated;
-            }
-        }
-
-        return ECitizenEducationLevel::Uneducated;
-    }
-
-    EBuildingHousingClass ResolveHousingClass(const std::string& Id)
-    {
-        if (IsCatalogIdOneOf(Id,
-            {
-                "build_4_1",
-                "build_4_3",
-                "build_4_6",
-                "build_4_8",
-                "build_4_9"
-            }))
-        {
-            return EBuildingHousingClass::Collective;
-        }
-
-        if (IsCatalogIdOneOf(Id,
-            {
-                "build_4_2",
-                "build_4_4",
-                "build_4_5",
-                "build_4_11",
-                "build_4_12"
-            }))
-        {
-            return EBuildingHousingClass::Elite;
-        }
-
-        if (IsCatalogIdOneOf(Id, { "build_4_7", "build_4_10" }))
-            return EBuildingHousingClass::Standard;
-
-        return EBuildingHousingClass::None;
-    }
-
-    EBuildingLeisureClass ResolveLeisureClass(
-        EBuildingCategory Category,
-        const std::string& Id)
-    {
-        if (Category != EBuildingCategory::Entertainment)
-            return EBuildingLeisureClass::None;
-
-        if (IsCatalogIdOneOf(Id, { "build_5_13", "build_5_14", "build_5_24" }))
-            return EBuildingLeisureClass::Cultural;
-
-        if (IsCatalogIdOneOf(Id,
-            {
-                "build_5_16",
-                "build_5_17",
-                "build_5_18",
-                "build_5_19",
-                "build_5_20",
-                "build_5_25"
-            }))
-        {
-            return EBuildingLeisureClass::Luxury;
-        }
-
-        return EBuildingLeisureClass::General;
-    }
-
-    ETouristPreference ParsePrimaryTouristPreference(
-        const std::wstring& DetailText)
-    {
-        const size_t MarkerPos = DetailText.find(L"선호 관광객:");
-
-        if (MarkerPos == std::wstring::npos)
-            return ETouristPreference::None;
-
-        const std::wstring TouristLine =
-            DetailText.substr(MarkerPos);
-
-        if (TouristLine.find(L"문화") != std::wstring::npos)
-            return ETouristPreference::Cultural;
-        if (TouristLine.find(L"아동") != std::wstring::npos)
-            return ETouristPreference::Family;
-        if (TouristLine.find(L"배낭여행") != std::wstring::npos)
-            return ETouristPreference::Backpacker;
-        if (TouristLine.find(L"휴양") != std::wstring::npos)
-            return ETouristPreference::Relaxation;
-        if (TouristLine.find(L"스릴중독") != std::wstring::npos)
-            return ETouristPreference::ThrillSeeker;
-        if (TouristLine.find(L"유명인") != std::wstring::npos)
-            return ETouristPreference::Celebrity;
-
-        return ETouristPreference::None;
-    }
-
-    bool ResolveHealthProvider(const FBuildingCatalogEntry& Entry)
-    {
-        if (Entry.DetailText.find(L"보건 제공") != std::wstring::npos)
-            return true;
-
-        return IsCatalogIdOneOf(
-            Entry.Id,
-            { "build_8_12" });
-    }
-
-    bool ResolveFaithProvider(const FBuildingCatalogEntry& Entry)
-    {
-        if (Entry.DetailText.find(L"신앙 제공") != std::wstring::npos)
-            return true;
-
-        return false;
-    }
-
-    int ResolveHealthSatisfactionCap(const FBuildingCatalogEntry& Entry)
-    {
-        if (IsCatalogIdOneOf(Entry.Id, { "build_8_4" }))
-            return 62;
-        if (IsCatalogIdOneOf(Entry.Id, { "build_8_7" }))
-            return 80;
-        if (IsCatalogIdOneOf(Entry.Id, { "build_8_12" }))
-            return 72;
-
-        return Entry.HealthProvider ? 60 : 100;
-    }
-
-    int ResolveFaithSatisfactionCap(const FBuildingCatalogEntry& Entry)
-    {
-        if (IsCatalogIdOneOf(Entry.Id, { "build_8_1" }))
-            return 56;
-        if (IsCatalogIdOneOf(Entry.Id, { "build_8_3" }))
-            return 68;
-        if (IsCatalogIdOneOf(Entry.Id, { "build_8_6" }))
-            return 82;
-        return Entry.FaithProvider ? 60 : 100;
-    }
-
-    int ResolveServiceCapacity(const FBuildingCatalogEntry& Entry)
-    {
-        const bool ProvidesAnyService =
-            Entry.FoodProvider ||
-            Entry.EntertainmentProvider ||
-            Entry.HealthProvider ||
-            Entry.FaithProvider;
-
-        if (!ProvidesAnyService)
-            return 0;
-
-        int DerivedCapacity = (std::max)(4, Entry.Capacity / 2);
-
-        if (Entry.Category == EBuildingCategory::Entertainment)
-            DerivedCapacity = (std::max)(DerivedCapacity, 8);
-        else if (Entry.Category == EBuildingCategory::PublicService)
-            DerivedCapacity = (std::max)(DerivedCapacity, 6);
-        else if (Entry.Category == EBuildingCategory::FoodResource)
-            DerivedCapacity = (std::max)(DerivedCapacity, 5);
-
-        if (Entry.FoodProvider && Entry.EntertainmentProvider)
-            DerivedCapacity += 2;
-
-        return DerivedCapacity;
-    }
-
-    int ExtractDetailPowerValueMW(
-        const std::wstring& DetailText,
-        const wchar_t* Prefix)
-    {
-        if (!Prefix)
-            return 0;
-
-        const std::vector<std::wstring> Lines =
-            SplitDetailLines(DetailText);
-
-        for (size_t Index = 0; Index < Lines.size(); ++Index)
-        {
-            const std::wstring Line = Trim(Lines[Index]);
-
-            if (Line.find(Prefix) != 0)
-                continue;
-
-            int ParsedValue = 0;
-            return TryParseSignedInteger(Line.substr(wcslen(Prefix)), ParsedValue) ?
-                (std::max)(0, ParsedValue) :
-                0;
-        }
-
-        return 0;
-    }
-
-    int ResolveBaseProducedPowerMW(const FBuildingCatalogEntry& Entry)
-    {
-        return (std::max)(
-            ExtractDetailPowerValueMW(Entry.DetailText, L"생산 전력:"),
-            ExtractDetailPowerValueMW(Entry.DetailText, L"발전량:"));
-    }
-
-    int ResolveBaseRequiredPowerMW(const FBuildingCatalogEntry& Entry)
-    {
-        return ExtractDetailPowerValueMW(Entry.DetailText, L"필요 전력:");
-    }
-
-    std::wstring ExtractBasePollutionSummaryText(
-        const std::wstring& DetailText)
-    {
-        std::wstring Result;
-        const std::vector<std::wstring> Lines =
-            SplitDetailLines(DetailText);
-
-        for (size_t Index = 0; Index < Lines.size(); ++Index)
-        {
-            const std::wstring Line = Trim(Lines[Index]);
-
-            if (Line.find(L"효과:") != 0 &&
-                Line.find(L"비고:") != 0)
-            {
-                continue;
-            }
-
-            if (!Result.empty())
-                Result += L'\n';
-
-            Result += Line;
-        }
-
-        return Result;
-    }
-
-    int ResolveBasePollutionOutput(const FBuildingCatalogEntry& Entry)
-    {
-        const std::wstring Text =
-            ExtractBasePollutionSummaryText(Entry.DetailText);
-
-        if (Text.find(L"많은 공해 배출") != std::wstring::npos)
-            return 32;
-
-        if (Text.find(L"건물 자체는 공해 배출") != std::wstring::npos)
-            return 18;
-
-        if (Text.find(L"적은 공해 배출") != std::wstring::npos ||
-            Text.find(L"적은 공해") != std::wstring::npos)
-        {
-            return 8;
-        }
-
-        if (Text.find(L"공해 배출") != std::wstring::npos)
-            return 18;
-
-        return 0;
-    }
-
-    int ResolveBasePollutionMitigation(const FBuildingCatalogEntry& Entry)
-    {
-        const std::wstring Text =
-            ExtractBasePollutionSummaryText(Entry.DetailText);
-
-        if (Text.find(L"범위 내 다른 건물 공해 감소") != std::wstring::npos)
-            return 20;
-
-        if (Text.find(L"주변 공해 감소") != std::wstring::npos)
-            return 12;
-
-        if (Text.find(L"공해 감소") != std::wstring::npos)
-            return 12;
-
-        return 0;
-    }
-
-    std::vector<std::wstring> ExtractUpgradeHints(
-        const std::wstring& DetailText)
-    {
-        std::vector<std::wstring> Result;
-        const std::vector<std::wstring> Lines =
-            SplitDetailLines(DetailText);
-        bool Capture = false;
-
-        for (size_t Index = 0; Index < Lines.size(); ++Index)
-        {
-            const std::wstring& Line = Lines[Index];
-
-            if (Line.find(L"업그레이드") == 0)
-            {
-                Capture = true;
-                continue;
-            }
-
-            if (!Capture)
-                continue;
-
-            if (Line.empty())
-                break;
-
-            if (Line[0] != L'-')
-                break;
-
-            Result.push_back(Line.substr(1));
-        }
-
-        return Result;
-    }
-
-    EResourceType ResolveVisitConsumptionResourceType(
-        const FBuildingCatalogEntry& Entry)
-    {
-        if (Entry.FoodProvider)
-        {
-            if (Entry.ProducedResourceType != EResourceType::None &&
-                IsFoodResourceType(Entry.ProducedResourceType))
-            {
-                return Entry.ProducedResourceType;
-            }
-
-            for (int SlotIndex = 0;
-                SlotIndex < GProductionInputSlotCount;
-                ++SlotIndex)
-            {
-                const EResourceType InputType =
-                    Entry.ProductionInputTypes[static_cast<size_t>(SlotIndex)];
-
-                if (IsFoodResourceType(InputType))
-                    return InputType;
-            }
-
-            return EResourceType::Crops;
-        }
-
-        return Entry.ProductionInputTypes[0];
-    }
-
-    void AssignPoliticalSignals(FBuildingCatalogEntry& Entry)
-    {
-        Entry.PoliticalSignals.clear();
-
-        const std::wstring& Name = Entry.DisplayName;
-
-        switch (Entry.Category)
-        {
-        case EBuildingCategory::Infrastructure:
-            if (Name == L"항구" || Name == L"화물창고" || Name == L"창고")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Left, 5.0f);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::EnvironmentIndustry,
-                    EPoliticalStance::Right, 2.5f);
-            }
-            else if (Name == L"운송업자 사무소" || Name == L"건설 사무소")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Left, 3.0f, EPoliticalScope::Worker);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::EnvironmentIndustry,
-                    EPoliticalStance::Right, 2.0f);
-            }
-            else if (NameContains(Name, L"풍력") || NameContains(Name, L"태양광"))
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::EnvironmentIndustry,
-                    EPoliticalStance::Left, 3.5f);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::IntellectualConservative,
-                    EPoliticalStance::Left, 1.0f);
-            }
-            else if (NameContains(Name, L"발전소") || NameContains(Name, L"원자력"))
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::EnvironmentIndustry,
-                    EPoliticalStance::Right, 3.5f);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Left, 1.5f);
-            }
-            break;
-
-        case EBuildingCategory::FoodResource:
-            if (NameContains(Name, L"광산") ||
-                NameContains(Name, L"석유") ||
-                NameContains(Name, L"정유") ||
-                Name == L"벌목소")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::EnvironmentIndustry,
-                    EPoliticalStance::Right, 4.0f);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Left, 2.0f, EPoliticalScope::Worker);
-            }
-            else
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Right, 2.0f);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::EnvironmentIndustry,
-                    EPoliticalStance::Left, 1.5f);
-            }
-            break;
-
-        case EBuildingCategory::Industry:
-            AddPoliticalSignal(
-                Entry, EPoliticalAxis::Economy,
-                EPoliticalStance::Left, 3.5f);
-            AddPoliticalSignal(
-                Entry, EPoliticalAxis::EnvironmentIndustry,
-                EPoliticalStance::Right, 3.5f);
-            AddPoliticalSignal(
-                Entry, EPoliticalAxis::Economy,
-                EPoliticalStance::Left, 1.5f, EPoliticalScope::Worker);
-            break;
-
-        case EBuildingCategory::Housing:
-            if (Entry.HousingClass == EBuildingHousingClass::Collective)
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Right, 4.0f, EPoliticalScope::Resident);
-            }
-            else if (Entry.HousingClass == EBuildingHousingClass::Elite)
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Left, 3.5f, EPoliticalScope::Resident);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::IntellectualConservative,
-                    EPoliticalStance::Right, 2.0f, EPoliticalScope::Resident);
-            }
-            break;
-
-        case EBuildingCategory::Entertainment:
-            if (Entry.LeisureClass == EBuildingLeisureClass::Luxury)
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Left, 2.5f);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::IntellectualConservative,
-                    EPoliticalStance::Right, 1.5f);
-            }
-            else if (Entry.LeisureClass == EBuildingLeisureClass::Cultural)
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::IntellectualConservative,
-                    EPoliticalStance::Left, 3.0f);
-            }
-            break;
-
-        case EBuildingCategory::MediaEducation:
-            if (Name == L"영묘")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::ReligionMilitarism,
-                    EPoliticalStance::Left, 2.5f);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::IntellectualConservative,
-                    EPoliticalStance::Right, 1.5f);
-            }
-            else if (Name == L"격려용 광고판" || Name == L"격려용 동상")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::IntellectualConservative,
-                    EPoliticalStance::Right, 2.0f);
-            }
-            else if (Name == L"핵 개발 프로그램")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::ReligionMilitarism,
-                    EPoliticalStance::Right, 3.0f);
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::EnvironmentIndustry,
-                    EPoliticalStance::Right, 2.0f);
-            }
-            else
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::IntellectualConservative,
-                    EPoliticalStance::Left, 3.5f);
-            }
-            break;
-
-        case EBuildingCategory::Tourism:
-            AddPoliticalSignal(
-                Entry, EPoliticalAxis::Economy,
-                EPoliticalStance::Left, 2.5f);
-            AddPoliticalSignal(
-                Entry, EPoliticalAxis::IntellectualConservative,
-                EPoliticalStance::Right, 1.0f);
-            break;
-
-        case EBuildingCategory::PublicService:
-            if (Name == L"예배당" || Name == L"교회" || Name == L"성당")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::ReligionMilitarism,
-                    EPoliticalStance::Left, 3.5f);
-            }
-            else if (Name == L"소방서")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::ReligionMilitarism,
-                    EPoliticalStance::Right, 2.0f);
-            }
-            else if (Name == L"쇼핑몰")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Left, 3.0f);
-            }
-            else if (Name == L"쓰레기장" || Name == L"폐기물 처리장")
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::EnvironmentIndustry,
-                    EPoliticalStance::Left, 2.5f);
-            }
-            else
-            {
-                AddPoliticalSignal(
-                    Entry, EPoliticalAxis::Economy,
-                    EPoliticalStance::Right, 2.5f);
-            }
-            break;
-
-        default:
-            break;
-        }
     }
 
     bool HasProductionInputs(const FBuildingCatalogEntry& Entry)
@@ -4263,6 +5124,14 @@ namespace
         L"Game.BuildingPowerOverrides";
     constexpr const wchar_t* GPollutionOverrideConfigId =
         L"Game.BuildingPollutionOverrides";
+    constexpr const wchar_t* GServiceStatsOverrideConfigId =
+        L"Game.BuildingServiceStatsOverrides";
+    constexpr const wchar_t* GSizeOverrideConfigId =
+        L"Game.BuildingSizeOverrides";
+    constexpr const wchar_t* GOperationModeOverrideConfigId =
+        L"Game.BuildingOperationModes";
+    constexpr const wchar_t* GRuntimeUpgradeOverrideConfigId =
+        L"Game.BuildingUpgrades";
     constexpr size_t GRetiredCatalogSnapshotLimit = 4;
 
     std::shared_ptr<const std::vector<FBuildingCatalogEntry>>
@@ -4408,51 +5277,6 @@ namespace
 {
     std::vector<FBuildingCatalogEntry> BuildBuildingCatalogEntries()
     {
-        static const int HousingCaps[] =
-        {
-            10, // 판잣집
-            20, // 시골 주택
-            30, // 합숙소
-            75, // 저택
-            50, // 단독주택
-            25, // 간이 숙박소
-            60, // 아파트
-            40, // 서민 아파트
-            45, // 공동주택
-            70, // 현대식 아파트
-            85, // 현대식 저택
-            90  // 보안 저택
-        };
-
-        static const int EntertainmentFunCaps[] =
-        {
-            45, // 주점
-            70, // 서커스
-            40, // 버스커
-            55, // 식물원
-            68, // 유원지 부두
-            60, // 레스토랑
-            58, // 오락실
-            52, // 패스트푸드 체인점
-            65, // 영화관
-            72, // 아쿠아 파크
-            78, // 롤러코스터
-            80, // 경기장
-            60, // 극장
-            75, // 오페라 극장
-            65, // 카바레
-            70, // 카지노
-            70, // 칵테일 바
-            60, // 골프 코스
-            80, // 고급 레스토랑
-            65, // 나이트클럽
-            65, // 스노클 베이
-            65, // 해변 휴양지
-            75, // 행글라이딩
-            70, // 현대 미술관
-            95  // 요트 클럽
-        };
-
         std::vector<FBuildingCatalogEntry> Entries;
         std::vector<FExternalCatalogRecord> SourceRecords;
         std::vector<FProductionRecipeRecord> ProductionRecipeRecords;
@@ -4464,6 +5288,13 @@ namespace
         std::vector<FCatalogPowerOverrideRecord> PowerOverrideRecords;
         std::vector<FCatalogPollutionOverrideRecord>
             PollutionOverrideRecords;
+        std::vector<FCatalogServiceStatsOverrideRecord>
+            ServiceStatsOverrideRecords;
+        std::vector<FCatalogSizeOverrideRecord> SizeOverrideRecords;
+        std::vector<FCatalogOperationModeOverrideRecord>
+            OperationModeOverrideRecords;
+        std::vector<FCatalogRuntimeUpgradeOverrideRecord>
+            RuntimeUpgradeOverrideRecords;
 
         if (!LoadExternalCatalogRecords(SourceRecords))
             return Entries;
@@ -4474,6 +5305,10 @@ namespace
         LoadCatalogWorkforceOverrideRecords(WorkforceOverrideRecords);
         LoadCatalogPowerOverrideRecords(PowerOverrideRecords);
         LoadCatalogPollutionOverrideRecords(PollutionOverrideRecords);
+        LoadCatalogServiceStatsOverrideRecords(ServiceStatsOverrideRecords);
+        LoadCatalogSizeOverrideRecords(SizeOverrideRecords);
+        LoadCatalogOperationModeOverrideRecords(OperationModeOverrideRecords);
+        LoadCatalogRuntimeUpgradeOverrideRecords(RuntimeUpgradeOverrideRecords);
 
         Entries.reserve(SourceRecords.size());
 
@@ -4490,15 +5325,6 @@ namespace
             {
                 continue;
             }
-
-            bool Residential = false;
-            bool FoodProvider = false;
-            bool EntertainmentProvider = false;
-            ResolveCategoryDefaultFlags(
-                Record.Category,
-                Residential,
-                FoodProvider,
-                EntertainmentProvider);
 
             FBuildingCatalogEntry Entry;
             Entry.Id = "build_" + std::to_string(CategoryIndex + 1) +
@@ -4521,9 +5347,6 @@ namespace
             {
                 ApplyCatalogCostOverride(*CostOverride, Entry);
             }
-            Entry.Residential = Residential;
-            Entry.FoodProvider = FoodProvider;
-            Entry.EntertainmentProvider = EntertainmentProvider;
             Entry.Category = Record.Category;
             Entry.CategoryLocalIndex = i;
             Entry.IconPath = Record.IconPath;
@@ -4531,7 +5354,7 @@ namespace
             Entry.TemplateType =
                 Record.HasTemplateType ?
                 Record.TemplateType :
-                ResolveTemplateTypeByBuildingId(Entry.Id);
+                ResolveLegacyTemplateTypeByBuildingId(Entry.Id);
 
             if (Entry.IconPath.empty())
             {
@@ -4545,204 +5368,7 @@ namespace
             if (Entry.SpriteTexturePath.empty())
                 Entry.SpriteTexturePath = Entry.IconPath;
 
-            if (Entry.Id == "build_1_1")
-                Entry.BuildingKind = EPlacementBuildingKind::Road;
-            else if (Entry.Id == "build_1_3")
-                Entry.BuildingKind = EPlacementBuildingKind::Harbor;
-            else if (Entry.Id == "build_1_5")
-                Entry.BuildingKind = EPlacementBuildingKind::TransportOffice;
-            else
-                Entry.BuildingKind = EPlacementBuildingKind::Structure;
-
-            if (Residential)
-            {
-                Entry.Capacity = 20 + (i % 5) * 8 + (i / 5) * 4;
-            }
-            else
-            {
-                Entry.Capacity = 15 + (i % 6) * 6 + (i / 6) * 3;
-            }
-
-            if (Entry.BuildingKind == EPlacementBuildingKind::Road)
-            {
-                Entry.Capacity = 0;
-                Entry.JobSatisfactionCap = 0;
-            }
-
-            if (Entry.Id == "build_1_12")
-            {
-                Entry.Capacity = 0;
-                Entry.JobSatisfactionCap = 0;
-            }
-
-            if (Entry.Id == "build_8_13")
-                Entry.Capacity = 5;
-
-            int ParsedHouseholdCapacity = 0;
-            if (TryParseHouseholdCapacity(
-                    Entry.DetailText,
-                    ParsedHouseholdCapacity))
-            {
-                Entry.HouseholdCapacity = ParsedHouseholdCapacity;
-            }
-
-            if (!Entry.Residential)
-            {
-                int ParsedWorkerCapacity = 0;
-
-                if (TryParseWorkerCapacity(
-                        Entry.DetailText,
-                        ParsedWorkerCapacity))
-                {
-                    Entry.Capacity = ParsedWorkerCapacity;
-                }
-            }
-
-            Entry.HousingSatisfactionCap = 100;
-            Entry.JobSatisfactionCap = 100;
-            Entry.FoodSatisfactionCap = 100;
-            Entry.FunSatisfactionCap = 100;
-            Entry.HealthSatisfactionCap = 100;
-            Entry.FaithSatisfactionCap = 100;
-
-            if (Record.Category == EBuildingCategory::Infrastructure)
-            {
-                Entry.JobSatisfactionCap = (std::min)(
-                    85, 45 + (i % 7) * 5 + (i / 7) * 3);
-            }
-            else if (Record.Category == EBuildingCategory::FoodResource)
-            {
-                Entry.FoodSatisfactionCap = (std::min)(
-                    82, 35 + (i % 7) * 6 + (i / 7) * 4);
-                Entry.JobSatisfactionCap = (std::min)(
-                    70, 40 + (i % 5) * 5 + (i / 5) * 2);
-            }
-            else if (Record.Category == EBuildingCategory::Industry)
-            {
-                Entry.JobSatisfactionCap = (std::min)(
-                    90, 50 + (i % 8) * 5 + (i / 8) * 4);
-            }
-            else if (Record.Category == EBuildingCategory::Housing)
-            {
-                if (i < static_cast<int>(
-                    sizeof(HousingCaps) / sizeof(HousingCaps[0])))
-                {
-                    Entry.HousingSatisfactionCap = HousingCaps[i];
-                }
-            }
-            else if (Record.Category == EBuildingCategory::Entertainment)
-            {
-                if (i < static_cast<int>(
-                    sizeof(EntertainmentFunCaps) /
-                    sizeof(EntertainmentFunCaps[0])))
-                {
-                    Entry.FunSatisfactionCap =
-                        EntertainmentFunCaps[i];
-                }
-            }
-            else if (Record.Category == EBuildingCategory::PublicService)
-            {
-                Entry.JobSatisfactionCap = (std::min)(
-                    88, 48 + (i % 6) * 5 + (i / 6) * 4);
-            }
-
-            if (Entry.BuildingKind == EPlacementBuildingKind::Road)
-                Entry.JobSatisfactionCap = 0;
-
-            if (Entry.Id == "build_1_12")
-                Entry.JobSatisfactionCap = 0;
-
-            if (Record.Category == EBuildingCategory::Entertainment &&
-                IsCatalogIdOneOf(
-                    Entry.Id,
-                    { "build_5_6", "build_5_8", "build_5_19" }))
-            {
-                Entry.FoodProvider = true;
-
-                if (Entry.Id == "build_5_6")
-                    Entry.FoodSatisfactionCap = 65;
-                else if (Entry.Id == "build_5_19")
-                    Entry.FoodSatisfactionCap = 75;
-                else
-                    Entry.FoodSatisfactionCap = 55;
-            }
-            else if (Record.Category == EBuildingCategory::PublicService &&
-                IsCatalogIdOneOf(
-                    Entry.Id,
-                    { "build_8_2", "build_8_10" }))
-            {
-                Entry.FoodProvider = true;
-                Entry.FoodSatisfactionCap =
-                    (Entry.Id == "build_8_10") ? 70 : 55;
-            }
-
-            if (Record.Category == EBuildingCategory::PublicService &&
-                IsCatalogIdOneOf(
-                    Entry.Id,
-                    { "build_8_12" }))
-            {
-                Entry.EntertainmentProvider = true;
-                Entry.FunSatisfactionCap = 68;
-            }
-
-            if (Record.Category == EBuildingCategory::FoodResource &&
-                IsCatalogIdOneOf(
-                    Entry.Id,
-                    {
-                        "build_2_1",
-                        "build_2_3",
-                        "build_2_4",
-                        "build_2_6",
-                        "build_2_9",
-                        "build_2_11",
-                        "build_2_12"
-                    }))
-            {
-                Entry.FoodProvider = true;
-            }
-
-            Entry.HealthProvider = ResolveHealthProvider(Entry);
-            Entry.FaithProvider = ResolveFaithProvider(Entry);
-            Entry.HealthSatisfactionCap =
-                ResolveHealthSatisfactionCap(Entry);
-            Entry.FaithSatisfactionCap =
-                ResolveFaithSatisfactionCap(Entry);
-
-            int ParsedQualityCap = 0;
-            if (Entry.Residential &&
-                TryParseDetailQualityValue(
-                    Entry.DetailText,
-                    L"주거 품질:",
-                    ParsedQualityCap))
-            {
-                Entry.HousingSatisfactionCap = ParsedQualityCap;
-            }
-
-            if (TryParseDetailQualityValue(
-                    Entry.DetailText,
-                    L"직업 품질:",
-                    ParsedQualityCap))
-            {
-                Entry.JobSatisfactionCap = ParsedQualityCap;
-            }
-
-            if (TryParseDetailQualityValue(
-                    Entry.DetailText,
-                    L"서비스 품질:",
-                    ParsedQualityCap))
-            {
-                if (Entry.FoodProvider)
-                    Entry.FoodSatisfactionCap = ParsedQualityCap;
-                if (Entry.EntertainmentProvider)
-                    Entry.FunSatisfactionCap = ParsedQualityCap;
-                if (Entry.HealthProvider)
-                    Entry.HealthSatisfactionCap = ParsedQualityCap;
-                if (Entry.FaithProvider)
-                    Entry.FaithSatisfactionCap = ParsedQualityCap;
-            }
-
-            Entry.BaseProducedPowerMW = ResolveBaseProducedPowerMW(Entry);
-            Entry.BaseRequiredPowerMW = ResolveBaseRequiredPowerMW(Entry);
+            InitializeDerivedCatalogEntry(Entry);
             if (const FCatalogPowerOverrideRecord* PowerOverride =
                     FindCatalogPowerOverrideRecord(
                         PowerOverrideRecords,
@@ -4750,9 +5376,6 @@ namespace
             {
                 ApplyCatalogPowerOverride(*PowerOverride, Entry);
             }
-            Entry.BasePollutionOutput = ResolveBasePollutionOutput(Entry);
-            Entry.BasePollutionMitigation =
-                ResolveBasePollutionMitigation(Entry);
             if (const FCatalogPollutionOverrideRecord* PollutionOverride =
                     FindCatalogPollutionOverrideRecord(
                         PollutionOverrideRecords,
@@ -4761,9 +5384,6 @@ namespace
                 ApplyCatalogPollutionOverride(*PollutionOverride, Entry);
             }
 
-            Entry.UnlockEra = ParseUnlockEra(Entry.DetailText);
-            Entry.AllowedWealthMask =
-                ParseAllowedWealthMask(Entry.DetailText);
             if (const FCatalogSourceMetadataOverrideRecord* SourceOverride =
                     FindCatalogSourceMetadataOverrideRecord(
                         SourceMetadataOverrideRecords,
@@ -4775,8 +5395,6 @@ namespace
                 Entry.HasBuildMenuCategoryOverride ?
                     Entry.BuildMenuCategoryOverride :
                     Entry.Category);
-            Entry.RequiredEducationLevel =
-                ParseRequiredEducationLevel(Entry.DetailText);
             if (const FCatalogWorkforceOverrideRecord* WorkforceOverride =
                     FindCatalogWorkforceOverrideRecord(
                         WorkforceOverrideRecords,
@@ -4784,32 +5402,35 @@ namespace
             {
                 ApplyCatalogWorkforceOverride(*WorkforceOverride, Entry);
             }
+            if (const FCatalogServiceStatsOverrideRecord* ServiceStatsOverride =
+                    FindCatalogServiceStatsOverrideRecord(
+                        ServiceStatsOverrideRecords,
+                        Entry.Id))
+            {
+                ApplyCatalogServiceStatsOverride(
+                    *ServiceStatsOverride,
+                    Entry);
+            }
+            else
+            {
+                ApplyBaseQualityMetadata(Entry);
+            }
+
+            if (const FCatalogSizeOverrideRecord* SizeOverride =
+                    FindCatalogSizeOverrideRecord(
+                        SizeOverrideRecords,
+                        Entry.Id))
+            {
+                ApplyCatalogSizeOverride(*SizeOverride, Entry);
+            }
+
             if (!Entry.Residential && Entry.Capacity <= 0)
             {
                 Entry.JobSatisfactionCap = 0;
+                Entry.BaseJobQuality = 0;
                 Entry.RequiredEducationLevel =
                     ECitizenEducationLevel::Uneducated;
             }
-            Entry.ServiceCapacity = ResolveServiceCapacity(Entry);
-            if (!Entry.Residential)
-            {
-                int ParsedServiceCapacity = 0;
-                bool ServiceCapacityUsesHouseholds = false;
-                if (TryParseServiceCapacity(
-                        Entry.DetailText,
-                        ParsedServiceCapacity,
-                        ServiceCapacityUsesHouseholds))
-                {
-                    Entry.ServiceCapacity = ParsedServiceCapacity;
-                    Entry.ServiceCapacityUsesHouseholds =
-                        ServiceCapacityUsesHouseholds;
-                }
-            }
-            Entry.HousingClass = ResolveHousingClass(Entry.Id);
-            Entry.LeisureClass =
-                ResolveLeisureClass(Entry.Category, Entry.Id);
-            Entry.PrimaryTouristPreference =
-                ParsePrimaryTouristPreference(Entry.DetailText);
             Entry.ProducedResourceType = EResourceType::None;
             Entry.ProducedResourceLabel.clear();
             Entry.ProductionInputTypes =
@@ -4841,13 +5462,7 @@ namespace
                     ProductionRecipe->VisitConsumptionResourceType;
             }
 
-            if (Entry.VisitConsumptionResourceType == EResourceType::None)
-            {
-                Entry.VisitConsumptionResourceType =
-                    ResolveVisitConsumptionResourceType(Entry);
-            }
-
-            if (ShouldUseRecipeTable(Entry) &&
+            if (Entry.UsesRecipeTable &&
                 !ProductionRecipe)
             {
                 std::wstring Warning =
@@ -4857,47 +5472,57 @@ namespace
                 OutputDebugStringW(Warning.c_str());
             }
 
-            Entry.CanExportStoredResources =
-                Entry.BuildingKind == EPlacementBuildingKind::Harbor;
-            Entry.SupportsTeamsterPickup =
-                Entry.ProducedResourceType != EResourceType::None &&
-                !Entry.Residential &&
-                !Entry.CanExportStoredResources &&
-                Entry.BuildingKind !=
-                    EPlacementBuildingKind::TransportOffice;
-            Entry.SupportsImmigration =
-                Entry.DetailText.find(L"이민/이주 처리") !=
-                std::wstring::npos;
-            Entry.OperationModeDefs = ExtractOperationModeDefs(Entry);
-            Entry.RuntimeUpgradeDefs = ExtractRuntimeUpgradeDefs(Entry);
-            Entry.UpgradeHints = ExtractUpgradeHints(Entry.DetailText);
+            FinalizeCatalogEntryAfterRecipeLoad(Entry);
+            Entry.OperationModeDefs =
+                ExtractOperationModeDefsFromEntry(Entry);
+            Entry.RuntimeUpgradeDefs =
+                ExtractRuntimeUpgradeDefsFromEntry(Entry);
+            Entry.UpgradeHints =
+                ExtractUpgradeHintsFromDetail(Entry.DetailText);
 
-            AssignPoliticalSignals(Entry);
+            const std::vector<const FCatalogOperationModeOverrideRecord*>
+                OperationModeOverrides =
+                    FindCatalogOperationModeOverrideRecords(
+                        OperationModeOverrideRecords,
+                        Entry.Id);
+            for (const FCatalogOperationModeOverrideRecord* OverrideRecord :
+                OperationModeOverrides)
+            {
+                if (!OverrideRecord)
+                    continue;
+
+                ApplyCatalogOperationModeOverride(
+                    Entry,
+                    *OverrideRecord,
+                    Entry.OperationModeDefs);
+            }
+
+            const std::vector<const FCatalogRuntimeUpgradeOverrideRecord*>
+                RuntimeUpgradeOverrides =
+                    FindCatalogRuntimeUpgradeOverrideRecords(
+                        RuntimeUpgradeOverrideRecords,
+                        Entry.Id);
+            if (!RuntimeUpgradeOverrides.empty())
+            {
+                Entry.RuntimeUpgradeDefs.clear();
+
+                for (const FCatalogRuntimeUpgradeOverrideRecord* OverrideRecord :
+                    RuntimeUpgradeOverrides)
+                {
+                    if (!OverrideRecord)
+                        continue;
+
+                    ApplyCatalogRuntimeUpgradeOverride(
+                        *OverrideRecord,
+                        Entry.RuntimeUpgradeDefs);
+                }
+            }
+
             Entries.push_back(Entry);
         }
 
-        // ── UI 동작 플래그 후처리 ─────────────────────────────────────────
-        // DisplayName 기반 동작 분기를 외부 레이어(BuildMenuWidget 등)가
-        // 직접 비교하지 않도록 카탈로그 구성 시점에 플래그로 굳힌다.
-        for (auto& Entry : Entries)
-        {
-            if (Entry.Id == "build_1_2")
-            {
-                Entry.IsDemolish = true;
-                Entry.Capacity = 0;
-                Entry.HouseholdCapacity = 0;
-                Entry.ServiceCapacity = 0;
-                Entry.ServiceCapacityUsesHouseholds = false;
-                Entry.JobSatisfactionCap = 0;
-                Entry.RequiredEducationLevel =
-                    ECitizenEducationLevel::Uneducated;
-            }
-
-            if (Entry.Id == "build_4_1")
-                Entry.IsHiddenFromBuildMenu = true;
-        }
-
-        PopulateProductionChainMetadata(Entries);
+        ApplyCatalogUiBehaviorFlags(Entries);
+        ::PopulateProductionChainMetadata(Entries);
         ValidateBuildingCatalogEntries(Entries);
         WriteBuildingCatalogVisualAuditDump(Entries);
 
@@ -4980,6 +5605,46 @@ void RegisterRuntimeConfig()
             nullptr,
             &ReloadBuildingCatalogStore
         });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GServiceStatsOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogServiceStatsOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GSizeOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogSizeOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GOperationModeOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogOperationModeOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GRuntimeUpgradeOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogRuntimeUpgradeOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
 }
 
 unsigned long long GetRuntimeConfigGeneration()
@@ -5000,6 +5665,18 @@ const FBuildingCatalogEntry* FindBuildingCatalogEntry(const std::string& EntryId
     return It != Catalog.end() ? &(*It) : nullptr;
 }
 
+bool IsCustomsOfficeCatalogEntry(const FBuildingCatalogEntry& Entry)
+{
+    return Entry.IsCustomsOffice;
+}
+
+bool IsCustomsOfficeBuildingId(const std::string& EntryId)
+{
+    const FBuildingCatalogEntry* const Entry =
+        FindBuildingCatalogEntry(EntryId);
+    return Entry && IsCustomsOfficeCatalogEntry(*Entry);
+}
+
 EBuildingCategory GetEffectiveBuildMenuCategory(
     const FBuildingCatalogEntry& Entry)
 {
@@ -5013,7 +5690,7 @@ EBuildingCategory GetEffectiveBuildMenuCategory(
     }
 
     if (Entry.Category == EBuildingCategory::PublicService &&
-        Entry.DisplayName == L"세관")
+        Entry.IsCustomsOffice)
     {
         return EBuildingCategory::GovernmentFinance;
     }
@@ -5158,6 +5835,41 @@ std::wstring GetOperationModeDisplayName(
     return Entry.OperationModeDefs[static_cast<size_t>(ModeIndex)].DisplayName;
 }
 
+namespace
+{
+    std::wstring BuildOperationModeSummary(
+        const FBuildingOperationModeDef& ModeDef)
+    {
+        std::vector<std::wstring> Segments;
+
+        if (ModeDef.HasUnlockEra)
+        {
+            Segments.push_back(
+                std::wstring(GetBuildingEraDisplayName(ModeDef.UnlockEra)));
+        }
+
+        if (!ModeDef.RequiredResearch.empty())
+            Segments.push_back(ModeDef.RequiredResearch);
+
+        if (!ModeDef.EffectSummary.empty())
+            Segments.push_back(ModeDef.EffectSummary);
+
+        std::wstring Result;
+        for (size_t Index = 0; Index < Segments.size(); ++Index)
+        {
+            if (Segments[Index].empty())
+                continue;
+
+            if (!Result.empty())
+                Result += L" / ";
+
+            Result += Segments[Index];
+        }
+
+        return Result;
+    }
+}
+
 std::wstring GetOperationModeEffectSummary(
     const FBuildingCatalogEntry& Entry,
     int ModeIndex)
@@ -5168,8 +5880,8 @@ std::wstring GetOperationModeEffectSummary(
         return std::wstring();
     }
 
-    return Entry.OperationModeDefs[static_cast<size_t>(ModeIndex)].
-        EffectSummary;
+    return BuildOperationModeSummary(
+        Entry.OperationModeDefs[static_cast<size_t>(ModeIndex)]);
 }
 
 std::wstring GetRuntimeUpgradeDisplayName(

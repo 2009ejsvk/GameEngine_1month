@@ -1,5 +1,8 @@
 #include "MainWorld.h"
 #include "MainWorldConfig.h"
+#include "MainWorldInfrastructureRuntime.h"
+#include "MainWorldTradeRuntime.h"
+#include "RuntimeConfigRegistry.h"
 #include "WorldStatsSnapshot.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
@@ -8,20 +11,17 @@
 #include "../Economy/EconomySystem.h"
 #include "../Economy/ResourceTradePricing.h"
 #include "../Economy/TradeDiplomacyRuntime.h"
+#include <Windows.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <cwchar>
 #include <string>
 #include <vector>
 
 namespace
 {
-    constexpr float GBuildingPollutionRadiusTiles = 18.f;
-    constexpr float GBuildingFreedomRadiusTiles = 18.f;
-    constexpr float GBuildingSecurityRadiusTiles = 16.f;
-    constexpr float GSecurityPollutionPenaltyWeight = 0.25f;
-    constexpr int GPowerPriorityBandCount = 3;
     constexpr int GMaxActiveTradeRouteCount = 10;
     constexpr int GMaxCompletedTradeRouteRecordCount = 12;
     constexpr int GTradeRouteMinAmountUnits = 1000;
@@ -36,6 +36,186 @@ namespace
     constexpr int GFactionDemandModifierDurationDays = 120;
     constexpr int GDemandNoticeDurationDays = 10;
     constexpr int GCampaignPromiseLeadDays = 240;
+    constexpr const wchar_t* GEraConfigId = L"MainWorld.EraUnlockRequirements";
+    std::array<
+        FEraUnlockRequirement,
+        static_cast<size_t>(EBuildingEra::Modern) + 1> GEraUnlockRequirements;
+
+    size_t GetEraRequirementIndex(EBuildingEra Era)
+    {
+        return static_cast<size_t>(Era);
+    }
+
+    void ResetEraUnlockRequirementsToDefaults()
+    {
+        GEraUnlockRequirements.fill(FEraUnlockRequirement());
+
+        FEraUnlockRequirement& WorldWars =
+            GEraUnlockRequirements[GetEraRequirementIndex(
+                EBuildingEra::WorldWars)];
+        WorldWars.MinPopulation = 40;
+        WorldWars.MinTotalBuildings = 10;
+        WorldWars.MinFoodProviders = 3;
+
+        FEraUnlockRequirement& ColdWar =
+            GEraUnlockRequirements[GetEraRequirementIndex(
+                EBuildingEra::ColdWar)];
+        ColdWar.MinPopulation = 80;
+        ColdWar.MinTotalBuildings = 22;
+        ColdWar.MinIndustryBuildings = 5;
+        ColdWar.MinPowerMW = 25;
+
+        FEraUnlockRequirement& Modern =
+            GEraUnlockRequirements[GetEraRequirementIndex(
+                EBuildingEra::Modern)];
+        Modern.MinPopulation = 150;
+        Modern.MinTotalBuildings = 38;
+        Modern.MinPublicServiceBuildings = 6;
+        Modern.MinEntertainmentBuildings = 5;
+        Modern.MinPowerMW = 60;
+    }
+
+    bool LoadEraUnlockRequirementsFromFile(const std::wstring& Path)
+    {
+        auto LoadRequirement =
+            [&](EBuildingEra Era, const wchar_t* Section)
+            {
+                FEraUnlockRequirement& Requirement =
+                    GEraUnlockRequirements[GetEraRequirementIndex(Era)];
+                Requirement.MinPopulation = static_cast<int>(
+                    GetPrivateProfileIntW(
+                        Section,
+                        L"MinPopulation",
+                        Requirement.MinPopulation,
+                        Path.c_str()));
+                Requirement.MinTotalBuildings = static_cast<int>(
+                    GetPrivateProfileIntW(
+                        Section,
+                        L"MinTotalBuildings",
+                        Requirement.MinTotalBuildings,
+                        Path.c_str()));
+                Requirement.MinFoodProviders = static_cast<int>(
+                    GetPrivateProfileIntW(
+                        Section,
+                        L"MinFoodProviders",
+                        Requirement.MinFoodProviders,
+                        Path.c_str()));
+                Requirement.MinIndustryBuildings = static_cast<int>(
+                    GetPrivateProfileIntW(
+                        Section,
+                        L"MinIndustryBuildings",
+                        Requirement.MinIndustryBuildings,
+                        Path.c_str()));
+                Requirement.MinPublicServiceBuildings = static_cast<int>(
+                    GetPrivateProfileIntW(
+                        Section,
+                        L"MinPublicServiceBuildings",
+                        Requirement.MinPublicServiceBuildings,
+                        Path.c_str()));
+                Requirement.MinEntertainmentBuildings = static_cast<int>(
+                    GetPrivateProfileIntW(
+                        Section,
+                        L"MinEntertainmentBuildings",
+                        Requirement.MinEntertainmentBuildings,
+                        Path.c_str()));
+                Requirement.MinPowerMW = static_cast<int>(
+                    GetPrivateProfileIntW(
+                        Section,
+                        L"MinPowerMW",
+                        Requirement.MinPowerMW,
+                        Path.c_str()));
+            };
+
+        LoadRequirement(EBuildingEra::WorldWars, L"WorldWars");
+        LoadRequirement(EBuildingEra::ColdWar, L"ColdWar");
+        LoadRequirement(EBuildingEra::Modern, L"Modern");
+        return true;
+    }
+
+    void WriteEraUnlockRequirementsToFile(const std::wstring& Path)
+    {
+        const FEraUnlockRequirement& WorldWars =
+            GEraUnlockRequirements[GetEraRequirementIndex(
+                EBuildingEra::WorldWars)];
+        const FEraUnlockRequirement& ColdWar =
+            GEraUnlockRequirements[GetEraRequirementIndex(
+                EBuildingEra::ColdWar)];
+        const FEraUnlockRequirement& Modern =
+            GEraUnlockRequirements[GetEraRequirementIndex(
+                EBuildingEra::Modern)];
+
+        const std::string Buffer =
+            "; Runtime-tunable era unlock requirements.\r\n"
+            "; Adjust values and save to hot-reload in-game.\r\n\r\n"
+            "[WorldWars]\r\n"
+            "MinPopulation=" + std::to_string(WorldWars.MinPopulation) +
+            "\r\n"
+            "MinTotalBuildings=" +
+            std::to_string(WorldWars.MinTotalBuildings) + "\r\n"
+            "MinFoodProviders=" +
+            std::to_string(WorldWars.MinFoodProviders) + "\r\n\r\n"
+            "[ColdWar]\r\n"
+            "MinPopulation=" + std::to_string(ColdWar.MinPopulation) +
+            "\r\n"
+            "MinTotalBuildings=" +
+            std::to_string(ColdWar.MinTotalBuildings) + "\r\n"
+            "MinIndustryBuildings=" +
+            std::to_string(ColdWar.MinIndustryBuildings) + "\r\n"
+            "MinPowerMW=" + std::to_string(ColdWar.MinPowerMW) + "\r\n\r\n"
+            "[Modern]\r\n"
+            "MinPopulation=" + std::to_string(Modern.MinPopulation) +
+            "\r\n"
+            "MinTotalBuildings=" +
+            std::to_string(Modern.MinTotalBuildings) + "\r\n"
+            "MinPublicServiceBuildings=" +
+            std::to_string(Modern.MinPublicServiceBuildings) + "\r\n"
+            "MinEntertainmentBuildings=" +
+            std::to_string(Modern.MinEntertainmentBuildings) + "\r\n"
+            "MinPowerMW=" + std::to_string(Modern.MinPowerMW) + "\r\n";
+
+        FILE* File = nullptr;
+
+        if (_wfopen_s(&File, Path.c_str(), L"wb") != 0 || !File)
+            return;
+
+        static const unsigned char Bom[] = { 0xEF, 0xBB, 0xBF };
+        fwrite(Bom, 1, sizeof(Bom), File);
+        fwrite(Buffer.data(), 1, Buffer.size(), File);
+        fclose(File);
+    }
+
+    void EnsureDefaultEraConfigFileExists(const std::wstring& Path)
+    {
+        const DWORD Attributes = GetFileAttributesW(Path.c_str());
+
+        if (Attributes != INVALID_FILE_ATTRIBUTES &&
+            (Attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+        {
+            return;
+        }
+
+        ResetEraUnlockRequirementsToDefaults();
+        WriteEraUnlockRequirementsToFile(Path);
+    }
+
+    void EnsureEraRuntimeConfigRegistered()
+    {
+        if (RuntimeConfigRegistry::GetSourceGeneration(GEraConfigId) != 0)
+            return;
+
+        const std::wstring ConfigPath =
+            RuntimeConfigRegistry::BuildExeRelativePath(L"EraConfig.ini");
+        EnsureDefaultEraConfigFileExists(ConfigPath);
+        RuntimeConfigRegistry::RegisterSource(
+            {
+                GEraConfigId,
+                ConfigPath,
+                0.5f,
+                &ResetEraUnlockRequirementsToDefaults,
+                &LoadEraUnlockRequirementsFromFile,
+                nullptr
+            });
+    }
 
     const wchar_t* GetTradeForeignPowerName(int Index)
     {
@@ -117,110 +297,6 @@ namespace
         }
     }
 
-    bool ContainsText(const std::wstring& Text, const wchar_t* Pattern)
-    {
-        return Pattern && Text.find(Pattern) != std::wstring::npos;
-    }
-
-    float ResolveOverlayOperationalScale(const CPlacementAreaObject& Building)
-    {
-        const float BudgetScale = Building.GetBudgetSatisfactionScale();
-        const float PowerScale = (std::max)(
-            0.35f,
-            (std::min)(1.f, Building.GetPowerSupplyRatio()));
-        return (std::max)(
-            0.35f,
-            (std::min)(1.15f, BudgetScale * (0.60f + 0.40f * PowerScale)));
-    }
-
-    float ResolveFreedomInfluenceScore(const FBuildingCatalogEntry& Entry)
-    {
-        float Score = 0.f;
-
-        for (size_t Index = 0; Index < Entry.PoliticalSignals.size(); ++Index)
-        {
-            const FPoliticalSignalDef& Signal = Entry.PoliticalSignals[Index];
-
-            if (Signal.Axis != EPoliticalAxis::IntellectualConservative)
-                continue;
-
-            const float Direction =
-                Signal.FavoredStance == EPoliticalStance::Left ? 1.f :
-                Signal.FavoredStance == EPoliticalStance::Right ? -1.f :
-                0.f;
-
-            if (Direction == 0.f)
-                continue;
-
-            const float ScopeWeight =
-                Signal.Scope == EPoliticalScope::Resident ? 1.00f :
-                Signal.Scope == EPoliticalScope::Visitor ? 0.85f :
-                Signal.Scope == EPoliticalScope::Worker ? 0.72f :
-                0.58f;
-            Score += Direction * Signal.Strength * ScopeWeight;
-        }
-
-        if (ContainsText(Entry.DetailText, L"자유 상승") ||
-            ContainsText(Entry.DetailText, L"자유 증가"))
-        {
-            Score += 4.f;
-        }
-
-        if (ContainsText(Entry.DetailText, L"자유 하락") ||
-            ContainsText(Entry.DetailText, L"자유 감소"))
-        {
-            Score -= 4.f;
-        }
-
-        return Score;
-    }
-
-    float ResolveSecurityInfluenceScore(const FBuildingCatalogEntry& Entry)
-    {
-        float Score = 0.f;
-
-        for (size_t Index = 0; Index < Entry.PoliticalSignals.size(); ++Index)
-        {
-            const FPoliticalSignalDef& Signal = Entry.PoliticalSignals[Index];
-
-            if (Signal.Axis != EPoliticalAxis::ReligionMilitarism)
-                continue;
-
-            const float Direction =
-                Signal.FavoredStance == EPoliticalStance::Right ? 1.f :
-                Signal.FavoredStance == EPoliticalStance::Left ? 0.35f :
-                0.f;
-            const float ScopeWeight =
-                Signal.Scope == EPoliticalScope::Resident ? 1.00f :
-                Signal.Scope == EPoliticalScope::Worker ? 0.82f :
-                Signal.Scope == EPoliticalScope::Visitor ? 0.72f :
-                0.55f;
-            Score += Direction * Signal.Strength * ScopeWeight;
-        }
-
-        if (Entry.Category == EBuildingCategory::Military)
-            Score += 8.f;
-
-        if (ContainsText(Entry.DisplayName, L"경찰") ||
-            ContainsText(Entry.DisplayName, L"감시") ||
-            ContainsText(Entry.DisplayName, L"소방") ||
-            ContainsText(Entry.DisplayName, L"교도소"))
-        {
-            Score += 6.f;
-        }
-
-        if (ContainsText(Entry.DetailText, L"치안") ||
-            ContainsText(Entry.DetailText, L"범죄"))
-        {
-            Score += 5.f;
-        }
-
-        if (ContainsText(Entry.DetailText, L"범죄 증가"))
-            Score -= 4.f;
-
-        return Score;
-    }
-
     std::wstring FormatSignedInt(int Value)
     {
         if (Value > 0)
@@ -232,9 +308,9 @@ namespace
     std::wstring FormatBudgetDelta(long long Value)
     {
         if (Value > 0)
-            return L"+" + FormatTradeCurrency(Value);
+            return L"+" + MainWorldTradeRuntime::FormatCurrency(Value);
         if (Value < 0)
-            return L"-" + FormatTradeCurrency(-Value);
+            return L"-" + MainWorldTradeRuntime::FormatCurrency(-Value);
 
         return L"$0";
     }
@@ -367,7 +443,7 @@ namespace
                 Demand.IssuerIndex >= 0 &&
                 Demand.IssuerIndex < TradeDiplomacyRuntime::GForeignPowerCount)
             {
-                return CountActiveTradeRoutesForPower(
+                return MainWorldTradeRuntime::CountActiveTradeRoutesForPower(
                     ActiveTradeRoutes,
                     Demand.IssuerIndex);
             }
@@ -555,7 +631,7 @@ namespace
             Promise.FailureVoteModifierPercent = 4;
             Promise.Summary =
                 L"일일 수출 " +
-                FormatTradeCurrency(Promise.TargetValue) +
+                MainWorldTradeRuntime::FormatCurrency(Promise.TargetValue) +
                 L" 이상";
             break;
         }
@@ -778,7 +854,9 @@ namespace
             Demand.CurrentValue = CurrentExportIncome;
             Demand.Summary = L"산업 생산을 끌어올려 수출 실적을 내라고 요구합니다.";
             Demand.ObjectiveText =
-                L"일일 수출 " + FormatTradeCurrency(Demand.TargetValue) + L" 이상";
+                L"일일 수출 " +
+                MainWorldTradeRuntime::FormatCurrency(Demand.TargetValue) +
+                L" 이상";
             Demand.RewardBudgetDelta = 2200;
             Demand.RewardFactionApprovalDelta = 8;
             Demand.PenaltyFactionApprovalDelta = -10;
@@ -880,7 +958,7 @@ namespace
         Demand.DurationDays = 105;
         Demand.RemainingDays = Demand.DurationDays;
         Demand.Title =
-            std::wstring(GetTradeForeignPowerName(ForeignPowerIndex)) +
+            std::wstring(MainWorldTradeRuntime::GetForeignPowerName(ForeignPowerIndex)) +
             L" 요구";
         Demand.RewardBudgetDelta = 2400;
         Demand.PenaltyBudgetDelta = 0;
@@ -897,7 +975,9 @@ namespace
         case 0:
         {
             const int ActiveRouteCount =
-                CountActiveTradeRoutesForPower(ActiveTradeRoutes, ForeignPowerIndex);
+                MainWorldTradeRuntime::CountActiveTradeRoutesForPower(
+                    ActiveTradeRoutes,
+                    ForeignPowerIndex);
             if (ActiveRouteCount >= 2)
                 return false;
 
@@ -1325,7 +1405,7 @@ namespace
                 !Building->GetAlive() ||
                 !Building->GetEnable() ||
                 !Building->HasPlacedArea() ||
-                Building->GetBuildingId() != "build_8_13")
+                !IsCustomsOfficeBuildingId(Building->GetBuildingId()))
             {
                 continue;
             }
@@ -1366,32 +1446,6 @@ namespace
         return Result;
     }
 
-    enum class EPowerPriorityBand
-    {
-        Industry = 0,
-        Service,
-        Housing
-    };
-
-    int ResolvePowerPriorityBandIndex(EBuildingCategory Category)
-    {
-        switch (Category)
-        {
-        case EBuildingCategory::FoodResource:
-        case EBuildingCategory::Industry:
-            return static_cast<int>(EPowerPriorityBand::Industry);
-        case EBuildingCategory::Housing:
-            return static_cast<int>(EPowerPriorityBand::Housing);
-        case EBuildingCategory::Infrastructure:
-        case EBuildingCategory::Entertainment:
-        case EBuildingCategory::MediaEducation:
-        case EBuildingCategory::Tourism:
-        case EBuildingCategory::PublicService:
-        default:
-            return static_cast<int>(EPowerPriorityBand::Service);
-        }
-    }
-
     EBuildingEra ConvertEdictEra(EEdictEra Era)
     {
         switch (Era)
@@ -1410,34 +1464,15 @@ namespace
 
     FEraUnlockRequirement ResolveEraUnlockRequirement(EBuildingEra TargetEra)
     {
-        FEraUnlockRequirement Requirement;
+        EnsureEraRuntimeConfigRegistered();
 
-        switch (TargetEra)
+        if (TargetEra < EBuildingEra::Colonial ||
+            TargetEra > EBuildingEra::Modern)
         {
-        case EBuildingEra::WorldWars:
-            Requirement.MinPopulation = 24;
-            Requirement.MinTotalBuildings = 8;
-            Requirement.MinFoodProviders = 3;
-            break;
-        case EBuildingEra::ColdWar:
-            Requirement.MinPopulation = 60;
-            Requirement.MinTotalBuildings = 18;
-            Requirement.MinIndustryBuildings = 4;
-            Requirement.MinPowerMW = 20;
-            break;
-        case EBuildingEra::Modern:
-            Requirement.MinPopulation = 120;
-            Requirement.MinTotalBuildings = 32;
-            Requirement.MinPublicServiceBuildings = 5;
-            Requirement.MinEntertainmentBuildings = 4;
-            Requirement.MinPowerMW = 45;
-            break;
-        case EBuildingEra::Colonial:
-        default:
-            break;
+            return FEraUnlockRequirement();
         }
 
-        return Requirement;
+        return GEraUnlockRequirements[GetEraRequirementIndex(TargetEra)];
     }
 
     int ResolveIndustryBuildingCount(
@@ -2426,7 +2461,7 @@ void CMainWorld::RecordFinishedTradeRoute(
     ETradeRouteEndReason EndReason)
 {
     FTradeRouteCompletionRecord Record;
-    Record.RecordId = mNextTradeRouteCompletionRecordId++;
+    Record.RecordId = mTradeDiplomacyState.NextTradeRouteCompletionRecordId++;
     Record.RouteId = Route.RouteId;
     Record.ImportRoute = Route.ImportRoute;
     Record.ResourceType = Route.ResourceType;
@@ -2443,34 +2478,42 @@ void CMainWorld::RecordFinishedTradeRoute(
         static_cast<long long>(Route.FulfilledUnits) / 1000LL;
     Record.EndReason = EndReason;
     Record.CompletionRewardModifier =
-        ResolveTradeRouteCompletionRewardModifier(Route, EndReason);
+        MainWorldTradeRuntime::ResolveTradeRouteCompletionRewardModifier(
+            Route,
+            EndReason);
     Record.SecondaryRelationModifier =
-        ResolveTradeRouteSecondaryRelationModifier(Route, EndReason);
+        MainWorldTradeRuntime::ResolveTradeRouteSecondaryRelationModifier(
+            Route,
+            EndReason);
     Record.StandingModifier =
-        ResolveTradeRouteStandingModifier(Route, EndReason);
-    ApplyTradeRouteCompletionState(
-        mForeignPowerStandingStates[static_cast<size_t>(
+        MainWorldTradeRuntime::ResolveTradeRouteStandingModifier(
+            Route,
+            EndReason);
+    MainWorldTradeRuntime::ApplyTradeRouteCompletionState(
+        mTradeDiplomacyState.ForeignPowerStandingStates[static_cast<size_t>(
             TradeDiplomacyRuntime::ClampInt(
                 Route.ForeignPowerIndex,
                 0,
                 TradeDiplomacyRuntime::GForeignPowerCount - 1))],
         Record);
 
-    mCompletedTradeRoutes.insert(mCompletedTradeRoutes.begin(), Record);
+    mTradeDiplomacyState.CompletedTradeRoutes.insert(
+        mTradeDiplomacyState.CompletedTradeRoutes.begin(),
+        Record);
 
-    if (mCompletedTradeRoutes.size() >
+    if (mTradeDiplomacyState.CompletedTradeRoutes.size() >
         static_cast<size_t>(GMaxCompletedTradeRouteRecordCount))
     {
-        mCompletedTradeRoutes.resize(
+        mTradeDiplomacyState.CompletedTradeRoutes.resize(
             static_cast<size_t>(GMaxCompletedTradeRouteRecordCount));
     }
 
-    ++mTradeRouteCompletionNotificationVersion;
+    ++mTradeDiplomacyState.TradeRouteCompletionNotificationVersion;
 }
 
 void CMainWorld::ProcessActiveTradeRoutes()
 {
-    if (mActiveTradeRoutes.empty())
+    if (mTradeDiplomacyState.ActiveTradeRoutes.empty())
         return;
 
     auto World = mSelf.lock();
@@ -2479,14 +2522,17 @@ void CMainWorld::ProcessActiveTradeRoutes()
         return;
 
     std::vector<std::shared_ptr<CPlacementAreaObject>> Harbors =
-        CollectOperationalHarbors(World);
+        MainWorldTradeRuntime::CollectOperationalHarbors(World);
     std::vector<FTradeRouteRuntimeState> RemainingRoutes;
-    RemainingRoutes.reserve(mActiveTradeRoutes.size());
+    RemainingRoutes.reserve(mTradeDiplomacyState.ActiveTradeRoutes.size());
     bool BudgetChanged = false;
 
-    for (size_t RouteIndex = 0; RouteIndex < mActiveTradeRoutes.size(); ++RouteIndex)
+    for (size_t RouteIndex = 0;
+        RouteIndex < mTradeDiplomacyState.ActiveTradeRoutes.size();
+        ++RouteIndex)
     {
-        FTradeRouteRuntimeState Route = mActiveTradeRoutes[RouteIndex];
+        FTradeRouteRuntimeState Route =
+            mTradeDiplomacyState.ActiveTradeRoutes[RouteIndex];
         const int RemainingUnits = (std::max)(
             0,
             Route.ContractUnits - Route.FulfilledUnits);
@@ -2499,7 +2545,7 @@ void CMainWorld::ProcessActiveTradeRoutes()
 
         int DailyTransferUnits = (std::min)(
             RemainingUnits,
-            ResolveTradeRouteDailyTransferUnits(Route));
+            MainWorldTradeRuntime::ResolveTradeRouteDailyTransferUnits(Route));
 
         if (Route.ImportRoute)
         {
@@ -2652,7 +2698,7 @@ void CMainWorld::ProcessActiveTradeRoutes()
         }
     }
 
-    mActiveTradeRoutes.swap(RemainingRoutes);
+    mTradeDiplomacyState.ActiveTradeRoutes.swap(RemainingRoutes);
 
     if (BudgetChanged)
     {
@@ -2667,16 +2713,18 @@ void CMainWorld::RefreshForeignTradeDiplomacy(bool ApplyIdleDecay)
 
     if (!World)
     {
-        mForeignPowerStates = {};
+        mTradeDiplomacyState.ForeignPowerStates = {};
         return;
     }
 
     std::array<int, TradeDiplomacyRuntime::GForeignPowerCount> ActiveCounts = {};
 
-    for (size_t RouteIndex = 0; RouteIndex < mActiveTradeRoutes.size(); ++RouteIndex)
+    for (size_t RouteIndex = 0;
+        RouteIndex < mTradeDiplomacyState.ActiveTradeRoutes.size();
+        ++RouteIndex)
     {
         const int SafeIndex = TradeDiplomacyRuntime::ClampInt(
-            mActiveTradeRoutes[RouteIndex].ForeignPowerIndex,
+            mTradeDiplomacyState.ActiveTradeRoutes[RouteIndex].ForeignPowerIndex,
             0,
             TradeDiplomacyRuntime::GForeignPowerCount - 1);
         ++ActiveCounts[static_cast<size_t>(SafeIndex)];
@@ -2687,117 +2735,28 @@ void CMainWorld::RefreshForeignTradeDiplomacy(bool ApplyIdleDecay)
         ++Index)
     {
         auto& StandingState =
-            mForeignPowerStandingStates[static_cast<size_t>(Index)];
+            mTradeDiplomacyState.ForeignPowerStandingStates[
+                static_cast<size_t>(Index)];
         StandingState.ActiveContractCount =
             ActiveCounts[static_cast<size_t>(Index)];
 
         if (ApplyIdleDecay)
-            ApplyForeignPowerIdleDecay(StandingState);
+            MainWorldTradeRuntime::ApplyForeignPowerIdleDecay(StandingState);
     }
 
-    mForeignPowerStates =
+    mTradeDiplomacyState.ForeignPowerStates =
         TradeDiplomacyRuntime::BuildForeignPowerWorldStates(
             WorldStats::BuildSnapshot(World),
             mGovernmentProfile,
             mTaxEventStatus,
             mGovernmentEdicts,
-            mForeignPowerStandingStates);
+            mTradeDiplomacyState.ForeignPowerStandingStates);
 }
 
 void CMainWorld::RefreshPowerGridCoverage()
 {
-    auto World = mSelf.lock();
-
-    if (!World)
-        return;
-
-    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
-
-    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
-        return;
-
-    int TotalProducedPowerMW = 0;
-
-    struct FPowerConsumerNode
-    {
-        std::shared_ptr<CPlacementAreaObject> Building;
-        int RequiredPowerMW = 0;
-        int PriorityBandIndex = 0;
-    };
-
-    std::vector<FPowerConsumerNode> PowerConsumers;
-    PowerConsumers.reserve(BuildingList.size());
-    std::array<int, GPowerPriorityBandCount> RequiredPowerByBand = {};
-
-    for (size_t Index = 0; Index < BuildingList.size(); ++Index)
-    {
-        auto Building = BuildingList[Index].lock();
-
-        if (!Building ||
-            !Building->GetAlive() ||
-            !Building->GetEnable() ||
-            !Building->HasPlacedArea())
-        {
-            continue;
-        }
-
-        TotalProducedPowerMW +=
-            (std::max)(0, Building->GetProducedPowerMW());
-        const int RequiredPowerMW = Building->GetRequiredPowerMW();
-
-        if (RequiredPowerMW <= 0)
-        {
-            Building->SetPowerSupplyRatio(1.f);
-            continue;
-        }
-
-        FPowerConsumerNode Node;
-        Node.Building = std::move(Building);
-        Node.RequiredPowerMW = RequiredPowerMW;
-        Node.PriorityBandIndex =
-            ResolvePowerPriorityBandIndex(
-                Node.Building->GetBuildingCategory());
-        PowerConsumers.push_back(std::move(Node));
-        RequiredPowerByBand[static_cast<size_t>(PowerConsumers.back().PriorityBandIndex)] +=
-            RequiredPowerMW;
-    }
-
-    int RemainingProducedPowerMW = (std::max)(0, TotalProducedPowerMW);
-    std::array<float, GPowerPriorityBandCount> CoverageByBand =
-    {
-        1.f,
-        1.f,
-        1.f
-    };
-
-    for (int BandIndex = 0;
-        BandIndex < GPowerPriorityBandCount;
-        ++BandIndex)
-    {
-        const int BandDemandMW =
-            RequiredPowerByBand[static_cast<size_t>(BandIndex)];
-
-        if (BandDemandMW <= 0)
-            continue;
-
-        CoverageByBand[static_cast<size_t>(BandIndex)] =
-            Clamp<float>(
-                static_cast<float>(RemainingProducedPowerMW) /
-                    static_cast<float>(BandDemandMW),
-                0.f,
-                1.f);
-        RemainingProducedPowerMW = (std::max)(
-            0,
-            RemainingProducedPowerMW -
-                (std::min)(RemainingProducedPowerMW, BandDemandMW));
-    }
-
-    for (size_t Index = 0; Index < PowerConsumers.size(); ++Index)
-    {
-        const FPowerConsumerNode& Node = PowerConsumers[Index];
-        Node.Building->SetPowerSupplyRatio(
-            CoverageByBand[static_cast<size_t>(Node.PriorityBandIndex)]);
-    }
+    MainWorldInfrastructureRuntime::RefreshPowerGridCoverage(
+        mSelf.lock().get());
 }
 
 void CMainWorld::RefreshWorldMarketPrices()
@@ -2813,7 +2772,7 @@ void CMainWorld::RefreshWorldMarketPrices()
         mGovernmentEdicts,
         mTaxEventStatus,
         mWorldCrisisStatus,
-        mForeignPowerStates,
+        mTradeDiplomacyState.ForeignPowerStates,
         mSimulationYear,
         mSimulationMonth,
         mSimulationDay);
@@ -2821,169 +2780,8 @@ void CMainWorld::RefreshWorldMarketPrices()
 
 void CMainWorld::RefreshBuildingPollutionExposure()
 {
-    auto World = mSelf.lock();
-
-    if (!World)
-        return;
-
-    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
-
-    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
-        return;
-
-    struct FPollutionNode
-    {
-        std::shared_ptr<CPlacementAreaObject> Building;
-        int GridX = 0;
-        int GridY = 0;
-        float PollutionInfluence = 0.f;
-        float FreedomInfluence = 0.f;
-        float SecurityInfluence = 0.f;
-    };
-
-    std::vector<FPollutionNode> PollutionNodes;
-    PollutionNodes.reserve(BuildingList.size());
-
-    for (size_t Index = 0; Index < BuildingList.size(); ++Index)
-    {
-        auto Building = BuildingList[Index].lock();
-
-        if (!Building ||
-            !Building->GetAlive() ||
-            !Building->GetEnable() ||
-            !Building->HasPlacedArea())
-        {
-            continue;
-        }
-
-        int GridX = 0;
-        int GridY = 0;
-
-        if (!Building->GetPlacedCenterGridCoords(GridX, GridY))
-            continue;
-
-        FPollutionNode Node;
-        Node.Building = Building;
-        Node.GridX = GridX;
-        Node.GridY = GridY;
-        const float OperationalScale =
-            ResolveOverlayOperationalScale(*Building);
-        Node.PollutionInfluence =
-            static_cast<float>(
-                Building->GetPollutionOutput() -
-                Building->GetPollutionMitigation()) *
-            OperationalScale;
-
-        const FBuildingCatalogEntry* const Entry =
-            FindBuildingCatalogEntry(Building->GetBuildingId());
-        if (Entry)
-        {
-            Node.FreedomInfluence =
-                ResolveFreedomInfluenceScore(*Entry) * OperationalScale;
-            Node.SecurityInfluence =
-                ResolveSecurityInfluenceScore(*Entry) * OperationalScale;
-        }
-        PollutionNodes.push_back(std::move(Node));
-    }
-
-    const float PollutionRadiusSq =
-        GBuildingPollutionRadiusTiles * GBuildingPollutionRadiusTiles;
-    const float FreedomRadiusSq =
-        GBuildingFreedomRadiusTiles * GBuildingFreedomRadiusTiles;
-    const float SecurityRadiusSq =
-        GBuildingSecurityRadiusTiles * GBuildingSecurityRadiusTiles;
-
-    auto ComputeWeight = [](
-        const FPollutionNode& TargetNode,
-        const FPollutionNode& SourceNode,
-        float RadiusTiles,
-        float RadiusSq) -> float
-    {
-        if (RadiusTiles <= 0.f)
-            return 0.f;
-
-        const float dx =
-            static_cast<float>(TargetNode.GridX - SourceNode.GridX);
-        const float dy =
-            static_cast<float>(TargetNode.GridY - SourceNode.GridY);
-        const float DistanceSq = dx * dx + dy * dy;
-
-        if (DistanceSq > RadiusSq)
-            return 0.f;
-
-        const float Distance = DistanceSq > 0.f ? std::sqrt(DistanceSq) : 0.f;
-        return (std::max)(0.f, 1.f - Distance / RadiusTiles);
-    };
-
-    for (size_t TargetIndex = 0;
-        TargetIndex < PollutionNodes.size();
-        ++TargetIndex)
-    {
-        FPollutionNode& TargetNode = PollutionNodes[TargetIndex];
-        float TotalExposure = 0.f;
-        float TotalFreedom = 0.f;
-        float TotalSecurity = 0.f;
-
-        for (size_t SourceIndex = 0;
-            SourceIndex < PollutionNodes.size();
-            ++SourceIndex)
-        {
-            const FPollutionNode& SourceNode = PollutionNodes[SourceIndex];
-            const float PollutionWeight = ComputeWeight(
-                TargetNode,
-                SourceNode,
-                GBuildingPollutionRadiusTiles,
-                PollutionRadiusSq);
-            if (PollutionWeight > 0.f && SourceNode.PollutionInfluence != 0.f)
-            {
-                TotalExposure +=
-                    SourceNode.PollutionInfluence * PollutionWeight;
-            }
-
-            const float FreedomWeight = ComputeWeight(
-                TargetNode,
-                SourceNode,
-                GBuildingFreedomRadiusTiles,
-                FreedomRadiusSq);
-            if (FreedomWeight > 0.f && SourceNode.FreedomInfluence != 0.f)
-            {
-                TotalFreedom += SourceNode.FreedomInfluence * FreedomWeight;
-            }
-
-            const float SecurityWeight = ComputeWeight(
-                TargetNode,
-                SourceNode,
-                GBuildingSecurityRadiusTiles,
-                SecurityRadiusSq);
-            if (SecurityWeight > 0.f &&
-                (SourceNode.SecurityInfluence != 0.f ||
-                    SourceNode.PollutionInfluence > 0.f))
-            {
-                TotalSecurity +=
-                    (SourceNode.SecurityInfluence -
-                        (std::max)(0.f, SourceNode.PollutionInfluence) *
-                            GSecurityPollutionPenaltyWeight) *
-                    SecurityWeight;
-            }
-        }
-
-        TargetNode.Building->SetLocalPollutionExposure(
-            (std::max)(
-                0,
-                (std::min)(100, static_cast<int>(roundf(TotalExposure)))));
-        TargetNode.Building->SetLocalFreedomSupport(
-            (std::max)(
-                -100,
-                (std::min)(
-                    100,
-                    static_cast<int>(roundf(TotalFreedom * 2.2f)))));
-        TargetNode.Building->SetLocalSecuritySupport(
-            (std::max)(
-                -100,
-                (std::min)(
-                    100,
-                    static_cast<int>(roundf(TotalSecurity * 2.0f)))));
-    }
+    MainWorldInfrastructureRuntime::RefreshBuildingPollutionExposure(
+        mSelf.lock().get());
 }
 
 void CMainWorld::RefreshRuntimeBuildingState()
@@ -3275,7 +3073,7 @@ bool CMainWorld::ExecuteTradeProposal(
         return false;
     }
 
-    if (static_cast<int>(mActiveTradeRoutes.size()) >=
+    if (static_cast<int>(mTradeDiplomacyState.ActiveTradeRoutes.size()) >=
         GMaxActiveTradeRouteCount)
     {
         OutMessage = L"활성화할 수 있는 무역로가 가득 찼습니다.";
@@ -3300,7 +3098,7 @@ bool CMainWorld::ExecuteTradeProposal(
 
     const int SafePricePerThousand = (std::max)(1000, PricePerThousandUnits);
     const std::vector<std::shared_ptr<CPlacementAreaObject>> Harbors =
-        CollectOperationalHarbors(World);
+        MainWorldTradeRuntime::CollectOperationalHarbors(World);
 
     if (Harbors.empty())
     {
@@ -3309,7 +3107,7 @@ bool CMainWorld::ExecuteTradeProposal(
     }
 
     FTradeRouteRuntimeState Route;
-    Route.RouteId = mNextTradeRouteId++;
+    Route.RouteId = mTradeDiplomacyState.NextTradeRouteId++;
     Route.ImportRoute = ImportRoute;
     Route.ResourceType = ResourceType;
     Route.MarketClass = GetResourceMarketClass(ResourceType);
@@ -3317,16 +3115,17 @@ bool CMainWorld::ExecuteTradeProposal(
         (std::max)(0, (std::min)(4, ForeignPowerIndex));
     Route.ContractUnits = SafeAmount;
     Route.FulfilledUnits = 0;
-    Route.TotalDurationDays = ResolveTradeRouteDurationDays(SafeAmount);
+    Route.TotalDurationDays =
+        MainWorldTradeRuntime::ResolveTradeRouteDurationDays(SafeAmount);
     Route.RemainingDays = Route.TotalDurationDays;
     Route.RoutePricePerThousandUnits = SafePricePerThousand;
     Route.SignedStandardPricePerThousandUnits =
-        ComputeTradeRouteSignedStandardPricePerThousand(
+        MainWorldTradeRuntime::ComputeTradeRouteSignedStandardPricePerThousand(
             ResourceType,
             ImportRoute);
-    mActiveTradeRoutes.push_back(Route);
-    ApplyTradeRouteActivationState(
-        mForeignPowerStandingStates[static_cast<size_t>(
+    mTradeDiplomacyState.ActiveTradeRoutes.push_back(Route);
+    MainWorldTradeRuntime::ApplyTradeRouteActivationState(
+        mTradeDiplomacyState.ForeignPowerStandingStates[static_cast<size_t>(
             Route.ForeignPowerIndex)],
         Route);
 
@@ -3334,11 +3133,11 @@ bool CMainWorld::ExecuteTradeProposal(
     RefreshWorldMarketPrices();
     RefreshPoliticalSnapshot();
     OutMessage =
-        std::wstring(GetTradeForeignPowerName(ForeignPowerIndex)) +
+        std::wstring(MainWorldTradeRuntime::GetForeignPowerName(ForeignPowerIndex)) +
         L"과(와) " +
         GetResourceTypeDisplayName(ResourceType) +
         L" " +
-        FormatTradeUnits(SafeAmount) +
+        MainWorldTradeRuntime::FormatUnits(SafeAmount) +
         L" 단위 무역로 활성화";
     return true;
 }
@@ -3348,14 +3147,14 @@ bool CMainWorld::CancelTradeRoute(
     std::wstring& OutMessage)
 {
     const auto RouteIt = std::find_if(
-        mActiveTradeRoutes.begin(),
-        mActiveTradeRoutes.end(),
+        mTradeDiplomacyState.ActiveTradeRoutes.begin(),
+        mTradeDiplomacyState.ActiveTradeRoutes.end(),
         [RouteId](const FTradeRouteRuntimeState& Route)
         {
             return Route.RouteId == RouteId;
         });
 
-    if (RouteIt == mActiveTradeRoutes.end())
+    if (RouteIt == mTradeDiplomacyState.ActiveTradeRoutes.end())
     {
         OutMessage = L"취소할 수 있는 무역 계약이 없습니다.";
         return false;
@@ -3367,7 +3166,7 @@ bool CMainWorld::CancelTradeRoute(
         GetResourceTypeDisplayName(RouteIt->ResourceType);
 
     RecordFinishedTradeRoute(*RouteIt, ETradeRouteEndReason::Cancelled);
-    mActiveTradeRoutes.erase(RouteIt);
+    mTradeDiplomacyState.ActiveTradeRoutes.erase(RouteIt);
     RefreshForeignTradeDiplomacy(false);
     RefreshWorldMarketPrices();
     RefreshPoliticalSnapshot();
@@ -3410,9 +3209,11 @@ bool CMainWorld::RespondPoliticalDemand(
             &mFactionDemandCooldownDays[static_cast<size_t>(SafeFactionIndex)];
         break;
     case EPoliticalDemandIssuerType::ForeignPower:
-        Demand = &mForeignPowerDemands[static_cast<size_t>(SafeForeignIndex)];
+        Demand = &mTradeDiplomacyState.ForeignPowerDemands[
+            static_cast<size_t>(SafeForeignIndex)];
         CooldownDays =
-            &mForeignDemandCooldownDays[static_cast<size_t>(SafeForeignIndex)];
+            &mTradeDiplomacyState.ForeignDemandCooldownDays[
+                static_cast<size_t>(SafeForeignIndex)];
         break;
     case EPoliticalDemandIssuerType::None:
     default:
@@ -3486,8 +3287,8 @@ bool CMainWorld::RespondPoliticalDemand(
                 Demand->IssuerIndex >= 0 &&
                 Demand->IssuerIndex < TradeDiplomacyRuntime::GForeignPowerCount)
             {
-                ApplyForeignDemandStandingDelta(
-                    mForeignPowerStandingStates[
+                MainWorldTradeRuntime::ApplyForeignDemandStandingDelta(
+                    mTradeDiplomacyState.ForeignPowerStandingStates[
                         static_cast<size_t>(Demand->IssuerIndex)],
                     RelationDelta,
                     StandingDelta);
@@ -3506,10 +3307,10 @@ bool CMainWorld::RespondPoliticalDemand(
                 *Demand,
                 Success,
                 StatusLabel);
-            *Demand = FPoliticalDemandState();
-            RefreshPoliticalSnapshot();
-            RefreshForeignTradeDiplomacy(false);
-            RefreshWorldMarketPrices();
+        *Demand = FPoliticalDemandState();
+        RefreshPoliticalSnapshot();
+        RefreshForeignTradeDiplomacy(false);
+        RefreshWorldMarketPrices();
         };
 
     if (!Accept)
@@ -3539,8 +3340,8 @@ bool CMainWorld::RespondPoliticalDemand(
         Snapshot,
         mGovernmentProfile,
         mLastDailyExportIncome,
-        mForeignPowerStates,
-        mActiveTradeRoutes);
+        mTradeDiplomacyState.ForeignPowerStates,
+        mTradeDiplomacyState.ActiveTradeRoutes);
     OutMessage = Demand->Title + L" 수락";
 
     if (IsPoliticalDemandSatisfied(*Demand))
@@ -3551,19 +3352,21 @@ bool CMainWorld::RespondPoliticalDemand(
     }
 
     mPoliticalDemandNotice =
-        BuildPriorityDemandNotice(mFactionDemands, mForeignPowerDemands);
+        BuildPriorityDemandNotice(
+            mFactionDemands,
+            mTradeDiplomacyState.ForeignPowerDemands);
     return true;
 }
 
 int CMainWorld::GetCustomsExportTradePriceModifierPercent() const
 {
-    return CollectCustomsTradeModifierSummary(
+    return MainWorldTradeRuntime::CollectCustomsTradeModifierSummary(
         const_cast<CMainWorld*>(this)).ExportPricePercent;
 }
 
 int CMainWorld::GetCustomsImportTradePriceModifierPercent() const
 {
-    return CollectCustomsTradeModifierSummary(
+    return MainWorldTradeRuntime::CollectCustomsTradeModifierSummary(
         const_cast<CMainWorld*>(this)).ImportPricePercent;
 }
 
@@ -4179,8 +3982,12 @@ void CMainWorld::TickPoliticalDemands()
         Index < TradeDiplomacyRuntime::GForeignPowerCount;
         ++Index)
     {
-        if (mForeignDemandCooldownDays[static_cast<size_t>(Index)] > 0)
-            --mForeignDemandCooldownDays[static_cast<size_t>(Index)];
+        if (mTradeDiplomacyState.ForeignDemandCooldownDays[
+                static_cast<size_t>(Index)] > 0)
+        {
+            --mTradeDiplomacyState.ForeignDemandCooldownDays[
+                static_cast<size_t>(Index)];
+        }
     }
 
     bool PoliticalRefreshNeeded = false;
@@ -4243,8 +4050,8 @@ void CMainWorld::TickPoliticalDemands()
             Snapshot,
             mGovernmentProfile,
             mLastDailyExportIncome,
-            mForeignPowerStates,
-            mActiveTradeRoutes);
+            mTradeDiplomacyState.ForeignPowerStates,
+            mTradeDiplomacyState.ActiveTradeRoutes);
 
         if (Demand.Status == EPoliticalDemandStatus::Accepted &&
             IsPoliticalDemandSatisfied(Demand))
@@ -4305,7 +4112,8 @@ void CMainWorld::TickPoliticalDemands()
         ++Index)
     {
         FPoliticalDemandState& Demand =
-            mForeignPowerDemands[static_cast<size_t>(Index)];
+            mTradeDiplomacyState.ForeignPowerDemands[
+                static_cast<size_t>(Index)];
 
         if (!Demand.Active)
             continue;
@@ -4315,8 +4123,8 @@ void CMainWorld::TickPoliticalDemands()
             Snapshot,
             mGovernmentProfile,
             mLastDailyExportIncome,
-            mForeignPowerStates,
-            mActiveTradeRoutes);
+            mTradeDiplomacyState.ForeignPowerStates,
+            mTradeDiplomacyState.ActiveTradeRoutes);
 
         if (Demand.Status == EPoliticalDemandStatus::Accepted &&
             IsPoliticalDemandSatisfied(Demand))
@@ -4325,11 +4133,13 @@ void CMainWorld::TickPoliticalDemands()
                 Demand.RewardBudgetDelta,
                 mNationalBudget,
                 mLastDailyNetChange);
-            ApplyForeignDemandStandingDelta(
-                mForeignPowerStandingStates[static_cast<size_t>(Index)],
+            MainWorldTradeRuntime::ApplyForeignDemandStandingDelta(
+                mTradeDiplomacyState.ForeignPowerStandingStates[
+                    static_cast<size_t>(Index)],
                 Demand.RewardForeignRelationDelta,
                 Demand.RewardForeignStandingDelta);
-            mForeignDemandCooldownDays[static_cast<size_t>(Index)] =
+            mTradeDiplomacyState.ForeignDemandCooldownDays[
+                static_cast<size_t>(Index)] =
                 GForeignDemandCooldownDays;
             SetPoliticalDemandResolutionNotice(
                 mPoliticalDemandNotice,
@@ -4351,11 +4161,13 @@ void CMainWorld::TickPoliticalDemands()
             Demand.PenaltyBudgetDelta,
             mNationalBudget,
             mLastDailyNetChange);
-        ApplyForeignDemandStandingDelta(
-            mForeignPowerStandingStates[static_cast<size_t>(Index)],
+        MainWorldTradeRuntime::ApplyForeignDemandStandingDelta(
+            mTradeDiplomacyState.ForeignPowerStandingStates[
+                static_cast<size_t>(Index)],
             Demand.PenaltyForeignRelationDelta,
             Demand.PenaltyForeignStandingDelta);
-        mForeignDemandCooldownDays[static_cast<size_t>(Index)] =
+        mTradeDiplomacyState.ForeignDemandCooldownDays[
+            static_cast<size_t>(Index)] =
             GForeignDemandCooldownDays;
         SetPoliticalDemandResolutionNotice(
             mPoliticalDemandNotice,
@@ -4415,7 +4227,8 @@ void CMainWorld::TickPoliticalDemands()
         }
     }
 
-    if (CountActiveForeignDemands(mForeignPowerDemands) <
+    if (CountActiveForeignDemands(
+            mTradeDiplomacyState.ForeignPowerDemands) <
         GMaxActiveForeignDemandCount)
     {
         bool FoundDemand = false;
@@ -4427,8 +4240,10 @@ void CMainWorld::TickPoliticalDemands()
             Index < TradeDiplomacyRuntime::GForeignPowerCount;
             ++Index)
         {
-            if (mForeignPowerDemands[static_cast<size_t>(Index)].Active ||
-                mForeignDemandCooldownDays[static_cast<size_t>(Index)] > 0)
+            if (mTradeDiplomacyState.ForeignPowerDemands[
+                    static_cast<size_t>(Index)].Active ||
+                mTradeDiplomacyState.ForeignDemandCooldownDays[
+                    static_cast<size_t>(Index)] > 0)
             {
                 continue;
             }
@@ -4439,8 +4254,8 @@ void CMainWorld::TickPoliticalDemands()
             if (!TryBuildForeignDemand(
                     Index,
                     Snapshot,
-                    mForeignPowerStates,
-                    mActiveTradeRoutes,
+                    mTradeDiplomacyState.ForeignPowerStates,
+                    mTradeDiplomacyState.ActiveTradeRoutes,
                     CandidateDemand,
                     CandidatePriority))
             {
@@ -4458,7 +4273,8 @@ void CMainWorld::TickPoliticalDemands()
 
         if (FoundDemand && BestIndex >= 0)
         {
-            mForeignPowerDemands[static_cast<size_t>(BestIndex)] =
+            mTradeDiplomacyState.ForeignPowerDemands[
+                static_cast<size_t>(BestIndex)] =
                 std::move(BestDemand);
         }
     }
@@ -4473,7 +4289,9 @@ void CMainWorld::TickPoliticalDemands()
     }
 
     const FPoliticalDemandNotice ActiveNotice =
-        BuildPriorityDemandNotice(mFactionDemands, mForeignPowerDemands);
+        BuildPriorityDemandNotice(
+            mFactionDemands,
+            mTradeDiplomacyState.ForeignPowerDemands);
 
     if (ActiveNotice.ActiveDemand)
     {

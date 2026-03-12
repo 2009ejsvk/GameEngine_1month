@@ -1,5 +1,80 @@
 # BuildingId	UnlockEra	BuildMenuCategory	SourceAssetName	SourceDisplayName
+build_1_1	Colonial	Infrastructure		
+build_1_2	Colonial	Infrastructure		
+build_1_3	Colonial	Infrastructure	DA_T6DockBP	Dock
+build_1_4	Colonial	Infrastructure	DA_Building_ConstructionOfficeBP	Construction Office
+build_1_5	Colonial	Infrastructure	DA_Building_TeamsterBP	Teamsters Office
+build_1_6	Colonial	Infrastructure	DA_T6LandingBP	Landing
+build_1_7	Colonial	Infrastructure	DA_T6StorageQuayBP	Storage Quay
+build_1_8	Colonial	Infrastructure	DA_T6Warehouse_BuildingBP	Warehouse
+build_1_9	WorldWars	Infrastructure	DA_ElectricSubstation	Electric Substation
+build_1_10	WorldWars	Infrastructure	DA_PowerPlant	Power Plant
+build_1_11	WorldWars	Infrastructure	DA_ParkingDeck	Parking Deck
+build_1_12	WorldWars	Infrastructure	DA_BusGarage	Bus Garage
+build_1_13	WorldWars	Infrastructure	DA_BusStop	Bus Stop
+build_1_14	WorldWars	Infrastructure	DA_Tunnel	Tunnel
+build_1_15	ColdWar	Infrastructure	DA_NuclearPowerPlant	Nuclear Power Plant
+build_1_16	ColdWar	Infrastructure	DA_MetroStation	Metro Station
+build_1_17	Modern	Infrastructure	DA_TelefericStation	Teleferic Station
+build_1_18	Modern	Infrastructure	DA_WindFarm	Wind Farm
+build_1_19	Modern	Infrastructure	DA_OffshoreWindTurbine	Offshore Wind Turbine
+build_1_20	Modern	Infrastructure	DA_SolarPowerPlant	Solar Power Plant
+build_2_1	Colonial	FoodResource	DA_T6CoconutHarvester	Coconut Harvester
+build_2_2	Colonial	FoodResource	DA_T6LoggingCampBP	Logging Camp
+build_2_3	Colonial	FoodResource	DA_T6FishermensWharf	Fishermens Wharf
+build_2_4	Colonial	FoodResource	DA_Building_Plantation	Plantation
+build_2_5	Colonial	FoodResource	DA_T6SmallGardenBP	Small Garden
+build_2_6	Colonial	FoodResource	DA_T6Ranch	Ranch
+build_2_7	Colonial	FoodResource	DA_T6Mine	Mine
+build_2_8	WorldWars	FoodResource	DA_OilWell	Oil Well
+build_2_9	ColdWar	FoodResource	DA_FishFarm	Fish Farm
+build_2_10	ColdWar	FoodResource	DA_OilRig	Oil Rig
+build_2_11	Modern	FoodResource	DA_T6HydroponicPlantation	Hydroponic Plantation
+build_2_12	Modern	FoodResource	DA_FactoryRanch	Factory Ranch
+build_3_1	Modern	Industry	DA_T6AutomatedMine	Automated Mine
+build_3_2	Colonial	Industry	DA_T6LumberMillBP	Lumber Mill
+build_3_3	Colonial	Industry	DA_T6RumDistilleryBP	Rum Distillery
 build_3_4	Colonial	Industry	DA_T6TanneryBP	Tannery
+build_3_5	WorldWars	Industry	DA_Cannery	Cannery
+build_3_6	WorldWars	Industry	DA_Creamery	Creamery
+build_3_7	WorldWars	Industry	DA_CigarFactory	Cigar Factory
+build_3_8	WorldWars	Industry	DA_Shipyard	Shipyard
+build_3_9	WorldWars	Industry	DA_SteelMill	Steel Mill
+build_3_10	WorldWars	Industry	DA_TextileMill	Textile Mill
+build_3_11	WorldWars	Industry	DA_WeaponsFactory	Weapons Factory
+build_3_12	ColdWar	Industry	DA_ChocolateFactory	Chocolate Factory
+build_3_13	ColdWar	Industry	DA_FurnitureFactory	Furniture Factory
+build_3_14	ColdWar	Industry	DA_JewelryWorkshop	Jewelry Workshop
+build_3_15	ColdWar	Industry	DA_PlasticsPlant	Plastics Plant
+build_3_16	ColdWar	Industry	DA_VehicleFactory	Vehicle Factory
+build_3_17	Modern	Industry	DA_ElectronicsFactory	Electronics Factory
+build_3_18	Modern	Industry	DA_FashionFactory	Fashion Company
+build_3_19	Modern	Industry	DA_PharmaceuticalCompany	Pharmaceutical Company
+build_3_20	Modern	Industry	DA_Juicery	Juicery
+build_4_1	Colonial	Housing	DA_T6ShackBP	Shack
+build_4_2	Colonial	Housing	DA_T6CountryHouseBP	Country House
+build_4_3	Colonial	Housing	DA_T6Bunkhouse	Bunkhouse
+build_4_4	Colonial	Housing	DA_T6Mansion	Mansion
+build_4_5	WorldWars	Housing	DA_House	House
+build_4_6	ColdWar	Housing	DA_Flophouse	Flophouse
+build_4_7	WorldWars	Housing	DA_Apartment	Apartment
+build_4_8	ColdWar	Housing	DA_T6Tenement	Tenement
+build_4_9	ColdWar	Housing	DA_T6Conventillo	Conventillo
+build_4_10	Modern	Housing	DA_ModernApartment	Modern Apartment
+build_4_11	Modern	Housing	DA_T6ModernMansion	Modern Mansion
+build_4_12	Modern	Housing	DA_SuperVilla	Super Villa
+build_5_1	Colonial	Entertainment	DA_T6TavernBP	Tavern
+build_5_2	Colonial	Entertainment	DA_T6Circus	Circus
+build_5_3	Colonial	Entertainment	DA_Streetperformer	Streetperformer
+build_5_4	WorldWars	Entertainment	DA_BotanicalGarden	Botanical Garden
+build_5_5	WorldWars	Entertainment	DA_FunFairPier	Fun Fair Pier
+build_5_6	WorldWars	Entertainment	DA_Restaurant	Restaurant
+build_5_7	ColdWar	Entertainment	DA_Arcade	Arcade
+build_5_8	ColdWar	Entertainment	DA_T6FastFoodJoint	Fast Food Joint
+build_5_9	ColdWar	Entertainment	DA_MovieTheater	Movie Theater
+build_5_10	Modern	Entertainment	DA_AquaPark	Aqua Park
+build_5_11	Modern	Entertainment	DA_Rollercoaster	Rollercoaster
+build_5_12	Modern	Entertainment	DA_T6Stadium	Stadium
 build_5_13	Colonial	LuxuryEntertainment	DA_T6Theater	Theater
 build_5_14	Colonial	LuxuryEntertainment	DA_T6OperaHouseBP	Opera House
 build_5_15	WorldWars	LuxuryEntertainment	DA_Cabaret	Cabaret
@@ -13,13 +88,73 @@ build_5_22	Modern	LuxuryEntertainment	DA_BeachResort	Beach Resort
 build_5_23	Modern	LuxuryEntertainment	DA_T6HangGlider	Hang Gliding
 build_5_24	Modern	LuxuryEntertainment	DA_MuseumOfModernArt	Museum Of Modern Art
 build_5_25	Modern	LuxuryEntertainment	DA_T6YachtClub	Yacht Club
+build_6_1	Colonial	MediaEducation	DA_T6Newspaper	Newspaper
+build_6_2	Colonial	MediaEducation	DA_T6LibraryBP	Library
+build_6_3	WorldWars	MediaEducation	DA_Highschool	Highschool
+build_6_4	WorldWars	MediaEducation	DA_College	College
+build_6_5	WorldWars	MediaEducation	DA_RadioStation	Radio Station
 build_6_6	ColdWar	MediaEducation	DA_T6ChildhoodMuseum	Childhood Museum
 build_6_7	ColdWar	MediaEducation	DA_T6Mausoleum	Mausoleum
+build_6_8	ColdWar	MediaEducation	DA_T6TVStation	TV Station
+build_6_9	ColdWar	MediaEducation	DA_T6InspiringBillboard	Inspiring Billboard
+build_6_10	ColdWar	MediaEducation	DA_T6InspiringStatue	Inspiring Statue
+build_6_11	ColdWar	MediaEducation	DA_ResearchLab	Research Lab
+build_6_12	ColdWar	MediaEducation	DA_T6SpaceProgram	Space Program
+build_6_13	ColdWar	MediaEducation	DA_T6NuclearProgram	Nuclear Program
+build_7_1	ColdWar	Tourism	DA_TouristPort	Tourist Port
+build_7_2	ColdWar	Tourism	DA_Cabin	Cabin
+build_7_3	ColdWar	Tourism	DA_BeachVilla	Beach Villa
+build_7_4	ColdWar	Tourism	DA_CabanaVillage	Cabana Village
+build_7_5	ColdWar	Tourism	DA_Motel	Motel
+build_7_6	ColdWar	Tourism	DA_Hotel	Hotel
+build_7_7	ColdWar	Tourism	DA_ScenicOutlook	Scenic Outlook
+build_7_8	ColdWar	Tourism	DA_SouvenirShop	Souvenir Shop
+build_7_9	ColdWar	Tourism	DA_T6TourPoint	Tour Office
+build_7_10	ColdWar	Tourism	DA_AncientRuins	Ancient Ruins
+build_7_11	ColdWar	Tourism	DA_EthnicEnclave	Ethnic Enclave
 build_7_12	Modern	Tourism	DA_T6Airport	Airport
+build_7_13	Modern	Tourism	DA_EconomyHotel	Economy Hotel
+build_7_14	Modern	Tourism	DA_FamilyResort	Family Resort
+build_7_15	Modern	Tourism	DA_T6LuxuryHotel	Luxury Hotel
+build_7_16	Modern	Tourism	DA_SkyscaperHotel	Skyscaper Hotel
+build_7_17	Modern	Tourism	DA_T6CruiseShip	Cruise Ship
+build_8_1	Colonial	PublicService	DA_T6Chapel	Chapel
+build_8_2	Colonial	PublicService	DA_T6Grocery	Grocery
+build_8_3	WorldWars	PublicService	DA_Church	Church
+build_8_4	WorldWars	PublicService	DA_Clinic	Clinic
+build_8_5	WorldWars	PublicService	DA_FireStation	Fire Station
+build_8_6	ColdWar	PublicService	DA_Cathedral	Cathedral
+build_8_7	ColdWar	PublicService	DA_Hospital	Hospital
+build_8_8	ColdWar	PublicService	DA_Asylum	Asylum
+build_8_9	ColdWar	PublicService	DA_GarbageDump	Garbage Dump
+build_8_10	Modern	PublicService	DA_T6ShoppingMall	Shopping Mall
+build_8_11	Modern	PublicService	DA_T6WasteTreatmentFacility	Waste Treatment Facility
+build_8_12	Modern	PublicService	DA_RehabCenter	Rehab Center
+build_8_13	Modern	PublicService	DA_BeautyFarm	Beauty Farm
 build_8_14	WorldWars	GovernmentFinance	DA_CustomsOffice	Customs Office
+build_10_1	Colonial	Military	DA_ColonialGuardTower	Colonial Guard Tower
+build_10_2	Colonial	Military	DA_T6ColonialFortBP	Colonial Fort
+build_10_3	Colonial	Military	DA_T6PirateCoveBP	Pirate Cove
 build_10_4	Modern	Military	DA_WatchtowerModern	Watchtower Modern
+build_10_5	WorldWars	Military	DA_Barracks	Barracks
+build_10_6	WorldWars	Military	DA_ArmyBase	Army Base
 build_10_7	WorldWars	Military	DA_T6CommandoGarrison	Commando Garrison
+build_10_8	ColdWar	Military	DA_SecurityCheckpoint	Security Checkpoint
+build_10_9	ColdWar	Military	DA_AircraftCarrier	Aircraft Carrier
+build_10_10	ColdWar	Military	DA_SpyAcademy	Spy Academy
+build_10_11	Modern	Military	DA_DefenseHQ	DefenseHQ
+build_10_12	Modern	Military	DA_DroneCommand	Drone Command
+build_10_13	Modern	Military	DA_T6CyberOperationCenter	Cyber Operations Center
+build_11_1	Colonial	GovernmentFinance	DA_Building_Palace	Palace
+build_11_2	Colonial	GovernmentFinance	DA_T6DungeonBP	Dungeon
+build_11_3	WorldWars	GovernmentFinance	DA_PoliceStation	Police Station
+build_11_4	WorldWars	GovernmentFinance	DA_Prison	Prison
 build_11_5	WorldWars	GovernmentFinance	DA_ImmigrationOffice	Immigration Office
+build_11_6	WorldWars	GovernmentFinance	DA_T6Ministry	Ministry
 build_11_7	WorldWars	GovernmentFinance	DA_Embassy	Embassy
 build_11_8	WorldWars	GovernmentFinance	DA_Bank	Bank
+build_11_9	ColdWar	GovernmentFinance	DA_Courthouse	Courthouse
+build_11_10	ColdWar	GovernmentFinance	DA_MinistryOfInformation	Ministry Of Information
+build_11_11	Modern	GovernmentFinance	DA_PoliceBlimp	Police Blimp
 build_11_12	Modern	GovernmentFinance	DA_T6Office	Office
+build_11_13	Modern	GovernmentFinance	DA_T6OffshoreOffice	Offshore Office

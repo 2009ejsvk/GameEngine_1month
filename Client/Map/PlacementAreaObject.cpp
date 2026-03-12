@@ -1,4 +1,5 @@
 #include "PlacementAreaObject.h"
+#include "PlacementBuildingRoleResolver.h"
 #include "../Building/BuildingCatalog.h"
 #include "../World/MainWorldAccess.h"
 #include "Component/SceneComponent.h"
@@ -190,14 +191,7 @@ void CPlacementAreaObject::ApplyCatalogEntry(
     SetBuildingId(Entry.Id);
     SetBuildingCategory(Entry.Category);
     SetBuildingKind(Entry.BuildingKind);
-    mActiveOperationModeIndex = 0;
-    mActiveRuntimeUpgradeIndex = -1;
-    mWarehouseStoragePolicy = EWarehouseStoragePolicy::Balanced;
-    mPreferredWarehouseResourceType = EResourceType::None;
-    mPowerSupplyRatio = 1.f;
-    mLocalPollutionExposure = 0;
-    mLocalFreedomSupport = 0;
-    mLocalSecuritySupport = 0;
+    mRuntime.ResetForCatalog(ResolvePlacementBuildingRoleState(Entry));
     mOperations.ConfigureStorageBehavior(IsWarehouse());
     RefreshWarehouseStorageRuntime();
     SetRequiredEducationLevel(Entry.RequiredEducationLevel);
@@ -291,7 +285,7 @@ bool CPlacementAreaObject::CycleOperationMode(std::wstring& OutMessage)
         return false;
 
     const int ModeCount = static_cast<int>(Entry->OperationModeDefs.size());
-    mActiveOperationModeIndex =
+    mRuntime.ActiveOperationModeIndex =
         (ResolveActiveOperationModeIndex(Entry) + 1) % ModeCount;
     RefreshWarehouseStorageRuntime();
 
@@ -351,7 +345,7 @@ bool CPlacementAreaObject::SetActiveOperationMode(
         return true;
     }
 
-    mActiveOperationModeIndex = ModeIndex;
+    mRuntime.ActiveOperationModeIndex = ModeIndex;
     RefreshWarehouseStorageRuntime();
 
     if (auto World = mWorld.lock())
@@ -395,7 +389,7 @@ bool CPlacementAreaObject::CycleRuntimeUpgrade(std::wstring& OutMessage)
 
     const int UpgradeCount = static_cast<int>(Entry->RuntimeUpgradeDefs.size());
     const int CurrentIndex = ResolveActiveRuntimeUpgradeIndex(Entry);
-    mActiveRuntimeUpgradeIndex =
+    mRuntime.ActiveRuntimeUpgradeIndex =
         CurrentIndex < 0 ? 0 :
         (CurrentIndex + 1 < UpgradeCount ? CurrentIndex + 1 : -1);
     RefreshWarehouseStorageRuntime();
@@ -435,8 +429,8 @@ bool CPlacementAreaObject::CycleWarehouseStoragePolicy(std::wstring& OutMessage)
     if (!IsWarehouse())
         return false;
 
-    mWarehouseStoragePolicy =
-        mWarehouseStoragePolicy == EWarehouseStoragePolicy::Balanced ?
+    mRuntime.WarehouseStoragePolicy =
+        mRuntime.WarehouseStoragePolicy == EWarehouseStoragePolicy::Balanced ?
             EWarehouseStoragePolicy::Dedicated :
             EWarehouseStoragePolicy::Balanced;
     RefreshWarehouseStorageRuntime();
@@ -463,15 +457,15 @@ bool CPlacementAreaObject::CycleWarehousePriority(std::wstring& OutMessage)
     if (!IsWarehouse())
         return false;
 
-    if (mPreferredWarehouseResourceType == EResourceType::None)
+    if (mRuntime.PreferredWarehouseResourceType == EResourceType::None)
     {
-        mPreferredWarehouseResourceType = EResourceType::Coconuts;
+        mRuntime.PreferredWarehouseResourceType = EResourceType::Coconuts;
     }
     else
     {
         const int NextValue =
-            static_cast<int>(mPreferredWarehouseResourceType) + 1;
-        mPreferredWarehouseResourceType =
+            static_cast<int>(mRuntime.PreferredWarehouseResourceType) + 1;
+        mRuntime.PreferredWarehouseResourceType =
             NextValue < static_cast<int>(EResourceType::Count) ?
                 static_cast<EResourceType>(NextValue) :
                 EResourceType::None;
@@ -517,7 +511,7 @@ void CPlacementAreaObject::Destroy()
     mPreviewCenterIndex = -1;
     mPreviewCanPlace = false;
     mDemolitionHoverActive = false;
-    mAccessibilityScore = 0.f;
+    mRuntime.AccessibilityScore = 0.f;
 
     UpdatePrimaryOverlayTiles(std::vector<int>());
     UpdateMarkerOverlayTiles(std::vector<int>());

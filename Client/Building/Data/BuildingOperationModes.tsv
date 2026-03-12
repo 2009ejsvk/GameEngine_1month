@@ -1,0 +1,25 @@
+# BuildingId	ModeIndex	DisplayName	EffectSummary	ProductionMultiplier	InputConsumptionMultiplier	ServiceThroughputMultiplier	PollutionMultiplier	WageMultiplier	UpkeepMultiplier	ExportPriceDeltaPercent	ImportPriceDeltaPercent	CapacityDelta	ServiceCapacityDelta	HousingQualityDelta	JobQualityDelta	ServiceQualityDelta	RequiredResearch	UnlockEra	SourceDisplayName
+build_1_5	0	안전 하중	기본 설정																운송업자 사무소
+build_1_5	1	느슨한 하중 제한	적하량 +50%, 최대 10% 화물 손실																운송업자 사무소
+build_1_7	0	안전 하중	기본 설정																화물창고
+build_1_7	1	느슨한 속도 제한	화물선 속도 +50%, 최대 5% 화물 손실																화물창고
+build_1_12	0	승차권																	버스차고지
+build_1_12	1	무료 승차	버스 요금 $0, 모든 재산 계층 이용 가능																버스차고지
+build_2_3	0	선조의 방식																	어선 선착장
+build_2_3	1	유망어업	효율 +75%	1.75														WorldWars	어선 선착장
+build_2_3	2	지역시장 공급	산출량 -25%, 고급 레스토랑 효율 보너스	0.75														ColdWar	어선 선착장
+build_3_3	0	수출용 진품 혼합물																	럼주 증류소
+build_3_3	1	지역시장 공급	산출량 -25%, 나이트클럽/경기장 효율 보너스	0.75															럼주 증류소
+build_3_7	0	말고, 말고 또 말고																	시가 공장
+build_3_7	1	지역시장 공급	산출량 -25%, 요트 클럽/은행 효율 보너스	0.75															시가 공장
+build_3_9	0	표준 공정																	제철소
+build_3_9	1	노정 가스 재순환	효율 -10%, 공해 -20%	0.90			0.80												제철소
+build_3_9	2	열간 압연	효율 +20%, 유지비 +20%	1.20					1.20										제철소
+build_3_10	0	재래식 염료																	방직소
+build_3_10	1	아크릴 염료	효율 +15%, 공해 +50%	1.15			1.50												방직소
+build_3_10	2	유기농 염료	공해 -50%, 효율 -20%	0.80			0.50										연구 필요	ModernTimes	방직소
+build_3_16	0	자동차 회사																	자동차 공장
+build_3_16	1	회사 자동차	전 직원 차량 이용, 유지비 +$2/직원, 직업 품질 +5												5				자동차 공장
+build_8_14	0	수출 부양	수출 가격 +10%							10									세관
+build_8_14	1	수입세 감소	수입 가격 -10%								-10								세관
+build_8_14	2	특별세	수출 수익 1%가 스위스 은행 계좌로 이체																세관

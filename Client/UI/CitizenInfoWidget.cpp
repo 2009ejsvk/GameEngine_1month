@@ -199,7 +199,7 @@ bool CCitizenInfoWidget::IsTrackedCustomsOffice() const
     if (!Building || !Building->GetAlive() || !Building->GetEnable())
         return false;
 
-    return Building->GetBuildingId() == "build_8_13";
+    return IsCustomsOfficeBuildingId(Building->GetBuildingId());
 }
 
 bool CCitizenInfoWidget::TrySelectCustomsOperationMode(int ModeIndex)

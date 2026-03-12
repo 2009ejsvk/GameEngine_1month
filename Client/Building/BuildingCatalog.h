@@ -78,6 +78,9 @@ struct FBuildingOperationModeDef
 {
     std::wstring DisplayName;
     std::wstring EffectSummary;
+    bool HasUnlockEra = false;
+    EBuildingEra UnlockEra = EBuildingEra::Colonial;
+    std::wstring RequiredResearch;
     FBuildingOperationModeEffect Effect;
 };
 
@@ -174,6 +177,12 @@ struct FBuildingCatalogEntry
     bool           SupportsTeamsterPickup   = false;  // 팀스터 운반 대상 여부
     bool           CanExportStoredResources = false;  // 항구형 수출 허브 여부
     bool           SupportsImmigration      = false;  // 이민/이주 처리 시설 여부
+    bool           IsCustomsOffice          = false;  // 세관 정체성 여부
+    bool           IsWarehouse              = false;  // 창고 역할 여부
+    bool           IsBusGarage              = false;  // 버스 차고 역할 여부
+    bool           IsBusStop                = false;  // 버스 정류장 역할 여부
+    bool           IsExportStorageHub       = false;  // 항구 외 수출 저장 허브 여부
+    bool           UsesRecipeTable          = false;  // 생산 레시피 테이블 사용 여부
 
     // ── UI 동작 플래그 ────────────────────────────────────────────────────
     // IsDemolish          : 배치 대신 철거 모드를 활성화하는 특수 항목
@@ -196,6 +205,11 @@ struct FBuildingCatalogEntry
     int            HouseholdCapacity        = 0;    // 수용 가구/숙박 슬롯 수
     int            ServiceCapacity          = 0;    // 방문 서비스 슬롯 수
     bool           ServiceCapacityUsesHouseholds = false; // 방문 슬롯 표기를 수용 가구로 표시해야 하는지
+    int            BaseHousingQuality       = 0;    // 주거 기본 품질
+    int            BaseServiceQuality       = 0;    // 서비스 기본 품질
+    int            BaseJobQuality           = 0;    // 직업 기본 품질
+    int            BuildingSizeX            = 1;    // 건물 가로 타일 수
+    int            BuildingSizeY            = 1;    // 건물 세로 타일 수
     int            BaseProducedPowerMW      = 0;    // 기본 발전량
     int            BaseRequiredPowerMW      = 0;    // 기본 필요 전력
     int            BasePollutionOutput      = 0;    // 공해 배출량
@@ -236,6 +250,9 @@ unsigned long long GetRuntimeConfigGeneration();
 // EntryId("build_{cat}_{local}")로 카탈로그 항목 포인터를 반환한다.
 // 일치하는 항목이 없으면 nullptr 반환.
 const FBuildingCatalogEntry* FindBuildingCatalogEntry(const std::string& EntryId);
+
+bool IsCustomsOfficeCatalogEntry(const FBuildingCatalogEntry& Entry);
+bool IsCustomsOfficeBuildingId(const std::string& EntryId);
 
 // 빌드 메뉴에서 사용할 최종 카테고리를 반환한다.
 EBuildingCategory GetEffectiveBuildMenuCategory(

@@ -2,6 +2,7 @@
 
 #include "GovernmentCommandService.h"
 #include "MainWorldAccess.h"
+#include "MainWorldTradeDiplomacyState.h"
 #include "World/World.h"
 #include <string>
 #include <vector>
@@ -183,7 +184,7 @@ public:
         TradeDiplomacyRuntime::GForeignPowerCount>&
         GetForeignDemandStates() const
     {
-        return mForeignPowerDemands;
+        return mTradeDiplomacyState.ForeignPowerDemands;
     }
     virtual void RebuildRoadNetwork() override;
     virtual const CRoadNetwork* GetRoadNetwork() const override
@@ -198,16 +199,16 @@ public:
     virtual const std::vector<FTradeRouteRuntimeState>&
         GetActiveTradeRoutes() const override
     {
-        return mActiveTradeRoutes;
+        return mTradeDiplomacyState.ActiveTradeRoutes;
     }
     virtual const std::vector<FTradeRouteCompletionRecord>&
         GetCompletedTradeRoutes() const override
     {
-        return mCompletedTradeRoutes;
+        return mTradeDiplomacyState.CompletedTradeRoutes;
     }
     virtual int GetTradeRouteCompletionNotificationVersion() const override
     {
-        return mTradeRouteCompletionNotificationVersion;
+        return mTradeDiplomacyState.TradeRouteCompletionNotificationVersion;
     }
     virtual int GetCustomsExportTradePriceModifierPercent() const override;
     virtual int GetCustomsImportTradePriceModifierPercent() const override;
@@ -216,7 +217,7 @@ public:
         TradeDiplomacyRuntime::GForeignPowerCount>&
         GetForeignPowerStates() const override
     {
-        return mForeignPowerStates;
+        return mTradeDiplomacyState.ForeignPowerStates;
     }
 
 private:
@@ -268,27 +269,11 @@ private:
 	FGovernmentEdictModifiers mEdictModifiers;
     std::shared_ptr<CRoadNetwork> mRoadNetwork;
     std::shared_ptr<CBusRouteSystem> mBusRouteSystem;
-    std::vector<FTradeRouteRuntimeState> mActiveTradeRoutes;
-    std::vector<FTradeRouteCompletionRecord> mCompletedTradeRoutes;
-    std::array<
-        TradeDiplomacyRuntime::FForeignPowerStandingState,
-        TradeDiplomacyRuntime::GForeignPowerCount> mForeignPowerStandingStates = {};
-    std::array<
-        TradeDiplomacyRuntime::FForeignPowerWorldState,
-        TradeDiplomacyRuntime::GForeignPowerCount> mForeignPowerStates = {};
+    FMainWorldTradeDiplomacyState mTradeDiplomacyState;
     std::array<FPoliticalDemandState, GPoliticalFactionCount>
         mFactionDemands = {};
     std::array<int, GPoliticalFactionCount> mFactionDemandCooldownDays = {};
     std::array<int, GPoliticalFactionCount> mFactionDemandModifierDays = {};
-    std::array<
-        FPoliticalDemandState,
-        TradeDiplomacyRuntime::GForeignPowerCount> mForeignPowerDemands = {};
-    std::array<
-        int,
-        TradeDiplomacyRuntime::GForeignPowerCount> mForeignDemandCooldownDays = {};
-    int mNextTradeRouteId = 1;
-    int mNextTradeRouteCompletionRecordId = 1;
-    int mTradeRouteCompletionNotificationVersion = 0;
 
 private:
 	void ResetWorldState();

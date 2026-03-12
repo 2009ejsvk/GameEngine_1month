@@ -1,0 +1,52 @@
+# BuildingId	UpgradeIndex	DisplayName	EffectSummary	UnlockEra	Cost	ProductionMultiplier	InputConsumptionMultiplier	UpkeepMultiplier	WarehouseSlotCapacityMultiplier	CapacityDelta	ServiceCapacityDelta	PerWorkerServiceCapacityDelta	HousingQualityDelta	JobQualityDelta	ServiceQualityDelta	RequiredPowerDeltaMW	PollutionMultiplier	UpkeepFlatDelta	WarehouseSlotCapacityDelta	SourceDisplayName
+# Infrastructure
+build_1_4	0	더 많은 일손	일자리 +4		1200					4										건설 사무소
+build_1_5	0	교대 근무	일자리 +6	WorldWars	2500					6										운송업자 사무소
+build_1_7	0	갑판원	일자리 +6		1200					6										화물창고
+build_1_8	0	고층 진열대	슬롯당 보관량 +5000	ColdWar	5000														5000	창고
+build_1_8	1	무작위 창고 보관	슬롯 보관량 +50%	Modern	15000				1.50											창고
+build_1_12	0	전기 버스	40MW 필요	Modern	1500											40				버스차고지
+# FoodResource
+build_2_3	0	형망 어업	조개류 추가 생산	Colonial	750															어선 선착장
+build_2_8	0	수리학적파쇄 시추공	효율 +20%, 공해 +50%	ColdWar	3500	1.20											1.50			정유시설
+build_2_8	1	코일 튜브 시추기	매장지 소모량 감소	ColdWar	2500															정유시설
+build_2_9	0	대용량 수조	생산량 +10%, 외부 재고 +1920	ColdWar	2000	1.10														양식장
+build_2_9	1	조수 시뮬레이터	생산량 +25%, 전력 +25MW		4000	1.25										25				양식장
+build_2_9	2	해수 파이프라인	가뭄/화재 면역	ColdWar	750															양식장
+# Industry
+build_3_2	0	전기톱	효율 +30%, 전력 10MW 필요	WorldWars	5000	1.30										10				제재소
+build_3_2	1	손가락 보험	유지비 +$10, 직업 품질 +10	Modern											10			10		제재소
+build_3_3	0	당밀 증류	설탕 소모 -25%	Colonial	5000		0.75													럼주 증류소
+build_3_3	1	전기 증류	효율 +20%, 전력 30MW 필요	WorldWars	5000	1.20										30				럼주 증류소
+build_3_7	0	자동 생산 라인	일자리 -2, 효율 +20%	WorldWars	6000	1.20				-2										시가 공장
+build_3_7	1	온도 조절기	투입량 -20%, 전력 +5MW	ColdWar	6000		0.80									5				시가 공장
+build_3_7	2	자동 절단기	효율 +10%, 전력 +30MW	ColdWar	5000	1.10										30				시가 공장
+build_3_8	0	중형 크레인	효율 +20%, 직업 품질 +10	WorldWars	12000	1.20								10						조선소
+build_3_8	1	용접 설비	내부 재고 확장, 강철/알루미늄 사용 가능, 전력 5MW 필요	ColdWar												5				조선소
+build_3_9	0	전기 아크 가열로	석탄 소모 -50%, 전력 80MW 필요	Modern			0.50									80				제철소
+build_3_10	0	작업장 확장	일자리 +2	WorldWars	4500					2										방직소
+build_3_10	1	고급 원단 롤러장	효율 +10%, 전력 50MW 필요	WorldWars	3800	1.10										50				방직소
+build_3_10	2	통합 직물 공급기	양모/목화 동시 투입 시 산출량 +15%	ColdWar																방직소
+build_3_13	0	조립 공정	효율 +100%, 전력 +25MW	ColdWar		2.00										25				가구 공장
+build_3_13	1	주형틀	내부 플라스틱 재고 +8320, 전력 +35MW													35				가구 공장
+build_3_13	2	CAD 소프트웨어	고졸 필요, 널빤지 소모 -25%	Modern			0.75													가구 공장
+build_3_15	0	안전 폐기 장치	공해 -50%, 유지비 +200%	ColdWar	8000			3.00									0.50			플라스틱 공장
+build_3_15	1	바이오폴리머 제조 시설	옥수수 재고 추가, 옥수수 생산 허용	Modern	4500															플라스틱 공장
+build_3_16	0	충돌 시험용 더미	직업 품질 +5	ColdWar	1000									5						자동차 공장
+build_3_16	1	완전 자동화 조립	일자리 -2, 효율 +30%, 전력 +15MW	Modern	5000	1.30				-2						15				자동차 공장
+build_3_16	2	향상된 공해 테스트 소프트웨어	환경주의자 우호도 +5	Modern	500															자동차 공장
+build_3_17	0	조립 로봇	생산량 +50%, 전력 +100MW	Modern		1.50										100				전자 제품 공장
+# MediaEducation
+build_6_2	0	학과 분류	효율 +25%	WorldWars	2000	1.25														도서관
+build_6_2	1	전자 책장	일자리 -1, 지식 생산 +50%	Modern		1.50				-1										도서관
+# PublicService
+build_8_4	0	최신식 진단	노동자당 방문객 슬롯 +2	ColdWar								2								진료소
+build_8_4	1	마취	의료 품질 +10	WorldWars											10					진료소
+build_8_7	0	입원시설	노동자당 방문객 슬롯 +2	ColdWar	6000							2								병원
+build_8_8	0	저항실	효율 +20%, 전력 5MW 필요	ColdWar	2500	1.20										5				정신병원
+build_8_9	0	전신 방호복	직업 품질 +10	ColdWar	1000									10						쓰레기장
+build_8_10	0	호화 아울렛	고급 재산 계층 고객 유치	Modern	20000															쇼핑몰
+build_8_10	1	냉난방	직업 품질 +20, 추가 전력 40MW	Modern	15000								20					40		쇼핑몰
+build_8_13	0	냉동 지방 분해 장치	서비스 품질 +10, 추가 전력 5MW	Modern	3000									10				5		미용 농원
+build_8_14	0	탈세	기본 효율 기준 수입 가격 +10%	Modern																세관
+build_8_14	1	관광객 요금	도착 관광객당 +$10	Modern	7500															세관

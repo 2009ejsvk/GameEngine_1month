@@ -50,6 +50,7 @@ out/                   # CMake 등 빌드 출력
 # 요청하신 특정 애셋 폴더 제외
 # (경로가 Binary/Asset/Texture/ 가 맞는지 확인하세요)
 Binary/Asset/Texture/
+Binary/Debug/
 Tropico6_Screenshots/
 
 # ==========================================================

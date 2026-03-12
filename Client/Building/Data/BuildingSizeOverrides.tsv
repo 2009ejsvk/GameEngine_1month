@@ -1,0 +1,142 @@
+# BuildingId	SizeX	SizeY	SourceDisplayName
+build_1_3	3	2	항구
+build_1_4	3	2	건설 사무소
+build_1_5	3	2	운송업자 사무소
+build_1_6	2	5	선창
+build_1_7	2	5	화물창고
+build_1_8	3	3	창고
+build_1_9	1	1	변전소
+build_1_10	4	6	발전소
+build_1_11	2	2	대형 주차장
+build_1_12	3	2	버스차고지
+build_1_15	8	6	원자력 발전소
+build_1_16	1	1	지하철역
+build_1_17	2	2	공중 케이블 기지
+build_1_18	2	2	풍력 터빈
+build_1_19	8	8	해상 풍력 터빈
+build_1_20	7	7	태양광 발전소
+build_2_1	3	2	코코넛 수확기
+build_2_2	3	2	벌목소
+build_2_3	5	6	어선 선착장
+build_2_4	6	9	대규모 농장
+build_2_5	2	1	퇴비 살포기
+build_2_6	4	4	목장
+build_2_7	3	4	광산
+build_2_8	2	2	정유시설
+build_2_9	3	4	양식장
+build_2_10	3	2	석유 시추 장치
+build_2_11	3	5	대규모 수경 농장
+build_2_12	4	4	공장식 목장
+build_3_1	3	4	자동화 광산
+build_3_2	3	4	제재소
+build_3_3	4	2	럼주 증류소
+build_3_4	3	3	무두질 공장
+build_3_5	3	3	통조림 공장
+build_3_6	4	4	유제품 공장
+build_3_7	3	5	시가 공장
+build_3_8	3	3	조선소
+build_3_9	4	2	제철소
+build_3_10	5	3	방직소
+build_3_11	5	4	무기 공장
+build_3_12	2	3	초콜릿 공장
+build_3_13	2	3	가구 공장
+build_3_14	3	2	보석 세공소
+build_3_15	4	3	플라스틱 공장
+build_3_16	6	3	자동차 공장
+build_3_17	4	3	전자 제품 공장
+build_3_18	4	2	패션 회사
+build_3_19	4	3	제약 회사
+build_3_20	4	3	주스 공장
+build_4_1	1	1	판잣집
+build_4_2	2	1	시골 주택
+build_4_3	2	2	합숙소
+build_4_4	3	2	저택
+build_4_5	2	1	단독주택
+build_4_6	3	1	간이 숙박소
+build_4_7	3	2	아파트
+build_4_8	3	3	서민 아파트
+build_4_9	3	2	공동주택
+build_4_10	3	2	현대식 아파트
+build_4_11	3	2	현대식 저택
+build_4_12	3	2	보안 저택
+build_5_1	2	1	주점
+build_5_2	5	3	서커스
+build_5_3	1	1	버스커
+build_5_4	6	4	식물원
+build_5_5	4	3	유원지 부두
+build_5_6	2	2	레스토랑
+build_5_7	3	2	오락실
+build_5_8	2	2	패스트푸드 체인점
+build_5_9	4	3	영화관
+build_5_10	4	3	아쿠아 파크
+build_5_11	6	4	롤러코스터
+build_5_12	9	5	경기장
+build_5_13	4	3	극장
+build_5_14	4	4	오페라 극장
+build_5_15	3	2	카바레
+build_5_16	4	2	카지노
+build_5_17	2	2	칵테일 바
+build_5_18	5	5	골프 코스
+build_5_19	3	2	고급 레스토랑
+build_5_20	3	3	나이트클럽
+build_5_21	3	3	스노클 베이
+build_5_22	3	3	해변 휴양지
+build_5_23	4	1	행글라이딩
+build_5_24	5	3	현대 미술관
+build_5_25	10	4	요트 클럽
+build_6_1	3	2	신문사
+build_6_2	4	3	도서관
+build_6_3	4	3	고등학교
+build_6_4	5	4	대학교
+build_6_5	3	2	라디오 방송국
+build_6_6	3	3	대통령 박물관
+build_6_7	4	4	영묘
+build_6_8	2	2	TV 방송국
+build_6_9	1	1	격려용 광고판
+build_6_10	1	1	격려용 동상
+build_6_11	4	4	연구소
+build_6_12	7	5	우주 개발 프로그램
+build_6_13	6	5	핵 개발 프로그램
+build_7_1	10	4	여객선 터미널
+build_7_2	1	1	통나무집
+build_7_3	2	1	바닷가 별장
+build_7_4	5	2	카바나 마을
+build_7_5	3	2	모텔
+build_7_6	3	2	호텔
+build_7_7	2	1	전망대
+build_7_8	2	1	기념품 매장
+build_7_9	2	1	여행사
+build_7_10	5	5	고대 유적
+build_7_11	3	2	원주민 마을
+build_7_12	16	5	공항
+build_7_13	4	4	저가 호텔
+build_7_14	4	3	가족 휴양지
+build_7_15	4	3	고급 호텔
+build_7_16	3	2	초고층 호텔
+build_7_17	7	2	유람선
+build_10_1	1	1	경비탑
+build_10_2	4	4	요새
+build_10_3	6	5	해적 소굴
+build_10_4	1	1	감시탑
+build_10_5	4	2	막사
+build_10_6	6	5	군사 기지
+build_10_7	5	4	특공대 주둔지
+build_10_8	1	1	보안 검색대
+build_10_9	10	3	항공모함
+build_10_10	3	3	첩보 학교
+build_10_11	6	6	방어 기지
+build_10_12	6	4	드론 지휘소
+build_10_13	4	4	사이버 작전 센터
+build_11_1	7	7	궁전
+build_11_2	3	2	지하 감옥
+build_11_3	4	2	경찰서
+build_11_4	6	5	교도소
+build_11_5	3	3	출입국 관리소
+build_11_6	4	4	정부 청사
+build_11_7	4	2	대사관
+build_11_8	5	2	은행
+build_11_9	5	3	법원
+build_11_10	5	3	정보부 청사
+build_11_11	4	2	경찰 비행선
+build_11_12	3	2	사무소
+build_11_13	5	3	역외 사무소

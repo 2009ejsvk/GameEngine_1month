@@ -1,10 +1,10 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include "PlacementAreaRuntimeState.h"
 #include "../Building/BuildingCatalog.h"
 #include "../Building/BuildingTypes.h"
 #include "../Citizen/CitizenTypes.h"
-#include "PlacementAreaComponents.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -50,20 +50,10 @@ private:
     std::string mBuildingSpriteTexturePath;
     FBuildingServiceProfile mServiceProfile;
     FBuildingOperationsState mOperations;
-    int mActiveOperationModeIndex = 0;
-    int mActiveRuntimeUpgradeIndex = -1;
-    EWarehouseStoragePolicy mWarehouseStoragePolicy =
-        EWarehouseStoragePolicy::Balanced;
-    EResourceType mPreferredWarehouseResourceType =
-        EResourceType::None;
-    float mPowerSupplyRatio = 1.f;
-    int mLocalPollutionExposure = 0;
-    int mLocalFreedomSupport = 0;
-    int mLocalSecuritySupport = 0;
+    FPlacementAreaRuntimeState mRuntime;
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::Structure;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
-    float mAccessibilityScore = 0.f;
 
     const FBuildingCatalogEntry* ResolveCatalogEntry() const
     {
@@ -78,7 +68,9 @@ private:
 
         const int ModeCount =
             static_cast<int>(Entry->OperationModeDefs.size());
-        return (std::max)(0, (std::min)(ModeCount - 1, mActiveOperationModeIndex));
+        return (std::max)(
+            0,
+            (std::min)(ModeCount - 1, mRuntime.ActiveOperationModeIndex));
     }
 
     const FBuildingOperationModeDef* ResolveActiveOperationModeDef() const
@@ -108,9 +100,9 @@ private:
 
         const int UpgradeCount =
             static_cast<int>(Entry->RuntimeUpgradeDefs.size());
-        return mActiveRuntimeUpgradeIndex >= 0 &&
-            mActiveRuntimeUpgradeIndex < UpgradeCount ?
-                mActiveRuntimeUpgradeIndex :
+        return mRuntime.ActiveRuntimeUpgradeIndex >= 0 &&
+            mRuntime.ActiveRuntimeUpgradeIndex < UpgradeCount ?
+                mRuntime.ActiveRuntimeUpgradeIndex :
                 -1;
     }
 
@@ -209,7 +201,8 @@ private:
             0.f,
             ResolveRuntimeEffect().StorageLossMultiplier);
 
-        if (mWarehouseStoragePolicy == EWarehouseStoragePolicy::Dedicated)
+        if (mRuntime.WarehouseStoragePolicy ==
+            EWarehouseStoragePolicy::Dedicated)
             LossMultiplier *= 0.85f;
 
         return LossMultiplier;
@@ -222,8 +215,8 @@ private:
 
         mOperations.ConfigureWarehouseRuntime(
             ResolveEffectiveWarehouseSlotCapacity(),
-            mWarehouseStoragePolicy,
-            mPreferredWarehouseResourceType);
+            mRuntime.WarehouseStoragePolicy,
+            mRuntime.PreferredWarehouseResourceType);
     }
 
     int ApplyOperationModeCapEffect(
@@ -325,10 +318,12 @@ private:
         if (GetRequiredPowerMW() <= 0)
             return 1.f;
 
-        if (mPowerSupplyRatio <= 0.05f)
+        if (mRuntime.PowerSupplyRatio <= 0.05f)
             return 0.f;
 
-        return (std::max)(0.f, (std::min)(1.f, mPowerSupplyRatio));
+        return (std::max)(
+            0.f,
+            (std::min)(1.f, mRuntime.PowerSupplyRatio));
     }
 
 public:
@@ -533,7 +528,7 @@ public:
 
     std::wstring GetWarehouseStoragePolicyDisplayName() const
     {
-        switch (mWarehouseStoragePolicy)
+        switch (mRuntime.WarehouseStoragePolicy)
         {
         case EWarehouseStoragePolicy::Dedicated:
             return L"전용 슬롯 유지";
@@ -544,11 +539,12 @@ public:
 
     std::wstring GetWarehousePriorityDisplayName() const
     {
-        if (mPreferredWarehouseResourceType == EResourceType::None)
+        if (mRuntime.PreferredWarehouseResourceType == EResourceType::None)
             return L"전체 허용";
 
         return std::wstring(
-            GetResourceTypeDisplayName(mPreferredWarehouseResourceType)) +
+            GetResourceTypeDisplayName(
+                mRuntime.PreferredWarehouseResourceType)) +
             L" 우선";
     }
 
@@ -588,13 +584,14 @@ public:
     float GetPowerSupplyRatio() const
     {
         return GetRequiredPowerMW() > 0 ?
-            (std::max)(0.f, (std::min)(1.f, mPowerSupplyRatio)) :
+            (std::max)(0.f, (std::min)(1.f, mRuntime.PowerSupplyRatio)) :
             1.f;
     }
 
     void SetPowerSupplyRatio(float Ratio)
     {
-        mPowerSupplyRatio = (std::max)(0.f, (std::min)(1.f, Ratio));
+        mRuntime.PowerSupplyRatio =
+            (std::max)(0.f, (std::min)(1.f, Ratio));
     }
 
     int GetPollutionOutput() const
@@ -651,7 +648,7 @@ public:
 
     int GetLocalPollutionExposure() const
     {
-        return mLocalPollutionExposure;
+        return mRuntime.LocalPollutionExposure;
     }
 
     float GetLocalPollutionExposureNormalized() const
@@ -660,17 +657,17 @@ public:
             0.f,
             (std::min)(
                 1.f,
-                static_cast<float>(mLocalPollutionExposure) / 100.f));
+                static_cast<float>(mRuntime.LocalPollutionExposure) / 100.f));
     }
 
     void SetLocalPollutionExposure(int Value)
     {
-        mLocalPollutionExposure = (std::max)(0, Value);
+        mRuntime.LocalPollutionExposure = (std::max)(0, Value);
     }
 
     int GetLocalFreedomSupport() const
     {
-        return mLocalFreedomSupport;
+        return mRuntime.LocalFreedomSupport;
     }
 
     float GetLocalFreedomSupportNormalized() const
@@ -679,7 +676,8 @@ public:
             0.f,
             (std::min)(
                 1.f,
-                0.5f + static_cast<float>(mLocalFreedomSupport) / 200.f));
+                0.5f +
+                    static_cast<float>(mRuntime.LocalFreedomSupport) / 200.f));
     }
 
     int GetLocalFreedomScore() const
@@ -694,12 +692,13 @@ public:
 
     void SetLocalFreedomSupport(int Value)
     {
-        mLocalFreedomSupport = (std::max)(-100, (std::min)(100, Value));
+        mRuntime.LocalFreedomSupport =
+            (std::max)(-100, (std::min)(100, Value));
     }
 
     int GetLocalSecuritySupport() const
     {
-        return mLocalSecuritySupport;
+        return mRuntime.LocalSecuritySupport;
     }
 
     float GetLocalSecuritySupportNormalized() const
@@ -708,7 +707,8 @@ public:
             0.f,
             (std::min)(
                 1.f,
-                0.5f + static_cast<float>(mLocalSecuritySupport) / 200.f));
+                0.5f +
+                    static_cast<float>(mRuntime.LocalSecuritySupport) / 200.f));
     }
 
     int GetLocalSecurityScore() const
@@ -723,7 +723,8 @@ public:
 
     void SetLocalSecuritySupport(int Value)
     {
-        mLocalSecuritySupport = (std::max)(-100, (std::min)(100, Value));
+        mRuntime.LocalSecuritySupport =
+            (std::max)(-100, (std::min)(100, Value));
     }
 
     const std::string& GetBuildingDisplayName() const
@@ -795,18 +796,17 @@ public:
 
     bool IsWarehouse() const
     {
-        return mBuildingId == "build_1_7" ||
-            mBuildingId == "build_1_8";
+        return mRuntime.Roles.Warehouse;
     }
 
     bool IsBusGarage() const
     {
-        return mBuildingId == "build_1_12";
+        return mRuntime.Roles.BusGarage;
     }
 
     bool IsBusStop() const
     {
-        return mBuildingId == "build_1_13";
+        return mRuntime.Roles.BusStop;
     }
 
     bool IsFoodProductionFacility() const
@@ -857,7 +857,7 @@ public:
 
         const float EffectiveCap =
             static_cast<float>(GetJobSatisfactionCap()) *
-            (std::max)(0.f, (std::min)(1.f, mAccessibilityScore));
+            (std::max)(0.f, (std::min)(1.f, mRuntime.AccessibilityScore));
         return (std::max)(
             0,
             (std::min)(100, static_cast<int>(roundf(EffectiveCap))));
@@ -1106,7 +1106,7 @@ public:
     bool AdvanceHarborShipProgressAndCheckArrival(int DaysInMonth)
     {
         return mOperations.AdvanceHarborShipProgressAndCheckArrival(
-            IsHarbor(),
+            CanExportStoredResources(),
             DaysInMonth,
             ResolveOperationModeHarborProgressMultiplier() *
                 ResolvePowerOperationalMultiplier());
@@ -1114,7 +1114,8 @@ public:
 
     float GetHarborShipProgressPercent() const
     {
-        return mOperations.GetHarborShipProgressPercent(IsHarbor());
+        return mOperations.GetHarborShipProgressPercent(
+            CanExportStoredResources());
     }
 
     int GetResourceStock() const { return mOperations.GetResourceStock(); }
@@ -1304,7 +1305,7 @@ public:
 
     float GetAccessibilityScore() const
     {
-        return mAccessibilityScore;
+        return mRuntime.AccessibilityScore;
     }
 
     void SetPlacementTemplateType(EPlacementTemplateType Type);

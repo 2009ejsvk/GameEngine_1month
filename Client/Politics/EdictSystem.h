@@ -14,6 +14,16 @@ struct FGovernmentEdictEffectDefinition
     float     DailyJobDelta = 0.f;
     float     DailyFreedomDelta = 0.f;
     float     DailySecurityDelta = 0.f;
+    float     DailyHealthDelta = 0.f;
+    float     DailyFaithDelta = 0.f;
+    float     DailyFunDelta = 0.f;
+    float     ImmigrationRateMultiplier = 1.f;
+    float     BuildingCostMultiplier = 1.f;
+    float     FarmBuildingEfficiencyMultiplier = 1.f;
+    float     ExportPriceMultiplier = 1.f;
+    float     PollutionPerIndustryBuildingDelta = 0.f;
+    long long DailyBudgetDeltaPerIndustryBuilding = 0;
+    int       TouristRatingModifierPercent = 0;
     int       TouristChanceBonusPercent = 0;
     std::array<int, GPoliticalFactionCount> FactionApprovalDelta = {};
     long long DailyBudgetDeltaFlat = 0;
