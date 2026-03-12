@@ -2,6 +2,7 @@
 
 #include "../Citizen/CitizenTypes.h"
 #include "../Economy/TradePolicy.h"
+#include <array>
 #include <string>
 #include <vector>
 
@@ -20,6 +21,64 @@ struct FPoliticalSignalDef
     float            Strength = 0.f;
     EPoliticalScope  Scope = EPoliticalScope::Global;
 };
+
+enum class EPoliticalFaction
+{
+    Communists = 0,
+    Capitalists,
+    Religious,
+    Militarists,
+    Environmentalists,
+    Industrialists,
+    Intellectuals,
+    Conservatives,
+    Count
+};
+
+constexpr int GPoliticalFactionCount =
+    static_cast<int>(EPoliticalFaction::Count);
+
+inline constexpr EPoliticalAxis GetPoliticalFactionAxis(
+    EPoliticalFaction Faction)
+{
+    switch (Faction)
+    {
+    case EPoliticalFaction::Communists:
+    case EPoliticalFaction::Capitalists:
+        return EPoliticalAxis::Economy;
+    case EPoliticalFaction::Religious:
+    case EPoliticalFaction::Militarists:
+        return EPoliticalAxis::ReligionMilitarism;
+    case EPoliticalFaction::Environmentalists:
+    case EPoliticalFaction::Industrialists:
+        return EPoliticalAxis::EnvironmentIndustry;
+    case EPoliticalFaction::Intellectuals:
+    case EPoliticalFaction::Conservatives:
+        return EPoliticalAxis::IntellectualConservative;
+    default:
+        return EPoliticalAxis::Economy;
+    }
+}
+
+inline constexpr EPoliticalStance GetPoliticalFactionStance(
+    EPoliticalFaction Faction)
+{
+    switch (Faction)
+    {
+    case EPoliticalFaction::Communists:
+    case EPoliticalFaction::Religious:
+    case EPoliticalFaction::Environmentalists:
+    case EPoliticalFaction::Intellectuals:
+        return EPoliticalStance::Left;
+    case EPoliticalFaction::Capitalists:
+    case EPoliticalFaction::Militarists:
+    case EPoliticalFaction::Industrialists:
+    case EPoliticalFaction::Conservatives:
+        return EPoliticalStance::Right;
+    default:
+        return EPoliticalStance::Neutral;
+    }
+}
 
 enum class EPoliticalActionType
 {
@@ -295,8 +354,43 @@ struct FGovernmentProfile
     float                           WelfareBias = 0.f;
     float                           LibertyBias = 0.f;
     float                           Militarization = 0.f;
+    std::array<int, GPoliticalFactionCount> FactionApprovalModifiers = {};
+    std::array<int, GPoliticalFactionCount> EdictFactionApprovalModifiers = {};
     std::vector<FGovernmentActionRecord> ActiveActions;
 };
+
+enum class EElectionPromiseType
+{
+    None = 0,
+    Housing,
+    Food,
+    Health,
+    Job,
+    Freedom,
+    Security,
+    Faith,
+    ExportIncome
+};
+
+struct FElectionPromiseState
+{
+    bool Active = false;
+    EElectionPromiseType Type = EElectionPromiseType::None;
+    int BaselineValue = 0;
+    int TargetValue = 0;
+    int CurrentValue = 0;
+    int SuccessVoteModifierPercent = 0;
+    int FailureVoteModifierPercent = 0;
+    std::wstring Title;
+    std::wstring Summary;
+};
+
+constexpr int GElectionPromiseCount = 2;
+
+inline bool IsElectionPromiseMet(const FElectionPromiseState& Promise)
+{
+    return Promise.Active && Promise.CurrentValue >= Promise.TargetValue;
+}
 
 struct FElectionStatus
 {
@@ -315,6 +409,15 @@ struct FElectionStatus
     int LastAbstainVotes = 0;
     double LastVoteShare = 0.0;
     double LastTurnoutPercent = 0.0;
+    bool CampaignPromisesIssued = false;
+    int PromiseIssueYear = 0;
+    int PromiseIssueMonth = 0;
+    int PromiseIssueDay = 0;
+    std::array<FElectionPromiseState, GElectionPromiseCount> ActivePromises = {};
+    bool HasPromiseEvaluation = false;
+    int LastPromiseMetCount = 0;
+    int LastPromiseFailedCount = 0;
+    int LastPromiseVoteModifierPercent = 0;
 };
 
 enum class ETaxPolicyEventType
@@ -364,6 +467,89 @@ struct FWorldCrisisStatus
     std::wstring Summary;
 };
 
+enum class EPoliticalDemandIssuerType
+{
+    None = 0,
+    Faction,
+    ForeignPower
+};
+
+enum class EPoliticalDemandObjectiveType
+{
+    None = 0,
+    Housing,
+    Food,
+    Faith,
+    Security,
+    Freedom,
+    Health,
+    ExportIncome,
+    IncomeTaxCeiling,
+    PropertyTaxCeiling,
+    ActiveTradeRoutes
+};
+
+enum class EPoliticalDemandStatus
+{
+    None = 0,
+    PendingResponse,
+    Accepted,
+    Completed,
+    Rejected,
+    Failed
+};
+
+struct FPoliticalDemandState
+{
+    bool Active = false;
+    EPoliticalDemandIssuerType IssuerType =
+        EPoliticalDemandIssuerType::None;
+    int IssuerIndex = -1;
+    EPoliticalDemandObjectiveType ObjectiveType =
+        EPoliticalDemandObjectiveType::None;
+    EPoliticalDemandStatus Status = EPoliticalDemandStatus::None;
+    int RemainingDays = 0;
+    int DurationDays = 0;
+    int TargetValue = 0;
+    int CurrentValue = 0;
+    int ModifierDurationDays = 0;
+    long long RewardBudgetDelta = 0;
+    int RewardFactionApprovalDelta = 0;
+    int RewardForeignRelationDelta = 0;
+    int RewardForeignStandingDelta = 0;
+    long long PenaltyBudgetDelta = 0;
+    int PenaltyFactionApprovalDelta = 0;
+    int PenaltyForeignRelationDelta = 0;
+    int PenaltyForeignStandingDelta = 0;
+    std::wstring Title;
+    std::wstring Summary;
+    std::wstring ObjectiveText;
+    std::wstring RewardText;
+    std::wstring PenaltyText;
+};
+
+struct FPoliticalDemandNotice
+{
+    bool ActiveDemand = false;
+    bool Positive = false;
+    int RemainingDays = 0;
+    std::wstring Title;
+    std::wstring Summary;
+};
+
+inline bool IsPoliticalDemandAwaitingResponse(
+    const FPoliticalDemandState& State)
+{
+    return State.Active &&
+        State.Status == EPoliticalDemandStatus::PendingResponse;
+}
+
+inline bool IsPoliticalDemandAccepted(const FPoliticalDemandState& State)
+{
+    return State.Active &&
+        State.Status == EPoliticalDemandStatus::Accepted;
+}
+
 enum class EVoteIntent
 {
     Incumbent = 0,
@@ -379,7 +565,21 @@ struct FCitizenPoliticalEvaluation
     float       ActionScore = 0.f;
     float       FearScore = 0.f;
     float       TotalSupportScore = 50.f;
+    float       FactionAlignmentScore = 0.f;
+    float       FactionApprovalScore = 50.f;
+    EPoliticalFaction PrimaryFaction = EPoliticalFaction::Communists;
     EVoteIntent VoteIntent = EVoteIntent::Abstain;
+};
+
+struct FPoliticalFactionSnapshot
+{
+    int MemberCount = 0;
+    double AverageApproval = 50.0;
+    double AverageLifeScore = 0.0;
+    double AverageBuildingScore = 0.0;
+    double AverageActionScore = 0.0;
+    double AverageAlignmentScore = 0.0;
+    double ApprovalModifier = 0.0;
 };
 
 struct FPoliticalWorldSnapshot
@@ -393,6 +593,7 @@ struct FPoliticalWorldSnapshot
     double AverageGovernmentIdeologyScore = 0.0;
     double AverageBuildingScore = 0.0;
     double AverageActionScore = 0.0;
+    std::array<FPoliticalFactionSnapshot, GPoliticalFactionCount> Factions = {};
 };
 
 struct FGovernmentEdictState
@@ -414,5 +615,7 @@ struct FGovernmentEdictModifiers
     float     DailyJobDelta = 0.f;
     float     DailyFreedomDelta = 0.f;
     float     DailySecurityDelta = 0.f;
+    int       TouristChanceBonusPercent = 0;
+    std::array<int, GPoliticalFactionCount> FactionApprovalModifiers = {};
     long long DailyBudgetDelta = 0;
 };

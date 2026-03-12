@@ -279,35 +279,55 @@ namespace ResourceTradePricing
             }
         }
 
-        if (WorldCrisisStatus.Active)
+        if (WorldCrisisStatus.Type != EWorldCrisisType::None &&
+            (WorldCrisisStatus.Active || WorldCrisisStatus.NotificationDays > 0))
         {
+            const double WorldCrisisBiasWeight =
+                WorldCrisisStatus.Active ?
+                    ClampMultiplier(
+                        0.90 +
+                            ClampMultiplier(
+                                static_cast<double>(
+                                    WorldCrisisStatus.DaysActive + 1) / 6.0,
+                                0.0,
+                                1.0) *
+                                0.55,
+                        0.90,
+                        1.45) :
+                    ClampMultiplier(
+                        static_cast<double>(WorldCrisisStatus.NotificationDays) /
+                            8.0,
+                        0.0,
+                        1.0) *
+                        0.32;
+
             switch (WorldCrisisStatus.Type)
             {
             case EWorldCrisisType::Raid:
                 if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 0.04;
+                    Bias += 0.04 * WorldCrisisBiasWeight;
                 else if (MarketClass == EResourceMarketClass::RawGoods)
-                    Bias += 0.03;
+                    Bias += 0.03 * WorldCrisisBiasWeight;
                 break;
             case EWorldCrisisType::LaborStrike:
                 if (MarketClass == EResourceMarketClass::ManufacturedGoods)
-                    Bias += 0.05;
+                    Bias += 0.05 * WorldCrisisBiasWeight;
                 else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias += 0.02;
+                    Bias += 0.02 * WorldCrisisBiasWeight;
                 break;
             case EWorldCrisisType::CrimeWave:
                 if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias -= 0.03;
+                    Bias -= 0.03 * WorldCrisisBiasWeight;
                 else if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 0.02;
+                    Bias += 0.02 * WorldCrisisBiasWeight;
                 break;
             case EWorldCrisisType::FiscalEmergency:
                 if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 0.06;
+                    Bias += 0.06 * WorldCrisisBiasWeight;
                 else if (MarketClass == EResourceMarketClass::RawGoods)
-                    Bias += 0.04;
+                    Bias += 0.04 * WorldCrisisBiasWeight;
                 else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias -= 0.06;
+                    Bias -= 0.06 * WorldCrisisBiasWeight;
                 break;
             case EWorldCrisisType::None:
             default:
@@ -325,6 +345,9 @@ namespace ResourceTradePricing
         const std::vector<FGovernmentEdictState>& GovernmentEdictStates,
         const FTaxPolicyEventStatus& TaxEventStatus,
         const FWorldCrisisStatus& WorldCrisisStatus,
+        const std::array<
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
+            TradeDiplomacyRuntime::GForeignPowerCount>* ForeignPowerStates,
         int Year,
         int Month,
         int Day)
@@ -364,14 +387,20 @@ namespace ResourceTradePricing
                     ResourceType,
                     TaxEventStatus,
                     WorldCrisisStatus);
-            const int DiplomacyExportBiasPercent =
+            const int DiplomacyExportBiasPercent = ForeignPowerStates ?
+                TradeDiplomacyRuntime::ComputeDiplomacyExportBiasPercent(
+                    ResourceType,
+                    *ForeignPowerStates) :
                 TradeDiplomacyRuntime::ComputeDiplomacyExportBiasPercent(
                     ResourceType,
                     Snapshot,
                     GovernmentProfile,
                     TaxEventStatus,
                     GovernmentEdictStates);
-            const int DiplomacyImportBiasPercent =
+            const int DiplomacyImportBiasPercent = ForeignPowerStates ?
+                TradeDiplomacyRuntime::ComputeDiplomacyImportBiasPercent(
+                    ResourceType,
+                    *ForeignPowerStates) :
                 TradeDiplomacyRuntime::ComputeDiplomacyImportBiasPercent(
                     ResourceType,
                     Snapshot,
@@ -519,6 +548,33 @@ namespace ResourceTradePricing
             GovernmentEdictStates,
             TaxEventStatus,
             WorldCrisisStatus,
+            nullptr,
+            Year,
+            Month,
+            Day);
+    }
+
+    inline void UpdateWorldMarketPrices(
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        const FGovernmentProfile& GovernmentProfile,
+        const std::vector<FGovernmentEdictState>& GovernmentEdictStates,
+        const FTaxPolicyEventStatus& TaxEventStatus,
+        const FWorldCrisisStatus& WorldCrisisStatus,
+        const std::array<
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
+            TradeDiplomacyRuntime::GForeignPowerCount>& ForeignPowerStates,
+        int Year,
+        int Month,
+        int Day)
+    {
+        UpdateWorldMarketPriceState(
+            GetActiveWorldMarketPriceState(),
+            Snapshot,
+            GovernmentProfile,
+            GovernmentEdictStates,
+            TaxEventStatus,
+            WorldCrisisStatus,
+            &ForeignPowerStates,
             Year,
             Month,
             Day);

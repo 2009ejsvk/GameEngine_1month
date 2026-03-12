@@ -899,7 +899,7 @@ void FAlmanacRenderer::ApplySatisfactionPage(
             std::to_wstring(Snapshot.ResidentialVacancyBuildingCount));
         AssignSatisfactionDetail(
             2,
-            L"▷ 방",
+            L"▷ 빈 주거 슬롯",
             std::to_wstring(HousingVacancy));
         SatisfactionVisibleDetailCount = 3;
         break;

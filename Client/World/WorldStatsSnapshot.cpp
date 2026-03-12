@@ -11,6 +11,13 @@
 
 namespace
 {
+    struct FHouseholdSnapshotInfo
+    {
+        ECitizenWealthLevel WealthLevel = ECitizenWealthLevel::Poor;
+        std::string HomeName;
+        int MemberCount = 0;
+    };
+
     std::wstring Utf8ToWide(const std::string& Text)
     {
         if (Text.empty())
@@ -112,6 +119,37 @@ namespace
         if (Value < 75.0)
             return 3;
         return 4;
+    }
+
+    int ResolveResidentialHouseholdCapacity(
+        const CPlacementAreaObject& Building,
+        const FBuildingCatalogEntry& Entry)
+    {
+        const int HouseholdCapacity = (std::max)(0, Entry.HouseholdCapacity);
+
+        if (HouseholdCapacity > 0)
+            return HouseholdCapacity;
+
+        return (std::max)(0, Building.GetCapacity());
+    }
+
+    bool IsTourismAnalyticsVenue(const FBuildingCatalogEntry& Entry)
+    {
+        return Entry.Category == EBuildingCategory::Tourism ||
+            Entry.Category == EBuildingCategory::LuxuryEntertainment ||
+            HasTouristPreference(Entry.PrimaryTouristPreference);
+    }
+
+    std::shared_ptr<CPlacementAreaObject> ResolveActiveBuildingByName(
+        const std::map<std::string, std::shared_ptr<CPlacementAreaObject>>&
+            ActiveBuildingsByName,
+        const std::string& Name)
+    {
+        if (Name.empty())
+            return nullptr;
+
+        const auto Iter = ActiveBuildingsByName.find(Name);
+        return Iter != ActiveBuildingsByName.end() ? Iter->second : nullptr;
     }
 
     std::vector<std::wstring> SplitLines(const std::wstring& Text)
@@ -261,6 +299,8 @@ namespace WorldStats
             ResourceReservedByType;
         std::array<std::map<std::wstring, int>, GResourceTypeCount>
             ResourceOverflowByType;
+        std::map<std::string, std::shared_ptr<CPlacementAreaObject>>
+            ActiveBuildingsByName;
         std::map<std::string, int> ResidentialCapacityByName;
         std::map<std::string, int> ResidentialOccupancyByName;
         std::map<std::string, int> ResidentialWealthTierByName;
@@ -287,6 +327,7 @@ namespace WorldStats
                 Snapshot.MonthlyWageCost += Building->GetMonthlyWageCost();
                 Snapshot.MonthlyUpkeepCost += Building->GetMonthlyUpkeepCost();
                 Snapshot.TotalResourceStock += Building->GetResourceStock();
+                ActiveBuildingsByName[Building->GetName()] = Building;
 
                 if (Building->IsFoodProvider())
                     ++Snapshot.FoodProviderCount;
@@ -527,6 +568,21 @@ namespace WorldStats
                 if (Entry->Category == EBuildingCategory::Tourism)
                     ++Snapshot.TourismBuildingCount;
 
+                if (Building->IsEntertainmentProvider() &&
+                    IsTourismAnalyticsVenue(*Entry))
+                {
+                    Snapshot.TourismVisitCapacity +=
+                        (std::max)(
+                            0,
+                            Building->GetServiceVisitCapacity(
+                                EBuildingServiceType::Fun));
+                    Snapshot.TourismVisitOccupancy +=
+                        (std::max)(
+                            0,
+                            Building->GetActiveServiceVisitorCount(
+                                EBuildingServiceType::Fun));
+                }
+
                 Snapshot.TotalProducedPowerMW +=
                     (std::max)(0, Building->GetProducedPowerMW());
                 Snapshot.TotalRequiredPowerMW +=
@@ -560,9 +616,11 @@ namespace WorldStats
 
                 if (Entry->Residential)
                 {
-                    Snapshot.ResidentialCapacity += Building->GetCapacity();
+                    const int HouseholdCapacity =
+                        ResolveResidentialHouseholdCapacity(*Building, *Entry);
+                    Snapshot.ResidentialCapacity += HouseholdCapacity;
                     ResidentialCapacityByName[Building->GetName()] =
-                        (std::max)(0, Building->GetCapacity());
+                        HouseholdCapacity;
                     ResidentialWealthTierByName[Building->GetName()] =
                         ResolveResidentialWealthTier(*Entry);
                 }
@@ -650,6 +708,9 @@ namespace WorldStats
 
         if (World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
         {
+            std::map<int, FHouseholdSnapshotInfo> HouseholdsById;
+            int ResidentialOverlaySampleCount = 0;
+
             for (size_t i = 0; i < OrbList.size(); ++i)
             {
                 auto Orb = OrbList[i].lock();
@@ -689,16 +750,75 @@ namespace WorldStats
                 if (EducationIndex >= 0 && EducationIndex < 3)
                     ++Snapshot.EducationCount[EducationIndex];
 
+                const FCitizenIdentityProfile& Identity =
+                    Orb->GetIdentityProfile();
+                const std::shared_ptr<CPlacementAreaObject> HomeBuilding =
+                    ResolveActiveBuildingByName(
+                        ActiveBuildingsByName,
+                        Orb->GetHomeBuilding());
+                if (HomeBuilding)
+                {
+                    Snapshot.AverageResidentialFreedom +=
+                        HomeBuilding->GetLocalFreedomScore();
+                    Snapshot.AverageResidentialSecurity +=
+                        HomeBuilding->GetLocalSecurityScore();
+                    Snapshot.AverageResidentialPollution +=
+                        HomeBuilding->GetLocalPollutionExposure();
+                    ++ResidentialOverlaySampleCount;
+                }
+                if (Identity.IsTourist)
+                {
+                    ++Snapshot.ActiveTouristCount;
+
+                    const int PreferenceIndex =
+                        static_cast<int>(Identity.TouristProfile);
+                    if (PreferenceIndex >= 0 &&
+                        PreferenceIndex < GTouristPreferenceCount)
+                    {
+                        ++Snapshot.TouristProfileCount[PreferenceIndex];
+                    }
+
+                    const std::string& FunBuildingName =
+                        !Orb->GetFunVisitBuilding().empty() ?
+                            Orb->GetFunVisitBuilding() :
+                            Orb->GetFunBuilding();
+                    if (!FunBuildingName.empty())
+                    {
+                        const auto BuildingIter =
+                            ActiveBuildingsByName.find(FunBuildingName);
+                        if (BuildingIter != ActiveBuildingsByName.end() &&
+                            BuildingIter->second)
+                        {
+                            const FBuildingCatalogEntry* const FunEntry =
+                                FindBuildingCatalogEntry(
+                                    BuildingIter->second->GetBuildingId());
+                            if (FunEntry &&
+                                FunEntry->PrimaryTouristPreference ==
+                                    Identity.TouristProfile)
+                            {
+                                ++Snapshot.TouristPreferenceMatchedCount;
+                            }
+                        }
+                    }
+                }
+                int HouseholdId = Identity.HouseholdId;
+
+                if (HouseholdId <= 0)
+                    HouseholdId = -static_cast<int>(i) - 1;
+
+                auto& Household = HouseholdsById[HouseholdId];
+                Household.WealthLevel = Identity.WealthLevel;
+                ++Household.MemberCount;
+
+                if (Household.HomeName.empty() &&
+                    !Orb->GetHomeBuilding().empty())
+                {
+                    Household.HomeName = Orb->GetHomeBuilding();
+                }
+
                 if (Orb->GetHomeBuilding().empty())
                 {
                     ++Snapshot.HomelessCount;
-                    if (WealthIndex >= 0 && WealthIndex < 3)
-                        ++Snapshot.HomelessWealthCount[WealthIndex];
-                }
-                else
-                {
-                    ++Snapshot.AssignedHomeCount;
-                    ++ResidentialOccupancyByName[Orb->GetHomeBuilding()];
                 }
 
                 if (Orb->GetWorkBuilding().empty())
@@ -746,6 +866,40 @@ namespace WorldStats
                 {
                     ++Snapshot.FullyNeutralCitizenCount;
                 }
+            }
+
+            Snapshot.ActiveHouseholdCount =
+                static_cast<int>(HouseholdsById.size());
+
+            for (auto HouseholdIt = HouseholdsById.begin();
+                HouseholdIt != HouseholdsById.end();
+                ++HouseholdIt)
+            {
+                const FHouseholdSnapshotInfo& Household = HouseholdIt->second;
+                const int WealthIndex =
+                    static_cast<int>(Household.WealthLevel);
+
+                if (Household.HomeName.empty())
+                {
+                    ++Snapshot.HomelessHouseholdCount;
+
+                    if (WealthIndex >= 0 && WealthIndex < 3)
+                        ++Snapshot.HomelessWealthCount[WealthIndex];
+
+                    continue;
+                }
+
+                ++Snapshot.AssignedHomeCount;
+                ++ResidentialOccupancyByName[Household.HomeName];
+            }
+
+            if (ResidentialOverlaySampleCount > 0)
+            {
+                const double Denominator =
+                    static_cast<double>(ResidentialOverlaySampleCount);
+                Snapshot.AverageResidentialFreedom /= Denominator;
+                Snapshot.AverageResidentialSecurity /= Denominator;
+                Snapshot.AverageResidentialPollution /= Denominator;
             }
         }
 

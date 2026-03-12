@@ -456,6 +456,19 @@ namespace
         return true;
     }
 
+    void AddFactionApproval(
+        FGovernmentEdictEffectDefinition& Effect,
+        EPoliticalFaction Faction,
+        int Delta)
+    {
+        const int Index = static_cast<int>(Faction);
+
+        if (Index < 0 || Index >= GPoliticalFactionCount)
+            return;
+
+        Effect.FactionApprovalDelta[static_cast<size_t>(Index)] += Delta;
+    }
+
     FGovernmentEdictEffectDefinition BuildDefaultEdictEffectDefinition(
         EGovernmentEdictType Type)
     {
@@ -467,118 +480,184 @@ namespace
             Effect.FoodConsumptionPerVisitMin = 2;
             Effect.FoodGainMultiplier = 1.18f;
             Effect.DailyFoodDelta = 3.5f;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 8);
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, -5);
             break;
         case EGovernmentEdictType::ChurchFee:
             Effect.TaxRevenueMultiplier = 1.10f;
             Effect.DailyFreedomDelta = -0.45f;
             Effect.DailySecurityDelta = 0.25f;
+            AddFactionApproval(Effect, EPoliticalFaction::Religious, 6);
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, -4);
             break;
         case EGovernmentEdictType::NoFreeLunch:
             Effect.DailyBudgetDeltaFlat = 140;
             Effect.DailyFoodDelta = -1.50f;
             Effect.DailyFreedomDelta = -0.20f;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, -6);
             break;
         case EGovernmentEdictType::NothingBeatsSiesta:
             Effect.ProductionMultiplier = 0.88f;
             Effect.DailyJobDelta = 0.55f;
             Effect.DailyFreedomDelta = 0.60f;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 3);
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, -4);
             break;
         case EGovernmentEdictType::UrbanDevelopment:
             Effect.DailyHousingDelta = 2.20f;
             Effect.DailyFreedomDelta = -0.30f;
             Effect.DailyBudgetDeltaFlat = -120;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Conservatives, 2);
             break;
         case EGovernmentEdictType::TaxCut:
             Effect.DailyFreedomDelta = 1.5f;
             Effect.TaxRevenueMultiplier = 0.65f;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 9);
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, -7);
             break;
         case EGovernmentEdictType::DiplomaticSuperParty:
             Effect.DailyFreedomDelta = 0.25f;
             Effect.DailyBudgetDeltaFlat = -80;
+            Effect.TouristChanceBonusPercent = 10;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 3);
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, 4);
             break;
         case EGovernmentEdictType::AgriculturalSubsidies:
             Effect.ProductionMultiplier = 1.12f;
             Effect.DailyFoodDelta = 1.35f;
             Effect.DailyBudgetDeltaFlat = -160;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 2);
+            AddFactionApproval(Effect, EPoliticalFaction::Religious, 2);
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, 2);
             break;
         case EGovernmentEdictType::BuildingPermit:
             Effect.TaxRevenueMultiplier = 1.10f;
             Effect.DailyFreedomDelta = -0.80f;
             Effect.DailySecurityDelta = 0.20f;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 3);
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, -3);
             break;
         case EGovernmentEdictType::WealthTax:
             Effect.TaxRevenueMultiplier = 1.14f;
             Effect.DailyFreedomDelta = -0.35f;
             Effect.DailyHousingDelta = 0.45f;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 6);
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, -7);
             break;
         case EGovernmentEdictType::Industrialization:
             Effect.ProductionMultiplier = 1.18f;
             Effect.DailyJobDelta = 0.90f;
             Effect.DailyFreedomDelta = -0.35f;
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, 7);
+            AddFactionApproval(Effect, EPoliticalFaction::Environmentalists, -6);
             break;
         case EGovernmentEdictType::LiteracyProgram:
             Effect.ProductionMultiplier = 1.06f;
             Effect.DailyJobDelta = 0.95f;
             Effect.DailyFreedomDelta = 0.45f;
             Effect.DailyBudgetDeltaFlat = -110;
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, 7);
             break;
         case EGovernmentEdictType::MartialLaw:
             Effect.DailyFreedomDelta = -4.0f;
             Effect.DailySecurityDelta = 5.0f;
+            Effect.TouristChanceBonusPercent = -10;
+            AddFactionApproval(Effect, EPoliticalFaction::Militarists, 9);
+            AddFactionApproval(Effect, EPoliticalFaction::Conservatives, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, -9);
+            AddFactionApproval(Effect, EPoliticalFaction::Environmentalists, -4);
             break;
         case EGovernmentEdictType::Prohibition:
             Effect.DailySecurityDelta = 2.10f;
             Effect.DailyFreedomDelta = -1.40f;
             Effect.DailyJobDelta = -0.20f;
+            AddFactionApproval(Effect, EPoliticalFaction::Religious, 6);
+            AddFactionApproval(Effect, EPoliticalFaction::Conservatives, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, -5);
             break;
         case EGovernmentEdictType::MilitaryPolice:
             Effect.DailySecurityDelta = 2.90f;
             Effect.DailyFreedomDelta = -2.10f;
             Effect.DailyBudgetDeltaFlat = -90;
+            Effect.TouristChanceBonusPercent = -6;
+            AddFactionApproval(Effect, EPoliticalFaction::Militarists, 8);
+            AddFactionApproval(Effect, EPoliticalFaction::Conservatives, 3);
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, -7);
             break;
         case EGovernmentEdictType::RightToArms:
             Effect.DailyFreedomDelta = 1.45f;
             Effect.DailySecurityDelta = -1.10f;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 5);
+            AddFactionApproval(Effect, EPoliticalFaction::Militarists, 3);
+            AddFactionApproval(Effect, EPoliticalFaction::Conservatives, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, -4);
             break;
         case EGovernmentEdictType::FreeHousing:
             Effect.DailyHousingDelta = 3.5f;
             Effect.DailyBudgetDeltaPerCitizen = -1;
             Effect.DailyBudgetDeltaPerCitizenAbsMinimum = 80;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 10);
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, -8);
             break;
         case EGovernmentEdictType::EmployeeOfTheMonth:
             Effect.ProductionMultiplier = 1.35f;
             Effect.DailyJobDelta = 1.5f;
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, 6);
             break;
         case EGovernmentEdictType::TaxHeaven:
             Effect.TaxRevenueMultiplier = 1.06f;
             Effect.DailyFreedomDelta = -0.20f;
             Effect.DailyBudgetDeltaFlat = 110;
+            Effect.TouristChanceBonusPercent = 4;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 8);
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, -6);
             break;
         case EGovernmentEdictType::PolicyOfDetente:
             Effect.DailyFreedomDelta = 0.15f;
             Effect.DailySecurityDelta = 0.20f;
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, 5);
+            AddFactionApproval(Effect, EPoliticalFaction::Environmentalists, 3);
+            AddFactionApproval(Effect, EPoliticalFaction::Militarists, -4);
             break;
         case EGovernmentEdictType::CTPA:
             Effect.ProductionMultiplier = 1.03f;
             Effect.DailyBudgetDeltaFlat = 90;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, 7);
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, -3);
             break;
         case EGovernmentEdictType::TourismState:
             Effect.DailyFreedomDelta = 0.20f;
             Effect.DailyBudgetDeltaFlat = 120;
+            Effect.TouristChanceBonusPercent = 14;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, 2);
             break;
         case EGovernmentEdictType::LaborTaxRelief:
             Effect.DailyJobDelta = 1.25f;
             Effect.DailyFreedomDelta = 0.75f;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 5);
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, -3);
             break;
         case EGovernmentEdictType::PropertyTaxRelief:
             Effect.DailyHousingDelta = 1.40f;
             Effect.DailyFreedomDelta = 0.35f;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Conservatives, 2);
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, -3);
             break;
         case EGovernmentEdictType::EmergencyAusterity:
             Effect.DailyBudgetDeltaFlat = 450;
             Effect.DailyJobDelta = -1.0f;
             Effect.DailyFreedomDelta = -0.85f;
             Effect.DailySecurityDelta = 0.45f;
+            Effect.TouristChanceBonusPercent = -8;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, -8);
+            AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, -4);
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 3);
             break;
         default:
             break;
@@ -607,7 +686,19 @@ namespace
         InOutModifiers.DailyJobDelta += Effect.DailyJobDelta;
         InOutModifiers.DailyFreedomDelta += Effect.DailyFreedomDelta;
         InOutModifiers.DailySecurityDelta += Effect.DailySecurityDelta;
+        InOutModifiers.TouristChanceBonusPercent +=
+            Effect.TouristChanceBonusPercent;
         InOutModifiers.DailyBudgetDelta += Effect.DailyBudgetDeltaFlat;
+
+        for (int FactionIndex = 0;
+            FactionIndex < GPoliticalFactionCount;
+            ++FactionIndex)
+        {
+            InOutModifiers.FactionApprovalModifiers[
+                static_cast<size_t>(FactionIndex)] +=
+                Effect.FactionApprovalDelta[
+                    static_cast<size_t>(FactionIndex)];
+        }
 
         if (Effect.DailyBudgetDeltaPerCitizen != 0)
         {
@@ -2161,6 +2252,20 @@ namespace EdictSystem
                 Definition->Effect,
                 SafeCitizenCount,
                 Modifiers);
+        }
+
+        Modifiers.TouristChanceBonusPercent = (std::max)(
+            -20,
+            (std::min)(24, Modifiers.TouristChanceBonusPercent));
+
+        for (int FactionIndex = 0;
+            FactionIndex < GPoliticalFactionCount;
+            ++FactionIndex)
+        {
+            int& Modifier =
+                Modifiers.FactionApprovalModifiers[
+                    static_cast<size_t>(FactionIndex)];
+            Modifier = (std::max)(-25, (std::min)(25, Modifier));
         }
 
         return Modifiers;

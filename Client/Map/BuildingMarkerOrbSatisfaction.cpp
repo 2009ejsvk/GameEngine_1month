@@ -227,6 +227,34 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         FaithCapBuilding ?
             FaithCapBuilding->GetLocalPollutionExposureNormalized() :
             0.f;
+    auto ResolveLocalFreedomBias =
+        [&](const std::shared_ptr<CPlacementAreaObject>& Building) -> float
+    {
+        return Building ?
+            (Building->GetLocalFreedomSupportNormalized() - 0.5f) * 2.f :
+            0.f;
+    };
+    auto ResolveLocalSecurityBias =
+        [&](const std::shared_ptr<CPlacementAreaObject>& Building) -> float
+    {
+        return Building ?
+            (Building->GetLocalSecuritySupportNormalized() - 0.5f) * 2.f :
+            0.f;
+    };
+    const float HomeFreedomBias = ResolveLocalFreedomBias(HomeBuilding);
+    const float WorkFreedomBias = ResolveLocalFreedomBias(WorkBuilding);
+    const float FoodFreedomBias = ResolveLocalFreedomBias(FoodCapBuilding);
+    const float FunFreedomBias = ResolveLocalFreedomBias(FunCapBuilding);
+    const float HealthFreedomBias = ResolveLocalFreedomBias(HealthCapBuilding);
+    const float FaithFreedomBias = ResolveLocalFreedomBias(FaithCapBuilding);
+    const float HomeSecurityBias = ResolveLocalSecurityBias(HomeBuilding);
+    const float WorkSecurityBias = ResolveLocalSecurityBias(WorkBuilding);
+    const float FoodSecurityBias = ResolveLocalSecurityBias(FoodCapBuilding);
+    const float FunSecurityBias = ResolveLocalSecurityBias(FunCapBuilding);
+    const float HealthSecurityBias =
+        ResolveLocalSecurityBias(HealthCapBuilding);
+    const float FaithSecurityBias =
+        ResolveLocalSecurityBias(FaithCapBuilding);
     const float FoodRecoveryMultiplier =
         ResolveServiceRecoveryMultiplier(FoodCap);
     const float FunRecoveryMultiplier =
@@ -276,6 +304,12 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 
         Value = (std::min)(Cap, Value + GainPerSec * DeltaTime);
     };
+    auto ApplyClampedNeedDrift = [&](float& Value, float DeltaPerSecond)
+    {
+        Value = (std::max)(
+            0.f,
+            (std::min)(100.f, Value + DeltaPerSecond * DeltaTime));
+    };
 
     // 욕구 자연 감소
     Satisfaction.Food = (std::max)(
@@ -321,6 +355,34 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             100.f,
             Satisfaction.Health + 0.10f * DeltaTime);
     }
+
+    const float LocalFreedomDrift =
+        HomeFreedomBias * 0.60f +
+        WorkFreedomBias * 0.18f +
+        FoodFreedomBias * 0.06f +
+        FunFreedomBias * 0.12f +
+        HealthFreedomBias * 0.02f +
+        FaithFreedomBias * 0.02f;
+    ApplyClampedNeedDrift(Satisfaction.Freedom, LocalFreedomDrift * 0.32f);
+
+    const float LocalSecurityDrift =
+        HomeSecurityBias * 0.58f +
+        WorkSecurityBias * 0.22f +
+        FoodSecurityBias * 0.05f +
+        FunSecurityBias * 0.03f +
+        HealthSecurityBias * 0.05f +
+        FaithSecurityBias * 0.07f;
+    ApplyClampedNeedDrift(
+        Satisfaction.Security,
+        LocalSecurityDrift * 0.34f -
+            HomePollution * 0.05f -
+            WorkPollution * 0.03f);
+    ApplyClampedNeedDrift(
+        Satisfaction.Housing,
+        HomeSecurityBias * 0.08f - HomePollution * 0.10f);
+    ApplyClampedNeedDrift(
+        Satisfaction.Job,
+        WorkSecurityBias * 0.06f - WorkPollution * 0.05f);
 
     // FSM 상태별 회복
     switch (mCitizenState)
@@ -555,31 +617,23 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             (std::max)(0.f, PropertyTaxDeviation);
         const float PropertyTaxRelief =
             (std::max)(0.f, -PropertyTaxDeviation);
-
-        auto ApplyNeedDrift = [&](float& Value, float DeltaPerSecond)
-        {
-            Value = (std::max)(
-                0.f,
-                (std::min)(100.f, Value + DeltaPerSecond * DeltaTime));
-        };
-
-        ApplyNeedDrift(
+        ApplyClampedNeedDrift(
             Satisfaction.Food,
             -0.10f * ConsumptionTaxStress +
             0.04f * ConsumptionTaxRelief);
-        ApplyNeedDrift(
+        ApplyClampedNeedDrift(
             Satisfaction.Fun,
             -0.14f * ConsumptionTaxStress +
             0.06f * ConsumptionTaxRelief);
-        ApplyNeedDrift(
+        ApplyClampedNeedDrift(
             Satisfaction.Job,
             -0.13f * IncomeTaxStress +
             0.05f * IncomeTaxRelief);
-        ApplyNeedDrift(
+        ApplyClampedNeedDrift(
             Satisfaction.Housing,
             -0.15f * PropertyTaxStress +
             0.06f * PropertyTaxRelief);
-        ApplyNeedDrift(
+        ApplyClampedNeedDrift(
             Satisfaction.Freedom,
             -(0.06f * ConsumptionTaxStress +
                 0.08f * IncomeTaxStress +

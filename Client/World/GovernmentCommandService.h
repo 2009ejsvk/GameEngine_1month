@@ -37,4 +37,9 @@ public:
     virtual bool CancelTradeRoute(
         int RouteId,
         std::wstring& OutMessage) = 0;
+    virtual bool RespondPoliticalDemand(
+        EPoliticalDemandIssuerType IssuerType,
+        int IssuerIndex,
+        bool Accept,
+        std::wstring& OutMessage) = 0;
 };

@@ -12,6 +12,7 @@ struct FBuildingOperationModeEffect
     float InputConsumptionMultiplier = 1.f;
     float ServiceThroughputMultiplier = 1.f;
     float HarborProgressMultiplier = 1.f;
+    float TeamsterTransferMultiplier = 1.f;
     float ProducedPowerMultiplier = 1.f;
     float RequiredPowerMultiplier = 1.f;
     float WarehouseSlotCapacityMultiplier = 1.f;
@@ -19,6 +20,9 @@ struct FBuildingOperationModeEffect
     float PollutionMultiplier = 1.f;
     float WageMultiplier = 1.f;
     float UpkeepMultiplier = 1.f;
+    int TeamsterCargoLossPercent = 0;
+    int ExportTradeRoutePriceDeltaPercent = 0;
+    int ImportTradeRoutePriceDeltaPercent = 0;
     int ProducedPowerDeltaMW = 0;
     int RequiredPowerDeltaMW = 0;
     int WarehouseSlotCapacityDelta = 0;
@@ -41,6 +45,7 @@ struct FBuildingOperationModeEffect
             InputConsumptionMultiplier != 1.f ||
             ServiceThroughputMultiplier != 1.f ||
             HarborProgressMultiplier != 1.f ||
+            TeamsterTransferMultiplier != 1.f ||
             ProducedPowerMultiplier != 1.f ||
             RequiredPowerMultiplier != 1.f ||
             WarehouseSlotCapacityMultiplier != 1.f ||
@@ -48,6 +53,9 @@ struct FBuildingOperationModeEffect
             PollutionMultiplier != 1.f ||
             WageMultiplier != 1.f ||
             UpkeepMultiplier != 1.f ||
+            TeamsterCargoLossPercent != 0 ||
+            ExportTradeRoutePriceDeltaPercent != 0 ||
+            ImportTradeRoutePriceDeltaPercent != 0 ||
             ProducedPowerDeltaMW != 0 ||
             RequiredPowerDeltaMW != 0 ||
             WarehouseSlotCapacityDelta != 0 ||
@@ -73,18 +81,22 @@ struct FBuildingOperationModeDef
     FBuildingOperationModeEffect Effect;
 };
 
-struct FBuildingRuntimeUpgradeDef
-{
-    std::wstring DisplayName;
-    std::wstring EffectSummary;
-    FBuildingOperationModeEffect Effect;
-};
-
 enum class EBuildingCostState
 {
     None,
     Known,
     Unknown
+};
+
+struct FBuildingRuntimeUpgradeDef
+{
+    std::wstring DisplayName;
+    std::wstring EffectSummary;
+    bool HasUnlockEra = false;
+    EBuildingEra UnlockEra = EBuildingEra::Colonial;
+    EBuildingCostState CostState = EBuildingCostState::None;
+    int Cost = 0;
+    FBuildingOperationModeEffect Effect;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,6 +136,7 @@ struct FBuildingCatalogEntry
     EBuildingEra   UnlockEra            = EBuildingEra::Colonial;
     ECitizenEducationLevel RequiredEducationLevel =
         ECitizenEducationLevel::Uneducated;
+    unsigned int   AllowedWealthMask     = GBuildingWealthMaskAll;
     EBuildingHousingClass HousingClass  = EBuildingHousingClass::None;
     EBuildingLeisureClass LeisureClass  = EBuildingLeisureClass::None;
     ETouristPreference PrimaryTouristPreference =
@@ -180,7 +193,9 @@ struct FBuildingCatalogEntry
 
     // ── 기타 수치 ─────────────────────────────────────────────────────────
     int            Capacity                 = 0;    // 수용 인원 (주거/직장 슬롯 수)
+    int            HouseholdCapacity        = 0;    // 수용 가구/숙박 슬롯 수
     int            ServiceCapacity          = 0;    // 방문 서비스 슬롯 수
+    bool           ServiceCapacityUsesHouseholds = false; // 방문 슬롯 표기를 수용 가구로 표시해야 하는지
     int            BaseProducedPowerMW      = 0;    // 기본 발전량
     int            BaseRequiredPowerMW      = 0;    // 기본 필요 전력
     int            BasePollutionOutput      = 0;    // 공해 배출량
@@ -191,6 +206,9 @@ struct FBuildingCatalogEntry
     // ── 카탈로그 인덱스 / 정렬 정보 ──────────────────────────────────────
     EBuildingCategory Category              = EBuildingCategory::Infrastructure;
     int            CategoryLocalIndex       = 0;    // 카테고리 내 순서 (0-based)
+    bool           HasBuildMenuCategoryOverride = false;
+    EBuildingCategory BuildMenuCategoryOverride =
+        EBuildingCategory::Infrastructure;
 
     // ── 배치 시스템 ───────────────────────────────────────────────────────
     // TemplateType : 배치 시 점유할 타일 영역 모양·크기
@@ -218,6 +236,10 @@ unsigned long long GetRuntimeConfigGeneration();
 // EntryId("build_{cat}_{local}")로 카탈로그 항목 포인터를 반환한다.
 // 일치하는 항목이 없으면 nullptr 반환.
 const FBuildingCatalogEntry* FindBuildingCatalogEntry(const std::string& EntryId);
+
+// 빌드 메뉴에서 사용할 최종 카테고리를 반환한다.
+EBuildingCategory GetEffectiveBuildMenuCategory(
+    const FBuildingCatalogEntry& Entry);
 
 // 건물 엔트리에서 UI 아이콘 경로를 반환한다.
 const wchar_t* GetCatalogEntryIconPath(const FBuildingCatalogEntry& Entry);

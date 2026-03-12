@@ -55,9 +55,9 @@ namespace
     constexpr int GPoliticsFactionTileCount = 8;
     constexpr int GPoliticsNeutralCount = 4;
     constexpr int GPoliticsSupportRowCount = 4;
-    constexpr int GPoliticsDetailCount = 14;
+    constexpr int GPoliticsDetailCount = 19;
     constexpr int GForeignPowerCount = 5;
-    constexpr int GForeignDetailCount = 11;
+    constexpr int GForeignDetailCount = 16;
     constexpr int GForeignMetricCount = 4;
     constexpr int GBuildingRowCount = 13;
     constexpr int GBuildingDetailCount = 8;

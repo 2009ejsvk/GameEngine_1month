@@ -1,6 +1,7 @@
 #include "AlmanacRenderer.h"
 #include "AlmanacRendererInternal.h"
 #include "World/World.h"
+#include <functional>
 #include <string>
 
 namespace
@@ -260,6 +261,53 @@ CAlmanacWidget::FDetailRowWidgets CreateSelectableEconomyDetailRow(
             Content->AddWidget(Value);
             Button->SetChild(Content);
 
+            Row.Label = Label;
+            Row.Value = Value;
+        }
+
+        return Row;
+}
+
+CAlmanacWidget::FDetailRowWidgets CreateActionDetailRow(
+    const std::weak_ptr<CWorld>& World,
+    const std::shared_ptr<CWidgetContainer>& Page,
+    const std::string& Prefix,
+    const std::function<void()>& OnClick)
+{
+        CAlmanacWidget::FDetailRowWidgets Row;
+
+        if (!Page)
+            return Row;
+
+        Row.Button = Page->CreateWidget<CButton>(Prefix + "_Button", 1);
+        auto Button = Row.Button.lock();
+
+        if (!Button)
+            return Row;
+
+        ConfigureSatisfactionRowButtonStyle(Button, false);
+        Button->SetEventCallback(
+            EButtonEventState::Click,
+            [OnClick]()
+            {
+                if (OnClick)
+                    OnClick();
+            });
+
+        auto Content = CWidget::CreateStaticWidget<CWidgetContainer>(
+            Prefix + "_Content", World);
+        auto Label = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Label", World);
+        auto Value = CWidget::CreateStaticWidget<CTextBlock>(
+            Prefix + "_Value", World);
+
+        if (Content && Label && Value)
+        {
+            ConfigureBodyLabelText(Label);
+            ConfigureBodyValueText(Value);
+            Content->AddWidget(Label);
+            Content->AddWidget(Value);
+            Button->SetChild(Content);
             Row.Label = Label;
             Row.Value = Value;
         }
@@ -2036,9 +2084,40 @@ void FAlmanacRenderer::CreatePoliticsWidgets(CAlmanacWidget& Widget)
 
         for (int Index = 0; Index < GPoliticsDetailCount; ++Index)
         {
-            Widget.mPoliticsDetails.push_back(CreateDetailRow(
-                Page,
-                "Almanac_PoliticsDetail_" + std::to_string(Index + 1)));
+            if (Index >= GPoliticsDetailCount - 2)
+            {
+                const std::string Prefix =
+                    "Almanac_PoliticsDetail_" + std::to_string(Index + 1);
+
+                if (Index == GPoliticsDetailCount - 2)
+                {
+                    Widget.mPoliticsDetails.push_back(CreateActionDetailRow(
+                        Widget.mWorld,
+                        Page,
+                        Prefix,
+                        [&Widget]()
+                        {
+                            Widget.OnPoliticsDemandAcceptClick();
+                        }));
+                }
+                else
+                {
+                    Widget.mPoliticsDetails.push_back(CreateActionDetailRow(
+                        Widget.mWorld,
+                        Page,
+                        Prefix,
+                        [&Widget]()
+                        {
+                            Widget.OnPoliticsDemandRejectClick();
+                        }));
+                }
+            }
+            else
+            {
+                Widget.mPoliticsDetails.push_back(CreateDetailRow(
+                    Page,
+                    "Almanac_PoliticsDetail_" + std::to_string(Index + 1)));
+            }
         }
 }
 
@@ -2086,9 +2165,40 @@ void FAlmanacRenderer::CreateForeignWidgets(CAlmanacWidget& Widget)
 
         for (int Index = 0; Index < GForeignDetailCount; ++Index)
         {
-            Widget.mForeignDetails.push_back(CreateDetailRow(
-                Page,
-                "Almanac_ForeignDetail_" + std::to_string(Index + 1)));
+            if (Index >= GForeignDetailCount - 2)
+            {
+                const std::string Prefix =
+                    "Almanac_ForeignDetail_" + std::to_string(Index + 1);
+
+                if (Index == GForeignDetailCount - 2)
+                {
+                    Widget.mForeignDetails.push_back(CreateActionDetailRow(
+                        Widget.mWorld,
+                        Page,
+                        Prefix,
+                        [&Widget]()
+                        {
+                            Widget.OnForeignDemandAcceptClick();
+                        }));
+                }
+                else
+                {
+                    Widget.mForeignDetails.push_back(CreateActionDetailRow(
+                        Widget.mWorld,
+                        Page,
+                        Prefix,
+                        [&Widget]()
+                        {
+                            Widget.OnForeignDemandRejectClick();
+                        }));
+                }
+            }
+            else
+            {
+                Widget.mForeignDetails.push_back(CreateDetailRow(
+                    Page,
+                    "Almanac_ForeignDetail_" + std::to_string(Index + 1)));
+            }
         }
 
         for (int Index = 0; Index < GForeignMetricCount; ++Index)

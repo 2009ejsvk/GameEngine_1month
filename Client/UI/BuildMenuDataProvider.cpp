@@ -260,6 +260,36 @@ namespace
                 std::to_wstring(Entry.HousingSatisfactionCap));
         }
 
+        if (Highlights.size() < 3 && Entry.BaseProducedPowerMW > 0)
+        {
+            Highlights.push_back(
+                L"생산 전력: " +
+                std::to_wstring(Entry.BaseProducedPowerMW) +
+                L"MW");
+        }
+
+        if (Highlights.size() < 3 && Entry.BaseRequiredPowerMW > 0)
+        {
+            Highlights.push_back(
+                L"필요 전력: " +
+                std::to_wstring(Entry.BaseRequiredPowerMW) +
+                L"MW");
+        }
+
+        if (Highlights.size() < 3 && Entry.BasePollutionOutput > 0)
+        {
+            Highlights.push_back(
+                L"공해 배출: " +
+                std::to_wstring(Entry.BasePollutionOutput));
+        }
+
+        if (Highlights.size() < 3 && Entry.BasePollutionMitigation > 0)
+        {
+            Highlights.push_back(
+                L"공해 정화: " +
+                std::to_wstring(Entry.BasePollutionMitigation));
+        }
+
         if (Highlights.size() < 3 &&
             Entry.JobSatisfactionCap > 0 &&
             Entry.JobSatisfactionCap < 100)
@@ -287,10 +317,32 @@ namespace
                 std::to_wstring(Entry.FunSatisfactionCap));
         }
 
+        if (Highlights.size() < 3 &&
+            Entry.Residential &&
+            Entry.HouseholdCapacity > 0)
+        {
+            Highlights.push_back(
+                L"수용 가구: " +
+                std::to_wstring(Entry.HouseholdCapacity));
+        }
+
+        if (Highlights.size() < 3 &&
+            !Entry.Residential &&
+            Entry.ServiceCapacity > 0)
+        {
+            Highlights.push_back(
+                std::wstring(
+                    Entry.ServiceCapacityUsesHouseholds ?
+                        L"수용 가구: " :
+                        L"수용 인원: ") +
+                std::to_wstring(Entry.ServiceCapacity));
+        }
+
         if (Highlights.size() < 3 && Entry.Capacity > 0)
         {
             Highlights.push_back(
-                L"수용 인원: " +
+                std::wstring(
+                    Entry.Residential ? L"수용 인원: " : L"필요 인력: ") +
                 std::to_wstring(Entry.Capacity));
         }
     }
@@ -308,6 +360,7 @@ namespace
             L"음식 품질:",
             L"오락 품질:",
             L"서비스 품질:",
+            L"필요 인력:",
             L"수용 인원:",
             L"수용 가구:",
             L"생산 전력:",
@@ -412,45 +465,43 @@ namespace
         EBuildingCategory SelectedCategory,
         EBuildingEra CurrentEra)
     {
-        (void)CurrentEra;
-
         std::vector<int> Result;
         const auto& Catalog = GetBuildingCatalog();
-
-        auto IsLuxuryEntertainmentEntry =
-            [](const FBuildingCatalogEntry& Entry)
-            {
-                return Entry.Category == EBuildingCategory::Entertainment &&
-                    Entry.CategoryLocalIndex >= 12;
-            };
 
         auto IsGovernmentFinanceProxyEntry =
             [](const FBuildingCatalogEntry& Entry)
             {
-                return Entry.Category == EBuildingCategory::PublicService &&
+                return GetEffectiveBuildMenuCategory(Entry) ==
+                        EBuildingCategory::GovernmentFinance &&
                     Entry.DisplayName == L"세관";
             };
 
         auto ShouldIncludeEntry =
             [&](const FBuildingCatalogEntry& Entry)
             {
+                if (!IsBuildingEraUnlocked(CurrentEra, Entry.UnlockEra))
+                    return false;
+
+                const EBuildingCategory BuildMenuCategory =
+                    GetEffectiveBuildMenuCategory(Entry);
+
                 switch (SelectedCategory)
                 {
                 case EBuildingCategory::Entertainment:
-                    return Entry.Category ==
-                            EBuildingCategory::Entertainment &&
-                        !IsLuxuryEntertainmentEntry(Entry);
+                    return BuildMenuCategory ==
+                        EBuildingCategory::Entertainment;
                 case EBuildingCategory::LuxuryEntertainment:
-                    return IsLuxuryEntertainmentEntry(Entry);
+                    return BuildMenuCategory ==
+                        EBuildingCategory::LuxuryEntertainment;
                 case EBuildingCategory::PublicService:
-                    return Entry.Category ==
+                    return BuildMenuCategory ==
                             EBuildingCategory::PublicService &&
                         !IsGovernmentFinanceProxyEntry(Entry);
                 case EBuildingCategory::GovernmentFinance:
-                    return Entry.Category ==
+                    return BuildMenuCategory ==
                         EBuildingCategory::GovernmentFinance;
                 default:
-                    return Entry.Category == SelectedCategory;
+                    return BuildMenuCategory == SelectedCategory;
                 }
             };
 
@@ -460,10 +511,15 @@ namespace
 
             for (int i = 0; i < static_cast<int>(Catalog.size()); ++i)
             {
-                if (Catalog[i].IsHiddenFromBuildMenu)
-                    continue;
+                const FBuildingCatalogEntry& Entry = Catalog[i];
 
-                if (IsGovernmentFinanceProxyEntry(Catalog[i]))
+                if (Entry.IsHiddenFromBuildMenu ||
+                    !IsBuildingEraUnlocked(CurrentEra, Entry.UnlockEra))
+                {
+                    continue;
+                }
+
+                if (IsGovernmentFinanceProxyEntry(Entry))
                 {
                     CustomsEntryIndex = i;
                     break;
@@ -475,7 +531,10 @@ namespace
                 const FBuildingCatalogEntry& Entry = Catalog[i];
 
                 if (Entry.IsHiddenFromBuildMenu ||
-                    Entry.Category != EBuildingCategory::GovernmentFinance)
+                    !IsBuildingEraUnlocked(CurrentEra, Entry.UnlockEra) ||
+                    GetEffectiveBuildMenuCategory(Entry) !=
+                        EBuildingCategory::GovernmentFinance ||
+                    IsGovernmentFinanceProxyEntry(Entry))
                 {
                     continue;
                 }
@@ -492,7 +551,10 @@ namespace
                 const FBuildingCatalogEntry& Entry = Catalog[i];
 
                 if (Entry.IsHiddenFromBuildMenu ||
-                    Entry.Category != EBuildingCategory::GovernmentFinance)
+                    !IsBuildingEraUnlocked(CurrentEra, Entry.UnlockEra) ||
+                    GetEffectiveBuildMenuCategory(Entry) !=
+                        EBuildingCategory::GovernmentFinance ||
+                    IsGovernmentFinanceProxyEntry(Entry))
                 {
                     continue;
                 }

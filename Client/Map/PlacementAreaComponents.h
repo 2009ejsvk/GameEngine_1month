@@ -23,6 +23,7 @@ struct FBuildingServiceProfile
     int FaithSatisfactionCap = 100;
     ECitizenEducationLevel RequiredEducationLevel =
         ECitizenEducationLevel::Uneducated;
+    unsigned int AllowedWealthMask = GBuildingWealthMaskAll;
     int Capacity = 0;
     int ServiceCapacity = 0;
 

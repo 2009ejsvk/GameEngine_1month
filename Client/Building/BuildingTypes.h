@@ -137,6 +137,14 @@ enum class ETouristPreference
     Celebrity
 };
 
+constexpr int GTouristPreferenceCount =
+    static_cast<int>(ETouristPreference::Celebrity) + 1;
+
+inline bool HasTouristPreference(ETouristPreference Preference)
+{
+    return Preference != ETouristPreference::None;
+}
+
 inline const wchar_t* GetTouristPreferenceDisplayName(
     ETouristPreference Preference)
 {
@@ -162,6 +170,15 @@ inline const wchar_t* GetTouristPreferenceDisplayName(
         return UIStrings::Get(L"building.tourist_preference.unknown").c_str();
     }
 }
+
+constexpr unsigned int GBuildingWealthMaskNone = 0u;
+constexpr unsigned int GBuildingWealthMaskPoor = 1u << 0;
+constexpr unsigned int GBuildingWealthMaskWellOff = 1u << 1;
+constexpr unsigned int GBuildingWealthMaskRich = 1u << 2;
+constexpr unsigned int GBuildingWealthMaskAll =
+    GBuildingWealthMaskPoor |
+    GBuildingWealthMaskWellOff |
+    GBuildingWealthMaskRich;
 
 enum class EResourceType
 {

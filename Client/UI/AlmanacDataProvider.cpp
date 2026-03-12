@@ -51,7 +51,11 @@ namespace
         AlmanacDataProvider::FAlmanacSnapshot& Snapshot)
     {
         Snapshot.ActiveCitizenCount = WorldSnapshot.ActiveCitizenCount;
+        Snapshot.ActiveTouristCount = WorldSnapshot.ActiveTouristCount;
+        Snapshot.ActiveHouseholdCount = WorldSnapshot.ActiveHouseholdCount;
         Snapshot.HomelessCount = WorldSnapshot.HomelessCount;
+        Snapshot.HomelessHouseholdCount =
+            WorldSnapshot.HomelessHouseholdCount;
         Snapshot.UnemployedCount = WorldSnapshot.UnemployedCount;
         Snapshot.AssignedHomeCount = WorldSnapshot.AssignedHomeCount;
         Snapshot.AssignedJobCount = WorldSnapshot.AssignedJobCount;
@@ -72,6 +76,10 @@ namespace
         Snapshot.SecurityInfluenceBuildingCount =
             WorldSnapshot.SecurityInfluenceBuildingCount;
         Snapshot.HarborCount = WorldSnapshot.HarborCount;
+        Snapshot.TourismVisitCapacity = WorldSnapshot.TourismVisitCapacity;
+        Snapshot.TourismVisitOccupancy = WorldSnapshot.TourismVisitOccupancy;
+        Snapshot.TouristPreferenceMatchedCount =
+            WorldSnapshot.TouristPreferenceMatchedCount;
         Snapshot.TotalProducedPowerMW = WorldSnapshot.TotalProducedPowerMW;
         Snapshot.TotalRequiredPowerMW = WorldSnapshot.TotalRequiredPowerMW;
         Snapshot.DisconnectedConsumerCount =
@@ -86,6 +94,13 @@ namespace
                 WorldSnapshot.HomelessWealthCount[WealthIndex];
             Snapshot.CitizenWealthCount[WealthIndex] =
                 WorldSnapshot.CitizenWealthCount[WealthIndex];
+        }
+        for (int PreferenceIndex = 0;
+            PreferenceIndex < GTouristPreferenceCount;
+            ++PreferenceIndex)
+        {
+            Snapshot.TouristProfileCount[PreferenceIndex] =
+                WorldSnapshot.TouristProfileCount[PreferenceIndex];
         }
         for (int TierIndex = 0; TierIndex < 5; ++TierIndex)
         {
@@ -184,6 +199,12 @@ namespace
         Snapshot.AverageJob = WorldSnapshot.AverageJob;
         Snapshot.AverageFreedom = WorldSnapshot.AverageFreedom;
         Snapshot.AverageSecurity = WorldSnapshot.AverageSecurity;
+        Snapshot.AverageResidentialFreedom =
+            WorldSnapshot.AverageResidentialFreedom;
+        Snapshot.AverageResidentialSecurity =
+            WorldSnapshot.AverageResidentialSecurity;
+        Snapshot.AverageResidentialPollution =
+            WorldSnapshot.AverageResidentialPollution;
         Snapshot.AverageOverall = WorldSnapshot.AverageOverall;
         Snapshot.TopBuildings = WorldSnapshot.TopBuildings;
         Snapshot.TopResourceBuildings = WorldSnapshot.TopResourceBuildings;
@@ -240,6 +261,10 @@ namespace
             MainWorldRecord.ElectionWarningScore;
         Snapshot.TaxEventStatus = MainWorldRecord.TaxEventStatus;
         Snapshot.WorldCrisisStatus = MainWorldRecord.WorldCrisisStatus;
+        Snapshot.PoliticalDemandNotice = MainWorldRecord.PoliticalDemandNotice;
+        Snapshot.FactionDemandStates = MainWorldRecord.FactionDemandStates;
+        Snapshot.ForeignDemandStates = MainWorldRecord.ForeignDemandStates;
+        Snapshot.ForeignPowerStates = MainWorldRecord.ForeignPowerStates;
 
         for (size_t i = 0; i < MainWorldRecord.GovernmentEdictStates.size(); ++i)
         {
@@ -316,6 +341,12 @@ namespace AlmanacDataProvider
             1.0 - Clamp01(Snapshot.AverageFreedom / 100.0);
         const double SecurityVulnerability =
             1.0 - Clamp01(Snapshot.AverageSecurity / 100.0);
+        const double ResidentialFreedomPressure =
+            1.0 - Clamp01(Snapshot.AverageResidentialFreedom / 100.0);
+        const double ResidentialSecurityPressure =
+            1.0 - Clamp01(Snapshot.AverageResidentialSecurity / 100.0);
+        const double ResidentialPollutionPressure =
+            Clamp01(Snapshot.AverageResidentialPollution / 100.0);
         const double OppositionRatio =
             Clamp01(Snapshot.OppositionPercent / 100.0);
         const double FoodPressure =
@@ -389,14 +420,17 @@ namespace AlmanacDataProvider
                 JobPressure * 0.12 +
                 HomelessRatio * 0.10 +
                 UnemploymentRatio * 0.12 +
-                FiscalStress * 0.12);
+                FiscalStress * 0.12 +
+                ResidentialPollutionPressure * 0.10);
 
         Snapshot.RebelRiskScore =
             Clamp01(
-                FreedomPressure * 0.24 +
-                SecurityVulnerability * 0.14 +
+                FreedomPressure * 0.18 +
+                ResidentialFreedomPressure * 0.08 +
+                SecurityVulnerability * 0.10 +
+                ResidentialSecurityPressure * 0.08 +
                 OppositionRatio * 0.24 +
-                MaterialPressure * 0.28 +
+                MaterialPressure * 0.24 +
                 TaxEventPressure * 0.10 +
                 WorldCrisisPressure * 0.08) * 100.0;
 
@@ -491,6 +525,21 @@ namespace AlmanacDataProvider
                     FormatFixed1(Snapshot.AverageSecurity)));
             AppendLine(
                 Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.residential_freedom",
+                    FormatFixed1(Snapshot.AverageResidentialFreedom)));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.residential_security",
+                    FormatFixed1(Snapshot.AverageResidentialSecurity)));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.residential_pollution",
+                    FormatFixed1(Snapshot.AverageResidentialPollution)));
+            AppendLine(
+                Body,
                 MakeCountLine(
                     L"almanac.yearbook.homeless_count",
                     Snapshot.HomelessCount));
@@ -546,6 +595,21 @@ namespace AlmanacDataProvider
                 Body,
                 MakeLabeledValue(
                     L"almanac.satisfaction.security",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.residential_freedom",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.residential_security",
+                    UIStrings::Get(L"almanac.value.empty")));
+            AppendLine(
+                Body,
+                MakeLabeledValue(
+                    L"almanac.satisfaction.residential_pollution",
                     UIStrings::Get(L"almanac.value.empty")));
             AppendLine(
                 Body,

@@ -58,6 +58,8 @@ private:
         EResourceType::None;
     float mPowerSupplyRatio = 1.f;
     int mLocalPollutionExposure = 0;
+    int mLocalFreedomSupport = 0;
+    int mLocalSecuritySupport = 0;
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::Structure;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
@@ -145,6 +147,8 @@ private:
             UpgradeEffect.ServiceThroughputMultiplier;
         Result.HarborProgressMultiplier *=
             UpgradeEffect.HarborProgressMultiplier;
+        Result.TeamsterTransferMultiplier *=
+            UpgradeEffect.TeamsterTransferMultiplier;
         Result.ProducedPowerMultiplier *=
             UpgradeEffect.ProducedPowerMultiplier;
         Result.RequiredPowerMultiplier *=
@@ -162,6 +166,13 @@ private:
             UpgradeEffect.JobQualityMultiplier;
         Result.GenericServiceQualityMultiplier *=
             UpgradeEffect.GenericServiceQualityMultiplier;
+        Result.TeamsterCargoLossPercent = (std::max)(
+            Result.TeamsterCargoLossPercent,
+            UpgradeEffect.TeamsterCargoLossPercent);
+        Result.ExportTradeRoutePriceDeltaPercent +=
+            UpgradeEffect.ExportTradeRoutePriceDeltaPercent;
+        Result.ImportTradeRoutePriceDeltaPercent +=
+            UpgradeEffect.ImportTradeRoutePriceDeltaPercent;
         Result.ProducedPowerDeltaMW += UpgradeEffect.ProducedPowerDeltaMW;
         Result.RequiredPowerDeltaMW += UpgradeEffect.RequiredPowerDeltaMW;
         Result.WarehouseSlotCapacityDelta +=
@@ -275,6 +286,18 @@ private:
         return ResolveRuntimeEffect().HarborProgressMultiplier;
     }
 
+    float ResolveOperationModeTeamsterTransferMultiplier() const
+    {
+        return ResolveRuntimeEffect().TeamsterTransferMultiplier;
+    }
+
+    int ResolveOperationModeTeamsterCargoLossPercent() const
+    {
+        return (std::max)(
+            0,
+            ResolveRuntimeEffect().TeamsterCargoLossPercent);
+    }
+
     float ResolveOperationModeProducedPowerMultiplier() const
     {
         return ResolveRuntimeEffect().ProducedPowerMultiplier;
@@ -377,6 +400,14 @@ public:
     void SetRequiredEducationLevel(ECitizenEducationLevel Level)
     {
         mServiceProfile.RequiredEducationLevel = Level;
+    }
+
+    void SetAllowedWealthMask(unsigned int Mask)
+    {
+        mServiceProfile.AllowedWealthMask =
+            Mask == GBuildingWealthMaskNone ?
+                GBuildingWealthMaskAll :
+                Mask;
     }
 
     void SetResourceBehavior(
@@ -637,6 +668,64 @@ public:
         mLocalPollutionExposure = (std::max)(0, Value);
     }
 
+    int GetLocalFreedomSupport() const
+    {
+        return mLocalFreedomSupport;
+    }
+
+    float GetLocalFreedomSupportNormalized() const
+    {
+        return (std::max)(
+            0.f,
+            (std::min)(
+                1.f,
+                0.5f + static_cast<float>(mLocalFreedomSupport) / 200.f));
+    }
+
+    int GetLocalFreedomScore() const
+    {
+        return (std::max)(
+            0,
+            (std::min)(
+                100,
+                static_cast<int>(roundf(
+                    GetLocalFreedomSupportNormalized() * 100.f))));
+    }
+
+    void SetLocalFreedomSupport(int Value)
+    {
+        mLocalFreedomSupport = (std::max)(-100, (std::min)(100, Value));
+    }
+
+    int GetLocalSecuritySupport() const
+    {
+        return mLocalSecuritySupport;
+    }
+
+    float GetLocalSecuritySupportNormalized() const
+    {
+        return (std::max)(
+            0.f,
+            (std::min)(
+                1.f,
+                0.5f + static_cast<float>(mLocalSecuritySupport) / 200.f));
+    }
+
+    int GetLocalSecurityScore() const
+    {
+        return (std::max)(
+            0,
+            (std::min)(
+                100,
+                static_cast<int>(roundf(
+                    GetLocalSecuritySupportNormalized() * 100.f))));
+    }
+
+    void SetLocalSecuritySupport(int Value)
+    {
+        mLocalSecuritySupport = (std::max)(-100, (std::min)(100, Value));
+    }
+
     const std::string& GetBuildingDisplayName() const
     {
         return mBuildingDisplayName.empty() ?
@@ -712,12 +801,12 @@ public:
 
     bool IsBusGarage() const
     {
-        return mBuildingId == "build_1_11";
+        return mBuildingId == "build_1_12";
     }
 
     bool IsBusStop() const
     {
-        return mBuildingId == "build_1_12";
+        return mBuildingId == "build_1_13";
     }
 
     bool IsFoodProductionFacility() const
@@ -846,6 +935,11 @@ public:
     ECitizenEducationLevel GetRequiredEducationLevel() const
     {
         return mServiceProfile.RequiredEducationLevel;
+    }
+
+    unsigned int GetAllowedWealthMask() const
+    {
+        return mServiceProfile.AllowedWealthMask;
     }
 
     EResourceType GetProducedResourceType() const
@@ -983,6 +1077,30 @@ public:
             static_cast<int>(roundf(
                 static_cast<float>(GetMonthlyUpkeepCost()) /
                 static_cast<float>(SafeDays))));
+    }
+
+    int GetTeamsterTransferUnits() const
+    {
+        return (std::max)(
+            1,
+            static_cast<int>(roundf(
+                static_cast<float>(GameConstants::Orb::TeamsterTransferUnit) *
+                (std::max)(0.f, ResolveOperationModeTeamsterTransferMultiplier()))));
+    }
+
+    int GetTeamsterCargoLossPercent() const
+    {
+        return ResolveOperationModeTeamsterCargoLossPercent();
+    }
+
+    int GetTradeRouteExportPriceModifierPercent() const
+    {
+        return ResolveRuntimeEffect().ExportTradeRoutePriceDeltaPercent;
+    }
+
+    int GetTradeRouteImportPriceModifierPercent() const
+    {
+        return ResolveRuntimeEffect().ImportTradeRoutePriceDeltaPercent;
     }
 
     bool AdvanceHarborShipProgressAndCheckArrival(int DaysInMonth)

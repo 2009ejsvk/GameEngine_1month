@@ -332,16 +332,29 @@ void CMainWorld::ResetWorldState()
     mLaborStrikePressureDays = 0;
     mCrimeWavePressureDays = 0;
     mFiscalEmergencyPressureDays = 0;
+    mActiveWorldCrisisChainDepth = 0;
+    mQueuedWorldCrisisType = EWorldCrisisType::None;
+    mQueuedWorldCrisisRisk = 0.0;
+    mQueuedWorldCrisisDelayDays = 0;
+    mQueuedWorldCrisisChainDepth = 0;
     PoliticsSystem::SetDefaultGovernmentProfile(mGovernmentProfile);
     mPoliticalSnapshot = FPoliticalWorldSnapshot();
     mElectionStatus = FElectionStatus();
     mTaxEventStatus = FTaxPolicyEventStatus();
     mWorldCrisisStatus = FWorldCrisisStatus();
+    mPoliticalDemandNotice = FPoliticalDemandNotice();
     mEraProgress = FEraProgressState();
     EdictSystem::InitializeGovernmentEdictStates(mGovernmentEdicts);
     mEdictModifiers = FGovernmentEdictModifiers();
     mActiveTradeRoutes.clear();
     mCompletedTradeRoutes.clear();
+    mForeignPowerStandingStates = {};
+    mForeignPowerStates = {};
+    mFactionDemands = {};
+    mFactionDemandCooldownDays = {};
+    mFactionDemandModifierDays = {};
+    mForeignPowerDemands = {};
+    mForeignDemandCooldownDays = {};
     mNextTradeRouteId = 1;
     mNextTradeRouteCompletionRecordId = 1;
     mTradeRouteCompletionNotificationVersion = 0;
@@ -485,6 +498,7 @@ bool CMainWorld::Init()
     RefreshEraProgress();
     RefreshPoliticalSnapshot();
     RefreshEdictModifiers();
+    RefreshForeignTradeDiplomacy(false);
     RefreshWorldMarketPrices();
 
     return true;

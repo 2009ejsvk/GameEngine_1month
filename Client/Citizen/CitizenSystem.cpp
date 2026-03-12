@@ -1,5 +1,6 @@
 #include "CitizenSystem.h"
 #include "World/World.h"
+#include "../World/MainWorldAccess.h"
 #include "../GameConstants.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
@@ -15,6 +16,16 @@
 
 namespace
 {
+    struct FPendingHouseholdSeed
+    {
+        int HouseholdId = -1;
+        int HouseholdSize = 0;
+        int AssignedMembers = 0;
+    };
+
+    int GNextCitizenHouseholdId = 1;
+    FPendingHouseholdSeed GPendingHouseholdSeeds[3] = {};
+
     float Clamp01(float Value)
     {
         return (std::max)(0.f, (std::min)(1.f, Value));
@@ -55,6 +66,329 @@ namespace
             return ServiceCapacity;
 
         return (std::max)(0, Building->GetCapacity());
+    }
+
+    unsigned int ResolveCitizenWealthMask(ECitizenWealthLevel WealthLevel)
+    {
+        switch (WealthLevel)
+        {
+        case ECitizenWealthLevel::WellOff:
+            return GBuildingWealthMaskWellOff;
+        case ECitizenWealthLevel::Rich:
+            return GBuildingWealthMaskRich;
+        default:
+            return GBuildingWealthMaskPoor;
+        }
+    }
+
+    bool DoesBuildingAllowCitizenWealth(
+        unsigned int AllowedWealthMask,
+        ECitizenWealthLevel WealthLevel)
+    {
+        const unsigned int EffectiveMask =
+            AllowedWealthMask == GBuildingWealthMaskNone ?
+                GBuildingWealthMaskAll :
+                AllowedWealthMask;
+        return (EffectiveMask & ResolveCitizenWealthMask(WealthLevel)) != 0;
+    }
+
+    int ResolveHouseholdAssignmentCapacity(
+        const std::shared_ptr<CPlacementAreaObject>& Building)
+    {
+        if (!Building)
+            return 0;
+
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(Building->GetBuildingId());
+        const int HouseholdCapacity =
+            Entry ? (std::max)(0, Entry->HouseholdCapacity) : 0;
+
+        if (HouseholdCapacity > 0)
+            return HouseholdCapacity;
+
+        return (std::max)(0, Building->GetCapacity());
+    }
+
+    bool HasValidCitizenHouseholdProfile(
+        const FCitizenIdentityProfile& Profile)
+    {
+        return Profile.HouseholdId > 0 && Profile.HouseholdSize > 0;
+    }
+
+    int ResolveDesiredHouseholdSize(ECitizenWealthLevel WealthLevel)
+    {
+        const int Roll = rand() % 100;
+
+        switch (WealthLevel)
+        {
+        case ECitizenWealthLevel::Rich:
+            if (Roll < 56)
+                return 1;
+            if (Roll < 91)
+                return 2;
+            return 3;
+        case ECitizenWealthLevel::WellOff:
+            if (Roll < 32)
+                return 1;
+            if (Roll < 71)
+                return 2;
+            if (Roll < 94)
+                return 3;
+            return 4;
+        default:
+            if (Roll < 18)
+                return 1;
+            if (Roll < 53)
+                return 2;
+            if (Roll < 82)
+                return 3;
+            return 4;
+        }
+    }
+
+    void AssignCitizenHouseholdProfile(FCitizenIdentityProfile& Profile)
+    {
+        int WealthIndex = static_cast<int>(Profile.WealthLevel);
+
+        if (WealthIndex < 0 || WealthIndex >= 3)
+            WealthIndex = 0;
+
+        FPendingHouseholdSeed& Seed = GPendingHouseholdSeeds[WealthIndex];
+
+        if (Seed.HouseholdId <= 0 ||
+            Seed.HouseholdSize <= 0 ||
+            Seed.AssignedMembers >= Seed.HouseholdSize)
+        {
+            Seed.HouseholdId = GNextCitizenHouseholdId++;
+            Seed.HouseholdSize = ResolveDesiredHouseholdSize(Profile.WealthLevel);
+            Seed.AssignedMembers = 0;
+        }
+
+        Profile.HouseholdId = Seed.HouseholdId;
+        Profile.HouseholdSize = (std::max)(1, Seed.HouseholdSize);
+        ++Seed.AssignedMembers;
+
+        if (Seed.AssignedMembers >= Seed.HouseholdSize)
+        {
+            Seed.HouseholdId = -1;
+            Seed.HouseholdSize = 0;
+            Seed.AssignedMembers = 0;
+        }
+    }
+
+    void AssignTouristHouseholdProfile(FCitizenIdentityProfile& Profile)
+    {
+        Profile.HouseholdId = GNextCitizenHouseholdId++;
+        Profile.HouseholdSize = 1;
+    }
+
+    bool IsTourismVenueCategory(EBuildingCategory Category)
+    {
+        return Category == EBuildingCategory::Tourism ||
+            Category == EBuildingCategory::LuxuryEntertainment;
+    }
+
+    ETouristPreference ResolveRandomTouristPreference()
+    {
+        const int Roll = rand() % 100;
+
+        if (Roll < 24)
+            return ETouristPreference::Relaxation;
+        if (Roll < 44)
+            return ETouristPreference::Cultural;
+        if (Roll < 60)
+            return ETouristPreference::Backpacker;
+        if (Roll < 76)
+            return ETouristPreference::Family;
+        if (Roll < 90)
+            return ETouristPreference::ThrillSeeker;
+        return ETouristPreference::Celebrity;
+    }
+
+    FCitizenIdentityProfile BuildTouristIdentityProfile()
+    {
+        FCitizenIdentityProfile Profile;
+        Profile.IsImmigrant = true;
+        Profile.IsTourist = true;
+        Profile.TouristProfile = ResolveRandomTouristPreference();
+
+        const int EducationRoll = rand() % 100;
+        const int WealthRoll = rand() % 100;
+
+        switch (Profile.TouristProfile)
+        {
+        case ETouristPreference::Backpacker:
+            Profile.EducationLevel =
+                EducationRoll < 62 ?
+                    ECitizenEducationLevel::HighSchool :
+                    ECitizenEducationLevel::College;
+            Profile.WealthLevel =
+                WealthRoll < 84 ?
+                    ECitizenWealthLevel::Poor :
+                    ECitizenWealthLevel::WellOff;
+            break;
+        case ETouristPreference::Celebrity:
+            Profile.EducationLevel =
+                EducationRoll < 68 ?
+                    ECitizenEducationLevel::College :
+                    ECitizenEducationLevel::HighSchool;
+            Profile.WealthLevel =
+                WealthRoll < 88 ?
+                    ECitizenWealthLevel::Rich :
+                    ECitizenWealthLevel::WellOff;
+            break;
+        case ETouristPreference::Cultural:
+            Profile.EducationLevel =
+                EducationRoll < 48 ?
+                    ECitizenEducationLevel::College :
+                    ECitizenEducationLevel::HighSchool;
+            Profile.WealthLevel =
+                WealthRoll < 15 ?
+                    ECitizenWealthLevel::Poor :
+                WealthRoll < 70 ?
+                    ECitizenWealthLevel::WellOff :
+                    ECitizenWealthLevel::Rich;
+            break;
+        case ETouristPreference::Family:
+            Profile.EducationLevel =
+                EducationRoll < 18 ?
+                    ECitizenEducationLevel::College :
+                    ECitizenEducationLevel::HighSchool;
+            Profile.WealthLevel =
+                WealthRoll < 22 ?
+                    ECitizenWealthLevel::Poor :
+                WealthRoll < 84 ?
+                    ECitizenWealthLevel::WellOff :
+                    ECitizenWealthLevel::Rich;
+            break;
+        case ETouristPreference::ThrillSeeker:
+            Profile.EducationLevel =
+                EducationRoll < 32 ?
+                    ECitizenEducationLevel::College :
+                    ECitizenEducationLevel::HighSchool;
+            Profile.WealthLevel =
+                WealthRoll < 18 ?
+                    ECitizenWealthLevel::Poor :
+                WealthRoll < 76 ?
+                    ECitizenWealthLevel::WellOff :
+                    ECitizenWealthLevel::Rich;
+            break;
+        case ETouristPreference::Relaxation:
+        default:
+            Profile.EducationLevel =
+                EducationRoll < 36 ?
+                    ECitizenEducationLevel::College :
+                    ECitizenEducationLevel::HighSchool;
+            Profile.WealthLevel =
+                WealthRoll < 10 ?
+                    ECitizenWealthLevel::Poor :
+                WealthRoll < 72 ?
+                    ECitizenWealthLevel::WellOff :
+                    ECitizenWealthLevel::Rich;
+            break;
+        }
+
+        AssignTouristHouseholdProfile(Profile);
+        return Profile;
+    }
+
+    int ResolveTourismVenueScore(
+        CWorld* World,
+        const std::vector<std::string>& BuildingNames)
+    {
+        if (!World)
+            return 0;
+
+        int Score = 0;
+
+        for (size_t Index = 0; Index < BuildingNames.size(); ++Index)
+        {
+            auto Building =
+                World->FindObject<CPlacementAreaObject>(BuildingNames[Index]).
+                    lock();
+
+            if (!IsAssignablePlacedBuilding(Building))
+                continue;
+
+            const FBuildingCatalogEntry* const Entry =
+                FindBuildingCatalogEntry(Building->GetBuildingId());
+
+            if (!Entry)
+                continue;
+
+            if (IsTourismVenueCategory(Entry->Category))
+                Score += 2;
+            else if (HasTouristPreference(Entry->PrimaryTouristPreference))
+                ++Score;
+        }
+
+        return Score;
+    }
+
+    float ResolveTouristPreferenceMatchScore(
+        const FCitizenIdentityProfile& Identity,
+        EBuildingCategory Category,
+        EBuildingLeisureClass LeisureClass,
+        ETouristPreference Preference)
+    {
+        float Score = 0.f;
+
+        if (!Identity.IsTourist)
+        {
+            if (IsTourismVenueCategory(Category))
+                Score -= 0.04f;
+            if (HasTouristPreference(Preference))
+                Score -= 0.03f;
+            return Score;
+        }
+
+        if (IsTourismVenueCategory(Category))
+            Score += 0.12f;
+
+        if (Preference == Identity.TouristProfile)
+            Score += 0.26f;
+        else if (HasTouristPreference(Preference))
+            Score -= 0.08f;
+
+        switch (Identity.TouristProfile)
+        {
+        case ETouristPreference::Cultural:
+            if (LeisureClass == EBuildingLeisureClass::Cultural)
+                Score += 0.08f;
+            break;
+        case ETouristPreference::Family:
+            if (LeisureClass == EBuildingLeisureClass::General)
+                Score += 0.06f;
+            break;
+        case ETouristPreference::Backpacker:
+            if (Category == EBuildingCategory::Entertainment)
+                Score += 0.05f;
+            if (Category == EBuildingCategory::LuxuryEntertainment)
+                Score -= 0.10f;
+            break;
+        case ETouristPreference::Relaxation:
+            if (Category == EBuildingCategory::Tourism)
+                Score += 0.08f;
+            break;
+        case ETouristPreference::ThrillSeeker:
+            if (Category == EBuildingCategory::Entertainment ||
+                Category == EBuildingCategory::Tourism)
+            {
+                Score += 0.06f;
+            }
+            break;
+        case ETouristPreference::Celebrity:
+            if (LeisureClass == EBuildingLeisureClass::Luxury ||
+                Category == EBuildingCategory::LuxuryEntertainment)
+            {
+                Score += 0.12f;
+            }
+            break;
+        default:
+            break;
+        }
+
+        return Score;
     }
 
     float ResolveDistanceAffinity(
@@ -139,6 +473,8 @@ namespace
     FCitizenIdentityProfile BuildCitizenIdentityProfile()
     {
         FCitizenIdentityProfile Profile;
+        Profile.IsTourist = false;
+        Profile.TouristProfile = ETouristPreference::None;
         const int EducationRoll = rand() % 100;
 
         if (EducationRoll < 62)
@@ -173,6 +509,7 @@ namespace
                 ECitizenWealthLevel::WellOff;
         }
 
+        AssignCitizenHouseholdProfile(Profile);
         Profile.IsImmigrant = true;
         return Profile;
     }
@@ -401,7 +738,7 @@ namespace
     }
 }
 
-void CitizenSystem::SpawnCitizenOrb(CWorld* World, int& SpawnedNpcCount)
+    void CitizenSystem::SpawnCitizenOrb(CWorld* World, int& SpawnedNpcCount)
 {
     const int OrbIndex = SpawnedNpcCount;
     const std::string OrbName = (OrbIndex == 0) ?
@@ -410,11 +747,11 @@ void CitizenSystem::SpawnCitizenOrb(CWorld* World, int& SpawnedNpcCount)
 
     auto MarkerOrb = World->CreateGameObject<CBuildingMarkerOrb>(OrbName);
     auto MarkerOrbObj = MarkerOrb.lock();
+    const IMainWorldCitizenPolicyAccess* MainWorldAccess =
+        World ? dynamic_cast<IMainWorldCitizenPolicyAccess*>(World) : nullptr;
 
     if (!MarkerOrbObj)
         return;
-
-    MarkerOrbObj->SetIdentityProfile(BuildCitizenIdentityProfile());
 
     std::vector<std::string> AllNames;
     std::vector<std::string> HomeNames;
@@ -430,6 +767,26 @@ void CitizenSystem::SpawnCitizenOrb(CWorld* World, int& SpawnedNpcCount)
     CollectEntertainmentBuildingNames(World, FunNames);
     CollectHealthBuildingNames(World, HealthNames);
     CollectFaithBuildingNames(World, FaithNames);
+
+    const int TourismVenueScore =
+        ResolveTourismVenueScore(World, AllNames);
+    const int TouristChancePercent =
+        TourismVenueScore > 0 ?
+            (std::min)(18, 3 + TourismVenueScore * 2) :
+            0;
+    const int TouristChanceBonusPercent = MainWorldAccess ?
+        MainWorldAccess->GetEdictModifiers().TouristChanceBonusPercent :
+        0;
+    const int FinalTouristChancePercent = (std::max)(
+        0,
+        (std::min)(
+            42,
+            TouristChancePercent + TouristChanceBonusPercent));
+    MarkerOrbObj->SetIdentityProfile(
+        FinalTouristChancePercent > 0 &&
+            (rand() % 100) < FinalTouristChancePercent ?
+                BuildTouristIdentityProfile() :
+                BuildCitizenIdentityProfile());
 
     MarkerOrbObj->SetRandomTargetNames(AllNames);
 
@@ -466,8 +823,18 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         std::shared_ptr<CPlacementAreaObject> Building;
         int Capacity = 0;
         int HousingCap = 0;
+        unsigned int AllowedWealthMask = GBuildingWealthMaskAll;
         int Assigned = 0;
         float Accessibility = 0.f;
+    };
+
+    struct FHouseholdInfo
+    {
+        int HouseholdId = -1;
+        int HouseholdSize = 1;
+        ECitizenWealthLevel WealthLevel = ECitizenWealthLevel::Poor;
+        std::vector<int> MemberOrbIndices;
+        int CurrentHomeIndex = -1;
     };
 
     struct FServiceBuildingInfo
@@ -476,6 +843,12 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         std::shared_ptr<CPlacementAreaObject> Building;
         int SatisfactionCap = 0;
         int VisitCapacity = 0;
+        int ActiveVisitors = 0;
+        unsigned int AllowedWealthMask = GBuildingWealthMaskAll;
+        EBuildingCategory Category = EBuildingCategory::Infrastructure;
+        EBuildingLeisureClass LeisureClass = EBuildingLeisureClass::None;
+        ETouristPreference PrimaryTouristPreference =
+            ETouristPreference::None;
         int Assigned = 0;
         float Accessibility = 0.f;
     };
@@ -521,10 +894,12 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
     {
         auto HomeBuilding =
             World->FindObject<CPlacementAreaObject>(HomeNames[i]).lock();
+        const int HouseholdCapacity =
+            ResolveHouseholdAssignmentCapacity(HomeBuilding);
 
         if (!IsAssignablePlacedBuilding(HomeBuilding) ||
             !HomeBuilding->IsResidential() ||
-            HomeBuilding->GetCapacity() <= 0)
+            HouseholdCapacity <= 0)
         {
             continue;
         }
@@ -532,8 +907,9 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         FHomeBuildingInfo Info;
         Info.Name = HomeNames[i];
         Info.Building = HomeBuilding;
-        Info.Capacity = (std::max)(1, HomeBuilding->GetCapacity());
+        Info.Capacity = HouseholdCapacity;
         Info.HousingCap = HomeBuilding->GetHousingSatisfactionCap();
+        Info.AllowedWealthMask = HomeBuilding->GetAllowedWealthMask();
         Info.Accessibility = ResolveAccessibilityScore(HomeBuilding);
         HomeInfos.push_back(std::move(Info));
     }
@@ -561,10 +937,23 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             continue;
 
         FServiceBuildingInfo Info;
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(FoodBuilding->GetBuildingId());
         Info.Name = FoodNames[i];
         Info.Building = FoodBuilding;
         Info.SatisfactionCap = FoodBuilding->GetFoodSatisfactionCap();
         Info.VisitCapacity = VisitCapacity;
+        Info.ActiveVisitors =
+            FoodBuilding->GetActiveServiceVisitorCount(
+                EBuildingServiceType::Food);
+        Info.AllowedWealthMask = FoodBuilding->GetAllowedWealthMask();
+        Info.Category = Entry ? Entry->Category :
+            FoodBuilding->GetBuildingCategory();
+        Info.LeisureClass = Entry ? Entry->LeisureClass :
+            EBuildingLeisureClass::None;
+        Info.PrimaryTouristPreference = Entry ?
+            Entry->PrimaryTouristPreference :
+            ETouristPreference::None;
         Info.Accessibility = ResolveAccessibilityScore(FoodBuilding);
         FoodInfos.push_back(std::move(Info));
     }
@@ -592,12 +981,113 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             continue;
 
         FServiceBuildingInfo Info;
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(FunBuilding->GetBuildingId());
         Info.Name = FunNames[i];
         Info.Building = FunBuilding;
         Info.SatisfactionCap = FunBuilding->GetFunSatisfactionCap();
         Info.VisitCapacity = VisitCapacity;
+        Info.ActiveVisitors =
+            FunBuilding->GetActiveServiceVisitorCount(
+                EBuildingServiceType::Fun);
+        Info.AllowedWealthMask = FunBuilding->GetAllowedWealthMask();
+        Info.Category = Entry ? Entry->Category :
+            FunBuilding->GetBuildingCategory();
+        Info.LeisureClass = Entry ? Entry->LeisureClass :
+            EBuildingLeisureClass::None;
+        Info.PrimaryTouristPreference = Entry ?
+            Entry->PrimaryTouristPreference :
+            ETouristPreference::None;
         Info.Accessibility = ResolveAccessibilityScore(FunBuilding);
         FunInfos.push_back(std::move(Info));
+    }
+
+    std::vector<FServiceBuildingInfo> HealthInfos;
+    HealthInfos.reserve(HealthNames.size());
+
+    for (size_t i = 0; i < HealthNames.size(); ++i)
+    {
+        auto HealthBuilding =
+            World->FindObject<CPlacementAreaObject>(HealthNames[i]).lock();
+
+        if (!IsAssignablePlacedBuilding(HealthBuilding) ||
+            !HealthBuilding->IsHealthProvider())
+        {
+            continue;
+        }
+
+        const int VisitCapacity =
+            ResolveServiceAssignmentCapacity(
+                HealthBuilding,
+                EBuildingServiceType::Health);
+
+        if (VisitCapacity <= 0)
+            continue;
+
+        FServiceBuildingInfo Info;
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(HealthBuilding->GetBuildingId());
+        Info.Name = HealthNames[i];
+        Info.Building = HealthBuilding;
+        Info.SatisfactionCap = HealthBuilding->GetHealthSatisfactionCap();
+        Info.VisitCapacity = VisitCapacity;
+        Info.ActiveVisitors =
+            HealthBuilding->GetActiveServiceVisitorCount(
+                EBuildingServiceType::Health);
+        Info.AllowedWealthMask = HealthBuilding->GetAllowedWealthMask();
+        Info.Category = Entry ? Entry->Category :
+            HealthBuilding->GetBuildingCategory();
+        Info.LeisureClass = Entry ? Entry->LeisureClass :
+            EBuildingLeisureClass::None;
+        Info.PrimaryTouristPreference = Entry ?
+            Entry->PrimaryTouristPreference :
+            ETouristPreference::None;
+        Info.Accessibility = ResolveAccessibilityScore(HealthBuilding);
+        HealthInfos.push_back(std::move(Info));
+    }
+
+    std::vector<FServiceBuildingInfo> FaithInfos;
+    FaithInfos.reserve(FaithNames.size());
+
+    for (size_t i = 0; i < FaithNames.size(); ++i)
+    {
+        auto FaithBuilding =
+            World->FindObject<CPlacementAreaObject>(FaithNames[i]).lock();
+
+        if (!IsAssignablePlacedBuilding(FaithBuilding) ||
+            !FaithBuilding->IsFaithProvider())
+        {
+            continue;
+        }
+
+        const int VisitCapacity =
+            ResolveServiceAssignmentCapacity(
+                FaithBuilding,
+                EBuildingServiceType::Faith);
+
+        if (VisitCapacity <= 0)
+            continue;
+
+        FServiceBuildingInfo Info;
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(FaithBuilding->GetBuildingId());
+        Info.Name = FaithNames[i];
+        Info.Building = FaithBuilding;
+        Info.SatisfactionCap = FaithBuilding->GetFaithSatisfactionCap();
+        Info.VisitCapacity = VisitCapacity;
+        Info.ActiveVisitors =
+            FaithBuilding->GetActiveServiceVisitorCount(
+                EBuildingServiceType::Faith);
+        Info.AllowedWealthMask = FaithBuilding->GetAllowedWealthMask();
+        Info.Category = Entry ? Entry->Category :
+            FaithBuilding->GetBuildingCategory();
+        Info.LeisureClass = Entry ? Entry->LeisureClass :
+            EBuildingLeisureClass::None;
+        Info.PrimaryTouristPreference = Entry ?
+            Entry->PrimaryTouristPreference :
+            ETouristPreference::None;
+        Info.Accessibility = ResolveAccessibilityScore(FaithBuilding);
+        FaithInfos.push_back(std::move(Info));
     }
 
     std::vector<FWorkBuildingInfo> WorkInfos;
@@ -643,6 +1133,18 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
     for (size_t i = 0; i < FunInfos.size(); ++i)
         FunIndexByName.emplace(FunInfos[i].Name, i);
 
+    std::unordered_map<std::string, size_t> HealthIndexByName;
+    HealthIndexByName.reserve(HealthInfos.size());
+
+    for (size_t i = 0; i < HealthInfos.size(); ++i)
+        HealthIndexByName.emplace(HealthInfos[i].Name, i);
+
+    std::unordered_map<std::string, size_t> FaithIndexByName;
+    FaithIndexByName.reserve(FaithInfos.size());
+
+    for (size_t i = 0; i < FaithInfos.size(); ++i)
+        FaithIndexByName.emplace(FaithInfos[i].Name, i);
+
     std::unordered_map<std::string, size_t> WorkIndexByName;
     WorkIndexByName.reserve(WorkInfos.size());
 
@@ -677,6 +1179,8 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
     std::vector<int> OrbHomeIndex(ActiveOrbs.size(), -1);
     std::vector<int> OrbFoodIndex(ActiveOrbs.size(), -1);
     std::vector<int> OrbFunIndex(ActiveOrbs.size(), -1);
+    std::vector<int> OrbHealthIndex(ActiveOrbs.size(), -1);
+    std::vector<int> OrbFaithIndex(ActiveOrbs.size(), -1);
     std::vector<int> OrbWorkIndex(ActiveOrbs.size(), -1);
 
     auto IsFoodAssignmentLocked = [&](int OrbIdx) -> bool
@@ -709,12 +1213,50 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             State == ECitizenState::AtFun;
     };
 
+    auto IsHealthAssignmentLocked = [&](int OrbIdx) -> bool
+    {
+        if (OrbIdx < 0 || OrbIdx >= static_cast<int>(ActiveOrbs.size()))
+            return false;
+
+        auto Orb = ActiveOrbs[OrbIdx];
+
+        if (!Orb)
+            return false;
+
+        const ECitizenState State = Orb->GetCitizenState();
+        return State == ECitizenState::GoingToHealth ||
+            State == ECitizenState::AtHealth;
+    };
+
+    auto IsFaithAssignmentLocked = [&](int OrbIdx) -> bool
+    {
+        if (OrbIdx < 0 || OrbIdx >= static_cast<int>(ActiveOrbs.size()))
+            return false;
+
+        auto Orb = ActiveOrbs[OrbIdx];
+
+        if (!Orb)
+            return false;
+
+        const ECitizenState State = Orb->GetCitizenState();
+        return State == ECitizenState::GoingToFaith ||
+            State == ECitizenState::AtFaith;
+    };
+
     for (size_t i = 0; i < ActiveOrbs.size(); ++i)
     {
         auto Orb = ActiveOrbs[i];
 
         if (!Orb)
             continue;
+
+        FCitizenIdentityProfile IdentityProfile = Orb->GetIdentityProfile();
+
+        if (!HasValidCitizenHouseholdProfile(IdentityProfile))
+        {
+            AssignCitizenHouseholdProfile(IdentityProfile);
+            Orb->SetIdentityProfile(IdentityProfile);
+        }
 
         const std::string& CurrentHome = Orb->GetHomeBuilding();
 
@@ -726,7 +1268,6 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             {
                 const int HomeIdx = static_cast<int>(HomeIt->second);
                 OrbHomeIndex[i] = HomeIdx;
-                ++HomeInfos[HomeIdx].Assigned;
             }
             else
             {
@@ -770,6 +1311,42 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             }
         }
 
+        const std::string& CurrentHealth = Orb->GetHealthBuilding();
+
+        if (!CurrentHealth.empty())
+        {
+            auto HealthIt = HealthIndexByName.find(CurrentHealth);
+
+            if (HealthIt != HealthIndexByName.end())
+            {
+                const int HealthIdx = static_cast<int>(HealthIt->second);
+                OrbHealthIndex[i] = HealthIdx;
+                ++HealthInfos[HealthIdx].Assigned;
+            }
+            else
+            {
+                Orb->SetHealthBuilding("");
+            }
+        }
+
+        const std::string& CurrentFaith = Orb->GetFaithBuilding();
+
+        if (!CurrentFaith.empty())
+        {
+            auto FaithIt = FaithIndexByName.find(CurrentFaith);
+
+            if (FaithIt != FaithIndexByName.end())
+            {
+                const int FaithIdx = static_cast<int>(FaithIt->second);
+                OrbFaithIndex[i] = FaithIdx;
+                ++FaithInfos[FaithIdx].Assigned;
+            }
+            else
+            {
+                Orb->SetFaithBuilding("");
+            }
+        }
+
         const std::string& CurrentWork = Orb->GetWorkBuilding();
 
         if (CurrentWork.empty())
@@ -794,6 +1371,124 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
 
         OrbWorkIndex[i] = WorkIdx;
         ++WorkInfos[WorkIdx].Occupied;
+    }
+
+    std::vector<FHouseholdInfo> Households;
+    Households.reserve(ActiveOrbs.size());
+    std::unordered_map<int, size_t> HouseholdIndexById;
+    HouseholdIndexById.reserve(ActiveOrbs.size());
+    std::vector<std::unordered_map<int, int>> HouseholdHomeVotes;
+    HouseholdHomeVotes.reserve(ActiveOrbs.size());
+
+    for (size_t i = 0; i < ActiveOrbs.size(); ++i)
+    {
+        auto Orb = ActiveOrbs[i];
+
+        if (!Orb)
+            continue;
+
+        const FCitizenIdentityProfile& Identity = Orb->GetIdentityProfile();
+        int HouseholdId = Identity.HouseholdId;
+
+        if (HouseholdId <= 0)
+            HouseholdId = -static_cast<int>(i) - 1;
+
+        auto HouseholdIt = HouseholdIndexById.find(HouseholdId);
+        size_t HouseholdIndex = 0;
+
+        if (HouseholdIt == HouseholdIndexById.end())
+        {
+            HouseholdIndex = Households.size();
+            HouseholdIndexById.emplace(HouseholdId, HouseholdIndex);
+            Households.push_back(FHouseholdInfo());
+            HouseholdHomeVotes.emplace_back();
+            auto& Household = Households.back();
+            Household.HouseholdId = HouseholdId;
+            Household.HouseholdSize = (std::max)(1, Identity.HouseholdSize);
+            Household.WealthLevel = Identity.WealthLevel;
+        }
+        else
+        {
+            HouseholdIndex = HouseholdIt->second;
+        }
+
+        auto& Household = Households[HouseholdIndex];
+        Household.MemberOrbIndices.push_back(static_cast<int>(i));
+
+        const int HomeIdx = OrbHomeIndex[i];
+
+        if (HomeIdx >= 0)
+            ++HouseholdHomeVotes[HouseholdIndex][HomeIdx];
+    }
+
+    for (size_t HouseholdIdx = 0; HouseholdIdx < Households.size(); ++HouseholdIdx)
+    {
+        auto& Household = Households[HouseholdIdx];
+        int BestHomeIdx = -1;
+        int BestVotes = 0;
+        const auto& Votes = HouseholdHomeVotes[HouseholdIdx];
+
+        for (auto VoteIt = Votes.begin(); VoteIt != Votes.end(); ++VoteIt)
+        {
+            if (VoteIt->second > BestVotes)
+            {
+                BestVotes = VoteIt->second;
+                BestHomeIdx = VoteIt->first;
+            }
+        }
+
+        Household.CurrentHomeIndex = BestHomeIdx;
+
+        if (BestHomeIdx >= 0 &&
+            BestHomeIdx < static_cast<int>(HomeInfos.size()))
+        {
+            ++HomeInfos[BestHomeIdx].Assigned;
+            const std::string& HomeName = HomeInfos[BestHomeIdx].Name;
+
+            for (size_t MemberIdx = 0;
+                MemberIdx < Household.MemberOrbIndices.size();
+                ++MemberIdx)
+            {
+                const int OrbIdx = Household.MemberOrbIndices[MemberIdx];
+
+                if (OrbIdx < 0 || OrbIdx >= static_cast<int>(ActiveOrbs.size()))
+                    continue;
+
+                auto HouseholdOrb = ActiveOrbs[OrbIdx];
+
+                if (!HouseholdOrb)
+                    continue;
+
+                if (HouseholdOrb->GetHomeBuilding() != HomeName)
+                    HouseholdOrb->SetHomeBuilding(HomeName);
+
+                OrbHomeIndex[OrbIdx] = BestHomeIdx;
+            }
+        }
+        else
+        {
+            Household.CurrentHomeIndex = -1;
+
+            for (size_t MemberIdx = 0;
+                MemberIdx < Household.MemberOrbIndices.size();
+                ++MemberIdx)
+            {
+                const int OrbIdx = Household.MemberOrbIndices[MemberIdx];
+
+                if (OrbIdx < 0 || OrbIdx >= static_cast<int>(ActiveOrbs.size()))
+                    continue;
+
+                auto HouseholdOrb = ActiveOrbs[OrbIdx];
+
+                if (!HouseholdOrb)
+                    continue;
+
+                if (!HouseholdOrb->GetHomeBuilding().empty())
+                    HouseholdOrb->SetHomeBuilding("");
+
+                OrbHomeIndex[OrbIdx] = -1;
+            }
+        }
     }
 
     auto ResolveHomeBuildingForOrb = [&](int OrbIdx)
@@ -838,6 +1533,34 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         return FunInfos[FunIdx].Building;
     };
 
+    auto ResolveHealthBuildingForOrb = [&](int OrbIdx)
+        -> std::shared_ptr<CPlacementAreaObject>
+    {
+        if (OrbIdx < 0 || OrbIdx >= static_cast<int>(OrbHealthIndex.size()))
+            return nullptr;
+
+        const int HealthIdx = OrbHealthIndex[OrbIdx];
+
+        if (HealthIdx < 0 || HealthIdx >= static_cast<int>(HealthInfos.size()))
+            return nullptr;
+
+        return HealthInfos[HealthIdx].Building;
+    };
+
+    auto ResolveFaithBuildingForOrb = [&](int OrbIdx)
+        -> std::shared_ptr<CPlacementAreaObject>
+    {
+        if (OrbIdx < 0 || OrbIdx >= static_cast<int>(OrbFaithIndex.size()))
+            return nullptr;
+
+        const int FaithIdx = OrbFaithIndex[OrbIdx];
+
+        if (FaithIdx < 0 || FaithIdx >= static_cast<int>(FaithInfos.size()))
+            return nullptr;
+
+        return FaithInfos[FaithIdx].Building;
+    };
+
     auto ResolveWorkBuildingForOrb = [&](int OrbIdx)
         -> std::shared_ptr<CPlacementAreaObject>
     {
@@ -852,26 +1575,90 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         return WorkInfos[WorkIdx].Building;
     };
 
-    auto AssignOrbToHome = [&](int OrbIdx, int HomeIdx) -> bool
+    auto ResolveHouseholdDistanceScore =
+        [&](int HouseholdIdx, int HomeIdx) -> float
     {
-        if (OrbIdx < 0 || HomeIdx < 0)
+        if (HouseholdIdx < 0 ||
+            HouseholdIdx >= static_cast<int>(Households.size()) ||
+            HomeIdx < 0 ||
+            HomeIdx >= static_cast<int>(HomeInfos.size()))
+        {
+            return 0.5f;
+        }
+
+        const auto& Household = Households[HouseholdIdx];
+        float TotalScore = 0.f;
+        int ScoreCount = 0;
+
+        for (size_t MemberIdx = 0;
+            MemberIdx < Household.MemberOrbIndices.size();
+            ++MemberIdx)
+        {
+            const int OrbIdx = Household.MemberOrbIndices[MemberIdx];
+            const auto HealthBuilding = ResolveHealthBuildingForOrb(OrbIdx);
+            const auto FaithBuilding = ResolveFaithBuildingForOrb(OrbIdx);
+            TotalScore += ResolveAverageDistanceAffinity(
+                HomeInfos[HomeIdx].Building,
+                ResolveWorkBuildingForOrb(OrbIdx),
+                ResolveFoodBuildingForOrb(OrbIdx),
+                ResolveFunBuildingForOrb(OrbIdx));
+            ++ScoreCount;
+
+            if (HealthBuilding || FaithBuilding)
+            {
+                TotalScore += ResolveAverageDistanceAffinity(
+                    HomeInfos[HomeIdx].Building,
+                    HealthBuilding,
+                    FaithBuilding);
+                ++ScoreCount;
+            }
+        }
+
+        return ScoreCount > 0 ?
+            TotalScore / static_cast<float>(ScoreCount) :
+            0.5f;
+    };
+
+    auto AssignHouseholdToHome = [&](int HouseholdIdx, int HomeIdx) -> bool
+    {
+        if (HouseholdIdx < 0 || HomeIdx < 0)
             return false;
 
-        if (OrbIdx >= static_cast<int>(ActiveOrbs.size()) ||
+        if (HouseholdIdx >= static_cast<int>(Households.size()) ||
             HomeIdx >= static_cast<int>(HomeInfos.size()))
         {
             return false;
         }
 
-        auto Orb = ActiveOrbs[OrbIdx];
-
-        if (!Orb)
-            return false;
-
-        const int PrevHomeIdx = OrbHomeIndex[OrbIdx];
+        auto& Household = Households[HouseholdIdx];
+        const int PrevHomeIdx = Household.CurrentHomeIndex;
 
         if (PrevHomeIdx == HomeIdx)
+        {
+            const std::string& TargetName = HomeInfos[HomeIdx].Name;
+
+            for (size_t MemberIdx = 0;
+                MemberIdx < Household.MemberOrbIndices.size();
+                ++MemberIdx)
+            {
+                const int OrbIdx = Household.MemberOrbIndices[MemberIdx];
+
+                if (OrbIdx < 0 || OrbIdx >= static_cast<int>(ActiveOrbs.size()))
+                    continue;
+
+                auto Orb = ActiveOrbs[OrbIdx];
+
+                if (!Orb)
+                    continue;
+
+                if (Orb->GetHomeBuilding() != TargetName)
+                    Orb->SetHomeBuilding(TargetName);
+
+                OrbHomeIndex[OrbIdx] = HomeIdx;
+            }
+
             return true;
+        }
 
         if (PrevHomeIdx >= 0 &&
             PrevHomeIdx < static_cast<int>(HomeInfos.size()) &&
@@ -881,12 +1668,29 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         }
 
         auto& TargetInfo = HomeInfos[HomeIdx];
-
-        if (Orb->GetHomeBuilding() != TargetInfo.Name)
-            Orb->SetHomeBuilding(TargetInfo.Name);
-
         ++TargetInfo.Assigned;
-        OrbHomeIndex[OrbIdx] = HomeIdx;
+        Household.CurrentHomeIndex = HomeIdx;
+
+        for (size_t MemberIdx = 0;
+            MemberIdx < Household.MemberOrbIndices.size();
+            ++MemberIdx)
+        {
+            const int OrbIdx = Household.MemberOrbIndices[MemberIdx];
+
+            if (OrbIdx < 0 || OrbIdx >= static_cast<int>(ActiveOrbs.size()))
+                continue;
+
+            auto Orb = ActiveOrbs[OrbIdx];
+
+            if (!Orb)
+                continue;
+
+            if (Orb->GetHomeBuilding() != TargetInfo.Name)
+                Orb->SetHomeBuilding(TargetInfo.Name);
+
+            OrbHomeIndex[OrbIdx] = HomeIdx;
+        }
+
         return true;
     };
 
@@ -972,20 +1776,409 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         return true;
     };
 
-    auto ScoreHomeCandidate = [&](int OrbIdx, int HomeIdx) -> float
+    auto AssignOrbToHealth = [&](int OrbIdx, int HealthIdx) -> bool
     {
-        if (OrbIdx < 0 || HomeIdx < 0)
-            return (std::numeric_limits<float>::lowest)();
+        if (OrbIdx < 0 || HealthIdx < 0)
+            return false;
 
         if (OrbIdx >= static_cast<int>(ActiveOrbs.size()) ||
+            HealthIdx >= static_cast<int>(HealthInfos.size()))
+        {
+            return false;
+        }
+
+        auto Orb = ActiveOrbs[OrbIdx];
+
+        if (!Orb)
+            return false;
+
+        const int PrevHealthIdx = OrbHealthIndex[OrbIdx];
+
+        if (PrevHealthIdx == HealthIdx)
+            return true;
+
+        if (IsHealthAssignmentLocked(OrbIdx))
+            return false;
+
+        if (PrevHealthIdx >= 0 &&
+            PrevHealthIdx < static_cast<int>(HealthInfos.size()) &&
+            HealthInfos[PrevHealthIdx].Assigned > 0)
+        {
+            --HealthInfos[PrevHealthIdx].Assigned;
+        }
+
+        auto& TargetInfo = HealthInfos[HealthIdx];
+
+        if (Orb->GetHealthBuilding() != TargetInfo.Name)
+            Orb->SetHealthBuilding(TargetInfo.Name);
+
+        ++TargetInfo.Assigned;
+        OrbHealthIndex[OrbIdx] = HealthIdx;
+        return true;
+    };
+
+    auto AssignOrbToFaith = [&](int OrbIdx, int FaithIdx) -> bool
+    {
+        if (OrbIdx < 0 || FaithIdx < 0)
+            return false;
+
+        if (OrbIdx >= static_cast<int>(ActiveOrbs.size()) ||
+            FaithIdx >= static_cast<int>(FaithInfos.size()))
+        {
+            return false;
+        }
+
+        auto Orb = ActiveOrbs[OrbIdx];
+
+        if (!Orb)
+            return false;
+
+        const int PrevFaithIdx = OrbFaithIndex[OrbIdx];
+
+        if (PrevFaithIdx == FaithIdx)
+            return true;
+
+        if (IsFaithAssignmentLocked(OrbIdx))
+            return false;
+
+        if (PrevFaithIdx >= 0 &&
+            PrevFaithIdx < static_cast<int>(FaithInfos.size()) &&
+            FaithInfos[PrevFaithIdx].Assigned > 0)
+        {
+            --FaithInfos[PrevFaithIdx].Assigned;
+        }
+
+        auto& TargetInfo = FaithInfos[FaithIdx];
+
+        if (Orb->GetFaithBuilding() != TargetInfo.Name)
+            Orb->SetFaithBuilding(TargetInfo.Name);
+
+        ++TargetInfo.Assigned;
+        OrbFaithIndex[OrbIdx] = FaithIdx;
+        return true;
+    };
+
+    struct FServiceScoringWeights
+    {
+        float Quality = 0.28f;
+        float Accessibility = 0.20f;
+        float Congestion = 0.18f;
+        float Distance = 0.22f;
+        float WealthFit = 0.12f;
+    };
+
+    auto ResolveServiceNeedUrgency =
+        [](const FNpcSatisfaction& Satisfaction,
+            EBuildingServiceType ServiceType) -> float
+    {
+        float CurrentValue = 70.f;
+
+        switch (ServiceType)
+        {
+        case EBuildingServiceType::Food:
+            CurrentValue = Satisfaction.Food;
+            break;
+        case EBuildingServiceType::Health:
+            CurrentValue = Satisfaction.Health;
+            break;
+        case EBuildingServiceType::Faith:
+            CurrentValue = Satisfaction.Faith;
+            break;
+        case EBuildingServiceType::Fun:
+        default:
+            CurrentValue = Satisfaction.Fun;
+            break;
+        }
+
+        return 1.f - Clamp01(CurrentValue / 100.f);
+    };
+
+    auto ResolveAllowedWealthTierCount = [](unsigned int AllowedWealthMask)
+    {
+        const unsigned int EffectiveMask =
+            AllowedWealthMask == GBuildingWealthMaskNone ?
+                GBuildingWealthMaskAll :
+                AllowedWealthMask;
+        int TierCount = 0;
+
+        if ((EffectiveMask & GBuildingWealthMaskPoor) != 0)
+            ++TierCount;
+        if ((EffectiveMask & GBuildingWealthMaskWellOff) != 0)
+            ++TierCount;
+        if ((EffectiveMask & GBuildingWealthMaskRich) != 0)
+            ++TierCount;
+
+        return (std::max)(1, TierCount);
+    };
+
+    auto ResolveServiceWealthFitScore =
+        [&](unsigned int AllowedWealthMask,
+            const FCitizenIdentityProfile& Identity) -> float
+    {
+        if (!DoesBuildingAllowCitizenWealth(
+                AllowedWealthMask,
+                Identity.WealthLevel))
+        {
+            return -1.f;
+        }
+
+        const int TierCount = ResolveAllowedWealthTierCount(AllowedWealthMask);
+
+        switch (Identity.WealthLevel)
+        {
+        case ECitizenWealthLevel::Rich:
+            return TierCount == 1 ? 1.f :
+                TierCount == 2 ? 0.80f :
+                0.60f;
+        case ECitizenWealthLevel::WellOff:
+            return TierCount == 2 ? 0.95f :
+                TierCount == 1 ? 0.84f :
+                0.74f;
+        default:
+            return TierCount == 3 ? 0.96f :
+                TierCount == 2 ? 0.84f :
+                0.68f;
+        }
+    };
+
+    auto ResolveCurrentVisitBuildingName =
+        [](const std::shared_ptr<CBuildingMarkerOrb>& Orb,
+            EBuildingServiceType ServiceType) -> std::string
+    {
+        if (!Orb)
+            return std::string();
+
+        switch (ServiceType)
+        {
+        case EBuildingServiceType::Food:
+            return Orb->GetFoodVisitBuilding();
+        case EBuildingServiceType::Health:
+            return Orb->GetHealthVisitBuilding();
+        case EBuildingServiceType::Faith:
+            return Orb->GetFaithVisitBuilding();
+        case EBuildingServiceType::Fun:
+        default:
+            return Orb->GetFunVisitBuilding();
+        }
+    };
+
+    auto ResolveServiceScoringWeights =
+        [&](const FCitizenIdentityProfile& Identity,
+            const FNpcSatisfaction& Satisfaction,
+            EBuildingServiceType ServiceType) -> FServiceScoringWeights
+    {
+        FServiceScoringWeights Weights;
+        const float NeedUrgency =
+            ResolveServiceNeedUrgency(Satisfaction, ServiceType);
+        Weights.Quality += NeedUrgency * 0.10f;
+        Weights.Accessibility += NeedUrgency * 0.05f;
+        Weights.Congestion += NeedUrgency * 0.09f;
+        Weights.Distance -= NeedUrgency * 0.06f;
+
+        if (Identity.WealthLevel == ECitizenWealthLevel::Rich ||
+            Identity.TouristProfile == ETouristPreference::Celebrity)
+        {
+            Weights.Quality += 0.07f;
+            Weights.WealthFit += 0.05f;
+            Weights.Distance -= 0.04f;
+        }
+        else if (Identity.WealthLevel == ECitizenWealthLevel::Poor ||
+            Identity.TouristProfile == ETouristPreference::Backpacker)
+        {
+            Weights.Accessibility += 0.06f;
+            Weights.Distance += 0.05f;
+            Weights.Quality -= 0.05f;
+        }
+
+        if (ServiceType == EBuildingServiceType::Health)
+        {
+            Weights.Quality += 0.04f;
+            Weights.Congestion += 0.03f;
+        }
+        else if (ServiceType == EBuildingServiceType::Faith)
+        {
+            Weights.Distance += 0.04f;
+            Weights.Accessibility += 0.02f;
+        }
+        else if (ServiceType == EBuildingServiceType::Fun)
+        {
+            Weights.Quality += 0.02f;
+        }
+
+        Weights.Quality = (std::max)(0.05f, Weights.Quality);
+        Weights.Accessibility = (std::max)(0.05f, Weights.Accessibility);
+        Weights.Congestion = (std::max)(0.05f, Weights.Congestion);
+        Weights.Distance = (std::max)(0.05f, Weights.Distance);
+        Weights.WealthFit = (std::max)(0.04f, Weights.WealthFit);
+
+        const float WeightSum =
+            Weights.Quality +
+            Weights.Accessibility +
+            Weights.Congestion +
+            Weights.Distance +
+            Weights.WealthFit;
+
+        if (WeightSum > 0.f)
+        {
+            Weights.Quality /= WeightSum;
+            Weights.Accessibility /= WeightSum;
+            Weights.Congestion /= WeightSum;
+            Weights.Distance /= WeightSum;
+            Weights.WealthFit /= WeightSum;
+        }
+
+        return Weights;
+    };
+
+    auto ResolveServicePreferenceBias =
+        [&](const FCitizenIdentityProfile& Identity,
+            const FNpcPoliticalProfile& Politics,
+            const FServiceBuildingInfo& Info,
+            EBuildingServiceType ServiceType,
+            float QualityScore,
+            float AccessibilityScore,
+            float CongestionScore,
+            float DistanceScore,
+            float WealthFitScore,
+            float NeedUrgency) -> float
+    {
+        float Bias = 0.f;
+
+        switch (ServiceType)
+        {
+        case EBuildingServiceType::Food:
+            if (Identity.WealthLevel == ECitizenWealthLevel::Rich ||
+                Identity.TouristProfile == ETouristPreference::Celebrity)
+            {
+                Bias += (QualityScore - AccessibilityScore) * 0.12f;
+                Bias += (WealthFitScore - 0.5f) * 0.08f;
+            }
+            else if (Identity.WealthLevel == ECitizenWealthLevel::Poor ||
+                Identity.TouristProfile == ETouristPreference::Backpacker)
+            {
+                Bias +=
+                    (AccessibilityScore + DistanceScore - QualityScore) *
+                    0.08f;
+            }
+            else
+            {
+                Bias += (QualityScore - 0.5f) * 0.04f;
+            }
+
+            if (Identity.IsTourist &&
+                Identity.TouristProfile == ETouristPreference::Family)
+            {
+                Bias += (CongestionScore - 0.5f) * 0.06f;
+            }
+            break;
+        case EBuildingServiceType::Fun:
+            Bias += ResolveTouristPreferenceMatchScore(
+                Identity,
+                Info.Category,
+                Info.LeisureClass,
+                Info.PrimaryTouristPreference);
+
+            if (!Identity.IsTourist)
+            {
+                if (Identity.EducationLevel == ECitizenEducationLevel::College &&
+                    Info.LeisureClass == EBuildingLeisureClass::Cultural)
+                {
+                    Bias += 0.08f;
+                }
+
+                if (Identity.WealthLevel == ECitizenWealthLevel::Rich &&
+                    (Info.LeisureClass == EBuildingLeisureClass::Luxury ||
+                        Info.Category ==
+                            EBuildingCategory::LuxuryEntertainment))
+                {
+                    Bias += 0.12f;
+                }
+
+                if (Identity.WealthLevel == ECitizenWealthLevel::Poor &&
+                    Info.LeisureClass == EBuildingLeisureClass::General)
+                {
+                    Bias += 0.07f;
+                }
+
+                if (Identity.WealthLevel == ECitizenWealthLevel::Poor &&
+                    (Info.LeisureClass == EBuildingLeisureClass::Luxury ||
+                        Info.Category ==
+                            EBuildingCategory::LuxuryEntertainment))
+                {
+                    Bias -= 0.08f;
+                }
+            }
+            break;
+        case EBuildingServiceType::Health:
+            Bias +=
+                NeedUrgency *
+                ((QualityScore - 0.5f) * 0.10f +
+                    (CongestionScore - 0.5f) * 0.14f);
+
+            if (Identity.WealthLevel == ECitizenWealthLevel::Rich)
+            {
+                Bias += (WealthFitScore - 0.5f) * 0.10f;
+                Bias += (QualityScore - DistanceScore) * 0.05f;
+            }
+            else if (Identity.WealthLevel == ECitizenWealthLevel::Poor)
+            {
+                Bias +=
+                    (AccessibilityScore + DistanceScore - QualityScore) *
+                    0.05f;
+            }
+            break;
+        case EBuildingServiceType::Faith:
+        {
+            const FNpcPoliticalChoice& FaithChoice =
+                Politics.Get(EPoliticalAxis::ReligionMilitarism);
+
+            if (FaithChoice.Stance == EPoliticalStance::Right)
+            {
+                Bias += (QualityScore - 0.5f) * 0.12f;
+                Bias += (CongestionScore - 0.5f) * 0.05f;
+            }
+            else if (FaithChoice.Stance == EPoliticalStance::Left)
+            {
+                Bias +=
+                    (AccessibilityScore + DistanceScore - QualityScore) *
+                    0.05f;
+            }
+            else
+            {
+                Bias += (DistanceScore - 0.5f) * 0.03f;
+            }
+            break;
+        }
+        default:
+            break;
+        }
+
+        return (std::max)(-0.25f, (std::min)(0.30f, Bias));
+    };
+
+    auto ScoreHomeCandidate = [&](int HouseholdIdx, int HomeIdx) -> float
+    {
+        if (HouseholdIdx < 0 || HomeIdx < 0)
+            return (std::numeric_limits<float>::lowest)();
+
+        if (HouseholdIdx >= static_cast<int>(Households.size()) ||
             HomeIdx >= static_cast<int>(HomeInfos.size()))
         {
             return (std::numeric_limits<float>::lowest)();
         }
 
         auto& Info = HomeInfos[HomeIdx];
+        const auto& Household = Households[HouseholdIdx];
+
+        if (!DoesBuildingAllowCitizenWealth(
+                Info.AllowedWealthMask,
+                Household.WealthLevel))
+        {
+            return (std::numeric_limits<float>::lowest)();
+        }
+
         const int EffectiveAssigned =
-            Info.Assigned - (OrbHomeIndex[OrbIdx] == HomeIdx ? 1 : 0);
+            Info.Assigned - (Household.CurrentHomeIndex == HomeIdx ? 1 : 0);
         const int OccupancyAfter = EffectiveAssigned + 1;
         const float QualityScore =
             ResolveSatisfactionScore(Info.HousingCap);
@@ -993,11 +2186,7 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         const float CongestionScore =
             ResolveCongestionScore(OccupancyAfter, Info.Capacity);
         const float DistanceScore =
-            ResolveAverageDistanceAffinity(
-                Info.Building,
-                ResolveWorkBuildingForOrb(OrbIdx),
-                ResolveFoodBuildingForOrb(OrbIdx),
-                ResolveFunBuildingForOrb(OrbIdx));
+            ResolveHouseholdDistanceScore(HouseholdIdx, HomeIdx);
 
         float Score =
             QualityScore * 0.38f +
@@ -1005,7 +2194,7 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             CongestionScore * 0.18f +
             DistanceScore * 0.24f;
 
-        if (OrbHomeIndex[OrbIdx] == HomeIdx)
+        if (Household.CurrentHomeIndex == HomeIdx)
             Score += 0.05f;
 
         return Score;
@@ -1015,7 +2204,8 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         [&](int OrbIdx,
             int ServiceIdx,
             const std::vector<FServiceBuildingInfo>& Infos,
-            const std::vector<int>& OrbServiceIndex) -> float
+            const std::vector<int>& OrbServiceIndex,
+            EBuildingServiceType ServiceType) -> float
     {
         if (OrbIdx < 0 || ServiceIdx < 0)
             return (std::numeric_limits<float>::lowest)();
@@ -1027,9 +2217,32 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         }
 
         const FServiceBuildingInfo& Info = Infos[ServiceIdx];
+        auto Orb = ActiveOrbs[OrbIdx];
+        if (!Orb)
+            return (std::numeric_limits<float>::lowest)();
+
+        const FCitizenIdentityProfile& Identity = Orb->GetIdentityProfile();
+        const FNpcSatisfaction& Satisfaction = Orb->GetSatisfaction();
+        const FNpcPoliticalProfile& Politics = Orb->GetPoliticalProfile();
+        if (
+            !DoesBuildingAllowCitizenWealth(
+                Info.AllowedWealthMask,
+                Identity.WealthLevel))
+        {
+            return (std::numeric_limits<float>::lowest)();
+        }
+
         const int EffectiveAssigned =
             Info.Assigned - (OrbServiceIndex[OrbIdx] == ServiceIdx ? 1 : 0);
-        const int OccupancyAfter = EffectiveAssigned + 1;
+        const std::string CurrentVisitBuildingName =
+            ResolveCurrentVisitBuildingName(Orb, ServiceType);
+        const int RuntimeVisitors =
+            (std::max)(
+                0,
+                Info.ActiveVisitors -
+                    (CurrentVisitBuildingName == Info.Name ? 1 : 0));
+        const int OccupancyAfter =
+            (std::max)(EffectiveAssigned, RuntimeVisitors) + 1;
         const float QualityScore =
             ResolveSatisfactionScore(Info.SatisfactionCap);
         const float AccessScore = Info.Accessibility;
@@ -1040,12 +2253,38 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
                 Info.Building,
                 ResolveHomeBuildingForOrb(OrbIdx),
                 ResolveWorkBuildingForOrb(OrbIdx));
+        const float WealthFitScore =
+            ResolveServiceWealthFitScore(Info.AllowedWealthMask, Identity);
+        const float NeedUrgency =
+            ResolveServiceNeedUrgency(Satisfaction, ServiceType);
+        const FServiceScoringWeights Weights =
+            ResolveServiceScoringWeights(
+                Identity,
+                Satisfaction,
+                ServiceType);
+        const float PreferenceBias =
+            ResolveServicePreferenceBias(
+                Identity,
+                Politics,
+                Info,
+                ServiceType,
+                QualityScore,
+                AccessScore,
+                CongestionScore,
+                DistanceScore,
+                WealthFitScore,
+                NeedUrgency);
 
         float Score =
-            QualityScore * 0.34f +
-            AccessScore * 0.18f +
-            CongestionScore * 0.22f +
-            DistanceScore * 0.26f;
+            QualityScore * Weights.Quality +
+            AccessScore * Weights.Accessibility +
+            CongestionScore * Weights.Congestion +
+            DistanceScore * Weights.Distance +
+            WealthFitScore * Weights.WealthFit +
+            PreferenceBias;
+
+        if (NeedUrgency > 0.55f && CongestionScore < 0.15f)
+            Score -= 0.04f;
 
         if (OrbServiceIndex[OrbIdx] == ServiceIdx)
             Score += 0.05f;
@@ -1053,16 +2292,72 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         return Score;
     };
 
-    if (!HomeInfos.empty())
+    auto RunServiceReassignment =
+        [&](std::vector<FServiceBuildingInfo>& Infos,
+            std::vector<int>& OrbServiceIndex,
+            const auto& IsAssignmentLocked,
+            const auto& AssignOrbToService,
+            EBuildingServiceType ServiceType,
+            float ImprovementThreshold)
     {
+        if (Infos.empty())
+            return;
+
         for (size_t i = 0; i < ActiveOrbs.size(); ++i)
         {
+            if (IsAssignmentLocked(static_cast<int>(i)))
+                continue;
+
             float CurrentScore =
-                OrbHomeIndex[i] >= 0 ?
-                    ScoreHomeCandidate(static_cast<int>(i), OrbHomeIndex[i]) :
+                OrbServiceIndex[i] >= 0 ?
+                    ScoreServiceCandidate(
+                        static_cast<int>(i),
+                        OrbServiceIndex[i],
+                        Infos,
+                        OrbServiceIndex,
+                        ServiceType) :
                     (std::numeric_limits<float>::lowest)();
             float BestScore = CurrentScore;
-            int BestIdx = OrbHomeIndex[i];
+            int BestIdx = OrbServiceIndex[i];
+
+            for (size_t ServiceIdx = 0; ServiceIdx < Infos.size(); ++ServiceIdx)
+            {
+                const float CandidateScore =
+                    ScoreServiceCandidate(
+                        static_cast<int>(i),
+                        static_cast<int>(ServiceIdx),
+                        Infos,
+                        OrbServiceIndex,
+                        ServiceType);
+
+                if (CandidateScore > BestScore + 0.0001f)
+                {
+                    BestScore = CandidateScore;
+                    BestIdx = static_cast<int>(ServiceIdx);
+                }
+            }
+
+            if (BestIdx >= 0 &&
+                (OrbServiceIndex[i] < 0 ||
+                    BestScore > CurrentScore + ImprovementThreshold))
+            {
+                AssignOrbToService(static_cast<int>(i), BestIdx);
+            }
+        }
+    };
+
+    if (!HomeInfos.empty())
+    {
+        for (size_t i = 0; i < Households.size(); ++i)
+        {
+            float CurrentScore =
+                Households[i].CurrentHomeIndex >= 0 ?
+                    ScoreHomeCandidate(
+                        static_cast<int>(i),
+                        Households[i].CurrentHomeIndex) :
+                    (std::numeric_limits<float>::lowest)();
+            float BestScore = CurrentScore;
+            int BestIdx = Households[i].CurrentHomeIndex;
 
             for (size_t HomeIdx = 0; HomeIdx < HomeInfos.size(); ++HomeIdx)
             {
@@ -1079,54 +2374,21 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             }
 
             if (BestIdx >= 0 &&
-                (OrbHomeIndex[i] < 0 || BestScore > CurrentScore + 0.06f))
+                (Households[i].CurrentHomeIndex < 0 ||
+                    BestScore > CurrentScore + 0.06f))
             {
-                AssignOrbToHome(static_cast<int>(i), BestIdx);
+                AssignHouseholdToHome(static_cast<int>(i), BestIdx);
             }
         }
     }
 
-    if (!FoodInfos.empty())
-    {
-        for (size_t i = 0; i < ActiveOrbs.size(); ++i)
-        {
-            if (IsFoodAssignmentLocked(static_cast<int>(i)))
-                continue;
-
-            float CurrentScore =
-                OrbFoodIndex[i] >= 0 ?
-                    ScoreServiceCandidate(
-                        static_cast<int>(i),
-                        OrbFoodIndex[i],
-                        FoodInfos,
-                        OrbFoodIndex) :
-                    (std::numeric_limits<float>::lowest)();
-            float BestScore = CurrentScore;
-            int BestIdx = OrbFoodIndex[i];
-
-            for (size_t FoodIdx = 0; FoodIdx < FoodInfos.size(); ++FoodIdx)
-            {
-                const float CandidateScore =
-                    ScoreServiceCandidate(
-                        static_cast<int>(i),
-                        static_cast<int>(FoodIdx),
-                        FoodInfos,
-                        OrbFoodIndex);
-
-                if (CandidateScore > BestScore + 0.0001f)
-                {
-                    BestScore = CandidateScore;
-                    BestIdx = static_cast<int>(FoodIdx);
-                }
-            }
-
-            if (BestIdx >= 0 &&
-                (OrbFoodIndex[i] < 0 || BestScore > CurrentScore + 0.05f))
-            {
-                AssignOrbToFood(static_cast<int>(i), BestIdx);
-            }
-        }
-    }
+    RunServiceReassignment(
+        FoodInfos,
+        OrbFoodIndex,
+        IsFoodAssignmentLocked,
+        AssignOrbToFood,
+        EBuildingServiceType::Food,
+        0.05f);
 
     std::unordered_map<std::string, int> FoodDemandByBuilding;
     FoodDemandByBuilding.reserve(FoodInfos.size());
@@ -1507,45 +2769,32 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             AssignOrbToWork(static_cast<int>(OrbIdx), BetterWorkIdx);
     }
 
-    if (!FunInfos.empty())
-    {
-        for (size_t i = 0; i < ActiveOrbs.size(); ++i)
-        {
-            if (IsFunAssignmentLocked(static_cast<int>(i)))
-                continue;
-
-            float CurrentScore =
-                OrbFunIndex[i] >= 0 ?
-                    ScoreServiceCandidate(
-                        static_cast<int>(i),
-                        OrbFunIndex[i],
-                        FunInfos,
-                        OrbFunIndex) :
-                    (std::numeric_limits<float>::lowest)();
-            float BestScore = CurrentScore;
-            int BestIdx = OrbFunIndex[i];
-
-            for (size_t FunIdx = 0; FunIdx < FunInfos.size(); ++FunIdx)
-            {
-                const float CandidateScore =
-                    ScoreServiceCandidate(
-                        static_cast<int>(i),
-                        static_cast<int>(FunIdx),
-                        FunInfos,
-                        OrbFunIndex);
-
-                if (CandidateScore > BestScore + 0.0001f)
-                {
-                    BestScore = CandidateScore;
-                    BestIdx = static_cast<int>(FunIdx);
-                }
-            }
-
-            if (BestIdx >= 0 &&
-                (OrbFunIndex[i] < 0 || BestScore > CurrentScore + 0.05f))
-            {
-                AssignOrbToFun(static_cast<int>(i), BestIdx);
-            }
-        }
-    }
+    RunServiceReassignment(
+        FoodInfos,
+        OrbFoodIndex,
+        IsFoodAssignmentLocked,
+        AssignOrbToFood,
+        EBuildingServiceType::Food,
+        0.03f);
+    RunServiceReassignment(
+        HealthInfos,
+        OrbHealthIndex,
+        IsHealthAssignmentLocked,
+        AssignOrbToHealth,
+        EBuildingServiceType::Health,
+        0.04f);
+    RunServiceReassignment(
+        FaithInfos,
+        OrbFaithIndex,
+        IsFaithAssignmentLocked,
+        AssignOrbToFaith,
+        EBuildingServiceType::Faith,
+        0.04f);
+    RunServiceReassignment(
+        FunInfos,
+        OrbFunIndex,
+        IsFunAssignmentLocked,
+        AssignOrbToFun,
+        EBuildingServiceType::Fun,
+        0.05f);
 }

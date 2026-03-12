@@ -18,6 +18,9 @@
 namespace
 {
     constexpr float GBuildingPollutionRadiusTiles = 18.f;
+    constexpr float GBuildingFreedomRadiusTiles = 18.f;
+    constexpr float GBuildingSecurityRadiusTiles = 16.f;
+    constexpr float GSecurityPollutionPenaltyWeight = 0.25f;
     constexpr int GPowerPriorityBandCount = 3;
     constexpr int GMaxActiveTradeRouteCount = 10;
     constexpr int GMaxCompletedTradeRouteRecordCount = 12;
@@ -26,6 +29,13 @@ namespace
     constexpr int GTradeRouteMinDailyTransferUnits = 150;
     constexpr int GTradeRouteMaxDailyTransferUnits = 1200;
     constexpr int GTradeRouteDefaultDurationDays = 1500;
+    constexpr int GMaxActiveFactionDemandCount = 2;
+    constexpr int GMaxActiveForeignDemandCount = 1;
+    constexpr int GFactionDemandCooldownDays = 90;
+    constexpr int GForeignDemandCooldownDays = 105;
+    constexpr int GFactionDemandModifierDurationDays = 120;
+    constexpr int GDemandNoticeDurationDays = 10;
+    constexpr int GCampaignPromiseLeadDays = 240;
 
     const wchar_t* GetTradeForeignPowerName(int Index)
     {
@@ -80,6 +90,1025 @@ namespace
         }
 
         return Digits;
+    }
+
+    const wchar_t* GetPoliticalFactionName(EPoliticalFaction Faction)
+    {
+        switch (Faction)
+        {
+        case EPoliticalFaction::Communists:
+            return L"공산주의자";
+        case EPoliticalFaction::Capitalists:
+            return L"자본가";
+        case EPoliticalFaction::Religious:
+            return L"종교인";
+        case EPoliticalFaction::Militarists:
+            return L"군부";
+        case EPoliticalFaction::Environmentalists:
+            return L"환경주의자";
+        case EPoliticalFaction::Industrialists:
+            return L"산업주의자";
+        case EPoliticalFaction::Intellectuals:
+            return L"지식인";
+        case EPoliticalFaction::Conservatives:
+            return L"보수주의자";
+        default:
+            return L"세력";
+        }
+    }
+
+    bool ContainsText(const std::wstring& Text, const wchar_t* Pattern)
+    {
+        return Pattern && Text.find(Pattern) != std::wstring::npos;
+    }
+
+    float ResolveOverlayOperationalScale(const CPlacementAreaObject& Building)
+    {
+        const float BudgetScale = Building.GetBudgetSatisfactionScale();
+        const float PowerScale = (std::max)(
+            0.35f,
+            (std::min)(1.f, Building.GetPowerSupplyRatio()));
+        return (std::max)(
+            0.35f,
+            (std::min)(1.15f, BudgetScale * (0.60f + 0.40f * PowerScale)));
+    }
+
+    float ResolveFreedomInfluenceScore(const FBuildingCatalogEntry& Entry)
+    {
+        float Score = 0.f;
+
+        for (size_t Index = 0; Index < Entry.PoliticalSignals.size(); ++Index)
+        {
+            const FPoliticalSignalDef& Signal = Entry.PoliticalSignals[Index];
+
+            if (Signal.Axis != EPoliticalAxis::IntellectualConservative)
+                continue;
+
+            const float Direction =
+                Signal.FavoredStance == EPoliticalStance::Left ? 1.f :
+                Signal.FavoredStance == EPoliticalStance::Right ? -1.f :
+                0.f;
+
+            if (Direction == 0.f)
+                continue;
+
+            const float ScopeWeight =
+                Signal.Scope == EPoliticalScope::Resident ? 1.00f :
+                Signal.Scope == EPoliticalScope::Visitor ? 0.85f :
+                Signal.Scope == EPoliticalScope::Worker ? 0.72f :
+                0.58f;
+            Score += Direction * Signal.Strength * ScopeWeight;
+        }
+
+        if (ContainsText(Entry.DetailText, L"자유 상승") ||
+            ContainsText(Entry.DetailText, L"자유 증가"))
+        {
+            Score += 4.f;
+        }
+
+        if (ContainsText(Entry.DetailText, L"자유 하락") ||
+            ContainsText(Entry.DetailText, L"자유 감소"))
+        {
+            Score -= 4.f;
+        }
+
+        return Score;
+    }
+
+    float ResolveSecurityInfluenceScore(const FBuildingCatalogEntry& Entry)
+    {
+        float Score = 0.f;
+
+        for (size_t Index = 0; Index < Entry.PoliticalSignals.size(); ++Index)
+        {
+            const FPoliticalSignalDef& Signal = Entry.PoliticalSignals[Index];
+
+            if (Signal.Axis != EPoliticalAxis::ReligionMilitarism)
+                continue;
+
+            const float Direction =
+                Signal.FavoredStance == EPoliticalStance::Right ? 1.f :
+                Signal.FavoredStance == EPoliticalStance::Left ? 0.35f :
+                0.f;
+            const float ScopeWeight =
+                Signal.Scope == EPoliticalScope::Resident ? 1.00f :
+                Signal.Scope == EPoliticalScope::Worker ? 0.82f :
+                Signal.Scope == EPoliticalScope::Visitor ? 0.72f :
+                0.55f;
+            Score += Direction * Signal.Strength * ScopeWeight;
+        }
+
+        if (Entry.Category == EBuildingCategory::Military)
+            Score += 8.f;
+
+        if (ContainsText(Entry.DisplayName, L"경찰") ||
+            ContainsText(Entry.DisplayName, L"감시") ||
+            ContainsText(Entry.DisplayName, L"소방") ||
+            ContainsText(Entry.DisplayName, L"교도소"))
+        {
+            Score += 6.f;
+        }
+
+        if (ContainsText(Entry.DetailText, L"치안") ||
+            ContainsText(Entry.DetailText, L"범죄"))
+        {
+            Score += 5.f;
+        }
+
+        if (ContainsText(Entry.DetailText, L"범죄 증가"))
+            Score -= 4.f;
+
+        return Score;
+    }
+
+    std::wstring FormatSignedInt(int Value)
+    {
+        if (Value > 0)
+            return L"+" + std::to_wstring(Value);
+
+        return std::to_wstring(Value);
+    }
+
+    std::wstring FormatBudgetDelta(long long Value)
+    {
+        if (Value > 0)
+            return L"+" + FormatTradeCurrency(Value);
+        if (Value < 0)
+            return L"-" + FormatTradeCurrency(-Value);
+
+        return L"$0";
+    }
+
+    std::wstring BuildPoliticalDemandEffectText(
+        long long BudgetDelta,
+        int FactionApprovalDelta,
+        int RelationDelta,
+        int StandingDelta,
+        int DurationDays)
+    {
+        std::wstring Result;
+        const auto AppendPart =
+            [&](const std::wstring& Part)
+            {
+                if (Part.empty())
+                    return;
+
+                if (!Result.empty())
+                    Result += L" / ";
+
+                Result += Part;
+            };
+
+        if (BudgetDelta != 0)
+            AppendPart(L"예산 " + FormatBudgetDelta(BudgetDelta));
+
+        if (FactionApprovalDelta != 0)
+        {
+            std::wstring Part =
+                L"승인도 " + FormatSignedInt(FactionApprovalDelta);
+
+            if (DurationDays > 0)
+                Part += L" (" + std::to_wstring(DurationDays) + L"일)";
+
+            AppendPart(Part);
+        }
+
+        if (RelationDelta != 0)
+            AppendPart(L"관계 " + FormatSignedInt(RelationDelta));
+
+        if (StandingDelta != 0)
+            AppendPart(L"standing " + FormatSignedInt(StandingDelta));
+
+        if (Result.empty())
+            Result = L"직접 변화 없음";
+
+        return Result;
+    }
+
+    int CountActiveTradeRoutesForPower(
+        const std::vector<FTradeRouteRuntimeState>& ActiveRoutes,
+        int ForeignPowerIndex)
+    {
+        int Count = 0;
+
+        for (size_t Index = 0; Index < ActiveRoutes.size(); ++Index)
+        {
+            if (ActiveRoutes[Index].ForeignPowerIndex == ForeignPowerIndex)
+                ++Count;
+        }
+
+        return Count;
+    }
+
+    int CountActiveFactionDemands(
+        const std::array<FPoliticalDemandState, GPoliticalFactionCount>& Demands)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+        {
+            if (Demands[static_cast<size_t>(Index)].Active)
+                ++Count;
+        }
+
+        return Count;
+    }
+
+    int CountActiveForeignDemands(
+        const std::array<
+            FPoliticalDemandState,
+            TradeDiplomacyRuntime::GForeignPowerCount>& Demands)
+    {
+        int Count = 0;
+
+        for (int Index = 0;
+            Index < TradeDiplomacyRuntime::GForeignPowerCount;
+            ++Index)
+        {
+            if (Demands[static_cast<size_t>(Index)].Active)
+                ++Count;
+        }
+
+        return Count;
+    }
+
+    int EvaluatePoliticalDemandCurrentValue(
+        const FPoliticalDemandState& Demand,
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        const FGovernmentProfile& GovernmentProfile,
+        long long LastDailyExportIncome,
+        const std::array<
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
+            TradeDiplomacyRuntime::GForeignPowerCount>& ForeignPowerStates,
+        const std::vector<FTradeRouteRuntimeState>& ActiveTradeRoutes)
+    {
+        switch (Demand.ObjectiveType)
+        {
+        case EPoliticalDemandObjectiveType::Housing:
+            return static_cast<int>(std::lround(Snapshot.AverageHousing));
+        case EPoliticalDemandObjectiveType::Food:
+            return static_cast<int>(std::lround(Snapshot.AverageFood));
+        case EPoliticalDemandObjectiveType::Faith:
+            return static_cast<int>(std::lround(Snapshot.AverageFaith));
+        case EPoliticalDemandObjectiveType::Security:
+            return static_cast<int>(std::lround(Snapshot.AverageSecurity));
+        case EPoliticalDemandObjectiveType::Freedom:
+            return static_cast<int>(std::lround(Snapshot.AverageFreedom));
+        case EPoliticalDemandObjectiveType::Health:
+            return static_cast<int>(std::lround(Snapshot.AverageHealth));
+        case EPoliticalDemandObjectiveType::ExportIncome:
+            return (std::max)(0, static_cast<int>(LastDailyExportIncome));
+        case EPoliticalDemandObjectiveType::IncomeTaxCeiling:
+            return GovernmentProfile.TaxPolicy.IncomeRatePercent;
+        case EPoliticalDemandObjectiveType::PropertyTaxCeiling:
+            return GovernmentProfile.TaxPolicy.PropertyRatePercent;
+        case EPoliticalDemandObjectiveType::ActiveTradeRoutes:
+            if (Demand.IssuerType == EPoliticalDemandIssuerType::ForeignPower &&
+                Demand.IssuerIndex >= 0 &&
+                Demand.IssuerIndex < TradeDiplomacyRuntime::GForeignPowerCount)
+            {
+                return CountActiveTradeRoutesForPower(
+                    ActiveTradeRoutes,
+                    Demand.IssuerIndex);
+            }
+
+            return static_cast<int>(ActiveTradeRoutes.size());
+        case EPoliticalDemandObjectiveType::None:
+        default:
+            break;
+        }
+
+        (void)ForeignPowerStates;
+        return 0;
+    }
+
+    bool IsPoliticalDemandSatisfied(const FPoliticalDemandState& Demand)
+    {
+        switch (Demand.ObjectiveType)
+        {
+        case EPoliticalDemandObjectiveType::IncomeTaxCeiling:
+        case EPoliticalDemandObjectiveType::PropertyTaxCeiling:
+            return Demand.CurrentValue <= Demand.TargetValue;
+        case EPoliticalDemandObjectiveType::Housing:
+        case EPoliticalDemandObjectiveType::Food:
+        case EPoliticalDemandObjectiveType::Faith:
+        case EPoliticalDemandObjectiveType::Security:
+        case EPoliticalDemandObjectiveType::Freedom:
+        case EPoliticalDemandObjectiveType::Health:
+        case EPoliticalDemandObjectiveType::ExportIncome:
+        case EPoliticalDemandObjectiveType::ActiveTradeRoutes:
+            return Demand.CurrentValue >= Demand.TargetValue;
+        case EPoliticalDemandObjectiveType::None:
+        default:
+            return false;
+        }
+    }
+
+    struct FElectionPromiseCandidate
+    {
+        FElectionPromiseState Promise;
+        double Priority = 0.0;
+    };
+
+    const wchar_t* GetElectionPromiseName(EElectionPromiseType Type)
+    {
+        switch (Type)
+        {
+        case EElectionPromiseType::Housing:
+            return L"주거 개선";
+        case EElectionPromiseType::Food:
+            return L"식량 안정";
+        case EElectionPromiseType::Health:
+            return L"보건 확충";
+        case EElectionPromiseType::Job:
+            return L"고용 확대";
+        case EElectionPromiseType::Freedom:
+            return L"자유 확대";
+        case EElectionPromiseType::Security:
+            return L"치안 강화";
+        case EElectionPromiseType::Faith:
+            return L"신앙 지원";
+        case EElectionPromiseType::ExportIncome:
+            return L"수출 확대";
+        case EElectionPromiseType::None:
+        default:
+            return L"공약";
+        }
+    }
+
+    int EvaluateElectionPromiseCurrentValue(
+        const FElectionPromiseState& Promise,
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        long long LastDailyExportIncome)
+    {
+        switch (Promise.Type)
+        {
+        case EElectionPromiseType::Housing:
+            return static_cast<int>(std::lround(Snapshot.AverageHousing));
+        case EElectionPromiseType::Food:
+            return static_cast<int>(std::lround(Snapshot.AverageFood));
+        case EElectionPromiseType::Health:
+            return static_cast<int>(std::lround(Snapshot.AverageHealth));
+        case EElectionPromiseType::Job:
+            return static_cast<int>(std::lround(Snapshot.AverageJob));
+        case EElectionPromiseType::Freedom:
+            return static_cast<int>(std::lround(Snapshot.AverageFreedom));
+        case EElectionPromiseType::Security:
+            return static_cast<int>(std::lround(Snapshot.AverageSecurity));
+        case EElectionPromiseType::Faith:
+            return static_cast<int>(std::lround(Snapshot.AverageFaith));
+        case EElectionPromiseType::ExportIncome:
+            return (std::max)(0, static_cast<int>(LastDailyExportIncome));
+        case EElectionPromiseType::None:
+        default:
+            return 0;
+        }
+    }
+
+    FElectionPromiseState BuildElectionPromiseState(
+        EElectionPromiseType Type,
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        long long LastDailyExportIncome)
+    {
+        FElectionPromiseState Promise;
+        Promise.Active = true;
+        Promise.Type = Type;
+        Promise.Title = std::wstring(GetElectionPromiseName(Type)) + L" 공약";
+        Promise.BaselineValue =
+            EvaluateElectionPromiseCurrentValue(
+                Promise,
+                Snapshot,
+                LastDailyExportIncome);
+        Promise.CurrentValue = Promise.BaselineValue;
+
+        switch (Type)
+        {
+        case EElectionPromiseType::Housing:
+            Promise.TargetValue = (std::min)(100, Promise.BaselineValue + 8);
+            Promise.SuccessVoteModifierPercent = 4;
+            Promise.FailureVoteModifierPercent = 5;
+            Promise.Summary =
+                L"평균 주거 " +
+                std::to_wstring(Promise.TargetValue) +
+                L" 이상";
+            break;
+        case EElectionPromiseType::Food:
+            Promise.TargetValue = (std::min)(100, Promise.BaselineValue + 7);
+            Promise.SuccessVoteModifierPercent = 3;
+            Promise.FailureVoteModifierPercent = 4;
+            Promise.Summary =
+                L"평균 식량 " +
+                std::to_wstring(Promise.TargetValue) +
+                L" 이상";
+            break;
+        case EElectionPromiseType::Health:
+            Promise.TargetValue = (std::min)(100, Promise.BaselineValue + 7);
+            Promise.SuccessVoteModifierPercent = 3;
+            Promise.FailureVoteModifierPercent = 4;
+            Promise.Summary =
+                L"평균 보건 " +
+                std::to_wstring(Promise.TargetValue) +
+                L" 이상";
+            break;
+        case EElectionPromiseType::Job:
+            Promise.TargetValue = (std::min)(100, Promise.BaselineValue + 8);
+            Promise.SuccessVoteModifierPercent = 4;
+            Promise.FailureVoteModifierPercent = 5;
+            Promise.Summary =
+                L"평균 직업 " +
+                std::to_wstring(Promise.TargetValue) +
+                L" 이상";
+            break;
+        case EElectionPromiseType::Freedom:
+            Promise.TargetValue = (std::min)(100, Promise.BaselineValue + 8);
+            Promise.SuccessVoteModifierPercent = 3;
+            Promise.FailureVoteModifierPercent = 4;
+            Promise.Summary =
+                L"평균 자유 " +
+                std::to_wstring(Promise.TargetValue) +
+                L" 이상";
+            break;
+        case EElectionPromiseType::Security:
+            Promise.TargetValue = (std::min)(100, Promise.BaselineValue + 8);
+            Promise.SuccessVoteModifierPercent = 3;
+            Promise.FailureVoteModifierPercent = 4;
+            Promise.Summary =
+                L"평균 치안 " +
+                std::to_wstring(Promise.TargetValue) +
+                L" 이상";
+            break;
+        case EElectionPromiseType::Faith:
+            Promise.TargetValue = (std::min)(100, Promise.BaselineValue + 7);
+            Promise.SuccessVoteModifierPercent = 3;
+            Promise.FailureVoteModifierPercent = 4;
+            Promise.Summary =
+                L"평균 신앙 " +
+                std::to_wstring(Promise.TargetValue) +
+                L" 이상";
+            break;
+        case EElectionPromiseType::ExportIncome:
+        {
+            const int BaselineIncome = (std::max)(0, Promise.BaselineValue);
+            Promise.TargetValue = BaselineIncome +
+                (std::max)(1400, BaselineIncome / 5);
+            Promise.SuccessVoteModifierPercent = 3;
+            Promise.FailureVoteModifierPercent = 4;
+            Promise.Summary =
+                L"일일 수출 " +
+                FormatTradeCurrency(Promise.TargetValue) +
+                L" 이상";
+            break;
+        }
+        case EElectionPromiseType::None:
+        default:
+            Promise.Active = false;
+            break;
+        }
+
+        return Promise;
+    }
+
+    double EvaluateElectionPromisePriority(
+        EElectionPromiseType Type,
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        long long LastDailyExportIncome)
+    {
+        const double CitizenCount =
+            static_cast<double>((std::max)(1, Snapshot.ActiveCitizenCount));
+        const double UnemploymentRatio =
+            static_cast<double>(Snapshot.UnemployedCount) / CitizenCount;
+
+        switch (Type)
+        {
+        case EElectionPromiseType::Housing:
+            return
+                (std::max)(0.0, 62.0 - Snapshot.AverageHousing) * 1.25 +
+                static_cast<double>(Snapshot.HomelessHouseholdCount) * 2.6;
+        case EElectionPromiseType::Food:
+            return (std::max)(0.0, 60.0 - Snapshot.AverageFood) * 1.20;
+        case EElectionPromiseType::Health:
+            return (std::max)(0.0, 60.0 - Snapshot.AverageHealth) * 1.15;
+        case EElectionPromiseType::Job:
+            return
+                (std::max)(0.0, 60.0 - Snapshot.AverageJob) * 1.05 +
+                UnemploymentRatio * 55.0;
+        case EElectionPromiseType::Freedom:
+            return (std::max)(0.0, 60.0 - Snapshot.AverageFreedom) * 1.10;
+        case EElectionPromiseType::Security:
+            return (std::max)(0.0, 60.0 - Snapshot.AverageSecurity) * 1.10;
+        case EElectionPromiseType::Faith:
+            return (std::max)(0.0, 58.0 - Snapshot.AverageFaith) * 1.05;
+        case EElectionPromiseType::ExportIncome:
+            return static_cast<double>((std::max)(
+                0,
+                5600 - static_cast<int>(LastDailyExportIncome))) / 240.0;
+        case EElectionPromiseType::None:
+        default:
+            return 0.0;
+        }
+    }
+
+    int CountActiveElectionPromises(const FElectionStatus& ElectionStatus)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            if (ElectionStatus.ActivePromises[static_cast<size_t>(Index)].Active)
+                ++Count;
+        }
+
+        return Count;
+    }
+
+    bool TryBuildFactionDemand(
+        EPoliticalFaction Faction,
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        const FPoliticalWorldSnapshot& PoliticalSnapshot,
+        const FGovernmentProfile& GovernmentProfile,
+        long long LastDailyExportIncome,
+        FPoliticalDemandState& OutDemand,
+        double& OutPriority)
+    {
+        const int FactionIndex = static_cast<int>(Faction);
+        const auto& FactionSnapshot =
+            PoliticalSnapshot.Factions[static_cast<size_t>(FactionIndex)];
+
+        if (FactionSnapshot.MemberCount < 6 ||
+            FactionSnapshot.AverageApproval >= 60.0)
+        {
+            return false;
+        }
+
+        const double ApprovalPressure =
+            (std::max)(0.0, 60.0 - FactionSnapshot.AverageApproval);
+        FPoliticalDemandState Demand;
+        Demand.Active = true;
+        Demand.IssuerType = EPoliticalDemandIssuerType::Faction;
+        Demand.IssuerIndex = FactionIndex;
+        Demand.Status = EPoliticalDemandStatus::PendingResponse;
+        Demand.DurationDays = 90;
+        Demand.RemainingDays = Demand.DurationDays;
+        Demand.ModifierDurationDays = GFactionDemandModifierDurationDays;
+        Demand.PenaltyBudgetDelta = 0;
+        Demand.Title = std::wstring(GetPoliticalFactionName(Faction)) + L" 요구";
+        OutPriority = 0.0;
+
+        switch (Faction)
+        {
+        case EPoliticalFaction::Communists:
+        {
+            const int CurrentHousing =
+                static_cast<int>(std::lround(Snapshot.AverageHousing));
+            if (CurrentHousing >= 58 && Snapshot.HomelessHouseholdCount <= 1)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Housing;
+            Demand.TargetValue = (std::max)(
+                58,
+                (std::min)(72, CurrentHousing + 10));
+            Demand.CurrentValue = CurrentHousing;
+            Demand.Summary = L"무주택과 저질 주거를 줄이라고 압박합니다.";
+            Demand.ObjectiveText =
+                L"평균 주거 " + std::to_wstring(Demand.TargetValue) + L" 이상";
+            Demand.RewardBudgetDelta =
+                1200 + static_cast<long long>(FactionSnapshot.MemberCount) * 18LL;
+            Demand.RewardFactionApprovalDelta = 9;
+            Demand.PenaltyFactionApprovalDelta = -12;
+            OutPriority =
+                ApprovalPressure * 1.2 +
+                (std::max)(0, 58 - CurrentHousing) +
+                Snapshot.HomelessHouseholdCount * 1.6;
+            break;
+        }
+        case EPoliticalFaction::Capitalists:
+        {
+            const int CurrentIncomeTax =
+                GovernmentProfile.TaxPolicy.IncomeRatePercent;
+            if (CurrentIncomeTax <= 12)
+                return false;
+
+            Demand.ObjectiveType =
+                EPoliticalDemandObjectiveType::IncomeTaxCeiling;
+            Demand.TargetValue = 12;
+            Demand.CurrentValue = CurrentIncomeTax;
+            Demand.Summary = L"소득세 인하와 투자 여건 개선을 요구합니다.";
+            Demand.ObjectiveText = L"소득세 12% 이하";
+            Demand.RewardBudgetDelta = 2000;
+            Demand.RewardFactionApprovalDelta = 8;
+            Demand.PenaltyFactionApprovalDelta = -10;
+            OutPriority =
+                ApprovalPressure * 1.1 +
+                static_cast<double>(CurrentIncomeTax - Demand.TargetValue) * 1.8;
+            break;
+        }
+        case EPoliticalFaction::Religious:
+        {
+            const int CurrentFaith =
+                static_cast<int>(std::lround(Snapshot.AverageFaith));
+            if (CurrentFaith >= 58)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Faith;
+            Demand.TargetValue = (std::max)(58, (std::min)(72, CurrentFaith + 10));
+            Demand.CurrentValue = CurrentFaith;
+            Demand.Summary = L"신앙 만족도 회복과 종교 서비스 강화를 요구합니다.";
+            Demand.ObjectiveText =
+                L"평균 신앙 " + std::to_wstring(Demand.TargetValue) + L" 이상";
+            Demand.RewardBudgetDelta = 1500;
+            Demand.RewardFactionApprovalDelta = 8;
+            Demand.PenaltyFactionApprovalDelta = -11;
+            OutPriority =
+                ApprovalPressure * 1.1 + (std::max)(0, 58 - CurrentFaith) * 1.2;
+            break;
+        }
+        case EPoliticalFaction::Militarists:
+        {
+            const int CurrentSecurity =
+                static_cast<int>(std::lround(Snapshot.AverageSecurity));
+            if (CurrentSecurity >= 60)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Security;
+            Demand.TargetValue =
+                (std::max)(60, (std::min)(76, CurrentSecurity + 10));
+            Demand.CurrentValue = CurrentSecurity;
+            Demand.Summary = L"치안 안정과 군사 통제를 강화하라고 압박합니다.";
+            Demand.ObjectiveText =
+                L"평균 치안 " + std::to_wstring(Demand.TargetValue) + L" 이상";
+            Demand.RewardBudgetDelta = 1700;
+            Demand.RewardFactionApprovalDelta = 8;
+            Demand.PenaltyFactionApprovalDelta = -11;
+            OutPriority =
+                ApprovalPressure * 1.1 +
+                (std::max)(0, 60 - CurrentSecurity) * 1.3;
+            break;
+        }
+        case EPoliticalFaction::Environmentalists:
+        {
+            const int CurrentHealth =
+                static_cast<int>(std::lround(Snapshot.AverageHealth));
+            if (CurrentHealth >= 60)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Health;
+            Demand.TargetValue =
+                (std::max)(60, (std::min)(74, CurrentHealth + 9));
+            Demand.CurrentValue = CurrentHealth;
+            Demand.Summary = L"보건과 환경 악화를 바로잡으라고 요구합니다.";
+            Demand.ObjectiveText =
+                L"평균 보건 " + std::to_wstring(Demand.TargetValue) + L" 이상";
+            Demand.RewardBudgetDelta = 1600;
+            Demand.RewardFactionApprovalDelta = 9;
+            Demand.PenaltyFactionApprovalDelta = -12;
+            OutPriority =
+                ApprovalPressure * 1.1 +
+                (std::max)(0, 60 - CurrentHealth) * 1.2;
+            break;
+        }
+        case EPoliticalFaction::Industrialists:
+        {
+            const int CurrentExportIncome =
+                (std::max)(0, static_cast<int>(LastDailyExportIncome));
+            if (CurrentExportIncome >= 5200)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::ExportIncome;
+            Demand.TargetValue = (std::max)(5200, CurrentExportIncome + 1800);
+            Demand.CurrentValue = CurrentExportIncome;
+            Demand.Summary = L"산업 생산을 끌어올려 수출 실적을 내라고 요구합니다.";
+            Demand.ObjectiveText =
+                L"일일 수출 " + FormatTradeCurrency(Demand.TargetValue) + L" 이상";
+            Demand.RewardBudgetDelta = 2200;
+            Demand.RewardFactionApprovalDelta = 8;
+            Demand.PenaltyFactionApprovalDelta = -10;
+            OutPriority =
+                ApprovalPressure * 1.0 +
+                static_cast<double>((std::max)(0, Demand.TargetValue - CurrentExportIncome)) /
+                    700.0;
+            break;
+        }
+        case EPoliticalFaction::Intellectuals:
+        {
+            const int CurrentFreedom =
+                static_cast<int>(std::lround(Snapshot.AverageFreedom));
+            if (CurrentFreedom >= 60)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Freedom;
+            Demand.TargetValue =
+                (std::max)(60, (std::min)(76, CurrentFreedom + 10));
+            Demand.CurrentValue = CurrentFreedom;
+            Demand.Summary = L"자유와 개방성을 회복하라고 요구합니다.";
+            Demand.ObjectiveText =
+                L"평균 자유 " + std::to_wstring(Demand.TargetValue) + L" 이상";
+            Demand.RewardBudgetDelta = 1500;
+            Demand.RewardFactionApprovalDelta = 9;
+            Demand.PenaltyFactionApprovalDelta = -12;
+            OutPriority =
+                ApprovalPressure * 1.15 +
+                (std::max)(0, 60 - CurrentFreedom) * 1.3;
+            break;
+        }
+        case EPoliticalFaction::Conservatives:
+        {
+            const int CurrentPropertyTax =
+                GovernmentProfile.TaxPolicy.PropertyRatePercent;
+            if (CurrentPropertyTax <= 35)
+                return false;
+
+            Demand.ObjectiveType =
+                EPoliticalDemandObjectiveType::PropertyTaxCeiling;
+            Demand.TargetValue = 35;
+            Demand.CurrentValue = CurrentPropertyTax;
+            Demand.Summary = L"재산세 완화와 질서 회복을 동시에 요구합니다.";
+            Demand.ObjectiveText = L"재산세 35% 이하";
+            Demand.RewardBudgetDelta = 1800;
+            Demand.RewardFactionApprovalDelta = 8;
+            Demand.PenaltyFactionApprovalDelta = -10;
+            OutPriority =
+                ApprovalPressure * 1.0 +
+                static_cast<double>(CurrentPropertyTax - Demand.TargetValue) * 1.5;
+            break;
+        }
+        default:
+            return false;
+        }
+
+        if (Demand.ObjectiveType == EPoliticalDemandObjectiveType::None)
+            return false;
+
+        Demand.RewardText = BuildPoliticalDemandEffectText(
+            Demand.RewardBudgetDelta,
+            Demand.RewardFactionApprovalDelta,
+            0,
+            0,
+            Demand.ModifierDurationDays);
+        Demand.PenaltyText = BuildPoliticalDemandEffectText(
+            Demand.PenaltyBudgetDelta,
+            Demand.PenaltyFactionApprovalDelta,
+            0,
+            0,
+            Demand.ModifierDurationDays);
+        OutDemand = std::move(Demand);
+        return OutPriority > 0.0;
+    }
+
+    bool TryBuildForeignDemand(
+        int ForeignPowerIndex,
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        const std::array<
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
+            TradeDiplomacyRuntime::GForeignPowerCount>& ForeignPowerStates,
+        const std::vector<FTradeRouteRuntimeState>& ActiveTradeRoutes,
+        FPoliticalDemandState& OutDemand,
+        double& OutPriority)
+    {
+        if (ForeignPowerIndex < 0 ||
+            ForeignPowerIndex >= TradeDiplomacyRuntime::GForeignPowerCount)
+        {
+            return false;
+        }
+
+        const auto& ForeignState =
+            ForeignPowerStates[static_cast<size_t>(ForeignPowerIndex)];
+        FPoliticalDemandState Demand;
+        Demand.Active = true;
+        Demand.IssuerType = EPoliticalDemandIssuerType::ForeignPower;
+        Demand.IssuerIndex = ForeignPowerIndex;
+        Demand.Status = EPoliticalDemandStatus::PendingResponse;
+        Demand.DurationDays = 105;
+        Demand.RemainingDays = Demand.DurationDays;
+        Demand.Title =
+            std::wstring(GetTradeForeignPowerName(ForeignPowerIndex)) +
+            L" 요구";
+        Demand.RewardBudgetDelta = 2400;
+        Demand.PenaltyBudgetDelta = 0;
+        Demand.RewardForeignRelationDelta = 9;
+        Demand.RewardForeignStandingDelta = 4;
+        Demand.PenaltyForeignRelationDelta = -10;
+        Demand.PenaltyForeignStandingDelta = -4;
+        OutPriority =
+            static_cast<double>((std::max)(0, 72 - ForeignState.Relation)) * 0.7 +
+            static_cast<double>((std::max)(0, 10 - ForeignState.Standing)) * 0.8;
+
+        switch (ForeignPowerIndex)
+        {
+        case 0:
+        {
+            const int ActiveRouteCount =
+                CountActiveTradeRoutesForPower(ActiveTradeRoutes, ForeignPowerIndex);
+            if (ActiveRouteCount >= 2)
+                return false;
+
+            Demand.ObjectiveType =
+                EPoliticalDemandObjectiveType::ActiveTradeRoutes;
+            Demand.TargetValue = 2;
+            Demand.CurrentValue = ActiveRouteCount;
+            Demand.Summary = L"무역 계약을 늘려 교역 규모를 키우라고 요구합니다.";
+            Demand.ObjectiveText = L"중국과 활성 무역로 2개 이상";
+            OutPriority += static_cast<double>(Demand.TargetValue - ActiveRouteCount) * 6.0;
+            break;
+        }
+        case 1:
+        {
+            const int CurrentSecurity =
+                static_cast<int>(std::lround(Snapshot.AverageSecurity));
+            if (CurrentSecurity >= 60)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Security;
+            Demand.TargetValue = 60;
+            Demand.CurrentValue = CurrentSecurity;
+            Demand.Summary = L"군사 협력을 위해 치안 확보를 요구합니다.";
+            Demand.ObjectiveText = L"평균 치안 60 이상";
+            OutPriority += static_cast<double>((std::max)(0, 60 - CurrentSecurity)) * 1.4;
+            break;
+        }
+        case 2:
+        {
+            const int CurrentFreedom =
+                static_cast<int>(std::lround(Snapshot.AverageFreedom));
+            if (CurrentFreedom >= 60)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Freedom;
+            Demand.TargetValue = 60;
+            Demand.CurrentValue = CurrentFreedom;
+            Demand.Summary = L"대외 협력 조건으로 자유 확대를 요구합니다.";
+            Demand.ObjectiveText = L"평균 자유 60 이상";
+            OutPriority += static_cast<double>((std::max)(0, 60 - CurrentFreedom)) * 1.4;
+            break;
+        }
+        case 3:
+        {
+            const int CurrentFaith =
+                static_cast<int>(std::lround(Snapshot.AverageFaith));
+            if (CurrentFaith >= 58)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Faith;
+            Demand.TargetValue = 58;
+            Demand.CurrentValue = CurrentFaith;
+            Demand.Summary = L"종교 기반 안정을 위해 신앙 서비스를 요구합니다.";
+            Demand.ObjectiveText = L"평균 신앙 58 이상";
+            OutPriority += static_cast<double>((std::max)(0, 58 - CurrentFaith)) * 1.3;
+            break;
+        }
+        case 4:
+        default:
+        {
+            const int CurrentHealth =
+                static_cast<int>(std::lround(Snapshot.AverageHealth));
+            if (CurrentHealth >= 60)
+                return false;
+
+            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Health;
+            Demand.TargetValue = 60;
+            Demand.CurrentValue = CurrentHealth;
+            Demand.Summary = L"협력 유지를 위해 보건 수준 개선을 요구합니다.";
+            Demand.ObjectiveText = L"평균 보건 60 이상";
+            OutPriority += static_cast<double>((std::max)(0, 60 - CurrentHealth)) * 1.4;
+            break;
+        }
+        }
+
+        Demand.RewardText = BuildPoliticalDemandEffectText(
+            Demand.RewardBudgetDelta,
+            0,
+            Demand.RewardForeignRelationDelta,
+            Demand.RewardForeignStandingDelta,
+            0);
+        Demand.PenaltyText = BuildPoliticalDemandEffectText(
+            Demand.PenaltyBudgetDelta,
+            0,
+            Demand.PenaltyForeignRelationDelta,
+            Demand.PenaltyForeignStandingDelta,
+            0);
+        OutDemand = std::move(Demand);
+        return OutPriority > 0.0;
+    }
+
+    void ApplyPoliticalDemandBudgetDelta(
+        long long Delta,
+        long long& InOutBudget,
+        long long& InOutLastDailyNetChange)
+    {
+        if (Delta == 0)
+            return;
+
+        InOutBudget += Delta;
+        InOutLastDailyNetChange += Delta;
+    }
+
+    void ApplyForeignDemandStandingDelta(
+        TradeDiplomacyRuntime::FForeignPowerStandingState& InOutState,
+        int RelationDelta,
+        int StandingDelta)
+    {
+        InOutState.LastRelationChange = RelationDelta;
+        InOutState.LastStandingChange = StandingDelta;
+        InOutState.RelationModifier = TradeDiplomacyRuntime::ClampInt(
+            InOutState.RelationModifier + RelationDelta,
+            -35,
+            35);
+        InOutState.Standing = TradeDiplomacyRuntime::ClampStanding(
+            InOutState.Standing + StandingDelta);
+        InOutState.IdleDays = 0;
+    }
+
+    void SetPoliticalDemandResolutionNotice(
+        FPoliticalDemandNotice& OutNotice,
+        const FPoliticalDemandState& Demand,
+        bool Positive,
+        const wchar_t* StatusLabel)
+    {
+        OutNotice = FPoliticalDemandNotice();
+        OutNotice.ActiveDemand = false;
+        OutNotice.Positive = Positive;
+        OutNotice.RemainingDays = GDemandNoticeDurationDays;
+        OutNotice.Title = Demand.Title;
+        OutNotice.Summary =
+            std::wstring(StatusLabel ? StatusLabel : L"처리") +
+            L" / " +
+            (Positive ? Demand.RewardText : Demand.PenaltyText);
+    }
+
+    FPoliticalDemandNotice BuildPriorityDemandNotice(
+        const std::array<FPoliticalDemandState, GPoliticalFactionCount>&
+            FactionDemands,
+        const std::array<
+            FPoliticalDemandState,
+            TradeDiplomacyRuntime::GForeignPowerCount>& ForeignDemands)
+    {
+        const FPoliticalDemandState* BestDemand = nullptr;
+
+        const auto ConsiderDemand =
+            [&](const FPoliticalDemandState& Demand)
+            {
+                if (!Demand.Active)
+                    return;
+
+                if (!BestDemand)
+                {
+                    BestDemand = &Demand;
+                    return;
+                }
+
+                const bool DemandPending =
+                    Demand.Status == EPoliticalDemandStatus::PendingResponse;
+                const bool BestPending =
+                    BestDemand->Status == EPoliticalDemandStatus::PendingResponse;
+
+                if (DemandPending != BestPending)
+                {
+                    if (DemandPending)
+                        BestDemand = &Demand;
+                    return;
+                }
+
+                if (Demand.RemainingDays < BestDemand->RemainingDays)
+                {
+                    BestDemand = &Demand;
+                    return;
+                }
+
+                if (Demand.RemainingDays == BestDemand->RemainingDays &&
+                    Demand.Title < BestDemand->Title)
+                {
+                    BestDemand = &Demand;
+                }
+            };
+
+        for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+        {
+            ConsiderDemand(FactionDemands[static_cast<size_t>(Index)]);
+        }
+
+        for (int Index = 0;
+            Index < TradeDiplomacyRuntime::GForeignPowerCount;
+            ++Index)
+        {
+            ConsiderDemand(ForeignDemands[static_cast<size_t>(Index)]);
+        }
+
+        if (!BestDemand)
+            return FPoliticalDemandNotice();
+
+        FPoliticalDemandNotice Notice;
+        Notice.ActiveDemand = true;
+        Notice.Positive = false;
+        Notice.RemainingDays = BestDemand->RemainingDays;
+        Notice.Title = BestDemand->Title;
+        Notice.Summary =
+            (BestDemand->Status == EPoliticalDemandStatus::Accepted ?
+                L"수행 중 / " :
+                L"응답 대기 / ") +
+            BestDemand->ObjectiveText +
+            L" / " +
+            std::to_wstring((std::max)(0, BestDemand->RemainingDays)) +
+            L"일";
+        return Notice;
     }
 
     int ComputeTradeRouteSignedStandardPricePerThousand(EResourceType Type, bool ImportRoute)
@@ -168,6 +1197,75 @@ namespace
         }
     }
 
+    int ResolveTradeRouteActivationRelationModifier(
+        const FTradeRouteRuntimeState& Route)
+    {
+        const int SizeTier = (std::max)(1, Route.ContractUnits / 1500);
+        return TradeDiplomacyRuntime::ClampInt(
+            1 + SizeTier / 2 + (Route.ImportRoute ? 0 : 1),
+            1,
+            5);
+    }
+
+    void ApplyTradeRouteActivationState(
+        TradeDiplomacyRuntime::FForeignPowerStandingState& InOutState,
+        const FTradeRouteRuntimeState& Route)
+    {
+        ++InOutState.SignedContractCount;
+        InOutState.LastStandingChange = 0;
+        InOutState.LastRelationChange =
+            ResolveTradeRouteActivationRelationModifier(Route);
+        InOutState.RelationModifier = TradeDiplomacyRuntime::ClampInt(
+            InOutState.RelationModifier + InOutState.LastRelationChange,
+            -35,
+            35);
+        InOutState.IdleDays = 0;
+    }
+
+    void ApplyTradeRouteCompletionState(
+        TradeDiplomacyRuntime::FForeignPowerStandingState& InOutState,
+        const FTradeRouteCompletionRecord& Record)
+    {
+        if (Record.EndReason == ETradeRouteEndReason::Completed)
+            ++InOutState.CompletedContractCount;
+        else
+            ++InOutState.FailedContractCount;
+
+        InOutState.LastRelationChange = Record.SecondaryRelationModifier;
+        InOutState.LastStandingChange = Record.StandingModifier;
+        InOutState.RelationModifier = TradeDiplomacyRuntime::ClampInt(
+            InOutState.RelationModifier + Record.SecondaryRelationModifier,
+            -35,
+            35);
+        InOutState.Standing = TradeDiplomacyRuntime::ClampStanding(
+            InOutState.Standing + Record.StandingModifier);
+        InOutState.IdleDays = 0;
+    }
+
+    void ApplyForeignPowerIdleDecay(
+        TradeDiplomacyRuntime::FForeignPowerStandingState& InOutState)
+    {
+        if (InOutState.ActiveContractCount > 0)
+        {
+            InOutState.IdleDays = 0;
+            return;
+        }
+
+        ++InOutState.IdleDays;
+
+        if (InOutState.IdleDays % 20 == 0 && InOutState.Standing != 0)
+        {
+            InOutState.Standing += InOutState.Standing > 0 ? -1 : 1;
+        }
+
+        if (InOutState.IdleDays % 30 == 0 &&
+            InOutState.RelationModifier != 0)
+        {
+            InOutState.RelationModifier +=
+                InOutState.RelationModifier > 0 ? -1 : 1;
+        }
+    }
+
     std::vector<std::shared_ptr<CPlacementAreaObject>> CollectOperationalHarbors(
         const std::shared_ptr<CWorld>& World)
     {
@@ -198,6 +1296,74 @@ namespace
         }
 
         return Harbors;
+    }
+
+    struct FCustomsTradeModifierSummary
+    {
+        int ExportPricePercent = 0;
+        int ImportPricePercent = 0;
+    };
+
+    FCustomsTradeModifierSummary CollectCustomsTradeModifierSummary(
+        CWorld* World)
+    {
+        FCustomsTradeModifierSummary Result;
+
+        if (!World)
+            return Result;
+
+        std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+        if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+            return Result;
+
+        for (size_t Index = 0; Index < BuildingList.size(); ++Index)
+        {
+            auto Building = BuildingList[Index].lock();
+
+            if (!Building ||
+                !Building->GetAlive() ||
+                !Building->GetEnable() ||
+                !Building->HasPlacedArea() ||
+                Building->GetBuildingId() != "build_8_13")
+            {
+                continue;
+            }
+
+            const int ExportModifier =
+                Building->GetTradeRouteExportPriceModifierPercent();
+
+            if (ExportModifier > 0)
+            {
+                Result.ExportPricePercent = (std::max)(
+                    Result.ExportPricePercent,
+                    ExportModifier);
+            }
+            else if (Result.ExportPricePercent <= 0)
+            {
+                Result.ExportPricePercent = (std::min)(
+                    Result.ExportPricePercent,
+                    ExportModifier);
+            }
+
+            const int ImportModifier =
+                Building->GetTradeRouteImportPriceModifierPercent();
+
+            if (ImportModifier < 0)
+            {
+                Result.ImportPricePercent = (std::min)(
+                    Result.ImportPricePercent,
+                    ImportModifier);
+            }
+            else if (Result.ImportPricePercent >= 0)
+            {
+                Result.ImportPricePercent = (std::max)(
+                    Result.ImportPricePercent,
+                    ImportModifier);
+            }
+        }
+
+        return Result;
     }
 
     enum class EPowerPriorityBand
@@ -497,6 +1663,181 @@ namespace
             1.0);
     }
 
+    double GetWorldCrisisPrimaryRisk(
+        EWorldCrisisType Type,
+        const FWorldCrisisPressureSnapshot& Pressure)
+    {
+        switch (Type)
+        {
+        case EWorldCrisisType::Raid:
+            return Pressure.RaidRisk;
+        case EWorldCrisisType::LaborStrike:
+            return Pressure.LaborStrikeRisk;
+        case EWorldCrisisType::CrimeWave:
+            return Pressure.CrimeWaveRisk;
+        case EWorldCrisisType::FiscalEmergency:
+            return Pressure.FiscalEmergencyRisk;
+        case EWorldCrisisType::None:
+        default:
+            return 0.0;
+        }
+    }
+
+    long long ResolveWorldCrisisImmediateBudgetDelta(
+        EWorldCrisisType Type,
+        double Risk)
+    {
+        switch (Type)
+        {
+        case EWorldCrisisType::Raid:
+            return
+                -(900LL + static_cast<long long>(llround(1600.0 * Risk)));
+        case EWorldCrisisType::LaborStrike:
+            return
+                -(250LL + static_cast<long long>(llround(500.0 * Risk)));
+        case EWorldCrisisType::CrimeWave:
+            return
+                -(700LL + static_cast<long long>(llround(1200.0 * Risk)));
+        case EWorldCrisisType::FiscalEmergency:
+            return
+                -(1600LL + static_cast<long long>(llround(2600.0 * Risk)));
+        case EWorldCrisisType::None:
+        default:
+            return 0;
+        }
+    }
+
+    EWorldCrisisType ResolveWorldCrisisFollowupType(
+        EWorldCrisisType CurrentType,
+        const FWorldCrisisPressureSnapshot& Pressure,
+        bool Failure)
+    {
+        auto SelectHigherRisk = [&](EWorldCrisisType A, EWorldCrisisType B)
+        {
+            return GetWorldCrisisPrimaryRisk(A, Pressure) >=
+                GetWorldCrisisPrimaryRisk(B, Pressure) ?
+                A :
+                B;
+        };
+
+        switch (CurrentType)
+        {
+        case EWorldCrisisType::Raid:
+            return SelectHigherRisk(
+                EWorldCrisisType::CrimeWave,
+                EWorldCrisisType::FiscalEmergency);
+        case EWorldCrisisType::LaborStrike:
+            return Failure ?
+                SelectHigherRisk(
+                    EWorldCrisisType::FiscalEmergency,
+                    EWorldCrisisType::CrimeWave) :
+                SelectHigherRisk(
+                    EWorldCrisisType::CrimeWave,
+                    EWorldCrisisType::FiscalEmergency);
+        case EWorldCrisisType::CrimeWave:
+            return SelectHigherRisk(
+                EWorldCrisisType::Raid,
+                EWorldCrisisType::FiscalEmergency);
+        case EWorldCrisisType::FiscalEmergency:
+            return SelectHigherRisk(
+                EWorldCrisisType::LaborStrike,
+                EWorldCrisisType::CrimeWave);
+        case EWorldCrisisType::None:
+        default:
+            return EWorldCrisisType::None;
+        }
+    }
+
+    double ResolveWorldCrisisFollowupRisk(
+        EWorldCrisisType CurrentType,
+        const FWorldCrisisPressureSnapshot& Pressure,
+        double Severity,
+        bool Failure)
+    {
+        const EWorldCrisisType FollowupType =
+            ResolveWorldCrisisFollowupType(CurrentType, Pressure, Failure);
+
+        if (FollowupType == EWorldCrisisType::None)
+            return 0.0;
+
+        const double BaseRisk =
+            GetWorldCrisisPrimaryRisk(FollowupType, Pressure);
+        const double Carryover =
+            (Failure ? 0.18 : 0.06) + Severity * 0.18;
+
+        return Clamp<double>(BaseRisk + Carryover, 0.0, 1.0);
+    }
+
+    std::wstring BuildWorldCrisisFollowupSummary(
+        EWorldCrisisType Type,
+        double Risk,
+        int DelayDays)
+    {
+        if (Type == EWorldCrisisType::None || Risk <= 0.0)
+            return std::wstring();
+
+        std::wstring Result =
+            L" / 후속 위기 징후: " +
+            std::wstring(GetWorldCrisisTitle(Type)) +
+            L" " +
+            std::to_wstring(
+                static_cast<int>(llround(Clamp<double>(Risk, 0.0, 1.0) * 100.0))) +
+            L"%";
+
+        if (DelayDays > 0)
+        {
+            Result +=
+                L" (" +
+                std::to_wstring(DelayDays) +
+                L"일 내)";
+        }
+
+        return Result;
+    }
+
+    void ApplyWorldCrisisPressureTransfer(
+        EWorldCrisisType Type,
+        double Severity,
+        bool Failure,
+        int& InOutRaidPressureDays,
+        int& InOutLaborStrikePressureDays,
+        int& InOutCrimeWavePressureDays,
+        int& InOutFiscalEmergencyPressureDays)
+    {
+        const int LightPressure = Severity >= 0.35 ? 1 : 0;
+        const int HeavyPressure = Severity >= 0.72 ? 1 : 0;
+        const int FailureBonus = Failure ? 1 : 0;
+
+        switch (Type)
+        {
+        case EWorldCrisisType::Raid:
+            InOutCrimeWavePressureDays += 1 + LightPressure + FailureBonus;
+            InOutFiscalEmergencyPressureDays +=
+                LightPressure + HeavyPressure + FailureBonus;
+            break;
+        case EWorldCrisisType::LaborStrike:
+            InOutFiscalEmergencyPressureDays +=
+                1 + LightPressure + FailureBonus;
+            InOutCrimeWavePressureDays +=
+                LightPressure + HeavyPressure + FailureBonus;
+            break;
+        case EWorldCrisisType::CrimeWave:
+            InOutRaidPressureDays += 1 + LightPressure + FailureBonus;
+            InOutFiscalEmergencyPressureDays +=
+                LightPressure + HeavyPressure + FailureBonus;
+            break;
+        case EWorldCrisisType::FiscalEmergency:
+            InOutLaborStrikePressureDays +=
+                1 + LightPressure + FailureBonus;
+            InOutCrimeWavePressureDays +=
+                LightPressure + HeavyPressure + FailureBonus;
+            break;
+        case EWorldCrisisType::None:
+        default:
+            break;
+        }
+    }
+
     FWorldCrisisPressureSnapshot BuildWorldCrisisPressureSnapshot(
         const WorldStats::FWorldStatsSnapshot& Snapshot,
         const FPoliticalWorldSnapshot& PoliticalSnapshot,
@@ -521,14 +1862,29 @@ namespace
             static_cast<double>(Snapshot.HomelessCount) / CitizenCount;
         const double SecurityCollapse =
             NormalizeShortfall(Snapshot.AverageSecurity, 58.0, 30.0);
+        const double ResidentialSecurityCollapse =
+            NormalizeShortfall(
+                Snapshot.AverageResidentialSecurity,
+                56.0,
+                26.0);
         const double FreedomCollapse =
             NormalizeShortfall(Snapshot.AverageFreedom, 56.0, 28.0);
+        const double ResidentialFreedomCollapse =
+            NormalizeShortfall(
+                Snapshot.AverageResidentialFreedom,
+                54.0,
+                24.0);
         const double JobStress =
             NormalizeShortfall(Snapshot.AverageJob, 56.0, 32.0);
         const double FoodStress =
             NormalizeShortfall(Snapshot.AverageFood, 54.0, 28.0);
         const double HousingStress =
             NormalizeShortfall(Snapshot.AverageHousing, 54.0, 28.0);
+        const double ResidentialPollutionStress =
+            NormalizeOverflow(
+                Snapshot.AverageResidentialPollution,
+                28.0,
+                68.0);
         const double BudgetDeficit =
             NationalBudget < 0 ?
                 NormalizeOverflow(
@@ -559,11 +1915,14 @@ namespace
         Result.HomelessRatio = Clamp<double>(HomelessRatio, 0.0, 1.0);
 
         Result.RaidRisk = Clamp<double>(
-            SecurityCollapse * 0.34 +
-            FreedomCollapse * 0.22 +
-            Result.OppositionRatio * 0.22 +
-            FoodStress * 0.12 +
-            HousingStress * 0.10 -
+            SecurityCollapse * 0.26 +
+            ResidentialSecurityCollapse * 0.14 +
+            FreedomCollapse * 0.14 +
+            ResidentialFreedomCollapse * 0.08 +
+            Result.OppositionRatio * 0.20 +
+            FoodStress * 0.08 +
+            HousingStress * 0.06 +
+            ResidentialPollutionStress * 0.04 -
             (Result.MartialLawActive ? 0.12 : 0.0),
             0.0,
             1.0);
@@ -581,11 +1940,13 @@ namespace
             1.0);
 
         Result.CrimeWaveRisk = Clamp<double>(
-            SecurityCollapse * 0.42 +
-            Result.HomelessRatio * 0.18 +
-            Result.UnemploymentRatio * 0.16 +
-            HousingStress * 0.12 +
-            NetLossPressure * 0.12 -
+            SecurityCollapse * 0.28 +
+            ResidentialSecurityCollapse * 0.18 +
+            Result.HomelessRatio * 0.14 +
+            Result.UnemploymentRatio * 0.12 +
+            HousingStress * 0.10 +
+            ResidentialPollutionStress * 0.10 +
+            NetLossPressure * 0.08 -
             (Result.MartialLawActive ? 0.10 : 0.0),
             0.0,
             1.0);
@@ -594,6 +1955,7 @@ namespace
             BudgetDeficit * 0.42 +
             NetLossPressure * 0.26 +
             TaxCollectionBreakdown * 0.20 +
+            ResidentialPollutionStress * 0.04 +
             (TaxEventStatus.Active &&
                 TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis ?
                     0.08 :
@@ -629,11 +1991,12 @@ namespace
         int& InOutRaidPressureDays,
         int& InOutLaborStrikePressureDays,
         int& InOutCrimeWavePressureDays,
-        int& InOutFiscalEmergencyPressureDays)
+        int& InOutFiscalEmergencyPressureDays,
+        bool IgnoreCooldown)
     {
         if (Type == EWorldCrisisType::None ||
             InOutStatus.Active ||
-            InOutStatus.CooldownDays > 0)
+            (!IgnoreCooldown && InOutStatus.CooldownDays > 0))
         {
             return;
         }
@@ -895,6 +2258,110 @@ void CMainWorld::InitializeElectionSchedule()
         MainWorldConfig::GElectionDay);
 }
 
+void CMainWorld::TickElectionPromises()
+{
+    if (mElectionStatus.GameLost)
+        return;
+
+    auto World = mSelf.lock();
+
+    if (!World)
+        return;
+
+    const WorldStats::FWorldStatsSnapshot Snapshot =
+        WorldStats::BuildSnapshot(World);
+
+    for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+    {
+        FElectionPromiseState& Promise =
+            mElectionStatus.ActivePromises[static_cast<size_t>(Index)];
+
+        if (!Promise.Active)
+            continue;
+
+        Promise.CurrentValue =
+            EvaluateElectionPromiseCurrentValue(
+                Promise,
+                Snapshot,
+                mLastDailyExportIncome);
+    }
+
+    const int DaysUntilElection = GetDaysUntilNextElection();
+
+    if (DaysUntilElection <= 0 ||
+        DaysUntilElection > GCampaignPromiseLeadDays ||
+        mElectionStatus.CampaignPromisesIssued ||
+        CountActiveElectionPromises(mElectionStatus) > 0)
+    {
+        return;
+    }
+
+    static const EElectionPromiseType GPromiseTypes[] =
+    {
+        EElectionPromiseType::Housing,
+        EElectionPromiseType::Food,
+        EElectionPromiseType::Health,
+        EElectionPromiseType::Job,
+        EElectionPromiseType::Freedom,
+        EElectionPromiseType::Security,
+        EElectionPromiseType::Faith,
+        EElectionPromiseType::ExportIncome
+    };
+
+    std::vector<FElectionPromiseCandidate> Candidates;
+    Candidates.reserve(sizeof(GPromiseTypes) / sizeof(GPromiseTypes[0]));
+
+    for (EElectionPromiseType Type : GPromiseTypes)
+    {
+        FElectionPromiseCandidate Candidate;
+        Candidate.Promise =
+            BuildElectionPromiseState(Type, Snapshot, mLastDailyExportIncome);
+        Candidate.Priority =
+            EvaluateElectionPromisePriority(
+                Type,
+                Snapshot,
+                mLastDailyExportIncome);
+        Candidates.push_back(Candidate);
+    }
+
+    std::sort(
+        Candidates.begin(),
+        Candidates.end(),
+        [](const FElectionPromiseCandidate& A,
+            const FElectionPromiseCandidate& B)
+        {
+            if (A.Priority != B.Priority)
+                return A.Priority > B.Priority;
+
+            return A.Promise.Title < B.Promise.Title;
+        });
+
+    mElectionStatus.ActivePromises = {};
+
+    for (int Index = 0;
+        Index < GElectionPromiseCount &&
+            Index < static_cast<int>(Candidates.size());
+        ++Index)
+    {
+        mElectionStatus.ActivePromises[static_cast<size_t>(Index)] =
+            Candidates[static_cast<size_t>(Index)].Promise;
+    }
+
+    mElectionStatus.CampaignPromisesIssued =
+        CountActiveElectionPromises(mElectionStatus) > 0;
+
+    if (!mElectionStatus.CampaignPromisesIssued)
+        return;
+
+    mElectionStatus.PromiseIssueYear = mSimulationYear;
+    mElectionStatus.PromiseIssueMonth = mSimulationMonth;
+    mElectionStatus.PromiseIssueDay = mSimulationDay;
+    mElectionStatus.HasPromiseEvaluation = false;
+    mElectionStatus.LastPromiseMetCount = 0;
+    mElectionStatus.LastPromiseFailedCount = 0;
+    mElectionStatus.LastPromiseVoteModifierPercent = 0;
+}
+
 void CMainWorld::ResolveScheduledElection()
 {
     RefreshPoliticalSnapshot();
@@ -981,6 +2448,13 @@ void CMainWorld::RecordFinishedTradeRoute(
         ResolveTradeRouteSecondaryRelationModifier(Route, EndReason);
     Record.StandingModifier =
         ResolveTradeRouteStandingModifier(Route, EndReason);
+    ApplyTradeRouteCompletionState(
+        mForeignPowerStandingStates[static_cast<size_t>(
+            TradeDiplomacyRuntime::ClampInt(
+                Route.ForeignPowerIndex,
+                0,
+                TradeDiplomacyRuntime::GForeignPowerCount - 1))],
+        Record);
 
     mCompletedTradeRoutes.insert(mCompletedTradeRoutes.begin(), Record);
 
@@ -1187,6 +2661,49 @@ void CMainWorld::ProcessActiveTradeRoutes()
     }
 }
 
+void CMainWorld::RefreshForeignTradeDiplomacy(bool ApplyIdleDecay)
+{
+    auto World = mSelf.lock();
+
+    if (!World)
+    {
+        mForeignPowerStates = {};
+        return;
+    }
+
+    std::array<int, TradeDiplomacyRuntime::GForeignPowerCount> ActiveCounts = {};
+
+    for (size_t RouteIndex = 0; RouteIndex < mActiveTradeRoutes.size(); ++RouteIndex)
+    {
+        const int SafeIndex = TradeDiplomacyRuntime::ClampInt(
+            mActiveTradeRoutes[RouteIndex].ForeignPowerIndex,
+            0,
+            TradeDiplomacyRuntime::GForeignPowerCount - 1);
+        ++ActiveCounts[static_cast<size_t>(SafeIndex)];
+    }
+
+    for (int Index = 0;
+        Index < TradeDiplomacyRuntime::GForeignPowerCount;
+        ++Index)
+    {
+        auto& StandingState =
+            mForeignPowerStandingStates[static_cast<size_t>(Index)];
+        StandingState.ActiveContractCount =
+            ActiveCounts[static_cast<size_t>(Index)];
+
+        if (ApplyIdleDecay)
+            ApplyForeignPowerIdleDecay(StandingState);
+    }
+
+    mForeignPowerStates =
+        TradeDiplomacyRuntime::BuildForeignPowerWorldStates(
+            WorldStats::BuildSnapshot(World),
+            mGovernmentProfile,
+            mTaxEventStatus,
+            mGovernmentEdicts,
+            mForeignPowerStandingStates);
+}
+
 void CMainWorld::RefreshPowerGridCoverage()
 {
     auto World = mSelf.lock();
@@ -1296,6 +2813,7 @@ void CMainWorld::RefreshWorldMarketPrices()
         mGovernmentEdicts,
         mTaxEventStatus,
         mWorldCrisisStatus,
+        mForeignPowerStates,
         mSimulationYear,
         mSimulationMonth,
         mSimulationDay);
@@ -1318,7 +2836,9 @@ void CMainWorld::RefreshBuildingPollutionExposure()
         std::shared_ptr<CPlacementAreaObject> Building;
         int GridX = 0;
         int GridY = 0;
-        int NetInfluence = 0;
+        float PollutionInfluence = 0.f;
+        float FreedomInfluence = 0.f;
+        float SecurityInfluence = 0.f;
     };
 
     std::vector<FPollutionNode> PollutionNodes;
@@ -1346,14 +2866,54 @@ void CMainWorld::RefreshBuildingPollutionExposure()
         Node.Building = Building;
         Node.GridX = GridX;
         Node.GridY = GridY;
-        Node.NetInfluence =
-            Building->GetPollutionOutput() -
-            Building->GetPollutionMitigation();
+        const float OperationalScale =
+            ResolveOverlayOperationalScale(*Building);
+        Node.PollutionInfluence =
+            static_cast<float>(
+                Building->GetPollutionOutput() -
+                Building->GetPollutionMitigation()) *
+            OperationalScale;
+
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(Building->GetBuildingId());
+        if (Entry)
+        {
+            Node.FreedomInfluence =
+                ResolveFreedomInfluenceScore(*Entry) * OperationalScale;
+            Node.SecurityInfluence =
+                ResolveSecurityInfluenceScore(*Entry) * OperationalScale;
+        }
         PollutionNodes.push_back(std::move(Node));
     }
 
-    const float RadiusSq =
+    const float PollutionRadiusSq =
         GBuildingPollutionRadiusTiles * GBuildingPollutionRadiusTiles;
+    const float FreedomRadiusSq =
+        GBuildingFreedomRadiusTiles * GBuildingFreedomRadiusTiles;
+    const float SecurityRadiusSq =
+        GBuildingSecurityRadiusTiles * GBuildingSecurityRadiusTiles;
+
+    auto ComputeWeight = [](
+        const FPollutionNode& TargetNode,
+        const FPollutionNode& SourceNode,
+        float RadiusTiles,
+        float RadiusSq) -> float
+    {
+        if (RadiusTiles <= 0.f)
+            return 0.f;
+
+        const float dx =
+            static_cast<float>(TargetNode.GridX - SourceNode.GridX);
+        const float dy =
+            static_cast<float>(TargetNode.GridY - SourceNode.GridY);
+        const float DistanceSq = dx * dx + dy * dy;
+
+        if (DistanceSq > RadiusSq)
+            return 0.f;
+
+        const float Distance = DistanceSq > 0.f ? std::sqrt(DistanceSq) : 0.f;
+        return (std::max)(0.f, 1.f - Distance / RadiusTiles);
+    };
 
     for (size_t TargetIndex = 0;
         TargetIndex < PollutionNodes.size();
@@ -1361,39 +2921,68 @@ void CMainWorld::RefreshBuildingPollutionExposure()
     {
         FPollutionNode& TargetNode = PollutionNodes[TargetIndex];
         float TotalExposure = 0.f;
+        float TotalFreedom = 0.f;
+        float TotalSecurity = 0.f;
 
         for (size_t SourceIndex = 0;
             SourceIndex < PollutionNodes.size();
             ++SourceIndex)
         {
             const FPollutionNode& SourceNode = PollutionNodes[SourceIndex];
+            const float PollutionWeight = ComputeWeight(
+                TargetNode,
+                SourceNode,
+                GBuildingPollutionRadiusTiles,
+                PollutionRadiusSq);
+            if (PollutionWeight > 0.f && SourceNode.PollutionInfluence != 0.f)
+            {
+                TotalExposure +=
+                    SourceNode.PollutionInfluence * PollutionWeight;
+            }
 
-            if (SourceNode.NetInfluence == 0)
-                continue;
+            const float FreedomWeight = ComputeWeight(
+                TargetNode,
+                SourceNode,
+                GBuildingFreedomRadiusTiles,
+                FreedomRadiusSq);
+            if (FreedomWeight > 0.f && SourceNode.FreedomInfluence != 0.f)
+            {
+                TotalFreedom += SourceNode.FreedomInfluence * FreedomWeight;
+            }
 
-            const float dx =
-                static_cast<float>(TargetNode.GridX - SourceNode.GridX);
-            const float dy =
-                static_cast<float>(TargetNode.GridY - SourceNode.GridY);
-            const float DistanceSq = dx * dx + dy * dy;
-
-            if (DistanceSq > RadiusSq)
-                continue;
-
-            const float Distance =
-                DistanceSq > 0.f ? std::sqrt(DistanceSq) : 0.f;
-            const float Weight =
-                (std::max)(
-                    0.f,
-                    1.f - Distance / GBuildingPollutionRadiusTiles);
-            TotalExposure +=
-                static_cast<float>(SourceNode.NetInfluence) * Weight;
+            const float SecurityWeight = ComputeWeight(
+                TargetNode,
+                SourceNode,
+                GBuildingSecurityRadiusTiles,
+                SecurityRadiusSq);
+            if (SecurityWeight > 0.f &&
+                (SourceNode.SecurityInfluence != 0.f ||
+                    SourceNode.PollutionInfluence > 0.f))
+            {
+                TotalSecurity +=
+                    (SourceNode.SecurityInfluence -
+                        (std::max)(0.f, SourceNode.PollutionInfluence) *
+                            GSecurityPollutionPenaltyWeight) *
+                    SecurityWeight;
+            }
         }
 
         TargetNode.Building->SetLocalPollutionExposure(
             (std::max)(
                 0,
                 (std::min)(100, static_cast<int>(roundf(TotalExposure)))));
+        TargetNode.Building->SetLocalFreedomSupport(
+            (std::max)(
+                -100,
+                (std::min)(
+                    100,
+                    static_cast<int>(roundf(TotalFreedom * 2.2f)))));
+        TargetNode.Building->SetLocalSecuritySupport(
+            (std::max)(
+                -100,
+                (std::min)(
+                    100,
+                    static_cast<int>(roundf(TotalSecurity * 2.0f)))));
     }
 }
 
@@ -1404,6 +2993,8 @@ void CMainWorld::RefreshRuntimeBuildingState()
     ReassignCitizenNeeds();
     RefreshEraProgress();
     RefreshPoliticalSnapshot();
+    RefreshForeignTradeDiplomacy(false);
+    RefreshWorldMarketPrices();
 }
 
 bool CMainWorld::TryApplyEdict(
@@ -1482,6 +3073,8 @@ bool CMainWorld::TryApplyEdict(
             false);
         RefreshEdictModifiers();
         RefreshPoliticalSnapshot();
+        RefreshForeignTradeDiplomacy(false);
+        RefreshWorldMarketPrices();
         OutMessage = Definition->DisplayName + L" 해제";
         return true;
     }
@@ -1572,6 +3165,8 @@ bool CMainWorld::TryApplyEdict(
         true);
     RefreshEdictModifiers();
     RefreshPoliticalSnapshot();
+    RefreshForeignTradeDiplomacy(false);
+    RefreshWorldMarketPrices();
 
     OutMessage = Definition->DisplayName + L" 시행";
 
@@ -1589,11 +3184,19 @@ bool CMainWorld::AdjustTaxPolicy(
     int DeltaPercent,
     std::wstring& OutMessage)
 {
-    return EconomySystem::AdjustTaxPolicy(
+    const bool Adjusted = EconomySystem::AdjustTaxPolicy(
         mGovernmentProfile.TaxPolicy,
         Type,
         DeltaPercent,
         OutMessage);
+
+    if (Adjusted)
+    {
+        RefreshForeignTradeDiplomacy(false);
+        RefreshWorldMarketPrices();
+    }
+
+    return Adjusted;
 }
 
 bool CMainWorld::CycleAutoImportResource(
@@ -1722,7 +3325,12 @@ bool CMainWorld::ExecuteTradeProposal(
             ResourceType,
             ImportRoute);
     mActiveTradeRoutes.push_back(Route);
+    ApplyTradeRouteActivationState(
+        mForeignPowerStandingStates[static_cast<size_t>(
+            Route.ForeignPowerIndex)],
+        Route);
 
+    RefreshForeignTradeDiplomacy(false);
     RefreshWorldMarketPrices();
     RefreshPoliticalSnapshot();
     OutMessage =
@@ -1760,6 +3368,7 @@ bool CMainWorld::CancelTradeRoute(
 
     RecordFinishedTradeRoute(*RouteIt, ETradeRouteEndReason::Cancelled);
     mActiveTradeRoutes.erase(RouteIt);
+    RefreshForeignTradeDiplomacy(false);
     RefreshWorldMarketPrices();
     RefreshPoliticalSnapshot();
     OutMessage =
@@ -1768,6 +3377,194 @@ bool CMainWorld::CancelTradeRoute(
         ResourceName +
         L" 무역 계약 취소";
     return true;
+}
+
+bool CMainWorld::RespondPoliticalDemand(
+    EPoliticalDemandIssuerType IssuerType,
+    int IssuerIndex,
+    bool Accept,
+    std::wstring& OutMessage)
+{
+    auto World = mSelf.lock();
+
+    if (!World)
+    {
+        OutMessage = L"월드 상태를 확인할 수 없습니다.";
+        return false;
+    }
+
+    FPoliticalDemandState* Demand = nullptr;
+    int* CooldownDays = nullptr;
+    const int SafeFactionIndex =
+        (std::max)(0, (std::min)(GPoliticalFactionCount - 1, IssuerIndex));
+    const int SafeForeignIndex =
+        (std::max)(
+            0,
+            (std::min)(TradeDiplomacyRuntime::GForeignPowerCount - 1, IssuerIndex));
+
+    switch (IssuerType)
+    {
+    case EPoliticalDemandIssuerType::Faction:
+        Demand = &mFactionDemands[static_cast<size_t>(SafeFactionIndex)];
+        CooldownDays =
+            &mFactionDemandCooldownDays[static_cast<size_t>(SafeFactionIndex)];
+        break;
+    case EPoliticalDemandIssuerType::ForeignPower:
+        Demand = &mForeignPowerDemands[static_cast<size_t>(SafeForeignIndex)];
+        CooldownDays =
+            &mForeignDemandCooldownDays[static_cast<size_t>(SafeForeignIndex)];
+        break;
+    case EPoliticalDemandIssuerType::None:
+    default:
+        OutMessage = L"요구 발신자를 확인할 수 없습니다.";
+        return false;
+    }
+
+    if (!Demand || !Demand->Active)
+    {
+        OutMessage = L"현재 응답할 수 있는 요구가 없습니다.";
+        return false;
+    }
+
+    const WorldStats::FWorldStatsSnapshot Snapshot =
+        WorldStats::BuildSnapshot(World);
+
+    auto ApplyFactionModifier =
+        [&](int FactionIndex, int Delta, int DurationDays)
+        {
+            if (Delta == 0 ||
+                FactionIndex < 0 ||
+                FactionIndex >= GPoliticalFactionCount)
+            {
+                return;
+            }
+
+            int& Modifier =
+                mGovernmentProfile.FactionApprovalModifiers[
+                    static_cast<size_t>(FactionIndex)];
+            Modifier = (std::max)(-25, (std::min)(25, Modifier + Delta));
+            mFactionDemandModifierDays[static_cast<size_t>(FactionIndex)] =
+                (std::max)(
+                    mFactionDemandModifierDays[
+                        static_cast<size_t>(FactionIndex)],
+                    (std::max)(1, DurationDays));
+        };
+
+    auto ApplyDemandOutcome =
+        [&](bool Success, const wchar_t* StatusLabel)
+        {
+            const long long BudgetDelta =
+                Success ? Demand->RewardBudgetDelta : Demand->PenaltyBudgetDelta;
+            const int FactionApprovalDelta =
+                Success ?
+                    Demand->RewardFactionApprovalDelta :
+                    Demand->PenaltyFactionApprovalDelta;
+            const int RelationDelta =
+                Success ?
+                    Demand->RewardForeignRelationDelta :
+                    Demand->PenaltyForeignRelationDelta;
+            const int StandingDelta =
+                Success ?
+                    Demand->RewardForeignStandingDelta :
+                    Demand->PenaltyForeignStandingDelta;
+
+            ApplyPoliticalDemandBudgetDelta(
+                BudgetDelta,
+                mNationalBudget,
+                mLastDailyNetChange);
+
+            if (Demand->IssuerType == EPoliticalDemandIssuerType::Faction)
+            {
+                ApplyFactionModifier(
+                    Demand->IssuerIndex,
+                    FactionApprovalDelta,
+                    Demand->ModifierDurationDays > 0 ?
+                        Demand->ModifierDurationDays :
+                        GFactionDemandModifierDurationDays);
+            }
+            else if (Demand->IssuerType == EPoliticalDemandIssuerType::ForeignPower &&
+                Demand->IssuerIndex >= 0 &&
+                Demand->IssuerIndex < TradeDiplomacyRuntime::GForeignPowerCount)
+            {
+                ApplyForeignDemandStandingDelta(
+                    mForeignPowerStandingStates[
+                        static_cast<size_t>(Demand->IssuerIndex)],
+                    RelationDelta,
+                    StandingDelta);
+            }
+
+            if (CooldownDays)
+            {
+                *CooldownDays =
+                    Demand->IssuerType == EPoliticalDemandIssuerType::Faction ?
+                        GFactionDemandCooldownDays :
+                        GForeignDemandCooldownDays;
+            }
+
+            SetPoliticalDemandResolutionNotice(
+                mPoliticalDemandNotice,
+                *Demand,
+                Success,
+                StatusLabel);
+            *Demand = FPoliticalDemandState();
+            RefreshPoliticalSnapshot();
+            RefreshForeignTradeDiplomacy(false);
+            RefreshWorldMarketPrices();
+        };
+
+    if (!Accept)
+    {
+        const std::wstring DemandTitle = Demand->Title;
+        ApplyDemandOutcome(
+            false,
+            Demand->Status == EPoliticalDemandStatus::Accepted ?
+                L"요구 포기" :
+                L"요구 거절");
+        OutMessage =
+            DemandTitle.empty() ?
+                L"요구를 거절했습니다." :
+                DemandTitle + L" 거절";
+        return true;
+    }
+
+    if (Demand->Status == EPoliticalDemandStatus::Accepted)
+    {
+        OutMessage = L"이미 수락한 요구입니다.";
+        return false;
+    }
+
+    Demand->Status = EPoliticalDemandStatus::Accepted;
+    Demand->CurrentValue = EvaluatePoliticalDemandCurrentValue(
+        *Demand,
+        Snapshot,
+        mGovernmentProfile,
+        mLastDailyExportIncome,
+        mForeignPowerStates,
+        mActiveTradeRoutes);
+    OutMessage = Demand->Title + L" 수락";
+
+    if (IsPoliticalDemandSatisfied(*Demand))
+    {
+        ApplyDemandOutcome(true, L"요구 완료");
+        OutMessage += L" / 즉시 완료";
+        return true;
+    }
+
+    mPoliticalDemandNotice =
+        BuildPriorityDemandNotice(mFactionDemands, mForeignPowerDemands);
+    return true;
+}
+
+int CMainWorld::GetCustomsExportTradePriceModifierPercent() const
+{
+    return CollectCustomsTradeModifierSummary(
+        const_cast<CMainWorld*>(this)).ExportPricePercent;
+}
+
+int CMainWorld::GetCustomsImportTradePriceModifierPercent() const
+{
+    return CollectCustomsTradeModifierSummary(
+        const_cast<CMainWorld*>(this)).ImportPricePercent;
 }
 
 const FGovernmentEdictState* CMainWorld::GetGovernmentEdictState(
@@ -1818,7 +3615,11 @@ void CMainWorld::TickGovernmentEdicts()
     }
 
     if (ModifiersChanged)
+    {
         RefreshEdictModifiers();
+        RefreshPoliticalSnapshot();
+        RefreshForeignTradeDiplomacy(false);
+    }
 }
 
 void CMainWorld::RefreshEdictModifiers()
@@ -1826,6 +3627,8 @@ void CMainWorld::RefreshEdictModifiers()
     mEdictModifiers = EdictSystem::CalculateEdictModifiers(
         mGovernmentEdicts,
         mPoliticalSnapshot.ActiveCitizenCount);
+    mGovernmentProfile.EdictFactionApprovalModifiers =
+        mEdictModifiers.FactionApprovalModifiers;
     RefreshWorldMarketPrices();
 }
 
@@ -1852,6 +3655,8 @@ void CMainWorld::ApplyDailyWorldCrisisEffects()
     }
 
     const double Severity = GetWorldCrisisSeverity(mWorldCrisisStatus);
+    const double ChainIntensity =
+        1.0 + static_cast<double>(mActiveWorldCrisisChainDepth) * 0.14;
     auto World = mSelf.lock();
 
     if (World)
@@ -1872,33 +3677,54 @@ void CMainWorld::ApplyDailyWorldCrisisEffects()
             switch (mWorldCrisisStatus.Type)
             {
             case EWorldCrisisType::Raid:
-                FoodDelta = -0.35f - static_cast<float>(0.55 * Severity);
-                FunDelta = -0.45f - static_cast<float>(0.45 * Severity);
-                HousingDelta = -0.30f - static_cast<float>(0.40 * Severity);
-                JobDelta = -0.70f - static_cast<float>(0.90 * Severity);
-                FreedomDelta = -0.20f - static_cast<float>(0.30 * Severity);
-                SecurityDelta = -2.20f - static_cast<float>(2.80 * Severity);
+                FoodDelta = static_cast<float>(
+                    (-0.35 - 0.55 * Severity) * ChainIntensity);
+                FunDelta = static_cast<float>(
+                    (-0.45 - 0.45 * Severity) * ChainIntensity);
+                HousingDelta = static_cast<float>(
+                    (-0.30 - 0.40 * Severity) * ChainIntensity);
+                JobDelta = static_cast<float>(
+                    (-0.70 - 0.90 * Severity) * ChainIntensity);
+                FreedomDelta = static_cast<float>(
+                    (-0.20 - 0.30 * Severity) * ChainIntensity);
+                SecurityDelta = static_cast<float>(
+                    (-2.20 - 2.80 * Severity) * ChainIntensity);
                 break;
             case EWorldCrisisType::LaborStrike:
-                FunDelta = -0.30f - static_cast<float>(0.35 * Severity);
-                JobDelta = -1.40f - static_cast<float>(1.60 * Severity);
-                FreedomDelta = 0.08f;
-                SecurityDelta = -0.80f - static_cast<float>(0.90 * Severity);
+                FunDelta = static_cast<float>(
+                    (-0.30 - 0.35 * Severity) * ChainIntensity);
+                JobDelta = static_cast<float>(
+                    (-1.40 - 1.60 * Severity) * ChainIntensity);
+                FreedomDelta =
+                    0.08f + static_cast<float>(0.02 * mActiveWorldCrisisChainDepth);
+                SecurityDelta = static_cast<float>(
+                    (-0.80 - 0.90 * Severity) * ChainIntensity);
                 break;
             case EWorldCrisisType::CrimeWave:
-                FunDelta = -0.35f - static_cast<float>(0.30 * Severity);
-                HousingDelta = -0.55f - static_cast<float>(0.45 * Severity);
-                JobDelta = -0.60f - static_cast<float>(0.55 * Severity);
-                FreedomDelta = -0.30f - static_cast<float>(0.30 * Severity);
-                SecurityDelta = -2.60f - static_cast<float>(2.60 * Severity);
+                FunDelta = static_cast<float>(
+                    (-0.35 - 0.30 * Severity) * ChainIntensity);
+                HousingDelta = static_cast<float>(
+                    (-0.55 - 0.45 * Severity) * ChainIntensity);
+                JobDelta = static_cast<float>(
+                    (-0.60 - 0.55 * Severity) * ChainIntensity);
+                FreedomDelta = static_cast<float>(
+                    (-0.30 - 0.30 * Severity) * ChainIntensity);
+                SecurityDelta = static_cast<float>(
+                    (-2.60 - 2.60 * Severity) * ChainIntensity);
                 break;
             case EWorldCrisisType::FiscalEmergency:
-                FoodDelta = -0.35f - static_cast<float>(0.40 * Severity);
-                FunDelta = -0.45f - static_cast<float>(0.40 * Severity);
-                HousingDelta = -0.40f - static_cast<float>(0.40 * Severity);
-                JobDelta = -0.90f - static_cast<float>(1.00 * Severity);
-                FreedomDelta = -0.18f - static_cast<float>(0.18 * Severity);
-                SecurityDelta = -0.60f - static_cast<float>(0.70 * Severity);
+                FoodDelta = static_cast<float>(
+                    (-0.35 - 0.40 * Severity) * ChainIntensity);
+                FunDelta = static_cast<float>(
+                    (-0.45 - 0.40 * Severity) * ChainIntensity);
+                HousingDelta = static_cast<float>(
+                    (-0.40 - 0.40 * Severity) * ChainIntensity);
+                JobDelta = static_cast<float>(
+                    (-0.90 - 1.00 * Severity) * ChainIntensity);
+                FreedomDelta = static_cast<float>(
+                    (-0.18 - 0.18 * Severity) * ChainIntensity);
+                SecurityDelta = static_cast<float>(
+                    (-0.60 - 0.70 * Severity) * ChainIntensity);
                 break;
             case EWorldCrisisType::None:
             default:
@@ -1961,7 +3787,7 @@ void CMainWorld::ApplyDailyWorldCrisisEffects()
             ApplyRaidResourceTheft(World.get(), TargetAmount);
         const long long BudgetDamage =
             -(1200LL +
-                static_cast<long long>(llround(1800.0 * Severity)) +
+                static_cast<long long>(llround(1800.0 * Severity * ChainIntensity)) +
                 static_cast<long long>(StolenAmount) * 42LL);
         ApplyBudgetDelta(BudgetDamage);
         break;
@@ -1969,13 +3795,13 @@ void CMainWorld::ApplyDailyWorldCrisisEffects()
     case EWorldCrisisType::LaborStrike:
         ApplyBudgetDelta(
             -(250LL +
-                static_cast<long long>(llround(550.0 * Severity))));
+                static_cast<long long>(llround(550.0 * Severity * ChainIntensity))));
         break;
     case EWorldCrisisType::CrimeWave:
         ApplyTaxLoss(mLastDailyPropertyTaxIncome, 0.08 + 0.12 * Severity);
         ApplyBudgetDelta(
             -(550LL +
-                static_cast<long long>(llround(1450.0 * Severity))));
+                static_cast<long long>(llround(1450.0 * Severity * ChainIntensity))));
         break;
     case EWorldCrisisType::FiscalEmergency:
         ApplyTaxLoss(mLastDailyConsumptionTaxIncome, 0.06 + 0.08 * Severity);
@@ -1983,7 +3809,7 @@ void CMainWorld::ApplyDailyWorldCrisisEffects()
         ApplyTaxLoss(mLastDailyPropertyTaxIncome, 0.05 + 0.08 * Severity);
         ApplyBudgetDelta(
             -(1200LL +
-                static_cast<long long>(llround(2600.0 * Severity))));
+                static_cast<long long>(llround(2600.0 * Severity * ChainIntensity))));
         break;
     case EWorldCrisisType::None:
     default:
@@ -2015,6 +3841,12 @@ void CMainWorld::TickWorldCrises()
     if (!mWorldCrisisStatus.Active && mWorldCrisisStatus.CooldownDays > 0)
         --mWorldCrisisStatus.CooldownDays;
 
+    if (mQueuedWorldCrisisType != EWorldCrisisType::None &&
+        mQueuedWorldCrisisDelayDays > 0)
+    {
+        --mQueuedWorldCrisisDelayDays;
+    }
+
     auto World = mSelf.lock();
 
     if (!World)
@@ -2032,13 +3864,57 @@ void CMainWorld::TickWorldCrises()
             mGovernmentEdicts,
             mGovernmentProfile.TaxPolicy,
             mTaxEventStatus);
+    auto ClearQueuedWorldCrisis = [&]()
+    {
+        mQueuedWorldCrisisType = EWorldCrisisType::None;
+        mQueuedWorldCrisisRisk = 0.0;
+        mQueuedWorldCrisisDelayDays = 0;
+        mQueuedWorldCrisisChainDepth = 0;
+    };
 
     if (mWorldCrisisStatus.Active)
     {
         ++mWorldCrisisStatus.DaysActive;
+        const double Severity = GetWorldCrisisSeverity(mWorldCrisisStatus);
+        const EWorldCrisisType FollowupType =
+            ResolveWorldCrisisFollowupType(
+                mWorldCrisisStatus.Type,
+                Pressure,
+                false);
+        const double FollowupRisk =
+            ResolveWorldCrisisFollowupRisk(
+                mWorldCrisisStatus.Type,
+                Pressure,
+                Severity,
+                false);
         mWorldCrisisStatus.Summary = BuildWorldCrisisWarningSummary(
             mWorldCrisisStatus.Type,
             mWorldCrisisStatus.DaysActive);
+
+        if (mActiveWorldCrisisChainDepth > 0)
+        {
+            mWorldCrisisStatus.Summary +=
+                L" / 연쇄 단계 " +
+                std::to_wstring(mActiveWorldCrisisChainDepth + 1);
+        }
+
+        if (mWorldCrisisStatus.DaysActive >= 2 && FollowupRisk >= 0.54)
+        {
+            mWorldCrisisStatus.Summary +=
+                BuildWorldCrisisFollowupSummary(
+                    FollowupType,
+                    FollowupRisk,
+                    2);
+        }
+
+        ApplyWorldCrisisPressureTransfer(
+            mWorldCrisisStatus.Type,
+            Severity,
+            false,
+            mRaidPressureDays,
+            mLaborStrikePressureDays,
+            mCrimeWavePressureDays,
+            mFiscalEmergencyPressureDays);
 
         if (mWorldCrisisStatus.RemainingDays > 0)
             --mWorldCrisisStatus.RemainingDays;
@@ -2087,11 +3963,102 @@ void CMainWorld::TickWorldCrises()
         if (CanResolveEarly && Recovered)
         {
             ResolveWorldCrisisState(mWorldCrisisStatus, true);
+            ClearQueuedWorldCrisis();
+            mActiveWorldCrisisChainDepth = 0;
             return;
         }
 
         if (mWorldCrisisStatus.RemainingDays <= 0)
+        {
+            const EWorldCrisisType QueuedType =
+                ResolveWorldCrisisFollowupType(
+                    mWorldCrisisStatus.Type,
+                    Pressure,
+                    true);
+            const double QueuedRisk =
+                ResolveWorldCrisisFollowupRisk(
+                    mWorldCrisisStatus.Type,
+                    Pressure,
+                    Severity,
+                    true);
+
+            if (QueuedType != EWorldCrisisType::None && QueuedRisk >= 0.48)
+            {
+                mQueuedWorldCrisisType = QueuedType;
+                mQueuedWorldCrisisRisk = QueuedRisk;
+                mQueuedWorldCrisisDelayDays =
+                    (std::max)(1, 3 - (std::min)(2, mActiveWorldCrisisChainDepth));
+                mQueuedWorldCrisisChainDepth =
+                    mActiveWorldCrisisChainDepth + 1;
+                ApplyWorldCrisisPressureTransfer(
+                    mWorldCrisisStatus.Type,
+                    Severity,
+                    true,
+                    mRaidPressureDays,
+                    mLaborStrikePressureDays,
+                    mCrimeWavePressureDays,
+                    mFiscalEmergencyPressureDays);
+            }
+            else
+            {
+                ClearQueuedWorldCrisis();
+            }
+
             ResolveWorldCrisisState(mWorldCrisisStatus, false);
+
+            if (mQueuedWorldCrisisType != EWorldCrisisType::None)
+            {
+                mWorldCrisisStatus.Summary +=
+                    BuildWorldCrisisFollowupSummary(
+                        mQueuedWorldCrisisType,
+                        mQueuedWorldCrisisRisk,
+                        mQueuedWorldCrisisDelayDays);
+            }
+
+            mActiveWorldCrisisChainDepth = 0;
+        }
+
+        return;
+    }
+
+    if (mQueuedWorldCrisisType != EWorldCrisisType::None &&
+        mQueuedWorldCrisisDelayDays <= 0)
+    {
+        const EWorldCrisisType QueuedType = mQueuedWorldCrisisType;
+        const double QueuedRisk =
+            Clamp<double>(mQueuedWorldCrisisRisk, 0.0, 1.0);
+        const int QueuedChainDepth = (std::max)(1, mQueuedWorldCrisisChainDepth);
+        const long long ImmediateBudgetDelta =
+            ResolveWorldCrisisImmediateBudgetDelta(
+                QueuedType,
+                QueuedRisk);
+
+        ClearQueuedWorldCrisis();
+        StartWorldCrisis(
+            mWorldCrisisStatus,
+            QueuedType,
+            mSimulationYear,
+            mSimulationMonth,
+            mSimulationDay,
+            ImmediateBudgetDelta,
+            mNationalBudget,
+            mLastDailyNetChange,
+            mRaidPressureDays,
+            mLaborStrikePressureDays,
+            mCrimeWavePressureDays,
+            mFiscalEmergencyPressureDays,
+            true);
+        mActiveWorldCrisisChainDepth = QueuedChainDepth;
+
+        if (mWorldCrisisStatus.Active && mActiveWorldCrisisChainDepth > 0)
+        {
+            mWorldCrisisStatus.Title +=
+                L" (연쇄 " +
+                std::to_wstring(mActiveWorldCrisisChainDepth + 1) +
+                L")";
+            mWorldCrisisStatus.Summary +=
+                L" / 이전 위기의 후폭풍이 이어지고 있습니다.";
+        }
 
         return;
     }
@@ -2165,31 +4132,10 @@ void CMainWorld::TickWorldCrises()
     if (NextType == EWorldCrisisType::None)
         return;
 
-    long long ImmediateBudgetDelta = 0;
+    const long long ImmediateBudgetDelta =
+        ResolveWorldCrisisImmediateBudgetDelta(NextType, NextRisk);
 
-    switch (NextType)
-    {
-    case EWorldCrisisType::Raid:
-        ImmediateBudgetDelta =
-            -(900LL + static_cast<long long>(llround(1600.0 * NextRisk)));
-        break;
-    case EWorldCrisisType::LaborStrike:
-        ImmediateBudgetDelta =
-            -(250LL + static_cast<long long>(llround(500.0 * NextRisk)));
-        break;
-    case EWorldCrisisType::CrimeWave:
-        ImmediateBudgetDelta =
-            -(700LL + static_cast<long long>(llround(1200.0 * NextRisk)));
-        break;
-    case EWorldCrisisType::FiscalEmergency:
-        ImmediateBudgetDelta =
-            -(1600LL + static_cast<long long>(llround(2600.0 * NextRisk)));
-        break;
-    case EWorldCrisisType::None:
-    default:
-        break;
-    }
-
+    ClearQueuedWorldCrisis();
     StartWorldCrisis(
         mWorldCrisisStatus,
         NextType,
@@ -2202,7 +4148,341 @@ void CMainWorld::TickWorldCrises()
         mRaidPressureDays,
         mLaborStrikePressureDays,
         mCrimeWavePressureDays,
-        mFiscalEmergencyPressureDays);
+        mFiscalEmergencyPressureDays,
+        false);
+    mActiveWorldCrisisChainDepth = 0;
+}
+
+void CMainWorld::TickPoliticalDemands()
+{
+    auto World = mSelf.lock();
+
+    if (!World)
+        return;
+
+    if (!mPoliticalDemandNotice.ActiveDemand &&
+        mPoliticalDemandNotice.RemainingDays > 0)
+    {
+        --mPoliticalDemandNotice.RemainingDays;
+
+        if (mPoliticalDemandNotice.RemainingDays <= 0)
+            mPoliticalDemandNotice = FPoliticalDemandNotice();
+    }
+
+    for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+    {
+        if (mFactionDemandCooldownDays[static_cast<size_t>(Index)] > 0)
+            --mFactionDemandCooldownDays[static_cast<size_t>(Index)];
+    }
+
+    for (int Index = 0;
+        Index < TradeDiplomacyRuntime::GForeignPowerCount;
+        ++Index)
+    {
+        if (mForeignDemandCooldownDays[static_cast<size_t>(Index)] > 0)
+            --mForeignDemandCooldownDays[static_cast<size_t>(Index)];
+    }
+
+    bool PoliticalRefreshNeeded = false;
+    bool ForeignRefreshNeeded = false;
+
+    for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+    {
+        int& RemainingDays =
+            mFactionDemandModifierDays[static_cast<size_t>(Index)];
+
+        if (RemainingDays <= 0)
+            continue;
+
+        --RemainingDays;
+
+        if (RemainingDays <= 0 &&
+            mGovernmentProfile.FactionApprovalModifiers[
+                static_cast<size_t>(Index)] != 0)
+        {
+            mGovernmentProfile.FactionApprovalModifiers[
+                static_cast<size_t>(Index)] = 0;
+            PoliticalRefreshNeeded = true;
+        }
+    }
+
+    const WorldStats::FWorldStatsSnapshot Snapshot =
+        WorldStats::BuildSnapshot(World);
+
+    const auto ApplyFactionModifier =
+        [&](int FactionIndex, int Delta, int DurationDays)
+        {
+            if (Delta == 0 ||
+                FactionIndex < 0 ||
+                FactionIndex >= GPoliticalFactionCount)
+            {
+                return;
+            }
+
+            int& Modifier =
+                mGovernmentProfile.FactionApprovalModifiers[
+                    static_cast<size_t>(FactionIndex)];
+            Modifier = (std::max)(-25, (std::min)(25, Modifier + Delta));
+            mFactionDemandModifierDays[static_cast<size_t>(FactionIndex)] =
+                (std::max)(
+                    mFactionDemandModifierDays[
+                        static_cast<size_t>(FactionIndex)],
+                    (std::max)(1, DurationDays));
+        };
+
+    for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+    {
+        FPoliticalDemandState& Demand =
+            mFactionDemands[static_cast<size_t>(Index)];
+
+        if (!Demand.Active)
+            continue;
+
+        Demand.CurrentValue = EvaluatePoliticalDemandCurrentValue(
+            Demand,
+            Snapshot,
+            mGovernmentProfile,
+            mLastDailyExportIncome,
+            mForeignPowerStates,
+            mActiveTradeRoutes);
+
+        if (Demand.Status == EPoliticalDemandStatus::Accepted &&
+            IsPoliticalDemandSatisfied(Demand))
+        {
+            ApplyPoliticalDemandBudgetDelta(
+                Demand.RewardBudgetDelta,
+                mNationalBudget,
+                mLastDailyNetChange);
+            ApplyFactionModifier(
+                Demand.IssuerIndex,
+                Demand.RewardFactionApprovalDelta,
+                Demand.ModifierDurationDays > 0 ?
+                    Demand.ModifierDurationDays :
+                    GFactionDemandModifierDurationDays);
+            mFactionDemandCooldownDays[static_cast<size_t>(Index)] =
+                GFactionDemandCooldownDays;
+            SetPoliticalDemandResolutionNotice(
+                mPoliticalDemandNotice,
+                Demand,
+                true,
+                L"요구 완료");
+            Demand = FPoliticalDemandState();
+            PoliticalRefreshNeeded = true;
+            continue;
+        }
+
+        if (Demand.RemainingDays > 0)
+            --Demand.RemainingDays;
+
+        if (Demand.RemainingDays > 0)
+            continue;
+
+        ApplyPoliticalDemandBudgetDelta(
+            Demand.PenaltyBudgetDelta,
+            mNationalBudget,
+            mLastDailyNetChange);
+        ApplyFactionModifier(
+            Demand.IssuerIndex,
+            Demand.PenaltyFactionApprovalDelta,
+            Demand.ModifierDurationDays > 0 ?
+                Demand.ModifierDurationDays :
+                GFactionDemandModifierDurationDays);
+        mFactionDemandCooldownDays[static_cast<size_t>(Index)] =
+            GFactionDemandCooldownDays;
+        SetPoliticalDemandResolutionNotice(
+            mPoliticalDemandNotice,
+            Demand,
+            false,
+            Demand.Status == EPoliticalDemandStatus::Accepted ?
+                L"요구 실패" :
+                L"요구 만료");
+        Demand = FPoliticalDemandState();
+        PoliticalRefreshNeeded = true;
+    }
+
+    for (int Index = 0;
+        Index < TradeDiplomacyRuntime::GForeignPowerCount;
+        ++Index)
+    {
+        FPoliticalDemandState& Demand =
+            mForeignPowerDemands[static_cast<size_t>(Index)];
+
+        if (!Demand.Active)
+            continue;
+
+        Demand.CurrentValue = EvaluatePoliticalDemandCurrentValue(
+            Demand,
+            Snapshot,
+            mGovernmentProfile,
+            mLastDailyExportIncome,
+            mForeignPowerStates,
+            mActiveTradeRoutes);
+
+        if (Demand.Status == EPoliticalDemandStatus::Accepted &&
+            IsPoliticalDemandSatisfied(Demand))
+        {
+            ApplyPoliticalDemandBudgetDelta(
+                Demand.RewardBudgetDelta,
+                mNationalBudget,
+                mLastDailyNetChange);
+            ApplyForeignDemandStandingDelta(
+                mForeignPowerStandingStates[static_cast<size_t>(Index)],
+                Demand.RewardForeignRelationDelta,
+                Demand.RewardForeignStandingDelta);
+            mForeignDemandCooldownDays[static_cast<size_t>(Index)] =
+                GForeignDemandCooldownDays;
+            SetPoliticalDemandResolutionNotice(
+                mPoliticalDemandNotice,
+                Demand,
+                true,
+                L"요구 완료");
+            Demand = FPoliticalDemandState();
+            ForeignRefreshNeeded = true;
+            continue;
+        }
+
+        if (Demand.RemainingDays > 0)
+            --Demand.RemainingDays;
+
+        if (Demand.RemainingDays > 0)
+            continue;
+
+        ApplyPoliticalDemandBudgetDelta(
+            Demand.PenaltyBudgetDelta,
+            mNationalBudget,
+            mLastDailyNetChange);
+        ApplyForeignDemandStandingDelta(
+            mForeignPowerStandingStates[static_cast<size_t>(Index)],
+            Demand.PenaltyForeignRelationDelta,
+            Demand.PenaltyForeignStandingDelta);
+        mForeignDemandCooldownDays[static_cast<size_t>(Index)] =
+            GForeignDemandCooldownDays;
+        SetPoliticalDemandResolutionNotice(
+            mPoliticalDemandNotice,
+            Demand,
+            false,
+            Demand.Status == EPoliticalDemandStatus::Accepted ?
+                L"요구 실패" :
+                L"요구 만료");
+        Demand = FPoliticalDemandState();
+        ForeignRefreshNeeded = true;
+    }
+
+    if (CountActiveFactionDemands(mFactionDemands) <
+        GMaxActiveFactionDemandCount)
+    {
+        bool FoundDemand = false;
+        FPoliticalDemandState BestDemand;
+        int BestIndex = -1;
+        double BestPriority = 0.0;
+
+        for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+        {
+            if (mFactionDemands[static_cast<size_t>(Index)].Active ||
+                mFactionDemandCooldownDays[static_cast<size_t>(Index)] > 0)
+            {
+                continue;
+            }
+
+            FPoliticalDemandState CandidateDemand;
+            double CandidatePriority = 0.0;
+
+            if (!TryBuildFactionDemand(
+                    static_cast<EPoliticalFaction>(Index),
+                    Snapshot,
+                    mPoliticalSnapshot,
+                    mGovernmentProfile,
+                    mLastDailyExportIncome,
+                    CandidateDemand,
+                    CandidatePriority))
+            {
+                continue;
+            }
+
+            if (!FoundDemand || CandidatePriority > BestPriority)
+            {
+                FoundDemand = true;
+                BestDemand = std::move(CandidateDemand);
+                BestIndex = Index;
+                BestPriority = CandidatePriority;
+            }
+        }
+
+        if (FoundDemand && BestIndex >= 0)
+        {
+            mFactionDemands[static_cast<size_t>(BestIndex)] =
+                std::move(BestDemand);
+        }
+    }
+
+    if (CountActiveForeignDemands(mForeignPowerDemands) <
+        GMaxActiveForeignDemandCount)
+    {
+        bool FoundDemand = false;
+        FPoliticalDemandState BestDemand;
+        int BestIndex = -1;
+        double BestPriority = 0.0;
+
+        for (int Index = 0;
+            Index < TradeDiplomacyRuntime::GForeignPowerCount;
+            ++Index)
+        {
+            if (mForeignPowerDemands[static_cast<size_t>(Index)].Active ||
+                mForeignDemandCooldownDays[static_cast<size_t>(Index)] > 0)
+            {
+                continue;
+            }
+
+            FPoliticalDemandState CandidateDemand;
+            double CandidatePriority = 0.0;
+
+            if (!TryBuildForeignDemand(
+                    Index,
+                    Snapshot,
+                    mForeignPowerStates,
+                    mActiveTradeRoutes,
+                    CandidateDemand,
+                    CandidatePriority))
+            {
+                continue;
+            }
+
+            if (!FoundDemand || CandidatePriority > BestPriority)
+            {
+                FoundDemand = true;
+                BestDemand = std::move(CandidateDemand);
+                BestIndex = Index;
+                BestPriority = CandidatePriority;
+            }
+        }
+
+        if (FoundDemand && BestIndex >= 0)
+        {
+            mForeignPowerDemands[static_cast<size_t>(BestIndex)] =
+                std::move(BestDemand);
+        }
+    }
+
+    if (PoliticalRefreshNeeded)
+        RefreshPoliticalSnapshot();
+
+    if (ForeignRefreshNeeded)
+    {
+        RefreshForeignTradeDiplomacy(false);
+        RefreshWorldMarketPrices();
+    }
+
+    const FPoliticalDemandNotice ActiveNotice =
+        BuildPriorityDemandNotice(mFactionDemands, mForeignPowerDemands);
+
+    if (ActiveNotice.ActiveDemand)
+    {
+        mPoliticalDemandNotice = ActiveNotice;
+    }
+    else if (mPoliticalDemandNotice.ActiveDemand)
+    {
+        mPoliticalDemandNotice = FPoliticalDemandNotice();
+    }
 }
 
 void CMainWorld::RefreshEraProgress()

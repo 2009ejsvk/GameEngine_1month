@@ -218,6 +218,63 @@ namespace
             ProductionInputLabels = {};
     };
 
+    struct FCatalogCostOverrideRecord
+    {
+        std::string BuildingId;
+        EBuildingCostState BlueprintCostState =
+            EBuildingCostState::None;
+        int BlueprintCost = 0;
+        EBuildingCostState ConstructionCostState =
+            EBuildingCostState::None;
+        int ConstructionCost = 0;
+        std::wstring SourceAssetName;
+        std::wstring SourceDisplayName;
+    };
+
+    struct FCatalogSourceMetadataOverrideRecord
+    {
+        std::string BuildingId;
+        bool HasUnlockEra = false;
+        EBuildingEra UnlockEra = EBuildingEra::Colonial;
+        bool HasBuildMenuCategoryOverride = false;
+        EBuildingCategory BuildMenuCategoryOverride =
+            EBuildingCategory::Infrastructure;
+        std::wstring SourceAssetName;
+        std::wstring SourceDisplayName;
+    };
+
+    struct FCatalogWorkforceOverrideRecord
+    {
+        std::string BuildingId;
+        bool HasCapacity = false;
+        int Capacity = 0;
+        bool HasRequiredEducationLevel = false;
+        ECitizenEducationLevel RequiredEducationLevel =
+            ECitizenEducationLevel::Uneducated;
+        std::wstring SourceAssetName;
+        std::wstring SourceDisplayName;
+    };
+
+    struct FCatalogPowerOverrideRecord
+    {
+        std::string BuildingId;
+        bool HasProducedPowerMW = false;
+        int ProducedPowerMW = 0;
+        bool HasRequiredPowerMW = false;
+        int RequiredPowerMW = 0;
+        std::wstring SourceDisplayName;
+    };
+
+    struct FCatalogPollutionOverrideRecord
+    {
+        std::string BuildingId;
+        bool HasPollutionOutput = false;
+        int PollutionOutput = 0;
+        bool HasPollutionMitigation = false;
+        int PollutionMitigation = 0;
+        std::wstring SourceDisplayName;
+    };
+
     bool TryParseCatalogCostText(
         const std::wstring& Text,
         EBuildingCostState& OutState,
@@ -339,6 +396,141 @@ namespace
             Paths.push_back(JoinPath(
                 AssetPath,
                 L"Data\\BuildingProductionRecipes.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildCatalogCostOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\Tropico6CostOverrides.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\Tropico6CostOverrides.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildCatalogSourceMetadataOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\Tropico6SourceMetadataOverrides.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\Tropico6SourceMetadataOverrides.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildCatalogWorkforceOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\Tropico6WorkforceOverrides.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\Tropico6WorkforceOverrides.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildCatalogPowerOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\Tropico6PowerOverrides.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\Tropico6PowerOverrides.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildCatalogPollutionOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\Tropico6PollutionOverrides.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\Tropico6PollutionOverrides.tsv"));
         }
 
         return Paths;
@@ -488,6 +680,58 @@ namespace
             OutCategory = EBuildingCategory::GovernmentFinance;
         else
             return false;
+
+        return true;
+    }
+
+    bool TryParseBuildingEraKey(
+        const std::string& Key,
+        EBuildingEra& OutEra)
+    {
+        if (Key == "Colonial")
+            OutEra = EBuildingEra::Colonial;
+        else if (Key == "WorldWars" || Key == "World Wars")
+            OutEra = EBuildingEra::WorldWars;
+        else if (Key == "ColdWar" || Key == "Cold War")
+            OutEra = EBuildingEra::ColdWar;
+        else if (
+            Key == "Modern" ||
+            Key == "ModernTimes" ||
+            Key == "Modern Times")
+        {
+            OutEra = EBuildingEra::Modern;
+        }
+        else
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool TryParseEducationLevelKey(
+        const std::string& Key,
+        ECitizenEducationLevel& OutLevel)
+    {
+        if (
+            Key.empty() ||
+            Key == "Uneducated" ||
+            Key == "None")
+        {
+            OutLevel = ECitizenEducationLevel::Uneducated;
+        }
+        else if (Key == "HighSchool")
+        {
+            OutLevel = ECitizenEducationLevel::HighSchool;
+        }
+        else if (Key == "College")
+        {
+            OutLevel = ECitizenEducationLevel::College;
+        }
+        else
+        {
+            return false;
+        }
 
         return true;
     }
@@ -949,6 +1193,533 @@ namespace
         return false;
     }
 
+    bool LoadCatalogCostOverrideRecords(
+        std::vector<FCatalogCostOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogCostOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (!Fields.empty() && !Fields[0].empty())
+                    {
+                        FCatalogCostOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+
+                        if (Fields.size() >= 2)
+                        {
+                            TryParseCatalogCostText(
+                                Utf8ToWide(UnescapeCatalogField(Fields[1])),
+                                Record.BlueprintCostState,
+                                Record.BlueprintCost);
+                        }
+
+                        if (Fields.size() >= 3)
+                        {
+                            TryParseCatalogCostText(
+                                Utf8ToWide(UnescapeCatalogField(Fields[2])),
+                                Record.ConstructionCostState,
+                                Record.ConstructionCost);
+                        }
+
+                        if (Fields.size() >= 4)
+                        {
+                            Record.SourceAssetName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[3]));
+                        }
+
+                        if (Fields.size() >= 5)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[4]));
+                        }
+
+                        if (Record.BlueprintCostState !=
+                                EBuildingCostState::None ||
+                            Record.ConstructionCostState !=
+                                EBuildingCostState::None)
+                        {
+                            OutRecords.push_back(std::move(Record));
+                        }
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogCostOverrideRecord& A,
+                    const FCatalogCostOverrideRecord& B)
+                {
+                    return A.BuildingId < B.BuildingId;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
+    bool LoadCatalogSourceMetadataOverrideRecords(
+        std::vector<FCatalogSourceMetadataOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogSourceMetadataOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (!Fields.empty() && !Fields[0].empty())
+                    {
+                        FCatalogSourceMetadataOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+
+                        if (Fields.size() >= 2)
+                        {
+                            Record.HasUnlockEra = TryParseBuildingEraKey(
+                                UnescapeCatalogField(Fields[1]),
+                                Record.UnlockEra);
+                        }
+
+                        if (Fields.size() >= 3)
+                        {
+                            Record.HasBuildMenuCategoryOverride =
+                                TryParseBuildingCategoryKey(
+                                    UnescapeCatalogField(Fields[2]),
+                                    Record.BuildMenuCategoryOverride);
+                        }
+
+                        if (Fields.size() >= 4)
+                        {
+                            Record.SourceAssetName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[3]));
+                        }
+
+                        if (Fields.size() >= 5)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[4]));
+                        }
+
+                        if (Record.HasUnlockEra ||
+                            Record.HasBuildMenuCategoryOverride)
+                        {
+                            OutRecords.push_back(std::move(Record));
+                        }
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogSourceMetadataOverrideRecord& A,
+                    const FCatalogSourceMetadataOverrideRecord& B)
+                {
+                    return A.BuildingId < B.BuildingId;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
+    bool LoadCatalogWorkforceOverrideRecords(
+        std::vector<FCatalogWorkforceOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogWorkforceOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (!Fields.empty() && !Fields[0].empty())
+                    {
+                        FCatalogWorkforceOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+
+                        if (Fields.size() >= 2)
+                        {
+                            const std::wstring CapacityText = Utf8ToWide(
+                                UnescapeCatalogField(Fields[1]));
+                            wchar_t* EndPtr = nullptr;
+                            const long ParsedCapacity = wcstol(
+                                CapacityText.c_str(),
+                                &EndPtr,
+                                10);
+
+                            if (EndPtr != CapacityText.c_str())
+                            {
+                                Record.HasCapacity = true;
+                                Record.Capacity =
+                                    (std::max)(0, static_cast<int>(ParsedCapacity));
+                            }
+                        }
+
+                        if (Fields.size() >= 3)
+                        {
+                            const std::string EducationKey =
+                                UnescapeCatalogField(Fields[2]);
+                            if (!EducationKey.empty())
+                            {
+                                Record.HasRequiredEducationLevel =
+                                    TryParseEducationLevelKey(
+                                        EducationKey,
+                                        Record.RequiredEducationLevel);
+                            }
+                        }
+
+                        if (Fields.size() >= 4)
+                        {
+                            Record.SourceAssetName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[3]));
+                        }
+
+                        if (Fields.size() >= 5)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[4]));
+                        }
+
+                        if (Record.HasCapacity ||
+                            Record.HasRequiredEducationLevel)
+                        {
+                            OutRecords.push_back(std::move(Record));
+                        }
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogWorkforceOverrideRecord& A,
+                    const FCatalogWorkforceOverrideRecord& B)
+                {
+                    return A.BuildingId < B.BuildingId;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
+    bool LoadCatalogPowerOverrideRecords(
+        std::vector<FCatalogPowerOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogPowerOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (!Fields.empty() && !Fields[0].empty())
+                    {
+                        FCatalogPowerOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+
+                        if (Fields.size() >= 2)
+                        {
+                            const std::string ValueText =
+                                UnescapeCatalogField(Fields[1]);
+                            if (!ValueText.empty())
+                            {
+                                char* EndPtr = nullptr;
+                                const long ParsedValue = strtol(
+                                    ValueText.c_str(),
+                                    &EndPtr,
+                                    10);
+                                if (EndPtr != ValueText.c_str())
+                                {
+                                    Record.HasProducedPowerMW = true;
+                                    Record.ProducedPowerMW =
+                                        (std::max)(0, static_cast<int>(ParsedValue));
+                                }
+                            }
+                        }
+
+                        if (Fields.size() >= 3)
+                        {
+                            const std::string ValueText =
+                                UnescapeCatalogField(Fields[2]);
+                            if (!ValueText.empty())
+                            {
+                                char* EndPtr = nullptr;
+                                const long ParsedValue = strtol(
+                                    ValueText.c_str(),
+                                    &EndPtr,
+                                    10);
+                                if (EndPtr != ValueText.c_str())
+                                {
+                                    Record.HasRequiredPowerMW = true;
+                                    Record.RequiredPowerMW =
+                                        (std::max)(0, static_cast<int>(ParsedValue));
+                                }
+                            }
+                        }
+
+                        if (Fields.size() >= 4)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[3]));
+                        }
+
+                        if (Record.HasProducedPowerMW ||
+                            Record.HasRequiredPowerMW)
+                        {
+                            OutRecords.push_back(std::move(Record));
+                        }
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogPowerOverrideRecord& A,
+                    const FCatalogPowerOverrideRecord& B)
+                {
+                    return A.BuildingId < B.BuildingId;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
+    bool LoadCatalogPollutionOverrideRecords(
+        std::vector<FCatalogPollutionOverrideRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildCatalogPollutionOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (!Fields.empty() && !Fields[0].empty())
+                    {
+                        FCatalogPollutionOverrideRecord Record;
+                        Record.BuildingId = Fields[0];
+
+                        if (Fields.size() >= 2)
+                        {
+                            const std::string ValueText =
+                                UnescapeCatalogField(Fields[1]);
+                            if (!ValueText.empty())
+                            {
+                                char* EndPtr = nullptr;
+                                const long ParsedValue = strtol(
+                                    ValueText.c_str(),
+                                    &EndPtr,
+                                    10);
+                                if (EndPtr != ValueText.c_str())
+                                {
+                                    Record.HasPollutionOutput = true;
+                                    Record.PollutionOutput =
+                                        (std::max)(0, static_cast<int>(ParsedValue));
+                                }
+                            }
+                        }
+
+                        if (Fields.size() >= 3)
+                        {
+                            const std::string ValueText =
+                                UnescapeCatalogField(Fields[2]);
+                            if (!ValueText.empty())
+                            {
+                                char* EndPtr = nullptr;
+                                const long ParsedValue = strtol(
+                                    ValueText.c_str(),
+                                    &EndPtr,
+                                    10);
+                                if (EndPtr != ValueText.c_str())
+                                {
+                                    Record.HasPollutionMitigation = true;
+                                    Record.PollutionMitigation =
+                                        (std::max)(0, static_cast<int>(ParsedValue));
+                                }
+                            }
+                        }
+
+                        if (Fields.size() >= 4)
+                        {
+                            Record.SourceDisplayName = Utf8ToWide(
+                                UnescapeCatalogField(Fields[3]));
+                        }
+
+                        if (Record.HasPollutionOutput ||
+                            Record.HasPollutionMitigation)
+                        {
+                            OutRecords.push_back(std::move(Record));
+                        }
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            std::stable_sort(
+                OutRecords.begin(),
+                OutRecords.end(),
+                [](const FCatalogPollutionOverrideRecord& A,
+                    const FCatalogPollutionOverrideRecord& B)
+                {
+                    return A.BuildingId < B.BuildingId;
+                });
+            return true;
+        }
+
+        return false;
+    }
+
     bool IsAbsolutePath(const std::wstring& Path)
     {
         if (Path.size() >= 2 && Path[1] == L':')
@@ -1266,6 +2037,168 @@ namespace
         return It != Records.end() ? &(*It) : nullptr;
     }
 
+    const FCatalogCostOverrideRecord* FindCatalogCostOverrideRecord(
+        const std::vector<FCatalogCostOverrideRecord>& Records,
+        const std::string& BuildingId)
+    {
+        const auto It = std::find_if(
+            Records.begin(),
+            Records.end(),
+            [&](const FCatalogCostOverrideRecord& Record)
+            {
+                return Record.BuildingId == BuildingId;
+            });
+
+        return It != Records.end() ? &(*It) : nullptr;
+    }
+
+    const FCatalogSourceMetadataOverrideRecord*
+        FindCatalogSourceMetadataOverrideRecord(
+            const std::vector<FCatalogSourceMetadataOverrideRecord>& Records,
+            const std::string& BuildingId)
+    {
+        const auto It = std::find_if(
+            Records.begin(),
+            Records.end(),
+            [&](const FCatalogSourceMetadataOverrideRecord& Record)
+            {
+                return Record.BuildingId == BuildingId;
+            });
+
+        return It != Records.end() ? &(*It) : nullptr;
+    }
+
+    const FCatalogWorkforceOverrideRecord* FindCatalogWorkforceOverrideRecord(
+        const std::vector<FCatalogWorkforceOverrideRecord>& Records,
+        const std::string& BuildingId)
+    {
+        const auto It = std::find_if(
+            Records.begin(),
+            Records.end(),
+            [&](const FCatalogWorkforceOverrideRecord& Record)
+            {
+                return Record.BuildingId == BuildingId;
+            });
+
+        return It != Records.end() ? &(*It) : nullptr;
+    }
+
+    const FCatalogPowerOverrideRecord* FindCatalogPowerOverrideRecord(
+        const std::vector<FCatalogPowerOverrideRecord>& Records,
+        const std::string& BuildingId)
+    {
+        const auto It = std::find_if(
+            Records.begin(),
+            Records.end(),
+            [&](const FCatalogPowerOverrideRecord& Record)
+            {
+                return Record.BuildingId == BuildingId;
+            });
+
+        return It != Records.end() ? &(*It) : nullptr;
+    }
+
+    const FCatalogPollutionOverrideRecord*
+        FindCatalogPollutionOverrideRecord(
+            const std::vector<FCatalogPollutionOverrideRecord>& Records,
+            const std::string& BuildingId)
+    {
+        const auto It = std::find_if(
+            Records.begin(),
+            Records.end(),
+            [&](const FCatalogPollutionOverrideRecord& Record)
+            {
+                return Record.BuildingId == BuildingId;
+            });
+
+        return It != Records.end() ? &(*It) : nullptr;
+    }
+
+    bool ShouldApplyCostOverride(EBuildingCostState CurrentState)
+    {
+        return CurrentState == EBuildingCostState::None ||
+            CurrentState == EBuildingCostState::Unknown;
+    }
+
+    void ApplyCatalogCostOverride(
+        const FCatalogCostOverrideRecord& OverrideRecord,
+        FBuildingCatalogEntry& Entry)
+    {
+        if (ShouldApplyCostOverride(Entry.BlueprintCostState) &&
+            OverrideRecord.BlueprintCostState !=
+                EBuildingCostState::None)
+        {
+            Entry.BlueprintCostState =
+                OverrideRecord.BlueprintCostState;
+            Entry.BlueprintCost =
+                OverrideRecord.BlueprintCost;
+        }
+
+        if (ShouldApplyCostOverride(Entry.ConstructionCostState) &&
+            OverrideRecord.ConstructionCostState !=
+                EBuildingCostState::None)
+        {
+            Entry.ConstructionCostState =
+                OverrideRecord.ConstructionCostState;
+            Entry.ConstructionCost =
+                OverrideRecord.ConstructionCost;
+        }
+    }
+
+    void ApplyCatalogSourceMetadataOverride(
+        const FCatalogSourceMetadataOverrideRecord& OverrideRecord,
+        FBuildingCatalogEntry& Entry)
+    {
+        if (OverrideRecord.HasUnlockEra)
+            Entry.UnlockEra = OverrideRecord.UnlockEra;
+
+        if (OverrideRecord.HasBuildMenuCategoryOverride)
+        {
+            Entry.HasBuildMenuCategoryOverride = true;
+            Entry.BuildMenuCategoryOverride =
+                OverrideRecord.BuildMenuCategoryOverride;
+        }
+    }
+
+    void ApplyCatalogWorkforceOverride(
+        const FCatalogWorkforceOverrideRecord& OverrideRecord,
+        FBuildingCatalogEntry& Entry)
+    {
+        if (OverrideRecord.HasCapacity)
+            Entry.Capacity = OverrideRecord.Capacity;
+
+        if (OverrideRecord.HasRequiredEducationLevel)
+        {
+            Entry.RequiredEducationLevel =
+                OverrideRecord.RequiredEducationLevel;
+        }
+    }
+
+    void ApplyCatalogPowerOverride(
+        const FCatalogPowerOverrideRecord& OverrideRecord,
+        FBuildingCatalogEntry& Entry)
+    {
+        if (OverrideRecord.HasProducedPowerMW)
+            Entry.BaseProducedPowerMW = OverrideRecord.ProducedPowerMW;
+
+        if (OverrideRecord.HasRequiredPowerMW)
+            Entry.BaseRequiredPowerMW = OverrideRecord.RequiredPowerMW;
+    }
+
+    void ApplyCatalogPollutionOverride(
+        const FCatalogPollutionOverrideRecord& OverrideRecord,
+        FBuildingCatalogEntry& Entry)
+    {
+        if (OverrideRecord.HasPollutionOutput)
+            Entry.BasePollutionOutput = OverrideRecord.PollutionOutput;
+
+        if (OverrideRecord.HasPollutionMitigation)
+        {
+            Entry.BasePollutionMitigation =
+                OverrideRecord.PollutionMitigation;
+        }
+    }
+
     bool ShouldUseRecipeTable(
         const FBuildingCatalogEntry& Entry)
     {
@@ -1357,6 +2290,33 @@ namespace
         return Text.substr(Start, End - Start);
     }
 
+    bool TryExtractDetailLineValue(
+        const std::wstring& DetailText,
+        const wchar_t* Prefix,
+        std::wstring& OutValue)
+    {
+        OutValue.clear();
+
+        if (!Prefix || !*Prefix)
+            return false;
+
+        const std::vector<std::wstring> Lines =
+            SplitDetailLines(DetailText);
+
+        for (size_t Index = 0; Index < Lines.size(); ++Index)
+        {
+            const std::wstring Line = Trim(Lines[Index]);
+
+            if (Line.find(Prefix) != 0)
+                continue;
+
+            OutValue = Trim(Line.substr(wcslen(Prefix)));
+            return true;
+        }
+
+        return false;
+    }
+
     bool TryParseSignedInteger(
         const std::wstring& Text,
         int& OutValue)
@@ -1393,6 +2353,206 @@ namespace
         }
 
         return false;
+    }
+
+    bool TryParseWorkerCapacity(
+        const std::wstring& DetailText,
+        int& OutCapacity)
+    {
+        std::wstring WorkerLine;
+        if (!TryExtractDetailLineValue(
+                DetailText,
+                L"필요 인력:",
+                WorkerLine))
+        {
+            return false;
+        }
+
+        if (WorkerLine.find(L"업그레이드") != std::wstring::npos)
+        {
+            OutCapacity = 0;
+            return true;
+        }
+
+        if (WorkerLine.find(L"미기재") != std::wstring::npos)
+            return false;
+
+        if (WorkerLine.find(L"없음") != std::wstring::npos)
+        {
+            OutCapacity = 0;
+            return true;
+        }
+
+        int ParsedValue = 0;
+        if (!TryParseSignedInteger(WorkerLine, ParsedValue))
+            return false;
+
+        OutCapacity = (std::max)(0, ParsedValue);
+        return true;
+    }
+
+    bool TryParseDetailCapacityValue(
+        const std::wstring& DetailText,
+        const wchar_t* Prefix,
+        int& OutCapacity)
+    {
+        std::wstring CapacityLine;
+        if (!TryExtractDetailLineValue(DetailText, Prefix, CapacityLine))
+            return false;
+
+        if (CapacityLine.find(L"미기재") != std::wstring::npos)
+            return false;
+
+        if (CapacityLine.find(L"없음") != std::wstring::npos)
+        {
+            OutCapacity = 0;
+            return true;
+        }
+
+        int ParsedValue = 0;
+        if (!TryParseSignedInteger(CapacityLine, ParsedValue))
+            return false;
+
+        OutCapacity = (std::max)(0, ParsedValue);
+        return true;
+    }
+
+    bool TryParseHouseholdCapacity(
+        const std::wstring& DetailText,
+        int& OutCapacity)
+    {
+        return TryParseDetailCapacityValue(
+            DetailText,
+            L"수용 가구:",
+            OutCapacity);
+    }
+
+    bool TryParseServiceCapacity(
+        const std::wstring& DetailText,
+        int& OutCapacity,
+        bool& OutUsesHouseholds)
+    {
+        OutUsesHouseholds = false;
+
+        if (TryParseDetailCapacityValue(
+                DetailText,
+                L"수용 인원:",
+                OutCapacity))
+        {
+            return true;
+        }
+
+        if (TryParseDetailCapacityValue(
+                DetailText,
+                L"수용 가구:",
+                OutCapacity))
+        {
+            OutUsesHouseholds = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryParseDetailQualityValue(
+        const std::wstring& DetailText,
+        const wchar_t* Prefix,
+        int& OutValue)
+    {
+        std::wstring QualityLine;
+        if (!TryExtractDetailLineValue(DetailText, Prefix, QualityLine))
+            return false;
+
+        if (QualityLine.find(L"미기재") != std::wstring::npos)
+            return false;
+
+        int ParsedValue = 0;
+        if (!TryParseSignedInteger(QualityLine, ParsedValue))
+            return false;
+
+        OutValue = (std::max)(0, (std::min)(100, ParsedValue));
+        return true;
+    }
+
+    bool TryExtractWealthRequirementValue(
+        const std::wstring& DetailText,
+        std::wstring& OutValue)
+    {
+        static const wchar_t* Prefixes[] =
+        {
+            L"재산 요구치:",
+            L"필요 재산:",
+            L"관광객 재산:",
+            L"요구 재산:"
+        };
+
+        for (size_t Index = 0;
+            Index < sizeof(Prefixes) / sizeof(Prefixes[0]);
+            ++Index)
+        {
+            if (TryExtractDetailLineValue(
+                    DetailText,
+                    Prefixes[Index],
+                    OutValue))
+            {
+                return true;
+            }
+        }
+
+        OutValue.clear();
+        return false;
+    }
+
+    unsigned int ParseAllowedWealthMaskFromValue(const std::wstring& Value)
+    {
+        const std::wstring TrimmedValue = Trim(Value);
+        if (TrimmedValue.empty() ||
+            TrimmedValue.find(L"미기재") != std::wstring::npos)
+        {
+            return GBuildingWealthMaskAll;
+        }
+
+        unsigned int Mask = GBuildingWealthMaskNone;
+
+        if (TrimmedValue.find(L"파산") != std::wstring::npos ||
+            TrimmedValue.find(L"가난") != std::wstring::npos)
+        {
+            Mask |= GBuildingWealthMaskPoor;
+        }
+
+        if (TrimmedValue.find(L"유복") != std::wstring::npos)
+            Mask |= GBuildingWealthMaskWellOff;
+
+        if (TrimmedValue.find(L"부유") != std::wstring::npos ||
+            TrimmedValue.find(L"더럽게 부유") != std::wstring::npos)
+        {
+            Mask |= GBuildingWealthMaskRich;
+        }
+
+        if (TrimmedValue.find(L"이상") != std::wstring::npos)
+        {
+            if (Mask & GBuildingWealthMaskPoor)
+                Mask |= GBuildingWealthMaskWellOff | GBuildingWealthMaskRich;
+            else if (Mask & GBuildingWealthMaskWellOff)
+                Mask |= GBuildingWealthMaskRich;
+        }
+
+        return Mask == GBuildingWealthMaskNone ?
+            GBuildingWealthMaskAll :
+            Mask;
+    }
+
+    unsigned int ParseAllowedWealthMask(const std::wstring& DetailText)
+    {
+        std::wstring WealthRequirementValue;
+        if (!TryExtractWealthRequirementValue(
+                DetailText,
+                WealthRequirementValue))
+        {
+            return GBuildingWealthMaskAll;
+        }
+
+        return ParseAllowedWealthMaskFromValue(WealthRequirementValue);
     }
 
     bool TryParseCatalogCostText(
@@ -1534,12 +2694,164 @@ namespace
         return Clauses;
     }
 
+    bool TryParseUpgradeUnlockEraClause(
+        const std::wstring& Clause,
+        EBuildingEra& OutEra)
+    {
+        std::wstring CanonicalClause;
+
+        for (const wchar_t Ch : Trim(Clause))
+        {
+            if (!iswspace(Ch))
+                CanonicalClause.push_back(Ch);
+        }
+
+        if (CanonicalClause == L"식민지" ||
+            CanonicalClause == L"식민지시대")
+        {
+            OutEra = EBuildingEra::Colonial;
+            return true;
+        }
+
+        if (CanonicalClause == L"세계대전" ||
+            CanonicalClause == L"세계대전시대")
+        {
+            OutEra = EBuildingEra::WorldWars;
+            return true;
+        }
+
+        if (CanonicalClause == L"냉전" ||
+            CanonicalClause == L"냉전시대")
+        {
+            OutEra = EBuildingEra::ColdWar;
+            return true;
+        }
+
+        if (CanonicalClause == L"현대" ||
+            CanonicalClause == L"현대시대")
+        {
+            OutEra = EBuildingEra::Modern;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryParseUpgradeCostClause(
+        const std::wstring& Clause,
+        EBuildingCostState& OutState,
+        int& OutCost)
+    {
+        const std::wstring TrimmedClause = Trim(Clause);
+
+        if (TrimmedClause.empty())
+            return false;
+
+        if (TrimmedClause.find(L'+') != std::wstring::npos ||
+            TrimmedClause.find(L'-') != std::wstring::npos ||
+            TrimmedClause.find(L'%') != std::wstring::npos ||
+            TrimmedClause.find(L':') != std::wstring::npos)
+        {
+            return false;
+        }
+
+        std::wstring CanonicalClause;
+
+        for (const wchar_t Ch : TrimmedClause)
+        {
+            if (iswspace(Ch) || Ch == L'$' || Ch == L',')
+                continue;
+
+            CanonicalClause.push_back(Ch);
+        }
+
+        if (CanonicalClause.empty())
+            return false;
+
+        if (CanonicalClause == L"미기재")
+        {
+            OutState = EBuildingCostState::Unknown;
+            OutCost = 0;
+            return true;
+        }
+
+        if (CanonicalClause == L"없음" ||
+            CanonicalClause == L"무료")
+        {
+            OutState = EBuildingCostState::Known;
+            OutCost = 0;
+            return true;
+        }
+
+        if (!std::all_of(
+                CanonicalClause.begin(),
+                CanonicalClause.end(),
+                [](const wchar_t Ch)
+                {
+                    return iswdigit(Ch) != 0;
+                }))
+        {
+            return false;
+        }
+
+        return TryParseCatalogCostText(
+            CanonicalClause,
+            OutState,
+            OutCost);
+    }
+
+    std::wstring JoinCommaClauses(const std::vector<std::wstring>& Clauses)
+    {
+        std::wstring Result;
+
+        for (size_t Index = 0; Index < Clauses.size(); ++Index)
+        {
+            const std::wstring Clause = Trim(Clauses[Index]);
+
+            if (Clause.empty())
+                continue;
+
+            if (!Result.empty())
+                Result += L", ";
+
+            Result += Clause;
+        }
+
+        return Result;
+    }
+
     void ApplyPercentMultiplier(float& TargetMultiplier, int Percent)
     {
         const float RelativeMultiplier = (std::max)(
             0.f,
             1.f + static_cast<float>(Percent) / 100.f);
         TargetMultiplier *= RelativeMultiplier;
+    }
+
+    int ResolveContextualSignedPercent(
+        const std::wstring& Clause,
+        int ParsedInteger)
+    {
+        if (ParsedInteger == 0)
+            return 0;
+
+        if (Clause.find(L"감소") != std::wstring::npos ||
+            Clause.find(L"인하") != std::wstring::npos ||
+            Clause.find(L"하락") != std::wstring::npos ||
+            Clause.find(L"절감") != std::wstring::npos)
+        {
+            return -std::abs(ParsedInteger);
+        }
+
+        if (Clause.find(L"증가") != std::wstring::npos ||
+            Clause.find(L"상승") != std::wstring::npos ||
+            Clause.find(L"인상") != std::wstring::npos ||
+            Clause.find(L"추가") != std::wstring::npos)
+        {
+            return std::abs(ParsedInteger);
+        }
+
+        return ParsedInteger;
     }
 
     bool ProvidesRuntimeService(const FBuildingCatalogEntry& Entry)
@@ -1591,6 +2903,46 @@ namespace
             ApplyPercentMultiplier(
                 OutEffect.HarborProgressMultiplier,
                 ParsedInteger);
+            return;
+        }
+
+        if (Clause.find(L"적하량") != std::wstring::npos &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            ApplyPercentMultiplier(
+                OutEffect.TeamsterTransferMultiplier,
+                ParsedInteger);
+            return;
+        }
+
+        if (Clause.find(L"화물 손실") != std::wstring::npos &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            OutEffect.TeamsterCargoLossPercent = (std::max)(
+                OutEffect.TeamsterCargoLossPercent,
+                std::abs(ParsedInteger));
+            return;
+        }
+
+        if ((Clause.find(L"수출 가격") != std::wstring::npos ||
+                Clause.find(L"수출 시세") != std::wstring::npos) &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            OutEffect.ExportTradeRoutePriceDeltaPercent +=
+                ResolveContextualSignedPercent(Clause, ParsedInteger);
+            return;
+        }
+
+        if ((Clause.find(L"수입 무역로") != std::wstring::npos ||
+                Clause.find(L"수입 가격") != std::wstring::npos) &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            OutEffect.ImportTradeRoutePriceDeltaPercent +=
+                ResolveContextualSignedPercent(Clause, ParsedInteger);
             return;
         }
 
@@ -1744,11 +3096,18 @@ namespace
             return;
         }
 
-        if (Clause.find(L"가구수") != std::wstring::npos ||
-            Clause.find(L"숙박 슬롯") != std::wstring::npos ||
-            Clause.find(L"일자리") != std::wstring::npos ||
+        if (Clause.find(L"숙박 슬롯") != std::wstring::npos ||
             (Clause.find(L"방 슬롯") != std::wstring::npos &&
                 Clause.find(L"방문객") == std::wstring::npos))
+        {
+            if (HasInteger)
+                OutEffect.ServiceCapacityDelta += ParsedInteger;
+
+            return;
+        }
+
+        if (Clause.find(L"가구수") != std::wstring::npos ||
+            Clause.find(L"일자리") != std::wstring::npos)
         {
             if (HasInteger)
                 OutEffect.CapacityDelta += ParsedInteger;
@@ -1913,19 +3272,60 @@ namespace
 
         FBuildingRuntimeUpgradeDef Def;
         Def.DisplayName = DisplayName;
-        Def.EffectSummary = Trim(
+        const std::wstring EffectText = Trim(
             UpgradeText.substr(OpenParen + 1, CloseParen - OpenParen - 1));
-
         const std::vector<std::wstring> Clauses =
-            SplitCommaClauses(Def.EffectSummary);
+            SplitCommaClauses(EffectText);
+        std::vector<std::wstring> EffectClauses;
 
         for (size_t ClauseIndex = 0;
             ClauseIndex < Clauses.size();
             ++ClauseIndex)
         {
+            const std::wstring Clause = Trim(Clauses[ClauseIndex]);
+
+            if (Clause.empty())
+                continue;
+
+            EBuildingEra ParsedEra = EBuildingEra::Colonial;
+
+            if (!Def.HasUnlockEra &&
+                TryParseUpgradeUnlockEraClause(Clause, ParsedEra))
+            {
+                Def.HasUnlockEra = true;
+                Def.UnlockEra = ParsedEra;
+                continue;
+            }
+
+            if (Def.CostState == EBuildingCostState::None)
+            {
+                EBuildingCostState ParsedCostState =
+                    EBuildingCostState::None;
+                int ParsedCost = 0;
+
+                if (TryParseUpgradeCostClause(
+                        Clause,
+                        ParsedCostState,
+                        ParsedCost))
+                {
+                    Def.CostState = ParsedCostState;
+                    Def.Cost = ParsedCost;
+                    continue;
+                }
+            }
+
+            EffectClauses.push_back(Clause);
+        }
+
+        Def.EffectSummary = JoinCommaClauses(EffectClauses);
+
+        for (size_t ClauseIndex = 0;
+            ClauseIndex < EffectClauses.size();
+            ++ClauseIndex)
+        {
             ApplyOperationModeClause(
                 Entry,
-                Clauses[ClauseIndex],
+                EffectClauses[ClauseIndex],
                 Def.Effect);
         }
 
@@ -2000,11 +3400,24 @@ namespace
     ECitizenEducationLevel ParseRequiredEducationLevel(
         const std::wstring& DetailText)
     {
-        if (DetailText.find(L"대졸") != std::wstring::npos)
-            return ECitizenEducationLevel::College;
+        std::wstring WorkerLine;
+        if (TryExtractDetailLineValue(
+                DetailText,
+                L"필요 인력:",
+                WorkerLine))
+        {
+            if (WorkerLine.find(L"대졸") != std::wstring::npos)
+                return ECitizenEducationLevel::College;
 
-        if (DetailText.find(L"고졸") != std::wstring::npos)
-            return ECitizenEducationLevel::HighSchool;
+            if (WorkerLine.find(L"고졸") != std::wstring::npos)
+                return ECitizenEducationLevel::HighSchool;
+
+            if (WorkerLine.find(L"무학력") != std::wstring::npos ||
+                WorkerLine.find(L"없음") != std::wstring::npos)
+            {
+                return ECitizenEducationLevel::Uneducated;
+            }
+        }
 
         return ECitizenEducationLevel::Uneducated;
     }
@@ -2199,9 +3612,36 @@ namespace
         return ExtractDetailPowerValueMW(Entry.DetailText, L"필요 전력:");
     }
 
+    std::wstring ExtractBasePollutionSummaryText(
+        const std::wstring& DetailText)
+    {
+        std::wstring Result;
+        const std::vector<std::wstring> Lines =
+            SplitDetailLines(DetailText);
+
+        for (size_t Index = 0; Index < Lines.size(); ++Index)
+        {
+            const std::wstring Line = Trim(Lines[Index]);
+
+            if (Line.find(L"효과:") != 0 &&
+                Line.find(L"비고:") != 0)
+            {
+                continue;
+            }
+
+            if (!Result.empty())
+                Result += L'\n';
+
+            Result += Line;
+        }
+
+        return Result;
+    }
+
     int ResolveBasePollutionOutput(const FBuildingCatalogEntry& Entry)
     {
-        const std::wstring& Text = Entry.DetailText;
+        const std::wstring Text =
+            ExtractBasePollutionSummaryText(Entry.DetailText);
 
         if (Text.find(L"많은 공해 배출") != std::wstring::npos)
             return 32;
@@ -2209,23 +3649,28 @@ namespace
         if (Text.find(L"건물 자체는 공해 배출") != std::wstring::npos)
             return 18;
 
-        if (Text.find(L"공해 배출") != std::wstring::npos)
+        if (Text.find(L"적은 공해 배출") != std::wstring::npos ||
+            Text.find(L"적은 공해") != std::wstring::npos)
         {
-            if (Text.find(L"적은 공해 배출") != std::wstring::npos)
-                return 8;
-
-            return 18;
+            return 8;
         }
+
+        if (Text.find(L"공해 배출") != std::wstring::npos)
+            return 18;
 
         return 0;
     }
 
     int ResolveBasePollutionMitigation(const FBuildingCatalogEntry& Entry)
     {
-        const std::wstring& Text = Entry.DetailText;
+        const std::wstring Text =
+            ExtractBasePollutionSummaryText(Entry.DetailText);
 
         if (Text.find(L"범위 내 다른 건물 공해 감소") != std::wstring::npos)
             return 20;
+
+        if (Text.find(L"주변 공해 감소") != std::wstring::npos)
+            return 12;
 
         if (Text.find(L"공해 감소") != std::wstring::npos)
             return 12;
@@ -2543,6 +3988,44 @@ namespace
         return InputLabels;
     }
 
+    std::vector<std::wstring> BuildProductionDemandDisplayLabels(
+        const FBuildingCatalogEntry& Entry)
+    {
+        std::vector<std::wstring> DemandLabels =
+            BuildProductionInputDisplayLabels(Entry);
+
+        if (Entry.ProducedResourceType == EResourceType::None &&
+            Entry.VisitConsumptionResourceType != EResourceType::None)
+        {
+            const std::wstring VisitLabel =
+                GetResourceTypeDisplayName(
+                    Entry.VisitConsumptionResourceType);
+
+            if (!VisitLabel.empty() &&
+                std::find(
+                    DemandLabels.begin(),
+                    DemandLabels.end(),
+                    VisitLabel) == DemandLabels.end())
+            {
+                DemandLabels.insert(DemandLabels.begin(), VisitLabel);
+            }
+        }
+
+        return DemandLabels;
+    }
+
+    std::wstring BuildProductionConsumerDisplayLabel(
+        const FBuildingCatalogEntry& Entry)
+    {
+        const std::wstring OutputLabel =
+            GetBuildingProducedResourceDisplayName(Entry);
+
+        if (!OutputLabel.empty())
+            return OutputLabel;
+
+        return Entry.DisplayName;
+    }
+
     void AppendUniqueLabel(
         std::vector<std::wstring>& Labels,
         const std::wstring& Label)
@@ -2585,29 +4068,53 @@ namespace
 
         for (const FBuildingCatalogEntry& ConsumerEntry : Entries)
         {
-            if (ConsumerEntry.ProducedResourceType == EResourceType::None)
+            const std::wstring ConsumerLabel =
+                BuildProductionConsumerDisplayLabel(ConsumerEntry);
+
+            if (ConsumerLabel.empty())
                 continue;
 
-            const std::wstring ConsumerOutputLabel =
-                GetBuildingProducedResourceDisplayName(ConsumerEntry);
+            auto AppendDownstreamDemand = [&](EResourceType ResourceType)
+            {
+                if (ResourceType == EResourceType::None)
+                    return;
 
-            if (ConsumerOutputLabel.empty())
-                continue;
+                const size_t ResourceIndex =
+                    static_cast<size_t>(ResourceType);
+
+                if (ResourceIndex >= DownstreamResourceLabels.size())
+                    return;
+
+                AppendUniqueLabel(
+                    DownstreamResourceLabels[ResourceIndex],
+                    ConsumerLabel);
+            };
+
+            if (ConsumerEntry.VisitConsumptionResourceType !=
+                    EResourceType::None &&
+                ConsumerEntry.VisitConsumptionResourceType !=
+                    ConsumerEntry.ProducedResourceType)
+            {
+                AppendDownstreamDemand(
+                    ConsumerEntry.VisitConsumptionResourceType);
+            }
 
             for (int SlotIndex = 0;
                 SlotIndex < GProductionInputSlotCount;
                 ++SlotIndex)
             {
+                const size_t Index = static_cast<size_t>(SlotIndex);
                 const EResourceType InputType =
-                    ConsumerEntry.ProductionInputTypes[
-                        static_cast<size_t>(SlotIndex)];
+                    ConsumerEntry.ProductionInputTypes[Index];
 
-                if (InputType == EResourceType::None)
+                if (InputType == EResourceType::None ||
+                    ConsumerEntry.ProductionInputAmounts[Index] <= 0 ||
+                    InputType == ConsumerEntry.VisitConsumptionResourceType)
+                {
                     continue;
+                }
 
-                AppendUniqueLabel(
-                    DownstreamResourceLabels[static_cast<size_t>(InputType)],
-                    ConsumerOutputLabel);
+                AppendDownstreamDemand(InputType);
             }
         }
 
@@ -2619,10 +4126,19 @@ namespace
 
             const std::wstring OutputLabel =
                 GetBuildingProducedResourceDisplayName(Entry);
+            const std::vector<std::wstring> DemandLabels =
+                BuildProductionDemandDisplayLabels(Entry);
 
             if (Entry.ProducedResourceType == EResourceType::None ||
                 OutputLabel.empty())
             {
+                if (!DemandLabels.empty() && !Entry.DisplayName.empty())
+                {
+                    Entry.SupplyChainSummary =
+                        JoinLabels(DemandLabels, L" + ") +
+                        L" -> " +
+                        Entry.DisplayName;
+                }
                 continue;
             }
 
@@ -2647,13 +4163,11 @@ namespace
                     FBuildingCatalogEntry::EProductionChainStage::Final;
             }
 
-            const std::vector<std::wstring> InputLabels =
-                BuildProductionInputDisplayLabels(Entry);
             std::wstring Summary;
 
-            if (!InputLabels.empty())
+            if (!DemandLabels.empty())
             {
-                Summary += JoinLabels(InputLabels, L" + ");
+                Summary += JoinLabels(DemandLabels, L" + ");
                 Summary += L" -> ";
             }
 
@@ -2739,6 +4253,16 @@ namespace
         L"Game.BuildingCatalog";
     constexpr const wchar_t* GProductionRecipeConfigId =
         L"Game.BuildingProductionRecipes";
+    constexpr const wchar_t* GCostOverrideConfigId =
+        L"Game.BuildingCostOverrides";
+    constexpr const wchar_t* GSourceMetadataOverrideConfigId =
+        L"Game.BuildingSourceMetadataOverrides";
+    constexpr const wchar_t* GWorkforceOverrideConfigId =
+        L"Game.BuildingWorkforceOverrides";
+    constexpr const wchar_t* GPowerOverrideConfigId =
+        L"Game.BuildingPowerOverrides";
+    constexpr const wchar_t* GPollutionOverrideConfigId =
+        L"Game.BuildingPollutionOverrides";
     constexpr size_t GRetiredCatalogSnapshotLimit = 4;
 
     std::shared_ptr<const std::vector<FBuildingCatalogEntry>>
@@ -2932,11 +4456,24 @@ namespace
         std::vector<FBuildingCatalogEntry> Entries;
         std::vector<FExternalCatalogRecord> SourceRecords;
         std::vector<FProductionRecipeRecord> ProductionRecipeRecords;
+        std::vector<FCatalogCostOverrideRecord> CostOverrideRecords;
+        std::vector<FCatalogSourceMetadataOverrideRecord>
+            SourceMetadataOverrideRecords;
+        std::vector<FCatalogWorkforceOverrideRecord>
+            WorkforceOverrideRecords;
+        std::vector<FCatalogPowerOverrideRecord> PowerOverrideRecords;
+        std::vector<FCatalogPollutionOverrideRecord>
+            PollutionOverrideRecords;
 
         if (!LoadExternalCatalogRecords(SourceRecords))
             return Entries;
 
         LoadProductionRecipeRecords(ProductionRecipeRecords);
+        LoadCatalogCostOverrideRecords(CostOverrideRecords);
+        LoadCatalogSourceMetadataOverrideRecords(SourceMetadataOverrideRecords);
+        LoadCatalogWorkforceOverrideRecords(WorkforceOverrideRecords);
+        LoadCatalogPowerOverrideRecords(PowerOverrideRecords);
+        LoadCatalogPollutionOverrideRecords(PollutionOverrideRecords);
 
         Entries.reserve(SourceRecords.size());
 
@@ -2977,6 +4514,13 @@ namespace
             Entry.BlueprintCost = Record.BlueprintCost;
             Entry.ConstructionCostState = Record.ConstructionCostState;
             Entry.ConstructionCost = Record.ConstructionCost;
+            if (const FCatalogCostOverrideRecord* CostOverride =
+                    FindCatalogCostOverrideRecord(
+                        CostOverrideRecords,
+                        Entry.Id))
+            {
+                ApplyCatalogCostOverride(*CostOverride, Entry);
+            }
             Entry.Residential = Residential;
             Entry.FoodProvider = FoodProvider;
             Entry.EntertainmentProvider = EntertainmentProvider;
@@ -3033,6 +4577,26 @@ namespace
 
             if (Entry.Id == "build_8_13")
                 Entry.Capacity = 5;
+
+            int ParsedHouseholdCapacity = 0;
+            if (TryParseHouseholdCapacity(
+                    Entry.DetailText,
+                    ParsedHouseholdCapacity))
+            {
+                Entry.HouseholdCapacity = ParsedHouseholdCapacity;
+            }
+
+            if (!Entry.Residential)
+            {
+                int ParsedWorkerCapacity = 0;
+
+                if (TryParseWorkerCapacity(
+                        Entry.DetailText,
+                        ParsedWorkerCapacity))
+                {
+                    Entry.Capacity = ParsedWorkerCapacity;
+                }
+            }
 
             Entry.HousingSatisfactionCap = 100;
             Entry.JobSatisfactionCap = 100;
@@ -3143,16 +4707,104 @@ namespace
                 ResolveHealthSatisfactionCap(Entry);
             Entry.FaithSatisfactionCap =
                 ResolveFaithSatisfactionCap(Entry);
-            Entry.ServiceCapacity = ResolveServiceCapacity(Entry);
+
+            int ParsedQualityCap = 0;
+            if (Entry.Residential &&
+                TryParseDetailQualityValue(
+                    Entry.DetailText,
+                    L"주거 품질:",
+                    ParsedQualityCap))
+            {
+                Entry.HousingSatisfactionCap = ParsedQualityCap;
+            }
+
+            if (TryParseDetailQualityValue(
+                    Entry.DetailText,
+                    L"직업 품질:",
+                    ParsedQualityCap))
+            {
+                Entry.JobSatisfactionCap = ParsedQualityCap;
+            }
+
+            if (TryParseDetailQualityValue(
+                    Entry.DetailText,
+                    L"서비스 품질:",
+                    ParsedQualityCap))
+            {
+                if (Entry.FoodProvider)
+                    Entry.FoodSatisfactionCap = ParsedQualityCap;
+                if (Entry.EntertainmentProvider)
+                    Entry.FunSatisfactionCap = ParsedQualityCap;
+                if (Entry.HealthProvider)
+                    Entry.HealthSatisfactionCap = ParsedQualityCap;
+                if (Entry.FaithProvider)
+                    Entry.FaithSatisfactionCap = ParsedQualityCap;
+            }
+
             Entry.BaseProducedPowerMW = ResolveBaseProducedPowerMW(Entry);
             Entry.BaseRequiredPowerMW = ResolveBaseRequiredPowerMW(Entry);
+            if (const FCatalogPowerOverrideRecord* PowerOverride =
+                    FindCatalogPowerOverrideRecord(
+                        PowerOverrideRecords,
+                        Entry.Id))
+            {
+                ApplyCatalogPowerOverride(*PowerOverride, Entry);
+            }
             Entry.BasePollutionOutput = ResolveBasePollutionOutput(Entry);
             Entry.BasePollutionMitigation =
                 ResolveBasePollutionMitigation(Entry);
+            if (const FCatalogPollutionOverrideRecord* PollutionOverride =
+                    FindCatalogPollutionOverrideRecord(
+                        PollutionOverrideRecords,
+                        Entry.Id))
+            {
+                ApplyCatalogPollutionOverride(*PollutionOverride, Entry);
+            }
 
             Entry.UnlockEra = ParseUnlockEra(Entry.DetailText);
+            Entry.AllowedWealthMask =
+                ParseAllowedWealthMask(Entry.DetailText);
+            if (const FCatalogSourceMetadataOverrideRecord* SourceOverride =
+                    FindCatalogSourceMetadataOverrideRecord(
+                        SourceMetadataOverrideRecords,
+                        Entry.Id))
+            {
+                ApplyCatalogSourceMetadataOverride(*SourceOverride, Entry);
+            }
+            Entry.CategoryName = BuildingCategoryInfo::GetDisplayName(
+                Entry.HasBuildMenuCategoryOverride ?
+                    Entry.BuildMenuCategoryOverride :
+                    Entry.Category);
             Entry.RequiredEducationLevel =
                 ParseRequiredEducationLevel(Entry.DetailText);
+            if (const FCatalogWorkforceOverrideRecord* WorkforceOverride =
+                    FindCatalogWorkforceOverrideRecord(
+                        WorkforceOverrideRecords,
+                        Entry.Id))
+            {
+                ApplyCatalogWorkforceOverride(*WorkforceOverride, Entry);
+            }
+            if (!Entry.Residential && Entry.Capacity <= 0)
+            {
+                Entry.JobSatisfactionCap = 0;
+                Entry.RequiredEducationLevel =
+                    ECitizenEducationLevel::Uneducated;
+            }
+            Entry.ServiceCapacity = ResolveServiceCapacity(Entry);
+            if (!Entry.Residential)
+            {
+                int ParsedServiceCapacity = 0;
+                bool ServiceCapacityUsesHouseholds = false;
+                if (TryParseServiceCapacity(
+                        Entry.DetailText,
+                        ParsedServiceCapacity,
+                        ServiceCapacityUsesHouseholds))
+                {
+                    Entry.ServiceCapacity = ParsedServiceCapacity;
+                    Entry.ServiceCapacityUsesHouseholds =
+                        ServiceCapacityUsesHouseholds;
+                }
+            }
             Entry.HousingClass = ResolveHousingClass(Entry.Id);
             Entry.LeisureClass =
                 ResolveLeisureClass(Entry.Category, Entry.Id);
@@ -3230,7 +4882,16 @@ namespace
         for (auto& Entry : Entries)
         {
             if (Entry.Id == "build_1_2")
+            {
                 Entry.IsDemolish = true;
+                Entry.Capacity = 0;
+                Entry.HouseholdCapacity = 0;
+                Entry.ServiceCapacity = 0;
+                Entry.ServiceCapacityUsesHouseholds = false;
+                Entry.JobSatisfactionCap = 0;
+                Entry.RequiredEducationLevel =
+                    ECitizenEducationLevel::Uneducated;
+            }
 
             if (Entry.Id == "build_4_1")
                 Entry.IsHiddenFromBuildMenu = true;
@@ -3269,6 +4930,56 @@ void RegisterRuntimeConfig()
             nullptr,
             &ReloadBuildingCatalogStore
         });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GCostOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogCostOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GSourceMetadataOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogSourceMetadataOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GWorkforceOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogWorkforceOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GPowerOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogPowerOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GPollutionOverrideConfigId,
+            ResolveCatalogWatchPath(
+                BuildCatalogPollutionOverrideCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
 }
 
 unsigned long long GetRuntimeConfigGeneration()
@@ -3287,6 +4998,27 @@ const FBuildingCatalogEntry* FindBuildingCatalogEntry(const std::string& EntryId
         });
 
     return It != Catalog.end() ? &(*It) : nullptr;
+}
+
+EBuildingCategory GetEffectiveBuildMenuCategory(
+    const FBuildingCatalogEntry& Entry)
+{
+    if (Entry.HasBuildMenuCategoryOverride)
+        return Entry.BuildMenuCategoryOverride;
+
+    if (Entry.Category == EBuildingCategory::Entertainment &&
+        Entry.CategoryLocalIndex >= 12)
+    {
+        return EBuildingCategory::LuxuryEntertainment;
+    }
+
+    if (Entry.Category == EBuildingCategory::PublicService &&
+        Entry.DisplayName == L"세관")
+    {
+        return EBuildingCategory::GovernmentFinance;
+    }
+
+    return Entry.Category;
 }
 
 std::string GetCatalogEntryIconPathUtf8(const FBuildingCatalogEntry& Entry)
@@ -3392,29 +5124,25 @@ std::wstring BuildProductionChainSummary(
 
     const std::wstring OutputLabel =
         GetBuildingProducedResourceDisplayName(Entry);
+    const std::vector<std::wstring> DemandLabels =
+        BuildProductionDemandDisplayLabels(Entry);
 
     if (OutputLabel.empty())
-        return std::wstring();
-
-    const std::vector<std::wstring> InputLabels =
-        BuildProductionInputDisplayLabels(Entry);
-
-    if (InputLabels.empty())
-        return OutputLabel + L" 생산";
-
-    std::wstring Result;
-
-    for (size_t Index = 0; Index < InputLabels.size(); ++Index)
     {
-        if (Index > 0)
-            Result += L" + ";
+        if (DemandLabels.empty() || Entry.DisplayName.empty())
+            return std::wstring();
 
-        Result += InputLabels[Index];
+        return JoinLabels(DemandLabels, L" + ") +
+            L" -> " +
+            Entry.DisplayName;
     }
 
-    Result += L" -> ";
-    Result += OutputLabel;
-    return Result;
+    if (DemandLabels.empty())
+        return OutputLabel + L" 생산";
+
+    return JoinLabels(DemandLabels, L" + ") +
+        L" -> " +
+        OutputLabel;
 }
 
 std::wstring GetOperationModeDisplayName(

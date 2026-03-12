@@ -77,6 +77,7 @@ void CMainWorld::Update(float DeltaTime)
 
         RefreshEdictModifiers();
         RefreshPoliticalSnapshot();
+        RefreshForeignTradeDiplomacy(false);
     }
 
     const float SimulationDeltaTime =
@@ -154,9 +155,11 @@ void CMainWorld::AdvanceSimulationDay()
 {
     RefreshPowerGridCoverage();
     RefreshBuildingPollutionExposure();
+    RefreshForeignTradeDiplomacy(false);
     RefreshWorldMarketPrices();
     ApplyDailyEconomySettlement();
     ProcessActiveTradeRoutes();
+    RefreshForeignTradeDiplomacy(true);
     ApplyDailyEdictCitizenEffects();
     ApplyDailyTaxPolicyEventEffects();
     ApplyDailyWorldCrisisEffects();
@@ -167,6 +170,8 @@ void CMainWorld::AdvanceSimulationDay()
     RefreshPoliticalSnapshot();
     TickTaxPolicyEvents();
     TickWorldCrises();
+    TickPoliticalDemands();
+    RefreshForeignTradeDiplomacy(false);
 
     ++mSimulationDay;
     const int CurrentMonthDays =
@@ -184,6 +189,7 @@ void CMainWorld::AdvanceSimulationDay()
         }
     }
 
+    TickElectionPromises();
     ResolveScheduledElection();
 }
 

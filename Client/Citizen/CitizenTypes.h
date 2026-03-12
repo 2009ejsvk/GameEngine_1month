@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Building/BuildingTypes.h"
 #include "../UI/UIStrings.h"
 #include <string>
 
@@ -72,7 +73,11 @@ struct FCitizenIdentityProfile
     ECitizenEducationLevel EducationLevel =
         ECitizenEducationLevel::Uneducated;
     ECitizenWealthLevel WealthLevel = ECitizenWealthLevel::Poor;
+    int HouseholdId = -1;
+    int HouseholdSize = 1;
     bool IsImmigrant = true;
+    bool IsTourist = false;
+    ETouristPreference TouristProfile = ETouristPreference::None;
 };
 
 // 시민 만족도 (행복 5요소 + 부가 항목)

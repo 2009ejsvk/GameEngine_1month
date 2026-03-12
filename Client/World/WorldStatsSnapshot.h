@@ -57,7 +57,10 @@ namespace WorldStats
     struct FWorldStatsSnapshot
     {
         int ActiveCitizenCount = 0;
+        int ActiveTouristCount = 0;
+        int ActiveHouseholdCount = 0;
         int HomelessCount = 0;
+        int HomelessHouseholdCount = 0;
         int UnemployedCount = 0;
         int AssignedHomeCount = 0;
         int AssignedJobCount = 0;
@@ -73,6 +76,9 @@ namespace WorldStats
         int FreedomInfluenceBuildingCount = 0;
         int SecurityInfluenceBuildingCount = 0;
         int HarborCount = 0;
+        int TourismVisitCapacity = 0;
+        int TourismVisitOccupancy = 0;
+        int TouristPreferenceMatchedCount = 0;
         int TotalProducedPowerMW = 0;
         int TotalRequiredPowerMW = 0;
         int DisconnectedConsumerCount = 0;
@@ -80,6 +86,7 @@ namespace WorldStats
         int FullyNeutralCitizenCount = 0;
         int HomelessWealthCount[3] = {};
         int CitizenWealthCount[3] = {};
+        int TouristProfileCount[GTouristPreferenceCount] = {};
         int OverallSatisfactionCitizenCount[5] = {};
         int EducationCount[3] = {};
         int UnemployedEducationCount[3] = {};
@@ -98,6 +105,9 @@ namespace WorldStats
         double AverageJob = 0.0;
         double AverageFreedom = 0.0;
         double AverageSecurity = 0.0;
+        double AverageResidentialFreedom = 0.0;
+        double AverageResidentialSecurity = 0.0;
+        double AverageResidentialPollution = 0.0;
         double AverageOverall = 0.0;
         std::array<FResourceTypeSnapshot, GResourceTypeCount> ResourceTypes = {};
         std::array<FBuildingCategorySnapshot, GBuildingCategoryCount>

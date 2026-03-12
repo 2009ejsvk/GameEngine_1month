@@ -1,8 +1,10 @@
 #pragma once
 
+#include "../Economy/TradeDiplomacyRuntime.h"
 #include "../Economy/TradeRouteRuntimeState.h"
 #include "../Building/BuildingTypes.h"
 #include "../Politics/PoliticalTypes.h"
+#include <array>
 #include <string>
 #include <vector>
 
@@ -44,6 +46,7 @@ public:
     virtual double GetElectionWarningScore() const = 0;
     virtual const FTaxPolicyEventStatus& GetTaxPolicyEventStatus() const = 0;
     virtual const FWorldCrisisStatus& GetWorldCrisisStatus() const = 0;
+    virtual const FPoliticalDemandNotice& GetPoliticalDemandNotice() const = 0;
     virtual bool IsSimulationPaused() const = 0;
     virtual int GetSimulationSpeedMultiplier() const = 0;
     virtual void CycleSimulationSpeedState() = 0;
@@ -73,6 +76,17 @@ public:
     virtual double GetElectionWarningScore() const = 0;
     virtual const FTaxPolicyEventStatus& GetTaxPolicyEventStatus() const = 0;
     virtual const FWorldCrisisStatus& GetWorldCrisisStatus() const = 0;
+    virtual const std::array<FPoliticalDemandState, GPoliticalFactionCount>&
+        GetFactionDemandStates() const = 0;
+    virtual const std::array<
+        FPoliticalDemandState,
+        TradeDiplomacyRuntime::GForeignPowerCount>&
+        GetForeignDemandStates() const = 0;
+    virtual const FPoliticalDemandNotice& GetPoliticalDemandNotice() const = 0;
+    virtual const std::array<
+        TradeDiplomacyRuntime::FForeignPowerWorldState,
+        TradeDiplomacyRuntime::GForeignPowerCount>&
+        GetForeignPowerStates() const = 0;
 };
 
 class IMainWorldEdictReadAccess
@@ -138,4 +152,10 @@ public:
     virtual const std::vector<FTradeRouteCompletionRecord>&
         GetCompletedTradeRoutes() const = 0;
     virtual int GetTradeRouteCompletionNotificationVersion() const = 0;
+    virtual int GetCustomsExportTradePriceModifierPercent() const = 0;
+    virtual int GetCustomsImportTradePriceModifierPercent() const = 0;
+    virtual const std::array<
+        TradeDiplomacyRuntime::FForeignPowerWorldState,
+        TradeDiplomacyRuntime::GForeignPowerCount>&
+        GetForeignPowerStates() const = 0;
 };

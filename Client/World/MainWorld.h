@@ -92,6 +92,11 @@ public:
     bool CancelTradeRoute(
         int RouteId,
         std::wstring& OutMessage);
+    bool RespondPoliticalDemand(
+        EPoliticalDemandIssuerType IssuerType,
+        int IssuerIndex,
+        bool Accept,
+        std::wstring& OutMessage);
 	const FGovernmentProfile& GetGovernmentProfile() const
 	{
 		return mGovernmentProfile;
@@ -164,6 +169,22 @@ public:
     {
         return mWorldCrisisStatus;
     }
+    const FPoliticalDemandNotice& GetPoliticalDemandNotice() const
+    {
+        return mPoliticalDemandNotice;
+    }
+    const std::array<FPoliticalDemandState, GPoliticalFactionCount>&
+        GetFactionDemandStates() const
+    {
+        return mFactionDemands;
+    }
+    const std::array<
+        FPoliticalDemandState,
+        TradeDiplomacyRuntime::GForeignPowerCount>&
+        GetForeignDemandStates() const
+    {
+        return mForeignPowerDemands;
+    }
     virtual void RebuildRoadNetwork() override;
     virtual const CRoadNetwork* GetRoadNetwork() const override
     {
@@ -187,6 +208,15 @@ public:
     virtual int GetTradeRouteCompletionNotificationVersion() const override
     {
         return mTradeRouteCompletionNotificationVersion;
+    }
+    virtual int GetCustomsExportTradePriceModifierPercent() const override;
+    virtual int GetCustomsImportTradePriceModifierPercent() const override;
+    virtual const std::array<
+        TradeDiplomacyRuntime::FForeignPowerWorldState,
+        TradeDiplomacyRuntime::GForeignPowerCount>&
+        GetForeignPowerStates() const override
+    {
+        return mForeignPowerStates;
     }
 
 private:
@@ -217,16 +247,22 @@ private:
     unsigned long long mLastEdictConfigGeneration = 0;
 	int mWorkerTaxPressureDays = 0;
 	int mPropertyTaxPressureDays = 0;
-	int mBudgetCrisisPressureDays = 0;
+    int mBudgetCrisisPressureDays = 0;
     int mRaidPressureDays = 0;
     int mLaborStrikePressureDays = 0;
     int mCrimeWavePressureDays = 0;
     int mFiscalEmergencyPressureDays = 0;
+    int mActiveWorldCrisisChainDepth = 0;
+    EWorldCrisisType mQueuedWorldCrisisType = EWorldCrisisType::None;
+    double mQueuedWorldCrisisRisk = 0.0;
+    int mQueuedWorldCrisisDelayDays = 0;
+    int mQueuedWorldCrisisChainDepth = 0;
 	FGovernmentProfile mGovernmentProfile;
 	FPoliticalWorldSnapshot mPoliticalSnapshot;
-	FElectionStatus mElectionStatus;
-	FTaxPolicyEventStatus mTaxEventStatus;
+    FElectionStatus mElectionStatus;
+    FTaxPolicyEventStatus mTaxEventStatus;
     FWorldCrisisStatus mWorldCrisisStatus;
+    FPoliticalDemandNotice mPoliticalDemandNotice;
     FEraProgressState mEraProgress;
 	std::vector<FGovernmentEdictState> mGovernmentEdicts;
 	FGovernmentEdictModifiers mEdictModifiers;
@@ -234,6 +270,22 @@ private:
     std::shared_ptr<CBusRouteSystem> mBusRouteSystem;
     std::vector<FTradeRouteRuntimeState> mActiveTradeRoutes;
     std::vector<FTradeRouteCompletionRecord> mCompletedTradeRoutes;
+    std::array<
+        TradeDiplomacyRuntime::FForeignPowerStandingState,
+        TradeDiplomacyRuntime::GForeignPowerCount> mForeignPowerStandingStates = {};
+    std::array<
+        TradeDiplomacyRuntime::FForeignPowerWorldState,
+        TradeDiplomacyRuntime::GForeignPowerCount> mForeignPowerStates = {};
+    std::array<FPoliticalDemandState, GPoliticalFactionCount>
+        mFactionDemands = {};
+    std::array<int, GPoliticalFactionCount> mFactionDemandCooldownDays = {};
+    std::array<int, GPoliticalFactionCount> mFactionDemandModifierDays = {};
+    std::array<
+        FPoliticalDemandState,
+        TradeDiplomacyRuntime::GForeignPowerCount> mForeignPowerDemands = {};
+    std::array<
+        int,
+        TradeDiplomacyRuntime::GForeignPowerCount> mForeignDemandCooldownDays = {};
     int mNextTradeRouteId = 1;
     int mNextTradeRouteCompletionRecordId = 1;
     int mTradeRouteCompletionNotificationVersion = 0;
@@ -256,10 +308,12 @@ private:
     void RecordFinishedTradeRoute(
         const FTradeRouteRuntimeState& Route,
         ETradeRouteEndReason EndReason);
+    void RefreshForeignTradeDiplomacy(bool ApplyIdleDecay);
     void RefreshPowerGridCoverage();
     void RefreshWorldMarketPrices();
     void RefreshBuildingPollutionExposure();
 	void InitializeElectionSchedule();
+    void TickElectionPromises();
 	void ResolveScheduledElection();
 	void TickGovernmentEdicts();
 	void RefreshEdictModifiers();
@@ -268,6 +322,7 @@ private:
 	void TickTaxPolicyEvents();
     void ApplyDailyWorldCrisisEffects();
     void TickWorldCrises();
+    void TickPoliticalDemands();
     void RefreshEraProgress();
 	void RefreshPoliticalSnapshot();
     void RebuildBusRoutes();

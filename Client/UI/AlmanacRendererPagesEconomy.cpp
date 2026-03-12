@@ -1,6 +1,7 @@
 #include "AlmanacRenderer.h"
 #include "AlmanacRendererCalc.h"
 #include "AlmanacRendererInternal.h"
+#include "../Building/BuildingTypes.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -140,16 +141,120 @@ void FAlmanacRenderer::ApplyEconomyPage(
                 EconomyAnnualLocalServiceIncome -
                 EconomyAnnualOtherIncome -
                 EconomyAnnualAidIncome);
-    const int CurrentTouristCount =
-        Snapshot.TourismBuildingCount > 0 ?
-            Snapshot.TourismBuildingCount * 360 +
-                Snapshot.HarborCount * 140 + 267 :
+    auto GetTouristProfileCount = [&Snapshot](ETouristPreference Preference)
+    {
+        const int PreferenceIndex = static_cast<int>(Preference);
+        if (PreferenceIndex < 0 || PreferenceIndex >= GTouristPreferenceCount)
+            return 0;
+
+        return (std::max)(0, Snapshot.TouristProfileCount[PreferenceIndex]);
+    };
+
+    const int CurrentTouristCount = (std::max)(0, Snapshot.ActiveTouristCount);
+    const int CulturalTouristCount =
+        GetTouristProfileCount(ETouristPreference::Cultural);
+    const int FamilyTouristCount =
+        GetTouristProfileCount(ETouristPreference::Family);
+    const int BackpackerTouristCount =
+        GetTouristProfileCount(ETouristPreference::Backpacker);
+    const int RelaxationTouristCount =
+        GetTouristProfileCount(ETouristPreference::Relaxation);
+    const int ThrillTouristCount =
+        GetTouristProfileCount(ETouristPreference::ThrillSeeker);
+    const int VipTouristCount =
+        GetTouristProfileCount(ETouristPreference::Celebrity);
+    const int TourismVisitCapacity = (std::max)(0, Snapshot.TourismVisitCapacity);
+    const int TourismVisitOccupancy = (std::max)(0, Snapshot.TourismVisitOccupancy);
+    const int TourismVisitSlack =
+        (std::max)(0, TourismVisitCapacity - TourismVisitOccupancy);
+    const int TouristPreferenceMatchedCount =
+        (std::max)(0, Snapshot.TouristPreferenceMatchedCount);
+    const int TouristPreferenceMatchedPercent =
+        CurrentTouristCount > 0 ?
+            (std::min)(
+                100,
+                (std::max)(
+                    0,
+                    RoundToInt(
+                        static_cast<double>(TouristPreferenceMatchedCount) * 100.0 /
+                        static_cast<double>(CurrentTouristCount)))) :
             0;
+    const int TourismVisitUtilizationPercent =
+        TourismVisitCapacity > 0 ?
+            (std::min)(
+                100,
+                (std::max)(
+                    0,
+                    RoundToInt(
+                        static_cast<double>(TourismVisitOccupancy) * 100.0 /
+                        static_cast<double>(TourismVisitCapacity)))) :
+            0;
+    int TourismProfileDiversityCount = 0;
+    for (int PreferenceIndex = 1; PreferenceIndex < GTouristPreferenceCount; ++PreferenceIndex)
+    {
+        if (Snapshot.TouristProfileCount[PreferenceIndex] > 0)
+            ++TourismProfileDiversityCount;
+    }
+
     const int TourismRating =
-        Snapshot.TourismBuildingCount > 0 ?
-            (std::min)(99,
-                90 + Snapshot.TourismBuildingCount + Snapshot.HarborCount) :
+        Snapshot.TourismBuildingCount > 0 || CurrentTouristCount > 0 ?
+            (std::min)(
+                99,
+                (std::max)(
+                    0,
+                    18 +
+                        (std::min)(28, Snapshot.TourismBuildingCount * 4) +
+                        (std::min)(18, TourismProfileDiversityCount * 3) +
+                        (std::min)(22, TouristPreferenceMatchedPercent / 3) +
+                        (std::min)(14, TourismVisitUtilizationPercent / 6) +
+                        (std::min)(8, Snapshot.HarborCount * 2))) :
             0;
+
+    auto ResolveAxisStep = [](int RawMax)
+    {
+        const int TargetStep = (std::max)(1, (RawMax + 4) / 5);
+        int Magnitude = 1;
+        while (Magnitude * 10 < TargetStep)
+            Magnitude *= 10;
+
+        if (TargetStep <= Magnitude * 2)
+            return Magnitude * 2;
+        if (TargetStep <= Magnitude * 5)
+            return Magnitude * 5;
+        return Magnitude * 10;
+    };
+
+    auto BuildAxisLabels = [](int AxisMax)
+    {
+        std::array<int, GEconomyTrendYAxisLabelCount> Labels = {};
+        const int Step = (std::max)(1, AxisMax / 5);
+
+        for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
+            Labels[static_cast<size_t>(Index)] =
+                (std::max)(0, AxisMax - Step * Index);
+
+        return Labels;
+    };
+
+    const int CurrentTouristAxisMax =
+        ResolveAxisStep(
+            (std::max)(
+                25,
+                RoundToInt(static_cast<double>(CurrentTouristCount) * 1.15))) * 5;
+    const int TourismCapacityAxisMax =
+        ResolveAxisStep(
+            (std::max)(
+                50,
+                RoundToInt(
+                    static_cast<double>(
+                        (std::max)(
+                            TourismVisitCapacity,
+                            (std::max)(TourismVisitOccupancy, CurrentTouristCount))) *
+                    1.10))) * 5;
+    const std::array<int, GEconomyTrendYAxisLabelCount> CurrentTouristAxisLabels =
+        BuildAxisLabels(CurrentTouristAxisMax);
+    const std::array<int, GEconomyTrendYAxisLabelCount> TourismCapacityAxisLabels =
+        BuildAxisLabels(TourismCapacityAxisMax);
     const std::array<float, GPopulationDistributionBarCount> EconomyTreasuryBars =
         BuildPopulationHistoricalLayer(
             Snapshot.NationalBudget > 0 ?
@@ -202,22 +307,34 @@ void FAlmanacRenderer::ApplyEconomyPage(
             18.f);
     const std::array<float, GEconomyTrendBarCount> TourismRatingTrend =
         BuildPopulationDetailTrend(
-            (std::max)(90.f, static_cast<float>(TourismRating) - 1.4f),
+            (std::max)(0.f, static_cast<float>(TourismRating) - 8.f),
             static_cast<float>(TourismRating),
-            0.35f,
-            0.16f);
+            1.8f,
+            0.8f);
     const std::array<float, GEconomyTrendBarCount> TourismCapacityTrend =
         BuildPopulationDetailTrend(
-            22040.f,
-            27550.f,
-            220.f,
-            120.f);
+            TourismVisitCapacity > 0 ?
+                (std::max)(0.f, static_cast<float>(TourismVisitCapacity) * 0.82f) :
+                0.f,
+            static_cast<float>(TourismVisitCapacity),
+            TourismVisitCapacity > 0 ?
+                (std::max)(10.f, static_cast<float>(TourismVisitCapacity) * 0.04f) :
+                4.f,
+            TourismVisitCapacity > 0 ?
+                (std::max)(5.f, static_cast<float>(TourismVisitCapacity) * 0.02f) :
+                2.f);
     const std::array<float, GEconomyTrendBarCount> TourismArrivalTrend =
         BuildPopulationDetailTrend(
-            2550.f,
-            static_cast<float>((std::max)(3000, CurrentTouristCount)),
-            65.f,
-            28.f);
+            CurrentTouristCount > 0 ?
+                (std::max)(0.f, static_cast<float>(CurrentTouristCount) * 0.80f) :
+                0.f,
+            static_cast<float>(CurrentTouristCount),
+            CurrentTouristCount > 0 ?
+                (std::max)(8.f, static_cast<float>(CurrentTouristCount) * 0.05f) :
+                3.f,
+            CurrentTouristCount > 0 ?
+                (std::max)(4.f, static_cast<float>(CurrentTouristCount) * 0.02f) :
+                1.5f);
     const std::array<float, GEconomyTrendBarCount> EconomyJobOccupancyTrend =
         BuildPopulationHistoricalLayer(
             76.f,
@@ -462,7 +579,7 @@ void FAlmanacRenderer::ApplyEconomyPage(
     SetDetailRowData(
         Widget.mEconomyDetails[8],
         L"관광객 수용력",
-        L"",
+        FormatInteger(TourismVisitOccupancy) + L"/" + FormatInteger(TourismVisitCapacity),
         SelectedEconomyIndex == 8);
     SetDetailRowData(
         Widget.mEconomyDetails[9],
@@ -703,16 +820,6 @@ void FAlmanacRenderer::ApplyEconomyPage(
     }
     else if (ShowEconomyCurrentTouristScreen)
     {
-        const int TouristLabels[GEconomyTrendYAxisLabelCount] =
-        {
-            3900,
-            3120,
-            2340,
-            1560,
-            780,
-            0
-        };
-
         for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
         {
             if (Index >= static_cast<int>(Widget.mEconomyTrendYAxisLabels.size()))
@@ -722,7 +829,11 @@ void FAlmanacRenderer::ApplyEconomyPage(
             {
                 YLabel->SetEnable(Index < 5);
                 if (Index < 5)
-                    YLabel->SetText(std::to_wstring(TouristLabels[Index]).c_str());
+                {
+                    YLabel->SetText(
+                        std::to_wstring(
+                            CurrentTouristAxisLabels[static_cast<size_t>(Index)]).c_str());
+                }
             }
         }
 
@@ -736,7 +847,7 @@ void FAlmanacRenderer::ApplyEconomyPage(
                 GraphWidth / static_cast<float>((std::max)(1, GEconomyTrendBarCount));
             const float SingleBarWidth =
                 (std::max)(4.f, BarGroupWidth * 0.54f);
-            const float MaxValue = 3900.f;
+            const float MaxValue = static_cast<float>((std::max)(1, CurrentTouristAxisMax));
 
             for (int Index = 0; Index < GEconomyTrendBarCount; ++Index)
             {
@@ -882,12 +993,12 @@ void FAlmanacRenderer::ApplyEconomyPage(
     {
         const int RatingLabels[GEconomyTrendYAxisLabelCount] =
         {
-            120,
             100,
             80,
             60,
             40,
-            20
+            20,
+            0
         };
 
         for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
@@ -929,15 +1040,15 @@ void FAlmanacRenderer::ApplyEconomyPage(
                         GraphTop,
                         GraphHeight,
                         TourismRatingTrend[static_cast<size_t>(SegmentIndex)],
-                        20.f,
-                        120.f);
+                        0.f,
+                        100.f);
                 const float Y1 =
                     ResolveGraphYInRange(
                         GraphTop,
                         GraphHeight,
                         TourismRatingTrend[static_cast<size_t>(SegmentIndex + 1)],
-                        20.f,
-                        120.f);
+                        0.f,
+                        100.f);
                 SetLineSegment(
                     Widget.mEconomyTrendLines[static_cast<size_t>(SegmentIndex)].lock(),
                     X0,
@@ -951,16 +1062,6 @@ void FAlmanacRenderer::ApplyEconomyPage(
     }
     else if (ShowEconomyTouristCapacityScreen)
     {
-        const int CapacityLabels[GEconomyTrendYAxisLabelCount] =
-        {
-            33060,
-            27550,
-            22040,
-            16530,
-            11020,
-            5510
-        };
-
         for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
         {
             if (Index >= static_cast<int>(Widget.mEconomyTrendYAxisLabels.size()))
@@ -969,7 +1070,9 @@ void FAlmanacRenderer::ApplyEconomyPage(
             if (auto YLabel = Widget.mEconomyTrendYAxisLabels[static_cast<size_t>(Index)].lock())
             {
                 YLabel->SetEnable(true);
-                YLabel->SetText(std::to_wstring(CapacityLabels[Index]).c_str());
+                YLabel->SetText(
+                    std::to_wstring(
+                        TourismCapacityAxisLabels[static_cast<size_t>(Index)]).c_str());
             }
         }
 
@@ -998,28 +1101,28 @@ void FAlmanacRenderer::ApplyEconomyPage(
                         GraphHeight,
                         TourismCapacityTrend[static_cast<size_t>(SegmentIndex)],
                         0.f,
-                        33060.f);
+                        static_cast<float>((std::max)(1, TourismCapacityAxisMax)));
                 const float CapacityY1 =
                     ResolveGraphYInRange(
                         GraphTop,
                         GraphHeight,
                         TourismCapacityTrend[static_cast<size_t>(SegmentIndex + 1)],
                         0.f,
-                        33060.f);
+                        static_cast<float>((std::max)(1, TourismCapacityAxisMax)));
                 const float ArrivalY0 =
                     ResolveGraphYInRange(
                         GraphTop,
                         GraphHeight,
                         TourismArrivalTrend[static_cast<size_t>(SegmentIndex)],
                         0.f,
-                        33060.f);
+                        static_cast<float>((std::max)(1, TourismCapacityAxisMax)));
                 const float ArrivalY1 =
                     ResolveGraphYInRange(
                         GraphTop,
                         GraphHeight,
                         TourismArrivalTrend[static_cast<size_t>(SegmentIndex + 1)],
                         0.f,
-                        33060.f);
+                        static_cast<float>((std::max)(1, TourismCapacityAxisMax)));
 
                 if (SegmentIndex < static_cast<int>(Widget.mEconomyTrendLines.size()))
                 {
@@ -1739,7 +1842,7 @@ void FAlmanacRenderer::ApplyEconomyPage(
         SetMetricRowData(
             Widget.mEconomyMetrics[0],
             L"현재 관광객",
-            std::to_wstring(CurrentTouristCount),
+            FormatInteger(CurrentTouristCount),
             0.f,
             FVector4(0.84f, 0.66f, 0.08f, 0.94f),
             false);
@@ -1771,17 +1874,17 @@ void FAlmanacRenderer::ApplyEconomyPage(
             L"문화",
             L"스릴 중독",
             L"배낭여행",
-            L"아동",
-            L"유명인"
+            L"가족",
+            L"VIP"
         };
         const int BreakdownValues[GEconomyBreakdownRowCount] =
         {
-            750,
-            456,
-            415,
-            470,
-            1195,
-            1
+            RelaxationTouristCount,
+            CulturalTouristCount,
+            ThrillTouristCount,
+            BackpackerTouristCount,
+            FamilyTouristCount,
+            VipTouristCount
         };
 
         for (int Index = 0; Index < 6; ++Index)
@@ -1823,27 +1926,30 @@ void FAlmanacRenderer::ApplyEconomyPage(
 
         const wchar_t* BreakdownLabels[GEconomyBreakdownRowCount] =
         {
-            L"▽ 관광객 평가 수정치",
+            L"▽ 관광객 프로필",
             L"▷ 휴양",
             L"▷ 문화",
             L"▷ 스릴 중독",
             L"▷ 배낭여행",
-            L"▷ 아동",
-            L"▷ 유명인",
-            L"▽ 관광객 숙박 시설",
-            L"▷ 고급 호텔"
+            L"▷ 가족",
+            L"▷ VIP",
+            L"▽ 운영 지표",
+            L"▷ 선호 일치 / 슬롯 점유율"
         };
-        const wchar_t* BreakdownValues[GEconomyBreakdownRowCount] =
+        const std::wstring BreakdownValues[GEconomyBreakdownRowCount] =
         {
             L"",
-            L"3",
-            L"3",
-            L"3",
-            L"3",
-            L"2",
-            L"2",
-            L"114",
-            L"133"
+            FormatInteger(RelaxationTouristCount),
+            FormatInteger(CulturalTouristCount),
+            FormatInteger(ThrillTouristCount),
+            FormatInteger(BackpackerTouristCount),
+            FormatInteger(FamilyTouristCount),
+            FormatInteger(VipTouristCount),
+            L"",
+            FormatInteger(TouristPreferenceMatchedPercent) +
+                L"% / " +
+                FormatInteger(TourismVisitUtilizationPercent) +
+                L"%"
         };
 
         for (int Index = 0; Index < 9; ++Index)
@@ -1875,21 +1981,21 @@ void FAlmanacRenderer::ApplyEconomyPage(
         SetMetricRowData(
             Widget.mEconomyMetrics[1],
             L"✓ 사용 중인 슬롯",
-            FormatInteger(2396),
+            FormatInteger(TourismVisitOccupancy),
             0.f,
             FVector4(0.94f, 0.90f, 0.78f, 0.96f),
             false);
         SetMetricRowData(
             Widget.mEconomyMetrics[2],
             L"✓ 수용력 점유율",
-            L"87%",
+            FormatInteger(TourismVisitUtilizationPercent) + L"%",
             0.f,
             FVector4(0.94f, 0.90f, 0.78f, 0.96f),
             false);
         SetMetricRowData(
             Widget.mEconomyMetrics[3],
             L"✓ 총 숙박 슬롯",
-            FormatInteger(2756),
+            FormatInteger(TourismVisitCapacity),
             0.f,
             FVector4(0.94f, 0.90f, 0.78f, 0.96f),
             false);
@@ -1914,23 +2020,23 @@ void FAlmanacRenderer::ApplyEconomyPage(
 
         const wchar_t* BreakdownLabels[GEconomyBreakdownRowCount] =
         {
-            L"▽ 관광객 숙박 시설",
-            L"▷ 호텔",
-            L"▷ 초고층 호텔",
-            L"▷ 고급 호텔",
-            L"▽ 관광객 도착 건물",
-            L"▷ 여객선 터미널",
-            L"▷ 공항"
+            L"▽ 관광 인프라",
+            L"▷ 관광 건물",
+            L"▷ 항만 진입점",
+            L"▷ 오락 시설",
+            L"▽ 방문 현황",
+            L"▷ 선호 일치 방문",
+            L"▷ 여유 슬롯"
         };
         const std::wstring BreakdownValues[GEconomyBreakdownRowCount] =
         {
-            L"114",
-            FormatInteger(2296) + L"/" + FormatInteger(2616),
-            FormatInteger(98) + L"/" + FormatInteger(128),
-            FormatInteger(2) + L"/" + FormatInteger(12),
-            L"8",
-            FormatInteger(337) + L"/" + FormatInteger(1000),
-            FormatInteger(110) + L"/" + FormatInteger(150)
+            L"",
+            FormatInteger(Snapshot.TourismBuildingCount),
+            FormatInteger(Snapshot.HarborCount),
+            FormatInteger(Snapshot.EntertainmentBuildingCount),
+            L"",
+            FormatInteger(TouristPreferenceMatchedCount),
+            FormatInteger(TourismVisitSlack)
         };
 
         for (int Index = 0; Index < 7; ++Index)

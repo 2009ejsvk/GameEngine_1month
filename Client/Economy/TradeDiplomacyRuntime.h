@@ -17,6 +17,33 @@ namespace TradeDiplomacyRuntime
         int TradeModifier = 0;
     };
 
+    struct FForeignPowerStandingState
+    {
+        int Standing = 0;
+        int RelationModifier = 0;
+        int ActiveContractCount = 0;
+        int SignedContractCount = 0;
+        int CompletedContractCount = 0;
+        int FailedContractCount = 0;
+        int IdleDays = 0;
+        int LastStandingChange = 0;
+        int LastRelationChange = 0;
+    };
+
+    struct FForeignPowerWorldState
+    {
+        int Relation = 0;
+        int TradeModifier = 0;
+        int Standing = 0;
+        int RelationModifier = 0;
+        int ActiveContractCount = 0;
+        int SignedContractCount = 0;
+        int CompletedContractCount = 0;
+        int FailedContractCount = 0;
+        int LastStandingChange = 0;
+        int LastRelationChange = 0;
+    };
+
     struct FForeignTradeContext
     {
         double HarborStrength = 0.0;
@@ -48,6 +75,25 @@ namespace TradeDiplomacyRuntime
     inline int ClampInt(int Value, int MinValue, int MaxValue)
     {
         return (std::max)(MinValue, (std::min)(MaxValue, Value));
+    }
+
+    inline int ClampStanding(int Value)
+    {
+        return ClampInt(Value, -100, 100);
+    }
+
+    inline const wchar_t* GetForeignPowerStatusText(int Relation)
+    {
+        if (Relation >= 82)
+            return L"우호적";
+        if (Relation >= 64)
+            return L"호의적";
+        if (Relation >= 46)
+            return L"신중";
+        if (Relation >= 28)
+            return L"경계";
+
+        return L"냉각";
     }
 
     inline bool HasActiveEdict(
@@ -312,6 +358,239 @@ namespace TradeDiplomacyRuntime
         return Result;
     }
 
+    inline FForeignPowerWorldState BuildForeignPowerWorldState(
+        const FForeignTradeRuntimeData& RuntimeData,
+        const FForeignPowerStandingState& StandingState)
+    {
+        FForeignPowerWorldState Result;
+        Result.Standing = ClampStanding(StandingState.Standing);
+        Result.RelationModifier =
+            ClampInt(StandingState.RelationModifier, -35, 35);
+        Result.ActiveContractCount =
+            ClampInt(StandingState.ActiveContractCount, 0, 32);
+        Result.SignedContractCount =
+            (std::max)(0, StandingState.SignedContractCount);
+        Result.CompletedContractCount =
+            (std::max)(0, StandingState.CompletedContractCount);
+        Result.FailedContractCount =
+            (std::max)(0, StandingState.FailedContractCount);
+        Result.LastStandingChange =
+            ClampInt(StandingState.LastStandingChange, -20, 20);
+        Result.LastRelationChange =
+            ClampInt(StandingState.LastRelationChange, -20, 20);
+
+        const int CompletionBalance =
+            Result.CompletedContractCount - Result.FailedContractCount;
+        const int StandingRelationBonus = ClampInt(
+            static_cast<int>(std::lround(
+                static_cast<double>(Result.Standing) * 0.22)),
+            -22,
+            22);
+        const int StandingTradeBonus = ClampInt(
+            static_cast<int>(std::lround(
+                static_cast<double>(Result.Standing) * 0.12)),
+            -12,
+            12);
+        const int ActiveBonus =
+            ClampInt(Result.ActiveContractCount * 2, 0, 8);
+        const int ReliabilityRelationBonus =
+            ClampInt(CompletionBalance * 2, -10, 10);
+        const int ReliabilityTradeBonus =
+            ClampInt(CompletionBalance, -6, 6);
+
+        Result.Relation = ClampInt(
+            RuntimeData.Relation +
+                Result.RelationModifier +
+                StandingRelationBonus +
+                ActiveBonus +
+                ReliabilityRelationBonus,
+            0,
+            100);
+        Result.TradeModifier = ClampInt(
+            RuntimeData.TradeModifier +
+                StandingTradeBonus +
+                ActiveBonus +
+                ReliabilityTradeBonus +
+                ClampInt(
+                    static_cast<int>(std::lround(
+                        static_cast<double>(Result.Relation - 50) * 0.10)),
+                    -6,
+                    6),
+            -25,
+            25);
+
+        return Result;
+    }
+
+    inline void ApplyEdictForeignPolicyBias(
+        int Index,
+        const std::vector<FGovernmentEdictState>& GovernmentEdictStates,
+        FForeignTradeRuntimeData& InOutData)
+    {
+        int RelationDelta = 0;
+        int TradeDelta = 0;
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::PolicyOfDetente))
+        {
+            RelationDelta += (Index == 2 || Index == 4) ? 6 : 4;
+            TradeDelta += (Index == 0 || Index == 2) ? 2 : 1;
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::DiplomaticSuperParty))
+        {
+            RelationDelta += (Index == 2 || Index == 4) ? 7 : 4;
+            TradeDelta += Index == 2 ? 3 : 1;
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::TourismState))
+        {
+            if (Index == 2 || Index == 4)
+            {
+                RelationDelta += 6;
+                TradeDelta += 2;
+            }
+            else if (Index == 3)
+            {
+                RelationDelta += 2;
+            }
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::CTPA))
+        {
+            if (Index == 0 || Index == 2)
+            {
+                RelationDelta += 3;
+                TradeDelta += 4;
+            }
+            else if (Index == 4)
+            {
+                TradeDelta += 1;
+            }
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::TaxHeaven))
+        {
+            if (Index == 0 || Index == 2)
+            {
+                RelationDelta += 3;
+                TradeDelta += 3;
+            }
+            else if (Index == 4)
+            {
+                RelationDelta -= 2;
+            }
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::TaxCut) &&
+            (Index == 0 || Index == 2))
+        {
+            RelationDelta += 2;
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::MartialLaw))
+        {
+            if (Index == 1 || Index == 3)
+            {
+                RelationDelta += 4;
+            }
+            else if (Index == 2 || Index == 4)
+            {
+                RelationDelta -= 8;
+                TradeDelta -= 3;
+            }
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::MilitaryPolice))
+        {
+            if (Index == 1)
+            {
+                RelationDelta += 3;
+            }
+            else if (Index == 2 || Index == 4)
+            {
+                RelationDelta -= 5;
+                TradeDelta -= 2;
+            }
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::RightToArms))
+        {
+            if (Index == 1)
+            {
+                RelationDelta += 4;
+            }
+            else if (Index == 2 || Index == 4)
+            {
+                RelationDelta -= 2;
+            }
+        }
+
+        if ((HasActiveEdict(
+                 GovernmentEdictStates,
+                 EGovernmentEdictType::FreeHousing) ||
+                HasActiveEdict(
+                    GovernmentEdictStates,
+                    EGovernmentEdictType::FoodForThePeople)) &&
+            Index == 4)
+        {
+            RelationDelta += 2;
+        }
+
+        if ((HasActiveEdict(
+                 GovernmentEdictStates,
+                 EGovernmentEdictType::ChurchFee) ||
+                HasActiveEdict(
+                    GovernmentEdictStates,
+                    EGovernmentEdictType::Prohibition)) &&
+            Index == 3)
+        {
+            RelationDelta += 3;
+        }
+
+        if (HasActiveEdict(
+                GovernmentEdictStates,
+                EGovernmentEdictType::EmergencyAusterity))
+        {
+            if (Index == 0 || Index == 1)
+            {
+                RelationDelta += 1;
+                TradeDelta += 1;
+            }
+            else if (Index == 2 || Index == 4)
+            {
+                RelationDelta -= 4;
+                TradeDelta -= 2;
+            }
+        }
+
+        InOutData.Relation = ClampInt(
+            InOutData.Relation + RelationDelta,
+            0,
+            100);
+        InOutData.TradeModifier = ClampInt(
+            InOutData.TradeModifier + TradeDelta,
+            -25,
+            25);
+    }
+
     inline std::array<FForeignTradeRuntimeData, GForeignPowerCount>
     BuildForeignTradeRuntimeData(
         const WorldStats::FWorldStatsSnapshot& Snapshot,
@@ -336,6 +615,38 @@ namespace TradeDiplomacyRuntime
                     Context,
                     MartialLawActive,
                     TaxEventStatus.Active);
+            ApplyEdictForeignPolicyBias(
+                Index,
+                GovernmentEdictStates,
+                Result[static_cast<size_t>(Index)]);
+        }
+
+        return Result;
+    }
+
+    inline std::array<FForeignPowerWorldState, GForeignPowerCount>
+    BuildForeignPowerWorldStates(
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        const FGovernmentProfile& GovernmentProfile,
+        const FTaxPolicyEventStatus& TaxEventStatus,
+        const std::vector<FGovernmentEdictState>& GovernmentEdictStates,
+        const std::array<FForeignPowerStandingState, GForeignPowerCount>&
+            StandingStates)
+    {
+        const auto RuntimeData =
+            BuildForeignTradeRuntimeData(
+                Snapshot,
+                GovernmentProfile,
+                TaxEventStatus,
+                GovernmentEdictStates);
+        std::array<FForeignPowerWorldState, GForeignPowerCount> Result = {};
+
+        for (int Index = 0; Index < GForeignPowerCount; ++Index)
+        {
+            Result[static_cast<size_t>(Index)] =
+                BuildForeignPowerWorldState(
+                    RuntimeData[static_cast<size_t>(Index)],
+                    StandingStates[static_cast<size_t>(Index)]);
         }
 
         return Result;
@@ -365,19 +676,12 @@ namespace TradeDiplomacyRuntime
         }
     }
 
-    inline int ComputeDiplomacyExportBiasPercent(
+    template <typename TForeignPowerState>
+    inline int ComputeDiplomacyBiasPercent(
         EResourceType Type,
-        const WorldStats::FWorldStatsSnapshot& Snapshot,
-        const FGovernmentProfile& GovernmentProfile,
-        const FTaxPolicyEventStatus& TaxEventStatus,
-        const std::vector<FGovernmentEdictState>& GovernmentEdictStates)
+        const std::array<TForeignPowerState, GForeignPowerCount>& Powers,
+        bool ImportRoute)
     {
-        const auto Powers =
-            BuildForeignTradeRuntimeData(
-                Snapshot,
-                GovernmentProfile,
-                TaxEventStatus,
-                GovernmentEdictStates);
         std::array<double, GForeignPowerCount> Weights = {};
         ResolveTradeWeights(GetResourceMarketClass(Type), Weights);
 
@@ -391,17 +695,50 @@ namespace TradeDiplomacyRuntime
                 static_cast<double>(Powers[static_cast<size_t>(Index)].Relation) *
                 Weight;
             WeightedTrade +=
-                static_cast<double>(Powers[static_cast<size_t>(Index)].TradeModifier) *
+                static_cast<double>(
+                    Powers[static_cast<size_t>(Index)].TradeModifier) *
                 Weight;
         }
 
-        const double Bias =
+        const double Bias = ImportRoute ?
+            -WeightedTrade * 0.32 -
+                (WeightedRelation - 50.0) * 0.12 :
             WeightedTrade * 0.45 +
-            (WeightedRelation - 50.0) * 0.16;
+                (WeightedRelation - 50.0) * 0.16;
         return ClampInt(
             static_cast<int>(std::lround(Bias)),
-            -12,
-            15);
+            ImportRoute ? -10 : -12,
+            ImportRoute ? 12 : 15);
+    }
+
+    inline int ComputeDiplomacyExportBiasPercent(
+        EResourceType Type,
+        const std::array<FForeignPowerWorldState, GForeignPowerCount>& Powers)
+    {
+        return ComputeDiplomacyBiasPercent(Type, Powers, false);
+    }
+
+    inline int ComputeDiplomacyImportBiasPercent(
+        EResourceType Type,
+        const std::array<FForeignPowerWorldState, GForeignPowerCount>& Powers)
+    {
+        return ComputeDiplomacyBiasPercent(Type, Powers, true);
+    }
+
+    inline int ComputeDiplomacyExportBiasPercent(
+        EResourceType Type,
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        const FGovernmentProfile& GovernmentProfile,
+        const FTaxPolicyEventStatus& TaxEventStatus,
+        const std::vector<FGovernmentEdictState>& GovernmentEdictStates)
+    {
+        const auto Powers =
+            BuildForeignTradeRuntimeData(
+                Snapshot,
+                GovernmentProfile,
+                TaxEventStatus,
+                GovernmentEdictStates);
+        return ComputeDiplomacyBiasPercent(Type, Powers, false);
     }
 
     inline int ComputeDiplomacyImportBiasPercent(
@@ -417,30 +754,7 @@ namespace TradeDiplomacyRuntime
                 GovernmentProfile,
                 TaxEventStatus,
                 GovernmentEdictStates);
-        std::array<double, GForeignPowerCount> Weights = {};
-        ResolveTradeWeights(GetResourceMarketClass(Type), Weights);
-
-        double WeightedRelation = 0.0;
-        double WeightedTrade = 0.0;
-
-        for (int Index = 0; Index < GForeignPowerCount; ++Index)
-        {
-            const double Weight = Weights[static_cast<size_t>(Index)];
-            WeightedRelation +=
-                static_cast<double>(Powers[static_cast<size_t>(Index)].Relation) *
-                Weight;
-            WeightedTrade +=
-                static_cast<double>(Powers[static_cast<size_t>(Index)].TradeModifier) *
-                Weight;
-        }
-
-        const double Bias =
-            -WeightedTrade * 0.32 -
-            (WeightedRelation - 50.0) * 0.12;
-        return ClampInt(
-            static_cast<int>(std::lround(Bias)),
-            -10,
-            12);
+        return ComputeDiplomacyBiasPercent(Type, Powers, true);
     }
 
     inline int ComputeEdictExportBiasPercent(

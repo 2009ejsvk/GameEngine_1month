@@ -115,6 +115,51 @@ namespace
             DaysUntilElection <= 180 &&
             Score >= 0.32;
     }
+
+    int CountActiveElectionPromises(const FElectionStatus& ElectionStatus)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            if (ElectionStatus.ActivePromises[static_cast<size_t>(Index)].Active)
+                ++Count;
+        }
+
+        return Count;
+    }
+
+    int CountMetElectionPromises(const FElectionStatus& ElectionStatus)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            if (IsElectionPromiseMet(
+                    ElectionStatus.ActivePromises[static_cast<size_t>(Index)]))
+            {
+                ++Count;
+            }
+        }
+
+        return Count;
+    }
+
+    std::wstring BuildElectionPromiseHudSummary(
+        const FElectionStatus& ElectionStatus)
+    {
+        const int ActiveCount = CountActiveElectionPromises(ElectionStatus);
+
+        if (ActiveCount <= 0)
+            return std::wstring();
+
+        return
+            L"공약 " +
+            std::to_wstring(CountMetElectionPromises(ElectionStatus)) +
+            L"/" +
+            std::to_wstring(ActiveCount) +
+            L" 이행";
+    }
 }
 
 namespace TopHudDataProvider
@@ -145,7 +190,11 @@ namespace TopHudDataProvider
             HasElectionWarning(DaysUntilElection, ElectionWarningScore);
         const FPoliticalWorldSnapshot& PoliticalSnapshot =
             MainWorld->GetPoliticalSnapshot();
+        const FPoliticalDemandNotice& PoliticalDemandNotice =
+            MainWorld->GetPoliticalDemandNotice();
         const int ActiveNpcCount = PoliticalSnapshot.ActiveCitizenCount;
+        const std::wstring PromiseSummary =
+            BuildElectionPromiseHudSummary(ElectionStatus);
 
         Result.GamePaused = MainWorld->IsSimulationPaused();
         Result.GameSpeedMultiplier = (std::max)(
@@ -206,6 +255,12 @@ namespace TopHudDataProvider
                         UIStrings::Get(L"top_hud.fragment.last_win") :
                     UIStrings::Get(L"top_hud.fragment.separator") +
                         UIStrings::Get(L"top_hud.fragment.last_loss");
+            }
+
+            if (!PromiseSummary.empty())
+            {
+                Result.ElectionText += UIStrings::Get(L"top_hud.fragment.separator");
+                Result.ElectionText += PromiseSummary;
             }
 
             if (ElectionWarningScore >= 0.78)
@@ -287,6 +342,25 @@ namespace TopHudDataProvider
                 Result.EventTextColor = MakeColor(236, 182, 94, 255);
             }
         }
+        else if (PoliticalDemandNotice.RemainingDays > 0 &&
+            !PoliticalDemandNotice.Title.empty())
+        {
+            Result.EventText = PoliticalDemandNotice.Title;
+
+            if (!PoliticalDemandNotice.Summary.empty())
+            {
+                Result.EventText +=
+                    UIStrings::Get(L"top_hud.fragment.separator");
+                Result.EventText += PoliticalDemandNotice.Summary;
+            }
+
+            Result.EventTextColor =
+                PoliticalDemandNotice.Positive ?
+                    MakeColor(208, 226, 198, 255) :
+                    (PoliticalDemandNotice.ActiveDemand ?
+                        MakeColor(240, 214, 124, 255) :
+                        MakeColor(236, 182, 94, 255));
+        }
         else if (ElectionWarningActive)
         {
             Result.EventText = UIStrings::Get(L"top_hud.event.election_warning");
@@ -304,6 +378,24 @@ namespace TopHudDataProvider
                 Result.EventTextColor = MakeColor(238, 178, 88, 255);
             else
                 Result.EventTextColor = MakeColor(240, 214, 124, 255);
+        }
+        else if (!PromiseSummary.empty() && DaysUntilElection >= 0)
+        {
+            Result.EventText = PromiseSummary;
+            Result.EventText += UIStrings::Get(L"top_hud.fragment.separator");
+            Result.EventText += std::to_wstring(DaysUntilElection);
+            Result.EventText += UIStrings::Get(L"top_hud.fragment.day_suffix");
+
+            if (CountActiveElectionPromises(ElectionStatus) > 0 &&
+                CountMetElectionPromises(ElectionStatus) <
+                    CountActiveElectionPromises(ElectionStatus))
+            {
+                Result.EventTextColor = MakeColor(236, 182, 94, 255);
+            }
+            else
+            {
+                Result.EventTextColor = MakeColor(208, 226, 198, 255);
+            }
         }
         else if (TaxEventStatus.NotificationDays > 0 &&
             !TaxEventStatus.Summary.empty())

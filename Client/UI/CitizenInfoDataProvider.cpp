@@ -28,6 +28,7 @@ namespace
     struct FBuildingUiSnapshot
     {
         const FBuildingCatalogEntry* CatalogEntry = nullptr;
+        std::string BuildingId;
         std::wstring ObjectName;
         std::wstring DisplayName;
         std::wstring CategoryName;
@@ -37,6 +38,7 @@ namespace
         std::wstring JobQualityText;
         std::wstring ServiceQualityText;
         std::wstring HousingQualityText;
+        std::wstring HouseholdCapacityText;
         std::wstring WealthRequirementText;
         std::wstring TouristPreferenceText;
         std::wstring EffectText;
@@ -66,7 +68,12 @@ namespace
         std::vector<std::string> AssignedVisitors;
         std::vector<std::string> ArrivedVisitors;
         std::vector<std::string> IncomingVisitors;
+        EBuildingCostState BlueprintCostState = EBuildingCostState::None;
+        int BlueprintCost = 0;
+        EBuildingCostState ConstructionCostState = EBuildingCostState::None;
+        int ConstructionCost = 0;
         int Capacity = 0;
+        int HouseholdCapacity = 0;
         int BudgetLevel = 3;
         int DaysInMonth = 30;
         int MonthlyWageCost = 0;
@@ -90,6 +97,7 @@ namespace
         int ProducedPowerMW = 0;
         int RequiredPowerMW = 0;
         int ServiceCapacity = 0;
+        bool ServiceCapacityUsesHouseholds = false;
         int TotalProducedPowerMW = 0;
         int TotalRequiredPowerMW = 0;
         long long LastDailyExportIncome = 0;
@@ -270,6 +278,109 @@ namespace
         return L"$" + FormatInteger(Value);
     }
 
+    std::wstring FormatCatalogCostValue(
+        EBuildingCostState State,
+        int Value)
+    {
+        switch (State)
+        {
+        case EBuildingCostState::Known:
+            return Value <= 0 ?
+                Ui(L"citizen_info.value.free") :
+                FormatMoney(Value);
+        case EBuildingCostState::Unknown:
+            return Ui(L"citizen_info.value.unknown");
+        case EBuildingCostState::None:
+        default:
+            return std::wstring();
+        }
+    }
+
+    std::wstring JoinInlineSegments(
+        const std::vector<std::wstring>& Segments)
+    {
+        std::wstring Result;
+
+        for (size_t Index = 0; Index < Segments.size(); ++Index)
+        {
+            const std::wstring Segment = Trim(Segments[Index]);
+
+            if (Segment.empty())
+                continue;
+
+            if (!Result.empty())
+                Result += L", ";
+
+            Result += Segment;
+        }
+
+        return Result;
+    }
+
+    const FBuildingRuntimeUpgradeDef* ResolveActiveRuntimeUpgradeDef(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        if (!Snapshot.CatalogEntry)
+            return nullptr;
+
+        if (Snapshot.ActiveRuntimeUpgradeIndex < 0 ||
+            Snapshot.ActiveRuntimeUpgradeIndex >=
+                static_cast<int>(
+                    Snapshot.CatalogEntry->RuntimeUpgradeDefs.size()))
+        {
+            return nullptr;
+        }
+
+        return &Snapshot.CatalogEntry->RuntimeUpgradeDefs[
+            static_cast<size_t>(Snapshot.ActiveRuntimeUpgradeIndex)];
+    }
+
+    std::wstring BuildRuntimeUpgradeSummary(
+        const FBuildingRuntimeUpgradeDef& UpgradeDef,
+        const std::wstring* OverrideEffectSummary = nullptr)
+    {
+        std::vector<std::wstring> Segments;
+
+        if (UpgradeDef.HasUnlockEra)
+            Segments.push_back(GetBuildingEraDisplayName(UpgradeDef.UnlockEra));
+
+        const std::wstring CostText =
+            FormatCatalogCostValue(UpgradeDef.CostState, UpgradeDef.Cost);
+
+        if (!CostText.empty())
+            Segments.push_back(CostText);
+
+        const std::wstring EffectSummary =
+            OverrideEffectSummary && !OverrideEffectSummary->empty() ?
+                *OverrideEffectSummary :
+                UpgradeDef.EffectSummary;
+
+        if (!EffectSummary.empty())
+            Segments.push_back(EffectSummary);
+
+        return JoinInlineSegments(Segments);
+    }
+
+    std::wstring BuildRuntimeUpgradeLine(
+        const FBuildingRuntimeUpgradeDef& UpgradeDef,
+        bool Active,
+        const std::wstring* OverrideEffectSummary = nullptr)
+    {
+        std::wstring Line =
+            (Active ? L"* " : L"- ") + UpgradeDef.DisplayName;
+        const std::wstring Summary =
+            BuildRuntimeUpgradeSummary(UpgradeDef, OverrideEffectSummary);
+
+        if (!Summary.empty())
+        {
+            Line += L" (";
+            Line += Summary;
+            Line += L")";
+        }
+
+        return Line;
+    }
+
     std::wstring FormatMultiplier(float Value)
     {
         wchar_t Buffer[32] = {};
@@ -397,39 +508,45 @@ namespace
         return Value;
     }
 
-    bool UseModernApartmentOverview(const FBuildingUiSnapshot& Snapshot)
+    std::wstring BuildAllowedWealthRequirementText(unsigned int AllowedWealthMask)
     {
-        return Snapshot.DisplayName == L"현대식 아파트";
+        const unsigned int EffectiveMask =
+            AllowedWealthMask == GBuildingWealthMaskNone ?
+                GBuildingWealthMaskAll :
+                AllowedWealthMask;
+        switch (EffectiveMask)
+        {
+        case GBuildingWealthMaskPoor:
+            return UIStrings::Get(L"citizen.wealth.poor");
+        case GBuildingWealthMaskWellOff:
+            return UIStrings::Get(L"citizen.wealth.well_off");
+        case GBuildingWealthMaskRich:
+            return UIStrings::Get(L"citizen.wealth.rich");
+        case GBuildingWealthMaskWellOff | GBuildingWealthMaskRich:
+            return UIStrings::Get(L"citizen.wealth.well_off") + L" 이상";
+        default:
+            return std::wstring();
+        }
     }
 
-    bool UseModernApartmentUpgradeCard(const FBuildingUiSnapshot& Snapshot)
+    bool HasBuildingId(
+        const FBuildingUiSnapshot& Snapshot,
+        const char* BuildingId)
     {
-        return Snapshot.DisplayName == L"현대식 아파트";
+        return BuildingId &&
+            Snapshot.BuildingId == BuildingId;
     }
 
-    bool UseHarborWorkOverview(const FBuildingUiSnapshot& Snapshot)
+    bool IsHydroponicFarmBuilding(const FBuildingUiSnapshot& Snapshot)
     {
-        return Snapshot.Harbor && Snapshot.DisplayName == L"항구";
+        return HasBuildingId(Snapshot, "build_2_10") ||
+            Snapshot.DisplayName == L"대규모 수경 농장";
     }
 
-    bool UseHydroponicFarmWorkOverview(const FBuildingUiSnapshot& Snapshot)
+    bool IsCustomsOfficeBuilding(const FBuildingUiSnapshot& Snapshot)
     {
-        return Snapshot.DisplayName == L"대규모 수경 농장";
-    }
-
-    bool UseAquaParkWorkOverview(const FBuildingUiSnapshot& Snapshot)
-    {
-        return Snapshot.DisplayName == L"아쿠아 파크";
-    }
-
-    bool UseRestaurantWorkOverview(const FBuildingUiSnapshot& Snapshot)
-    {
-        return Snapshot.DisplayName == L"레스토랑";
-    }
-
-    bool UseCustomsOfficeOverview(const FBuildingUiSnapshot& Snapshot)
-    {
-        return Snapshot.DisplayName == L"세관";
+        return HasBuildingId(Snapshot, "build_8_13") ||
+            Snapshot.DisplayName == L"세관";
     }
 
     int ComputeAverageCustomsDiplomacyExportBiasPercent()
@@ -512,9 +629,6 @@ namespace
 
     int ResolveOverviewHousingQuality(const FBuildingUiSnapshot& Snapshot)
     {
-        if (UseModernApartmentOverview(Snapshot))
-            return 104;
-
         const int Parsed =
             ParseLeadingInteger(Snapshot.HousingQualityText, Snapshot.HousingCap);
         return (std::max)(0, Parsed);
@@ -522,9 +636,6 @@ namespace
 
     long long ResolveOverviewMonthlyIncome(const FBuildingUiSnapshot& Snapshot)
     {
-        if (UseModernApartmentOverview(Snapshot))
-            return 54;
-
         return static_cast<long long>((std::max)(0, Snapshot.Capacity)) * 3LL;
     }
 
@@ -616,6 +727,14 @@ namespace
             return std::to_wstring(Snapshot.AssignedVisitors.size());
 
         return std::wstring();
+    }
+
+    const wchar_t* GetServiceCapacityLabelKey(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        return Snapshot.ServiceCapacityUsesHouseholds ?
+            L"citizen_info.label.household_capacity" :
+            L"citizen_info.label.service_capacity";
     }
 
     std::wstring ResolveWorkerOverviewPreferredType(
@@ -1217,12 +1336,25 @@ namespace
         OutSnapshot = FBuildingUiSnapshot();
         OutSnapshot.CatalogEntry =
             FindBuildingCatalogEntry(BuildingRecord.BuildingId);
+        OutSnapshot.BuildingId = BuildingRecord.BuildingId;
         OutSnapshot.ObjectName = BuildingRecord.ObjectName;
         OutSnapshot.DisplayName = BuildingRecord.DisplayName;
         OutSnapshot.CategoryName = BuildingRecord.CategoryName;
         OutSnapshot.DetailText = OutSnapshot.CatalogEntry ?
             OutSnapshot.CatalogEntry->DetailText :
             std::wstring();
+        OutSnapshot.BlueprintCostState = OutSnapshot.CatalogEntry ?
+            OutSnapshot.CatalogEntry->BlueprintCostState :
+            EBuildingCostState::None;
+        OutSnapshot.BlueprintCost = OutSnapshot.CatalogEntry ?
+            OutSnapshot.CatalogEntry->BlueprintCost :
+            0;
+        OutSnapshot.ConstructionCostState = OutSnapshot.CatalogEntry ?
+            OutSnapshot.CatalogEntry->ConstructionCostState :
+            EBuildingCostState::None;
+        OutSnapshot.ConstructionCost = OutSnapshot.CatalogEntry ?
+            OutSnapshot.CatalogEntry->ConstructionCost :
+            0;
         OutSnapshot.RequiredEducationLevel =
             BuildingRecord.RequiredEducationLevel;
         OutSnapshot.Residential = BuildingRecord.Residential;
@@ -1239,6 +1371,12 @@ namespace
         OutSnapshot.CanGenerateWorkOutput =
             BuildingRecord.CanGenerateWorkOutput;
         OutSnapshot.Capacity = BuildingRecord.Capacity;
+        OutSnapshot.HouseholdCapacity = OutSnapshot.CatalogEntry ?
+            (std::max)(0, OutSnapshot.CatalogEntry->HouseholdCapacity) :
+            0;
+        OutSnapshot.ServiceCapacityUsesHouseholds =
+            OutSnapshot.CatalogEntry &&
+            OutSnapshot.CatalogEntry->ServiceCapacityUsesHouseholds;
         OutSnapshot.BudgetLevel = BuildingRecord.BudgetLevel;
         OutSnapshot.DaysInMonth = BuildingRecord.DaysInMonth;
         OutSnapshot.MonthlyWageCost = BuildingRecord.MonthlyWageCost;
@@ -1377,17 +1515,28 @@ namespace
         OutSnapshot.RequiredPowerText =
             OutSnapshot.RequiredPowerMW > 0 ?
                 FormatMegawattValue(OutSnapshot.RequiredPowerMW) :
-                ExtractDetailValue(OutSnapshot.DetailText, L"필요 전력:");
+                (OutSnapshot.CatalogEntry &&
+                        OutSnapshot.CatalogEntry->BaseRequiredPowerMW > 0 ?
+                    FormatMegawattValue(
+                        OutSnapshot.CatalogEntry->BaseRequiredPowerMW) :
+                    ExtractDetailValue(OutSnapshot.DetailText, L"필요 전력:"));
         OutSnapshot.ProducedPowerText =
             OutSnapshot.ProducedPowerMW > 0 ?
                 FormatMegawattValue(OutSnapshot.ProducedPowerMW) :
-                ExtractDetailValue(OutSnapshot.DetailText, L"생산 전력:");
+                (OutSnapshot.CatalogEntry &&
+                        OutSnapshot.CatalogEntry->BaseProducedPowerMW > 0 ?
+                    FormatMegawattValue(
+                        OutSnapshot.CatalogEntry->BaseProducedPowerMW) :
+                    ExtractDetailValue(OutSnapshot.DetailText, L"생산 전력:"));
 
         if (OutSnapshot.ProducedPowerText.empty() &&
             OutSnapshot.ProducedPowerMW <= 0)
         {
             const int FallbackProducedPowerMW =
-                ExtractPowerValueMW(OutSnapshot.DetailText, L"발전량:");
+                OutSnapshot.CatalogEntry &&
+                    OutSnapshot.CatalogEntry->BaseProducedPowerMW > 0 ?
+                    OutSnapshot.CatalogEntry->BaseProducedPowerMW :
+                    ExtractPowerValueMW(OutSnapshot.DetailText, L"발전량:");
 
             if (FallbackProducedPowerMW > 0)
                 OutSnapshot.ProducedPowerText =
@@ -1399,6 +1548,10 @@ namespace
             ExtractDetailValue(OutSnapshot.DetailText, L"서비스 품질:");
         OutSnapshot.HousingQualityText =
             ExtractDetailValue(OutSnapshot.DetailText, L"주거 품질:");
+        OutSnapshot.HouseholdCapacityText =
+            OutSnapshot.HouseholdCapacity > 0 ?
+                std::to_wstring(OutSnapshot.HouseholdCapacity) :
+                ExtractDetailValue(OutSnapshot.DetailText, L"수용 가구:");
         OutSnapshot.WealthRequirementText =
             ExtractDetailValue(OutSnapshot.DetailText, L"재산 요구치:");
 
@@ -1414,24 +1567,58 @@ namespace
                 ExtractDetailValue(OutSnapshot.DetailText, L"관광객 재산:");
         }
 
+        if (OutSnapshot.WealthRequirementText.empty() &&
+            OutSnapshot.CatalogEntry)
+        {
+            OutSnapshot.WealthRequirementText =
+                BuildAllowedWealthRequirementText(
+                    OutSnapshot.CatalogEntry->AllowedWealthMask);
+        }
+
         OutSnapshot.TouristPreferenceText =
             ExtractDetailValue(OutSnapshot.DetailText, L"선호 관광객:");
         OutSnapshot.EffectText =
             ExtractDetailValue(OutSnapshot.DetailText, L"효과:");
         OutSnapshot.NoteText =
             ExtractDetailValue(OutSnapshot.DetailText, L"비고:");
-        OutSnapshot.ServiceCapacityText =
-            ExtractDetailValue(OutSnapshot.DetailText, L"수용 인원:");
-
-        if (OutSnapshot.ServiceCapacityText.empty())
+        std::wstring RawServiceCapacityText;
+        bool RawServiceCapacityUsesHouseholds = false;
+        if (!OutSnapshot.Residential)
         {
-            OutSnapshot.ServiceCapacityText =
-                ExtractDetailValue(OutSnapshot.DetailText, L"수용 가구:");
+            RawServiceCapacityText =
+                ExtractDetailValue(OutSnapshot.DetailText, L"수용 인원:");
+
+            if (RawServiceCapacityText.empty())
+            {
+                RawServiceCapacityText =
+                    ExtractDetailValue(OutSnapshot.DetailText, L"수용 가구:");
+                RawServiceCapacityUsesHouseholds =
+                    !RawServiceCapacityText.empty();
+            }
         }
 
+        const int CatalogServiceCapacity = OutSnapshot.CatalogEntry ?
+            (std::max)(0, OutSnapshot.CatalogEntry->ServiceCapacity) :
+            0;
         OutSnapshot.ServiceCapacity = (std::max)(
             BuildingRecord.ServiceCapacity,
-            ParseLeadingInteger(OutSnapshot.ServiceCapacityText, 0));
+            CatalogServiceCapacity);
+
+        if (OutSnapshot.ServiceCapacity <= 0)
+        {
+            OutSnapshot.ServiceCapacity =
+                ParseLeadingInteger(RawServiceCapacityText, 0);
+        }
+
+        OutSnapshot.ServiceCapacityText =
+            OutSnapshot.ServiceCapacity > 0 ?
+                std::to_wstring(OutSnapshot.ServiceCapacity) :
+                RawServiceCapacityText;
+        if (!OutSnapshot.ServiceCapacityUsesHouseholds)
+        {
+            OutSnapshot.ServiceCapacityUsesHouseholds =
+                RawServiceCapacityUsesHouseholds;
+        }
         OutSnapshot.OperationModes.clear();
 
         if (OutSnapshot.CatalogEntry)
@@ -1534,6 +1721,10 @@ namespace
                 std::to_wstring(Snapshot.Residents.size()) +
                 L" / " +
                 std::to_wstring(Snapshot.Capacity));
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.household_capacity",
+                Snapshot.HouseholdCapacityText);
         }
         else if (Snapshot.WorkProvider)
         {
@@ -1898,9 +2089,22 @@ namespace
         if (Snapshot.CatalogEntry &&
             !Snapshot.CatalogEntry->RuntimeUpgradeDefs.empty())
         {
+            const FBuildingRuntimeUpgradeDef* const ActiveUpgradeDef =
+                ResolveActiveRuntimeUpgradeDef(Snapshot);
             AppendLine(Body, Ui(L"citizen_info.section.active_upgrades"));
 
-            if (Snapshot.ActiveRuntimeUpgradeText.empty())
+            if (ActiveUpgradeDef)
+            {
+                AppendLine(
+                    Body,
+                    BuildRuntimeUpgradeLine(
+                        *ActiveUpgradeDef,
+                        true,
+                        Snapshot.ActiveRuntimeUpgradeEffectSummary.empty() ?
+                            nullptr :
+                            &Snapshot.ActiveRuntimeUpgradeEffectSummary));
+            }
+            else if (Snapshot.ActiveRuntimeUpgradeText.empty())
             {
                 AppendLine(Body, L"-");
             }
@@ -1929,20 +2133,19 @@ namespace
                 const bool IsActiveUpgrade =
                     static_cast<int>(Index) ==
                     Snapshot.ActiveRuntimeUpgradeIndex;
-                std::wstring Line =
-                    (IsActiveUpgrade ? L"* " : L"- ") +
-                    Snapshot.CatalogEntry->RuntimeUpgradeDefs[Index].
-                        DisplayName;
-
-                if (IsActiveUpgrade &&
-                    !Snapshot.ActiveRuntimeUpgradeEffectSummary.empty())
-                {
-                    Line += L" (";
-                    Line += Snapshot.ActiveRuntimeUpgradeEffectSummary;
-                    Line += L")";
-                }
-
-                AppendLine(Body, Line);
+                const FBuildingRuntimeUpgradeDef& UpgradeDef =
+                    Snapshot.CatalogEntry->RuntimeUpgradeDefs[Index];
+                const std::wstring* const ActiveEffectSummary =
+                    IsActiveUpgrade &&
+                        !Snapshot.ActiveRuntimeUpgradeEffectSummary.empty() ?
+                        &Snapshot.ActiveRuntimeUpgradeEffectSummary :
+                        nullptr;
+                AppendLine(
+                    Body,
+                    BuildRuntimeUpgradeLine(
+                        UpgradeDef,
+                        IsActiveUpgrade,
+                        ActiveEffectSummary));
             }
 
             AppendLine(Body, L"");
@@ -2129,6 +2332,51 @@ namespace
             Body,
             L"citizen_info.label.category",
             Snapshot.CategoryName);
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.blueprint_cost",
+            FormatCatalogCostValue(
+                Snapshot.BlueprintCostState,
+                Snapshot.BlueprintCost));
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.construction_cost",
+            FormatCatalogCostValue(
+                Snapshot.ConstructionCostState,
+                Snapshot.ConstructionCost));
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.required_power",
+            Snapshot.RequiredPowerText);
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.produced_power",
+            Snapshot.ProducedPowerText);
+        AppendKeyValueByKey(
+            Body,
+            Snapshot.Residential ?
+                L"citizen_info.label.household_capacity" :
+                GetServiceCapacityLabelKey(Snapshot),
+            Snapshot.Residential ?
+                Snapshot.HouseholdCapacityText :
+                Snapshot.ServiceCapacityText);
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.housing_quality",
+            Snapshot.HousingQualityText);
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.job_quality",
+            Snapshot.JobQualityText);
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.service_quality",
+            Snapshot.ServiceQualityText);
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.required_wealth",
+            NormalizeWealthRequirementText(
+                Snapshot.WealthRequirementText));
 
         if (Snapshot.CatalogEntry)
         {
@@ -2244,27 +2492,7 @@ namespace
     std::wstring BuildCustomsUpgradesBody(
         const FBuildingUiSnapshot& Snapshot)
     {
-        std::wstring Body;
-        AppendLine(Body, L"탈세");
-        AppendLine(
-            Body,
-            L"기본 효율을 기준으로 수입 가격이 10%만큼 증가합니다.");
-        AppendLine(Body, L"");
-        AppendLine(Body, L"관광객 요금  ($7,500)");
-        AppendLine(
-            Body,
-            L"기본 효율을 기준으로 트로피코에 도착하는 모든 관광객이 $10만큼의 금액을 냅니다.");
-
-        if (Snapshot.CatalogEntry &&
-            !Snapshot.ActiveRuntimeUpgradeText.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(
-                Body,
-                L"현재 적용: " + Snapshot.ActiveRuntimeUpgradeText);
-        }
-
-        return Body;
+        return BuildUpgradesBody(Snapshot);
     }
 
     const wchar_t* GetCitizenProfileWealthDisplayName(
@@ -2488,17 +2716,28 @@ namespace CitizenInfoDataProvider
         Result.ShowTitleIcon = false;
 
         {
-            Result.Subtitle = UIStrings::Format(
-                L"citizen_info.subtitle.citizen_identity_template",
-                {
-                    GetCitizenWealthDisplayName(
-                        IdentityProfile.WealthLevel),
-                    GetCitizenEducationDisplayName(
-                        IdentityProfile.EducationLevel),
-                    IdentityProfile.IsImmigrant ?
-                        Ui(L"citizen_info.fragment.immigrant") :
-                        std::wstring()
-                });
+            if (IdentityProfile.IsTourist)
+            {
+                Result.Subtitle =
+                    UIStrings::Get(L"citizen_info.subtitle.tourist") +
+                    L"  |  " +
+                    GetTouristPreferenceDisplayName(
+                        IdentityProfile.TouristProfile);
+            }
+            else
+            {
+                Result.Subtitle = UIStrings::Format(
+                    L"citizen_info.subtitle.citizen_identity_template",
+                    {
+                        GetCitizenWealthDisplayName(
+                            IdentityProfile.WealthLevel),
+                        GetCitizenEducationDisplayName(
+                            IdentityProfile.EducationLevel),
+                        IdentityProfile.IsImmigrant ?
+                            Ui(L"citizen_info.fragment.immigrant") :
+                            std::wstring()
+                    });
+            }
         }
 
         if (ClampedTab == 0)
@@ -2646,13 +2885,30 @@ namespace CitizenInfoDataProvider
 
         if (Result.Valid && Result.SelectedTabIndex == 0)
         {
+            const bool IsTourist = Citizen.IdentityProfile.IsTourist;
+            const std::wstring TouristProfileText =
+                IsTourist &&
+                    HasTouristPreference(
+                        Citizen.IdentityProfile.TouristProfile) ?
+                    GetTouristPreferenceDisplayName(
+                        Citizen.IdentityProfile.TouristProfile) :
+                    std::wstring(L"-");
+            const std::wstring TouristVenueText =
+                ResolveBuildingDisplayName(
+                    QuerySource,
+                    Citizen.FunVisitBuildingName.empty() ?
+                        Citizen.FunBuildingName :
+                        Citizen.FunVisitBuildingName);
             Result.Subtitle.clear();
             Result.BodyText.clear();
             Result.PageTitle.clear();
             Result.ShowSectionRibbon = false;
             Result.ShowBuildingSubtitle = true;
             Result.BuildingSubtitleText =
-                UIStrings::Get(L"citizen_info.subtitle.tropican");
+                UIStrings::Get(
+                    IsTourist ?
+                        L"citizen_info.subtitle.tourist" :
+                        L"citizen_info.subtitle.tropican");
             Result.ShowCitizenProfileOverview = true;
             Result.ShowCitizenActionButtons = true;
             Result.ShowSectionDivider = true;
@@ -2671,12 +2927,19 @@ namespace CitizenInfoDataProvider
             Result.OverviewMetricValues[1] =
                 ResolveCitizenLocationText(QuerySource, Citizen);
             Result.OverviewMetricLabels[2] =
-                Ui(L"citizen_info.metric.age");
+                Ui(
+                    IsTourist ?
+                        L"citizen_info.metric.tourist_profile" :
+                        L"citizen_info.metric.age");
             Result.OverviewMetricValues[2] =
-                Ui(L"citizen_info.value.age_30_adult");
+                IsTourist ?
+                    TouristProfileText :
+                    Ui(L"citizen_info.value.age_30_adult");
             Result.OverviewMetricLabels[3] =
                 Ui(L"citizen_info.metric.origin");
             Result.OverviewMetricValues[3] =
+                IsTourist ?
+                    Ui(L"citizen_info.origin.tourist") :
                 Citizen.IdentityProfile.IsImmigrant ?
                     Ui(L"citizen_info.origin.france") :
                     Ui(L"citizen_info.origin.tropico");
@@ -2691,11 +2954,16 @@ namespace CitizenInfoDataProvider
                 GetCitizenEducationDisplayName(
                     Citizen.IdentityProfile.EducationLevel);
             Result.OverviewMetricLabels[6] =
-                Ui(L"citizen_info.metric.job");
+                Ui(
+                    IsTourist ?
+                        L"citizen_info.metric.visit" :
+                        L"citizen_info.metric.job");
             Result.OverviewMetricValues[6] =
-                ResolveBuildingDisplayName(
-                    QuerySource,
-                    Citizen.WorkBuildingName);
+                IsTourist ?
+                    TouristVenueText :
+                    ResolveBuildingDisplayName(
+                        QuerySource,
+                        Citizen.WorkBuildingName);
             Result.OverviewMetricLabels[7] =
                 Ui(L"citizen_info.metric.home");
             Result.OverviewMetricValues[7] =
@@ -2703,7 +2971,10 @@ namespace CitizenInfoDataProvider
                     QuerySource,
                     Citizen.HomeBuildingName);
             Result.OverviewMetricAccentValues[6] =
-                !Citizen.WorkBuildingName.empty();
+                IsTourist ?
+                    !Citizen.FunBuildingName.empty() ||
+                        !Citizen.FunVisitBuildingName.empty() :
+                    !Citizen.WorkBuildingName.empty();
             Result.OverviewMetricAccentValues[7] =
                 !Citizen.HomeBuildingName.empty();
 
@@ -2728,7 +2999,10 @@ namespace CitizenInfoDataProvider
             Result.ShowSectionRibbon = false;
             Result.ShowBuildingSubtitle = true;
             Result.BuildingSubtitleText =
-                UIStrings::Get(L"citizen_info.subtitle.tropican");
+                UIStrings::Get(
+                    Citizen.IdentityProfile.IsTourist ?
+                        L"citizen_info.subtitle.tourist" :
+                        L"citizen_info.subtitle.tropican");
             Result.ShowCitizenPoliticsOverview = true;
             Result.ShowCitizenProfileOverview = false;
             Result.ShowCitizenActionButtons = false;
@@ -2772,7 +3046,10 @@ namespace CitizenInfoDataProvider
             Result.ShowSectionRibbon = false;
             Result.ShowBuildingSubtitle = true;
             Result.BuildingSubtitleText =
-                UIStrings::Get(L"citizen_info.subtitle.tropican");
+                UIStrings::Get(
+                    Citizen.IdentityProfile.IsTourist ?
+                        L"citizen_info.subtitle.tourist" :
+                        L"citizen_info.subtitle.tropican");
             Result.ShowCitizenThoughtsOverview = true;
             Result.ShowCitizenProfileOverview = false;
             Result.ShowCitizenPoliticsOverview = false;
@@ -2833,19 +3110,11 @@ namespace CitizenInfoDataProvider
             BuildingSnapshot.ObjectName :
             BuildingSnapshot.DisplayName;
         const bool IsCustomsOffice =
-            UseCustomsOfficeOverview(BuildingSnapshot);
+            IsCustomsOfficeBuilding(BuildingSnapshot);
         const bool ShowCustomsModePage =
             IsCustomsOffice &&
             Result.SelectedTabIndex == 0 &&
             ShowCustomsModeSelection;
-
-        if (UseHydroponicFarmWorkOverview(BuildingSnapshot) ||
-            UseAquaParkWorkOverview(BuildingSnapshot) ||
-            UseRestaurantWorkOverview(BuildingSnapshot) ||
-            IsCustomsOffice)
-        {
-            Result.Title = L"II " + Result.Title;
-        }
 
         if (BuildingSnapshot.CatalogEntry)
         {
@@ -2885,9 +3154,7 @@ namespace CitizenInfoDataProvider
             (IsCustomsOffice ||
                 UseGenericBuildingWorkOverview(BuildingSnapshot));
         Result.ShowBuildingMetricRows =
-            (Result.SelectedTabIndex == 1 ||
-                (Result.SelectedTabIndex == 3 &&
-                    UseModernApartmentOverview(BuildingSnapshot))) &&
+            Result.SelectedTabIndex == 1 &&
             BuildingSnapshot.Residential;
         if (IsCustomsOffice &&
             (Result.SelectedTabIndex == 1 ||
@@ -2895,14 +3162,8 @@ namespace CitizenInfoDataProvider
         {
             Result.ShowBuildingMetricRows = true;
         }
-        Result.ShowBuildingUpgradeCard =
-            Result.SelectedTabIndex == 2 &&
-            UseModernApartmentUpgradeCard(BuildingSnapshot);
-        Result.ShowBuildingInformationParagraphs =
-            Result.SelectedTabIndex == 4 &&
-            UseModernApartmentOverview(BuildingSnapshot);
-        if (IsCustomsOffice && Result.SelectedTabIndex == 4)
-            Result.ShowBuildingInformationParagraphs = true;
+        Result.ShowBuildingUpgradeCard = false;
+        Result.ShowBuildingInformationParagraphs = false;
         Result.ShowSectionRibbon =
             Result.SelectedTabIndex != 0 &&
             !Result.ShowBuildingInformationParagraphs;
@@ -2910,7 +3171,7 @@ namespace CitizenInfoDataProvider
             Result.ShowSectionRibbon = false;
         const bool ShowHydroponicCommand =
             Result.SelectedTabIndex == 0 &&
-            UseHydroponicFarmWorkOverview(BuildingSnapshot);
+            IsHydroponicFarmBuilding(BuildingSnapshot);
         const bool ShowOperationModeCommand =
             Result.SelectedTabIndex == 0 &&
             !BuildingSnapshot.Harbor &&
@@ -3091,13 +3352,6 @@ namespace CitizenInfoDataProvider
             }
         }
 
-        if (UseHydroponicFarmWorkOverview(BuildingSnapshot))
-        {
-            Result.ShowBuildingSubtitle = true;
-            Result.BuildingSubtitleText =
-                Ui(L"citizen_info.subtitle.cocoa");
-        }
-
         const long long TotalMonthlyCost =
             static_cast<long long>(BuildingSnapshot.MonthlyWageCost) +
             static_cast<long long>(BuildingSnapshot.MonthlyUpkeepCost);
@@ -3121,16 +3375,6 @@ namespace CitizenInfoDataProvider
                     BuildCatalogIconTextureKey(
                         *BuildingSnapshot.CatalogEntry);
             }
-        }
-
-        if (IsCustomsOffice)
-        {
-            Result.ShowTitleIcon = true;
-            Result.TitleIconTextureKey =
-                "BuildingCatalogIcon_CustomsOffice_Gen_" +
-                std::to_string(::GetRuntimeConfigGeneration());
-            Result.TitleIconPath = TEXT(
-                "TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_touristOffice.png");
         }
 
         if (Result.ShowBuildingOverview)
@@ -3225,216 +3469,8 @@ namespace CitizenInfoDataProvider
                         BuildingSnapshot.RequiredEducationLevel),
                     ResolveCustomsPerWorkerWage(BuildingSnapshot),
                     std::to_wstring(
-                        ResolveCustomsEfficiencyPercent(BuildingSnapshot)) +
+                    ResolveCustomsEfficiencyPercent(BuildingSnapshot)) +
                         L"%"
-                };
-            }
-            else if (UseHydroponicFarmWorkOverview(BuildingSnapshot))
-            {
-                Result.OverviewWorkModeLabel =
-                    Ui(L"citizen_info.label.work_mode");
-                Result.OverviewWorkModeValue =
-                    Ui(L"citizen_info.work_mode.mostly_natural");
-                Result.OverviewBudgetLabel =
-                    Ui(L"citizen_info.label.budget");
-                Result.OverviewBudgetValue = L"$95";
-                Result.OverviewOccupancyLabel =
-                    Ui(L"citizen_info.label.workers");
-                Result.OverviewOccupancyValue = L"4 / 4";
-                Result.OverviewResidentCount = 4;
-                Result.OverviewResidentCapacity = 4;
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.job_quality"),
-                    Ui(L"citizen_info.label.required_education"),
-                    Ui(L"citizen_info.label.wage"),
-                    Ui(L"citizen_info.label.efficiency"),
-                    Ui(L"citizen_info.label.electricity"),
-                    Ui(L"citizen_info.label.power_network"),
-                    Ui(L"citizen_info.label.power_grid_status"),
-                    Ui(L"citizen_info.label.storage"),
-                    Ui(L"citizen_info.label.production"),
-                    Ui(L"citizen_info.commodity.cocoa"),
-                    L"",
-                    L""
-                };
-                Result.OverviewMetricValues =
-                {
-                    L"65",
-                    GetCitizenEducationDisplayName(
-                        ECitizenEducationLevel::HighSchool),
-                    L"$18",
-                    L"145%",
-                    FormatMegawattValue(-30),
-                    L"#1",
-                    FormatSignedMegawattValue(785),
-                    L"",
-                    L"",
-                    L"0 / 2320",
-                    L"",
-                    L""
-                };
-            }
-            else if (UseAquaParkWorkOverview(BuildingSnapshot))
-            {
-                Result.OverviewWorkModeLabel =
-                    Ui(L"citizen_info.label.work_mode");
-                Result.OverviewWorkModeValue =
-                    Ui(L"citizen_info.work_mode.fresh_and_clean");
-                Result.OverviewBudgetLabel =
-                    Ui(L"citizen_info.label.budget");
-                Result.OverviewBudgetValue = L"$57 / $75";
-                Result.OverviewOccupancyLabel =
-                    Ui(L"citizen_info.label.workers");
-                Result.OverviewOccupancyValue = L"1 / 3";
-                Result.OverviewResidentCount = 1;
-                Result.OverviewResidentCapacity = 3;
-                Result.ShowBuildingVisitorIcons = true;
-                Result.OverviewVisitorCount = 9;
-                Result.OverviewVisitorCapacity = 12;
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.job_quality"),
-                    Ui(L"citizen_info.label.required_education"),
-                    Ui(L"citizen_info.label.wage"),
-                    Ui(L"citizen_info.label.efficiency"),
-                    Ui(L"citizen_info.label.electricity"),
-                    Ui(L"citizen_info.label.power_network"),
-                    Ui(L"citizen_info.label.power_grid_status"),
-                    Ui(L"citizen_info.label.visitors"),
-                    Ui(L"citizen_info.label.service_quality"),
-                    Ui(L"citizen_info.label.required_wealth"),
-                    Ui(L"citizen_info.label.preferred_type"),
-                    Ui(L"citizen_info.label.fee_income"),
-                    Ui(L"citizen_info.label.tourist_only_checkbox"),
-                    L""
-                };
-                Result.OverviewMetricValues =
-                {
-                    L"65",
-                    GetCitizenEducationDisplayName(
-                        ECitizenEducationLevel::Uneducated),
-                    L"$9",
-                    L"125%",
-                    FormatMegawattValue(-15),
-                    L"#1",
-                    FormatSignedMegawattValue(785),
-                    L"9 / 6 (18)",
-                    L"88",
-                    Ui(L"citizen_info.wealth_profile.well_off"),
-                    GetTouristPreferenceDisplayName(
-                        ETouristPreference::Relaxation),
-                    L"$15 ($0)",
-                    L" ",
-                    L""
-                };
-            }
-            else if (UseRestaurantWorkOverview(BuildingSnapshot))
-            {
-                Result.OverviewWorkModeLabel =
-                    Ui(L"citizen_info.label.work_mode");
-                Result.OverviewWorkModeValue =
-                    Ui(L"citizen_info.work_mode.thousand_plus");
-                Result.OverviewBudgetLabel =
-                    Ui(L"citizen_info.label.budget");
-                Result.OverviewBudgetValue = L"$64";
-                Result.OverviewOccupancyLabel =
-                    Ui(L"citizen_info.label.workers");
-                Result.OverviewOccupancyValue = L"4 / 4";
-                Result.OverviewResidentCount = 4;
-                Result.OverviewResidentCapacity = 4;
-                Result.ShowBuildingVisitorIcons = true;
-                Result.OverviewVisitorCount = 12;
-                Result.OverviewVisitorCapacity = 12;
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.job_quality"),
-                    Ui(L"citizen_info.label.required_education"),
-                    Ui(L"citizen_info.label.wage"),
-                    Ui(L"citizen_info.label.efficiency"),
-                    Ui(L"citizen_info.label.electricity"),
-                    Ui(L"citizen_info.label.power_network"),
-                    Ui(L"citizen_info.label.power_grid_status"),
-                    Ui(L"citizen_info.label.visitors"),
-                    Ui(L"citizen_info.label.service_quality"),
-                    Ui(L"citizen_info.label.required_wealth"),
-                    Ui(L"citizen_info.label.fee_revenue"),
-                    Ui(L"citizen_info.label.tourist_only_checkbox"),
-                    L"",
-                    L""
-                };
-                Result.OverviewMetricValues =
-                {
-                    L"55",
-                    GetCitizenEducationDisplayName(
-                        ECitizenEducationLevel::Uneducated),
-                    L"$13",
-                    L"125%",
-                    FormatMegawattValue(-10),
-                    L"#1",
-                    FormatSignedMegawattValue(785),
-                    L"12 / 12",
-                    L"96",
-                    Ui(L"citizen_info.wealth_profile.well_off"),
-                    L"$18 ($0)",
-                    L" ",
-                    L"",
-                    L""
-                };
-            }
-            else if (UseHarborWorkOverview(BuildingSnapshot))
-            {
-                Result.OverviewWorkModeLabel =
-                    Ui(L"citizen_info.label.work_mode");
-                Result.OverviewWorkModeValue =
-                    !BuildingSnapshot.ActiveOperationModeText.empty() ?
-                        BuildingSnapshot.ActiveOperationModeText :
-                        (!BuildingSnapshot.OperationModes.empty() ?
-                            BuildingSnapshot.OperationModes.front() :
-                            Ui(L"citizen_info.work_mode.general_control"));
-                Result.OverviewBudgetLabel =
-                    Ui(L"citizen_info.label.budget");
-                Result.OverviewBudgetValue = L"$120";
-                Result.OverviewOccupancyLabel =
-                    Ui(L"citizen_info.label.workers");
-                Result.OverviewOccupancyValue =
-                    std::to_wstring(BuildingSnapshot.AssignedEmployees.size()) +
-                    L" / " +
-                    std::to_wstring((std::max)(0, BuildingSnapshot.Capacity));
-                Result.OverviewResidentCount =
-                    static_cast<int>(BuildingSnapshot.AssignedEmployees.size());
-                Result.OverviewResidentCapacity =
-                    (std::max)(0, BuildingSnapshot.Capacity);
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.job_quality"),
-                    Ui(L"citizen_info.label.required_education"),
-                    Ui(L"citizen_info.label.wage"),
-                    Ui(L"citizen_info.label.efficiency"),
-                    Ui(L"citizen_info.label.harbor"),
-                    Ui(L"citizen_info.label.next_arrival_time"),
-                    Ui(L"citizen_info.label.total_cost"),
-                    Ui(L"citizen_info.label.expected_revenue"),
-                    Ui(L"citizen_info.label.storage"),
-                    Ui(L"citizen_info.commodity.sugar"),
-                    Ui(L"citizen_info.commodity.corn"),
-                    L""
-                };
-                Result.OverviewMetricValues =
-                {
-                    L"50",
-                    GetCitizenEducationDisplayName(
-                        BuildingSnapshot.RequiredEducationLevel),
-                    L"$18",
-                    L"135%",
-                    L"",
-                    FormatDayCount(20),
-                    L"$25,008",
-                    L"$12,561",
-                    L"",
-                    L"3000 / 10000",
-                    L"6000 / 10000",
-                    L""
                 };
             }
             else
@@ -3473,27 +3509,6 @@ namespace CitizenInfoDataProvider
                     FormatInteger(
                         BuildingSnapshot.TradeRouteExportContractUnits),
                     FormatInteger(BuildingSnapshot.TourismArrivalCount)
-                };
-            }
-            else if (UseModernApartmentOverview(BuildingSnapshot))
-            {
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.total_income"),
-                    Ui(L"citizen_info.label.last_month_income"),
-                    L"",
-                    L"",
-                    L"",
-                    L""
-                };
-                Result.OverviewMetricValues =
-                {
-                    L"$5,130",
-                    FormatMoneyDollarFirst(-90),
-                    L"",
-                    L"",
-                    L"",
-                    L""
                 };
             }
             else
@@ -3586,44 +3601,6 @@ namespace CitizenInfoDataProvider
             }
         }
 
-        if (Result.ShowBuildingUpgradeCard)
-        {
-            Result.UpgradeCardTitle =
-                Ui(L"citizen_info.upgrade.solar_window.title");
-            Result.UpgradeCardDescription =
-                Ui(L"citizen_info.upgrade.solar_window.description");
-            Result.UpgradeCardIconPath = TEXT(
-                "TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_solarPowerPlant.png");
-            Result.UpgradeCardIconTextureKey =
-                "CitizenInfoUpgradeCardIcon_ModernApartment";
-        }
-
-        if (Result.ShowBuildingInformationParagraphs)
-        {
-            if (IsCustomsOffice)
-            {
-                Result.ShowSectionDivider = true;
-                Result.InformationTopText = L"수출 가격이 증가합니다.";
-                Result.InformationBottomText =
-                    L"트로피코에서도 의외로 많은 사람들이 수입품과 수출의 가격에 큰 관심을 두고 있습니다. "
-                    L"그중에서도 뇌물을 탐닉할 생각하는 세관원이 대표적이죠.";
-            }
-            else
-            {
-                Result.ShowSectionDivider = true;
-                Result.InformationAccentText =
-                    std::to_wstring((std::max)(0, BuildingSnapshot.Capacity));
-                Result.InformationTopText = UIStrings::Format(
-                    L"citizen_info.information.modern_apartment.top",
-                    {
-                        NormalizeWealthRequirementText(
-                            BuildingSnapshot.WealthRequirementText)
-                    });
-                Result.InformationBottomText =
-                    Ui(L"citizen_info.information.modern_apartment.bottom");
-            }
-        }
-
         switch (Result.SelectedTabIndex)
         {
         case 1:
@@ -3632,11 +3609,9 @@ namespace CitizenInfoDataProvider
                 BuildStatisticsBody(BuildingSnapshot);
             break;
         case 2:
-            Result.BodyText = Result.ShowBuildingUpgradeCard ?
-                std::wstring() :
-                (IsCustomsOffice ?
-                    BuildCustomsUpgradesBody(BuildingSnapshot) :
-                    BuildUpgradesBody(BuildingSnapshot));
+            Result.BodyText = IsCustomsOffice ?
+                BuildCustomsUpgradesBody(BuildingSnapshot) :
+                BuildUpgradesBody(BuildingSnapshot);
             break;
         case 3:
             Result.BodyText = Result.ShowBuildingMetricRows ?
@@ -3644,9 +3619,7 @@ namespace CitizenInfoDataProvider
                 BuildEfficiencyBody(BuildingSnapshot);
             break;
         case 4:
-            Result.BodyText = Result.ShowBuildingInformationParagraphs ?
-                std::wstring() :
-                BuildInformationBody(BuildingSnapshot);
+            Result.BodyText = BuildInformationBody(BuildingSnapshot);
             break;
         case 0:
         default:

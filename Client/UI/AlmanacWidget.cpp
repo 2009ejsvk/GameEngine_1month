@@ -4,6 +4,7 @@
 #include "AlmanacRendererConstants.h"
 #include "AlmanacRenderer.h"
 #include "Device.h"
+#include "../World/GovernmentCommandService.h"
 #include "World/World.h"
 #include <cmath>
 
@@ -310,4 +311,76 @@ void CAlmanacWidget::OnBuildingsTabClick()
 void CAlmanacWidget::OnConflictTabClick()
 {
     SelectPage(EAlmanacPage::Conflict);
+}
+
+void CAlmanacWidget::OnPoliticsDemandAcceptClick()
+{
+    auto World = mWorld.lock();
+    auto CommandService =
+        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+
+    if (!CommandService)
+        return;
+
+    std::wstring ResponseMessage;
+    CommandService->RespondPoliticalDemand(
+        EPoliticalDemandIssuerType::Faction,
+        mSelectedPoliticsFactionIndex,
+        true,
+        ResponseMessage);
+    RefreshData();
+}
+
+void CAlmanacWidget::OnPoliticsDemandRejectClick()
+{
+    auto World = mWorld.lock();
+    auto CommandService =
+        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+
+    if (!CommandService)
+        return;
+
+    std::wstring ResponseMessage;
+    CommandService->RespondPoliticalDemand(
+        EPoliticalDemandIssuerType::Faction,
+        mSelectedPoliticsFactionIndex,
+        false,
+        ResponseMessage);
+    RefreshData();
+}
+
+void CAlmanacWidget::OnForeignDemandAcceptClick()
+{
+    auto World = mWorld.lock();
+    auto CommandService =
+        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+
+    if (!CommandService)
+        return;
+
+    std::wstring ResponseMessage;
+    CommandService->RespondPoliticalDemand(
+        EPoliticalDemandIssuerType::ForeignPower,
+        mSelectedForeignPowerIndex,
+        true,
+        ResponseMessage);
+    RefreshData();
+}
+
+void CAlmanacWidget::OnForeignDemandRejectClick()
+{
+    auto World = mWorld.lock();
+    auto CommandService =
+        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+
+    if (!CommandService)
+        return;
+
+    std::wstring ResponseMessage;
+    CommandService->RespondPoliticalDemand(
+        EPoliticalDemandIssuerType::ForeignPower,
+        mSelectedForeignPowerIndex,
+        false,
+        ResponseMessage);
+    RefreshData();
 }

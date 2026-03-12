@@ -75,6 +75,15 @@ namespace AlmanacDataProvider
         FElectionStatus ElectionStatus;
         FTaxPolicyEventStatus TaxEventStatus;
         FWorldCrisisStatus WorldCrisisStatus;
+        FPoliticalDemandNotice PoliticalDemandNotice;
+        std::array<FPoliticalDemandState, GPoliticalFactionCount>
+            FactionDemandStates = {};
+        std::array<
+            FPoliticalDemandState,
+            TradeDiplomacyRuntime::GForeignPowerCount> ForeignDemandStates = {};
+        std::array<
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
+            TradeDiplomacyRuntime::GForeignPowerCount> ForeignPowerStates = {};
         std::vector<FGovernmentEdictState> GovernmentEdictStates;
     };
 
@@ -82,7 +91,10 @@ namespace AlmanacDataProvider
     {
         bool HasMainWorld = false;
         int ActiveCitizenCount = 0;
+        int ActiveTouristCount = 0;
+        int ActiveHouseholdCount = 0;
         int HomelessCount = 0;
+        int HomelessHouseholdCount = 0;
         int UnemployedCount = 0;
         int AssignedHomeCount = 0;
         int AssignedJobCount = 0;
@@ -98,6 +110,9 @@ namespace AlmanacDataProvider
         int FreedomInfluenceBuildingCount = 0;
         int SecurityInfluenceBuildingCount = 0;
         int HarborCount = 0;
+        int TourismVisitCapacity = 0;
+        int TourismVisitOccupancy = 0;
+        int TouristPreferenceMatchedCount = 0;
         int TotalProducedPowerMW = 0;
         int TotalRequiredPowerMW = 0;
         int DisconnectedConsumerCount = 0;
@@ -106,6 +121,7 @@ namespace AlmanacDataProvider
         int FullyNeutralCitizenCount = 0;
         int HomelessWealthCount[3] = {};
         int CitizenWealthCount[3] = {};
+        int TouristProfileCount[GTouristPreferenceCount] = {};
         int OverallSatisfactionCitizenCount[5] = {};
         int EducationCount[3] = {};
         int UnemployedEducationCount[3] = {};
@@ -136,6 +152,9 @@ namespace AlmanacDataProvider
         double AverageJob = 0.0;
         double AverageFreedom = 0.0;
         double AverageSecurity = 0.0;
+        double AverageResidentialFreedom = 0.0;
+        double AverageResidentialSecurity = 0.0;
+        double AverageResidentialPollution = 0.0;
         double AverageOverall = 0.0;
         double SupportPercent = 0.0;
         double OppositionPercent = 0.0;
@@ -154,6 +173,15 @@ namespace AlmanacDataProvider
         FElectionStatus ElectionStatus;
         FTaxPolicyEventStatus TaxEventStatus;
         FWorldCrisisStatus WorldCrisisStatus;
+        FPoliticalDemandNotice PoliticalDemandNotice;
+        std::array<FPoliticalDemandState, GPoliticalFactionCount>
+            FactionDemandStates = {};
+        std::array<
+            FPoliticalDemandState,
+            TradeDiplomacyRuntime::GForeignPowerCount> ForeignDemandStates = {};
+        std::array<
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
+            TradeDiplomacyRuntime::GForeignPowerCount> ForeignPowerStates = {};
         std::vector<std::pair<std::wstring, int>> TopBuildings;
         std::vector<std::pair<std::wstring, int>> TopResourceBuildings;
         std::vector<std::wstring> ActiveEdictLines;

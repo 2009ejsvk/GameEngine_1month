@@ -1,0 +1,11 @@
+# BuildingId	Capacity	RequiredEducation	SourceAssetName	SourceDisplayName
+build_1_6	0	Uneducated	DA_T6LandingBP	Landing
+build_1_7	0	Uneducated	DA_T6StorageQuayBP	Storage Quay
+build_1_8	0	Uneducated	DA_T6Warehouse_BuildingBP	Warehouse
+build_1_9	0	Uneducated	DA_ElectricSubstation	Electric Substation
+build_1_13	0	Uneducated	DA_BusStop	Bus Stop
+build_1_14	0	Uneducated	DA_Tunnel	Tunnel
+build_1_18	0	Uneducated	DA_WindFarm	Wind Farm
+build_1_19	0	Uneducated	DA_OffshoreWindTurbine	Offshore Wind Turbine
+build_6_9	0	Uneducated	DA_T6InspiringBillboard	Inspiring Billboard
+build_6_10	0	Uneducated	DA_T6InspiringStatue	Inspiring Statue

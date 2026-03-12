@@ -60,6 +60,14 @@ namespace
                 mMainWorldAccess->GetTaxPolicyEventStatus();
             Result.WorldCrisisStatus =
                 mMainWorldAccess->GetWorldCrisisStatus();
+            Result.PoliticalDemandNotice =
+                mMainWorldAccess->GetPoliticalDemandNotice();
+            Result.FactionDemandStates =
+                mMainWorldAccess->GetFactionDemandStates();
+            Result.ForeignDemandStates =
+                mMainWorldAccess->GetForeignDemandStates();
+            Result.ForeignPowerStates =
+                mMainWorldAccess->GetForeignPowerStates();
             Result.GovernmentEdictStates =
                 mMainWorldAccess->GetGovernmentEdictStates();
             return Result;

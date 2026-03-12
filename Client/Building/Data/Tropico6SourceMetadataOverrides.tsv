@@ -1,0 +1,25 @@
+# BuildingId	UnlockEra	BuildMenuCategory	SourceAssetName	SourceDisplayName
+build_3_4	Colonial	Industry	DA_T6TanneryBP	Tannery
+build_5_13	Colonial	LuxuryEntertainment	DA_T6Theater	Theater
+build_5_14	Colonial	LuxuryEntertainment	DA_T6OperaHouseBP	Opera House
+build_5_15	WorldWars	LuxuryEntertainment	DA_Cabaret	Cabaret
+build_5_16	ColdWar	LuxuryEntertainment	DA_Casino	Casino
+build_5_17	ColdWar	LuxuryEntertainment	DA_CocktailBar	Cocktail Bar
+build_5_18	ColdWar	LuxuryEntertainment	DA_T6GolfCourse	Golf Course
+build_5_19	ColdWar	LuxuryEntertainment	DA_T6GourmetRestaurant	Gourmet Restaurant
+build_5_20	ColdWar	LuxuryEntertainment	DA_NightClub	Night Club
+build_5_21	ColdWar	LuxuryEntertainment	DA_SnorkelBay	Snorkel Bay
+build_5_22	Modern	LuxuryEntertainment	DA_BeachResort	Beach Resort
+build_5_23	Modern	LuxuryEntertainment	DA_T6HangGlider	Hang Gliding
+build_5_24	Modern	LuxuryEntertainment	DA_MuseumOfModernArt	Museum Of Modern Art
+build_5_25	Modern	LuxuryEntertainment	DA_T6YachtClub	Yacht Club
+build_6_6	ColdWar	MediaEducation	DA_T6ChildhoodMuseum	Childhood Museum
+build_6_7	ColdWar	MediaEducation	DA_T6Mausoleum	Mausoleum
+build_7_12	Modern	Tourism	DA_T6Airport	Airport
+build_8_14	WorldWars	GovernmentFinance	DA_CustomsOffice	Customs Office
+build_10_4	Modern	Military	DA_WatchtowerModern	Watchtower Modern
+build_10_7	WorldWars	Military	DA_T6CommandoGarrison	Commando Garrison
+build_11_5	WorldWars	GovernmentFinance	DA_ImmigrationOffice	Immigration Office
+build_11_7	WorldWars	GovernmentFinance	DA_Embassy	Embassy
+build_11_8	WorldWars	GovernmentFinance	DA_Bank	Bank
+build_11_12	Modern	GovernmentFinance	DA_T6Office	Office

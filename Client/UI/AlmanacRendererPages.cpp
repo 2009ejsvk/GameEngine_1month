@@ -83,12 +83,17 @@ namespace
 
     struct FPoliticsFactionRuntimeData
     {
+        EPoliticalFaction Faction = EPoliticalFaction::Communists;
         EPoliticalAxis Axis = EPoliticalAxis::Economy;
         EPoliticalStance Stance = EPoliticalStance::Left;
         std::wstring Label;
         int Count = 0;
         int NeutralCount = 0;
         int Favor = 50;
+        double AverageApproval = 50.0;
+        double AverageLifeScore = 0.0;
+        double AverageBuildingScore = 0.0;
+        double AverageActionScore = 0.0;
         std::wstring GovernmentLine;
         int AlignmentScore = 0;
     };
@@ -192,19 +197,6 @@ namespace
         return Clamp01(0.5 + static_cast<double>(Value) * 0.5);
     }
 
-    int GetSupportLevelFavorBonus(EPoliticalSupportLevel Support)
-    {
-        switch (Support)
-        {
-        case EPoliticalSupportLevel::Weak:
-            return 8;
-        case EPoliticalSupportLevel::Strong:
-            return 22;
-        default:
-            return 14;
-        }
-    }
-
     double GetGovernmentAffinity(
         const FNpcPoliticalChoice& Choice,
         EPoliticalStance Target)
@@ -277,6 +269,136 @@ namespace
             L" (" + FormatInteger(TopBuildings[Index].second) + L")";
     }
 
+    std::wstring FormatElectionPromiseValue(
+        const FElectionPromiseState& Promise,
+        int Value)
+    {
+        if (Promise.Type == EElectionPromiseType::ExportIncome)
+            return FormatInteger(Value);
+
+        return std::to_wstring(Value);
+    }
+
+    int CountActiveElectionPromises(const FElectionStatus& ElectionStatus)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            if (ElectionStatus.ActivePromises[static_cast<size_t>(Index)].Active)
+                ++Count;
+        }
+
+        return Count;
+    }
+
+    int CountMetElectionPromises(const FElectionStatus& ElectionStatus)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            if (IsElectionPromiseMet(
+                    ElectionStatus.ActivePromises[static_cast<size_t>(Index)]))
+            {
+                ++Count;
+            }
+        }
+
+        return Count;
+    }
+
+    int ComputeElectionPromiseModifierPercent(
+        const FElectionStatus& ElectionStatus)
+    {
+        int VoteModifierPercent = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            const FElectionPromiseState& Promise =
+                ElectionStatus.ActivePromises[static_cast<size_t>(Index)];
+
+            if (!Promise.Active)
+                continue;
+
+            if (IsElectionPromiseMet(Promise))
+                VoteModifierPercent += Promise.SuccessVoteModifierPercent;
+            else
+                VoteModifierPercent -= Promise.FailureVoteModifierPercent;
+        }
+
+        return VoteModifierPercent;
+    }
+
+    std::wstring BuildElectionPromiseProgressText(
+        const FElectionStatus& ElectionStatus)
+    {
+        const int ActiveCount = CountActiveElectionPromises(ElectionStatus);
+
+        if (ActiveCount <= 0)
+            return L"현재 발표된 선거 공약 없음";
+
+        std::wstring Result =
+            L"이행 " +
+            std::to_wstring(CountMetElectionPromises(ElectionStatus)) +
+            L"/" +
+            std::to_wstring(ActiveCount) +
+            L"개";
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            const FElectionPromiseState& Promise =
+                ElectionStatus.ActivePromises[static_cast<size_t>(Index)];
+
+            if (!Promise.Active)
+                continue;
+
+            Result += L" / ";
+            Result += Promise.Title;
+            Result += L" ";
+            Result += FormatElectionPromiseValue(
+                Promise,
+                Promise.CurrentValue);
+            Result += L"/";
+            Result += FormatElectionPromiseValue(
+                Promise,
+                Promise.TargetValue);
+        }
+
+        return Result;
+    }
+
+    std::wstring BuildElectionPromiseEvaluationText(
+        const FElectionStatus& ElectionStatus)
+    {
+        const int ActiveCount = CountActiveElectionPromises(ElectionStatus);
+
+        if (ActiveCount > 0)
+        {
+            const int MetCount = CountMetElectionPromises(ElectionStatus);
+            const int FailedCount = ActiveCount - MetCount;
+            return
+                L"예상 표 보정 " +
+                FormatSignedInt(
+                    ComputeElectionPromiseModifierPercent(ElectionStatus)) +
+                L"% / 미이행 " +
+                std::to_wstring((std::max)(0, FailedCount)) +
+                L"개";
+        }
+
+        if (!ElectionStatus.HasPromiseEvaluation)
+            return L"-";
+
+        return
+            L"직전 선거 " +
+            std::to_wstring(ElectionStatus.LastPromiseMetCount) +
+            L"개 이행, " +
+            std::to_wstring(ElectionStatus.LastPromiseFailedCount) +
+            L"개 미이행 / 표 보정 " +
+            FormatSignedInt(ElectionStatus.LastPromiseVoteModifierPercent) +
+            L"%";
+    }
+
     std::wstring BuildPoliticsElectionText(
         const AlmanacDataProvider::FAlmanacSnapshot& Snapshot)
     {
@@ -311,6 +433,26 @@ namespace
                 Result += L"\n";
                 Result += std::to_wstring(Snapshot.DaysUntilNextElection);
                 Result += L"일 남음";
+            }
+
+            const int ActivePromiseCount =
+                CountActiveElectionPromises(Snapshot.ElectionStatus);
+
+            if (ActivePromiseCount > 0)
+            {
+                Result += L"\n공약 ";
+                Result += std::to_wstring(
+                    CountMetElectionPromises(Snapshot.ElectionStatus));
+                Result += L"/";
+                Result += std::to_wstring(ActivePromiseCount);
+                Result += L"개 이행 중";
+            }
+            else if (Snapshot.ElectionStatus.HasPromiseEvaluation)
+            {
+                Result += L"\n직전 공약 표 보정 ";
+                Result += FormatSignedInt(
+                    Snapshot.ElectionStatus.LastPromiseVoteModifierPercent);
+                Result += L"%";
             }
 
             return Result;
@@ -373,101 +515,45 @@ namespace
         const AlmanacDataProvider::FAlmanacSnapshot& Snapshot,
         int Index)
     {
-        static const struct FFactionMap
-        {
-            EPoliticalAxis Axis;
-            EPoliticalStance Stance;
-        } GFactionMap[GPoliticsFactionTileCount] =
-        {
-            { EPoliticalAxis::Economy, EPoliticalStance::Left },
-            { EPoliticalAxis::Economy, EPoliticalStance::Right },
-            { EPoliticalAxis::ReligionMilitarism, EPoliticalStance::Left },
-            { EPoliticalAxis::ReligionMilitarism, EPoliticalStance::Right },
-            { EPoliticalAxis::EnvironmentIndustry, EPoliticalStance::Left },
-            { EPoliticalAxis::EnvironmentIndustry, EPoliticalStance::Right },
-            { EPoliticalAxis::IntellectualConservative, EPoliticalStance::Left },
-            { EPoliticalAxis::IntellectualConservative, EPoliticalStance::Right }
-        };
-
         FPoliticsFactionRuntimeData Result;
         if (Index < 0 || Index >= GPoliticsFactionTileCount)
             return Result;
 
-        Result.Axis = GFactionMap[Index].Axis;
-        Result.Stance = GFactionMap[Index].Stance;
+        Result.Faction = static_cast<EPoliticalFaction>(Index);
+        Result.Axis = GetPoliticalFactionAxis(Result.Faction);
+        Result.Stance = GetPoliticalFactionStance(Result.Faction);
         Result.Label =
             GetPoliticalFactionVerboseName(Result.Axis, Result.Stance);
 
         const int AxisIndex = static_cast<int>(Result.Axis);
         Result.Count =
-            Snapshot.PoliticalCount[AxisIndex][
-                static_cast<int>(Result.Stance)];
+            Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
+                MemberCount;
         Result.NeutralCount =
             Snapshot.PoliticalCount[AxisIndex][
                 static_cast<int>(EPoliticalStance::Neutral)];
+        Result.AverageApproval =
+            Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
+                AverageApproval;
+        Result.AverageLifeScore =
+            Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
+                AverageLifeScore;
+        Result.AverageBuildingScore =
+            Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
+                AverageBuildingScore;
+        Result.AverageActionScore =
+            Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
+                AverageActionScore;
+        Result.Favor = ClampInt(
+            static_cast<int>(std::lround(Result.AverageApproval)),
+            0,
+            100);
 
         const FNpcPoliticalChoice& GovernmentChoice =
             Snapshot.GovernmentProfile.Ideology.Get(Result.Axis);
-        const int PopulationBonus =
-            Snapshot.ActiveCitizenCount > 0 ?
-                static_cast<int>(std::lround(
-                    static_cast<double>(Result.Count) /
-                    static_cast<double>(Snapshot.ActiveCitizenCount) * 24.0)) :
-                0;
-        const int SupportBonus =
-            GetSupportLevelFavorBonus(GovernmentChoice.Support);
-        int Favor = 48 + PopulationBonus;
-
-        if (GovernmentChoice.Stance == Result.Stance)
-            Favor += 12 + SupportBonus;
-        else if (GovernmentChoice.Stance == EPoliticalStance::Neutral)
-            Favor += 4;
-        else
-            Favor -= 10 + SupportBonus / 2;
-
-        if (Snapshot.TaxEventStatus.Active &&
-            Result.Axis == EPoliticalAxis::Economy)
-        {
-            Favor +=
-                Result.Stance == EPoliticalStance::Left ? 6 :
-                Result.Stance == EPoliticalStance::Right ? -5 :
-                0;
-        }
-        if (Snapshot.MartialLawActive &&
-            Result.Axis == EPoliticalAxis::ReligionMilitarism)
-        {
-            Favor +=
-                Result.Stance == EPoliticalStance::Right ? 8 :
-                Result.Stance == EPoliticalStance::Left ? -6 :
-                0;
-        }
-        if (Result.Axis == EPoliticalAxis::EnvironmentIndustry)
-        {
-            Favor +=
-                Result.Stance == EPoliticalStance::Left &&
-                    Snapshot.AverageHealth < 55.0 ? 5 :
-                Result.Stance == EPoliticalStance::Right &&
-                    Snapshot.JobCapacity > Snapshot.ActiveCitizenCount ? 5 :
-                0;
-        }
-        if (Result.Axis == EPoliticalAxis::IntellectualConservative)
-        {
-            Favor +=
-                Result.Stance == EPoliticalStance::Left &&
-                    Snapshot.AverageFreedom >= 60.0 ? 6 :
-                Result.Stance == EPoliticalStance::Right &&
-                    Snapshot.AverageSecurity >= 60.0 ? 6 :
-                0;
-        }
-
-        Result.Favor = ClampInt(Favor, 0, 100);
-
-        Result.AlignmentScore =
-            GovernmentChoice.Stance == Result.Stance ?
-                8 + SupportBonus :
-            GovernmentChoice.Stance == EPoliticalStance::Neutral ?
-                2 :
-                -6 - SupportBonus / 2;
+        Result.AlignmentScore = static_cast<int>(std::lround(
+            Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
+                AverageAlignmentScore));
 
         Result.GovernmentLine =
             std::wstring(GetPoliticalFactionDisplayName(
@@ -950,17 +1036,39 @@ namespace
         Result.EdictLine = GetStrongestContribution(EdictContributions);
         Result.MiscModifier = SumContributionValues(MiscContributions);
         Result.MiscLine = GetStrongestContribution(MiscContributions);
+        const auto& ForeignState =
+            Snapshot.ForeignPowerStates[static_cast<size_t>(ClampInt(
+                Index,
+                0,
+                GForeignPowerCount - 1))];
+        Result.Relation = ForeignState.Relation;
+        Result.TradeModifier = ForeignState.TradeModifier;
 
-        if (Result.Relation >= 82)
-            Result.Status = L"우호적";
-        else if (Result.Relation >= 64)
-            Result.Status = L"호의적";
-        else if (Result.Relation >= 46)
-            Result.Status = L"신중";
-        else if (Result.Relation >= 28)
-            Result.Status = L"경계";
-        else
-            Result.Status = L"냉각";
+        const int AidScale =
+            Index == 0 ? 65 :
+            Index == 2 ? 110 :
+            Index == 4 ? 90 :
+            0;
+        Result.EconomicAid =
+            Snapshot.DailyNetChange < 0 &&
+                Result.Relation >= 68 &&
+                AidScale > 0 ?
+                ClampInt(
+                    static_cast<int>(std::lround(
+                        static_cast<double>(Result.Relation - 66) *
+                        static_cast<double>(AidScale) *
+                        Clamp01(
+                            static_cast<double>(-Snapshot.DailyNetChange) /
+                            7000.0) *
+                        (1.0 +
+                            static_cast<double>((std::max)(
+                                0,
+                                ForeignState.Standing)) / 120.0))),
+                    0,
+                    22000) :
+                0;
+        Result.Status =
+            TradeDiplomacyRuntime::GetForeignPowerStatusText(Result.Relation);
 
         return Result;
     }
@@ -993,6 +1101,75 @@ namespace
                 Value->SetText(L"");
             Value->SetEnable(Enabled);
         }
+    }
+
+    std::wstring FormatDemandValue(
+        const FPoliticalDemandState& Demand,
+        int Value)
+    {
+        switch (Demand.ObjectiveType)
+        {
+        case EPoliticalDemandObjectiveType::ExportIncome:
+            return FormatCurrency(Value);
+        case EPoliticalDemandObjectiveType::IncomeTaxCeiling:
+        case EPoliticalDemandObjectiveType::PropertyTaxCeiling:
+            return std::to_wstring(Value) + L"%";
+        case EPoliticalDemandObjectiveType::ActiveTradeRoutes:
+            return FormatInteger(Value) + L"개";
+        case EPoliticalDemandObjectiveType::Housing:
+        case EPoliticalDemandObjectiveType::Food:
+        case EPoliticalDemandObjectiveType::Faith:
+        case EPoliticalDemandObjectiveType::Security:
+        case EPoliticalDemandObjectiveType::Freedom:
+        case EPoliticalDemandObjectiveType::Health:
+        case EPoliticalDemandObjectiveType::None:
+        default:
+            return std::to_wstring(Value);
+        }
+    }
+
+    std::wstring BuildDemandProgressText(const FPoliticalDemandState& Demand)
+    {
+        if (!Demand.Active)
+            return L"대기 중";
+
+        const bool CeilingObjective =
+            Demand.ObjectiveType == EPoliticalDemandObjectiveType::IncomeTaxCeiling ||
+            Demand.ObjectiveType == EPoliticalDemandObjectiveType::PropertyTaxCeiling;
+
+        return
+            (Demand.Status == EPoliticalDemandStatus::Accepted ?
+                L"수행 중" :
+                L"응답 대기") +
+            std::wstring(L" / 현재 ") +
+            FormatDemandValue(Demand, Demand.CurrentValue) +
+            L" / 목표 " +
+            FormatDemandValue(Demand, Demand.TargetValue) +
+            (CeilingObjective ? L" 이하" : L" 이상");
+    }
+
+    std::wstring BuildDemandEffectText(const FPoliticalDemandState& Demand)
+    {
+        if (!Demand.Active)
+            return L"-";
+
+        return L"보상: " +
+            Demand.RewardText +
+            L" / 실패: " +
+            Demand.PenaltyText;
+    }
+
+    void ConfigureDemandActionRow(
+        const CAlmanacWidget::FDetailRowWidgets& Row,
+        bool Enabled,
+        const std::wstring& Label)
+    {
+        SetSelectableDetailRowEnabled(Row, Enabled);
+
+        if (!Enabled)
+            return;
+
+        SetDetailRowData(Row, Label, L"");
     }
 }
 
@@ -1055,7 +1232,7 @@ void FAlmanacRenderer::ApplyPoliticsPage(
     if (auto Label = Widget.mPoliticsFactionApprovalLabel.lock())
     {
         Label->SetText(
-            (SelectedFaction.Label + L" 우호도").c_str());
+            (SelectedFaction.Label + L" 승인도").c_str());
     }
     if (auto Value = Widget.mPoliticsFactionApprovalValue.lock())
         Value->SetText(std::to_wstring(SelectedFaction.Favor).c_str());
@@ -1117,6 +1294,21 @@ void FAlmanacRenderer::ApplyPoliticsPage(
             Snapshot.DaysUntilNextElection,
             Snapshot.ElectionWarningScore,
             Snapshot.TaxEventStatus);
+    const std::wstring PromiseProgressText =
+        BuildElectionPromiseProgressText(Snapshot.ElectionStatus);
+    const std::wstring PromiseEvaluationText =
+        BuildElectionPromiseEvaluationText(Snapshot.ElectionStatus);
+    const std::wstring ElectionOutcomeText =
+        PromiseEvaluationText == L"-" ?
+            ElectionWarningText :
+            ElectionWarningText + L" / " + PromiseEvaluationText;
+    const int PromiseModifierDisplay =
+        CountActiveElectionPromises(Snapshot.ElectionStatus) > 0 ?
+            ComputeElectionPromiseModifierPercent(Snapshot.ElectionStatus) :
+            Snapshot.ElectionStatus.LastPromiseVoteModifierPercent;
+    const FPoliticalDemandState& SelectedDemand =
+        Snapshot.FactionDemandStates[
+            static_cast<size_t>(SelectedPoliticsFactionIndex)];
 
     SetDetailRowData(Widget.mPoliticsDetails[0], L"▽ 세력 개요", L"");
     SetDetailRowData(
@@ -1147,34 +1339,80 @@ void FAlmanacRenderer::ApplyPoliticsPage(
         GetSignedTint(SelectedFaction.AlignmentScore));
     SetDetailRowData(
         Widget.mPoliticsDetails[8],
-        L"평균 지지 점수",
-        FormatFixed1(Snapshot.PoliticalSnapshot.AverageSupportScore));
+        L"세력 승인도 평균",
+        FormatFixed1(SelectedFaction.AverageApproval));
     SetDetailRowData(
         Widget.mPoliticsDetails[9],
         L"생활 평가",
-        FormatFixed1(Snapshot.PoliticalSnapshot.AverageLifeScore));
+        FormatFixed1(SelectedFaction.AverageLifeScore));
     SetDetailRowData(
         Widget.mPoliticsDetails[10],
         L"건물 효과",
-        FormatSignedFixed1(Snapshot.PoliticalSnapshot.AverageBuildingScore),
+        FormatSignedFixed1(SelectedFaction.AverageBuildingScore),
         false,
-        GetSignedTint(Snapshot.PoliticalSnapshot.AverageBuildingScore));
+        GetSignedTint(SelectedFaction.AverageBuildingScore));
     SetDetailRowData(
         Widget.mPoliticsDetails[11],
         L"정책 효과",
-        FormatSignedFixed1(Snapshot.PoliticalSnapshot.AverageActionScore),
+        FormatSignedFixed1(SelectedFaction.AverageActionScore),
         false,
-        GetSignedTint(Snapshot.PoliticalSnapshot.AverageActionScore));
+        GetSignedTint(SelectedFaction.AverageActionScore));
     SetDetailRowData(
         Widget.mPoliticsDetails[12],
-        L"활성 칙령",
-        FormatInteger(Snapshot.ActiveEdictCount));
+        L"공약 진행",
+        PromiseProgressText);
     SetDetailRowData(
         Widget.mPoliticsDetails[13],
-        L"선거 경보",
-        ElectionWarningText);
+        L"선거 경보 / 판정",
+        ElectionOutcomeText,
+        false,
+        GetSignedTint(PromiseModifierDisplay));
+    SetDetailRowData(Widget.mPoliticsDetails[14], L"▽ 세력 요구", L"");
 
-    const int PoliticsHeaderRows[3] = { 0, 2, 6 };
+    if (SelectedDemand.Active)
+    {
+        SetDetailRowData(
+            Widget.mPoliticsDetails[15],
+            SelectedDemand.Title,
+            BuildDemandProgressText(SelectedDemand));
+        SetDetailRowData(
+            Widget.mPoliticsDetails[16],
+            L"보상 / 불이익",
+            BuildDemandEffectText(SelectedDemand));
+        ConfigureDemandActionRow(
+            Widget.mPoliticsDetails[17],
+            true,
+            SelectedDemand.Status == EPoliticalDemandStatus::Accepted ?
+                L"요구 수락됨" :
+                L"요구 수락");
+        ConfigureDemandActionRow(
+            Widget.mPoliticsDetails[18],
+            true,
+            SelectedDemand.Status == EPoliticalDemandStatus::Accepted ?
+                L"요구 포기" :
+                L"요구 거절");
+    }
+    else
+    {
+        SetDetailRowData(
+            Widget.mPoliticsDetails[15],
+            L"현재 요구 없음",
+            L"이 세력은 당분간 추가 요구를 제시하지 않습니다.");
+        SetDetailRowData(
+            Widget.mPoliticsDetails[16],
+            L"대기 상태",
+            L"-");
+        ConfigureDemandActionRow(
+            Widget.mPoliticsDetails[17],
+            false,
+            L"");
+        ConfigureDemandActionRow(
+            Widget.mPoliticsDetails[18],
+            false,
+            L"");
+    }
+
+    const int PoliticsHeaderRows[4] = { 0, 2, 6, 14 };
     for (int HeaderIndex : PoliticsHeaderRows)
     {
         if (HeaderIndex >= static_cast<int>(Widget.mPoliticsDetails.size()))
@@ -1198,7 +1436,7 @@ void FAlmanacRenderer::ApplyPoliticsPage(
         Index < static_cast<int>(Widget.mPoliticsDetails.size());
         ++Index)
     {
-        if (Index == 0 || Index == 2 || Index == 6)
+        if (Index == 0 || Index == 2 || Index == 6 || Index == 14)
             continue;
 
         if (auto Background =
@@ -1237,6 +1475,12 @@ void FAlmanacRenderer::ApplyForeignPage(
     Widget.mSelectedForeignPowerIndex = SelectedForeignPowerIndex;
     const FForeignPowerRuntimeData& SelectedForeignPower =
         ForeignPowers[static_cast<size_t>(SelectedForeignPowerIndex)];
+    const auto& SelectedForeignState =
+        Snapshot.ForeignPowerStates[
+            static_cast<size_t>(SelectedForeignPowerIndex)];
+    const FPoliticalDemandState& SelectedForeignDemand =
+        Snapshot.ForeignDemandStates[
+            static_cast<size_t>(SelectedForeignPowerIndex)];
 
     for (int Index = 0;
         Index < static_cast<int>(Widget.mForeignRows.size()) &&
@@ -1259,7 +1503,7 @@ void FAlmanacRenderer::ApplyForeignPage(
     if (auto Title = Widget.mForeignTitle.lock())
         Title->SetText(SelectedForeignPower.Name.c_str());
     if (auto Text = Widget.mForeignStatusLabel.lock())
-        Text->SetText(L"관계 전망");
+        Text->SetText(L"외교 상태");
     if (auto Text = Widget.mForeignStatusValue.lock())
         Text->SetText(SelectedForeignPower.Status.c_str());
 
@@ -1304,33 +1548,84 @@ void FAlmanacRenderer::ApplyForeignPage(
         GetSignedTint(SelectedForeignPower.GovernmentModifier));
     SetDetailRowData(
         Widget.mForeignDetails[8],
-        L"기타 수정치",
-        FormatSignedInt(SelectedForeignPower.MiscModifier),
+        L"무역 standing",
+        FormatSignedInt(SelectedForeignState.Standing),
         false,
-        GetSignedTint(SelectedForeignPower.MiscModifier));
+        GetSignedTint(SelectedForeignState.Standing));
     SetDetailRowData(
         Widget.mForeignDetails[9],
-        SelectedForeignPower.MiscLine.Label,
-        FormatSignedInt(SelectedForeignPower.MiscLine.Value),
-        false,
-        GetSignedTint(SelectedForeignPower.MiscLine.Value));
+        L"계약 현황",
+        std::wstring(L"활성 ") +
+            FormatInteger(SelectedForeignState.ActiveContractCount) +
+            L" / 완료 " +
+            FormatInteger(SelectedForeignState.CompletedContractCount) +
+            L" / 실패 " +
+            FormatInteger(SelectedForeignState.FailedContractCount));
     SetDetailRowData(
         Widget.mForeignDetails[10],
         L"무역 수정치",
         FormatSignedInt(SelectedForeignPower.TradeModifier),
         false,
         GetSignedTint(SelectedForeignPower.TradeModifier));
+    SetDetailRowData(Widget.mForeignDetails[11], L"▽ 외교 요구", L"");
+
+    if (SelectedForeignDemand.Active)
+    {
+        SetDetailRowData(
+            Widget.mForeignDetails[12],
+            SelectedForeignDemand.Title,
+            BuildDemandProgressText(SelectedForeignDemand));
+        SetDetailRowData(
+            Widget.mForeignDetails[13],
+            L"보상 / 불이익",
+            BuildDemandEffectText(SelectedForeignDemand));
+        ConfigureDemandActionRow(
+            Widget.mForeignDetails[14],
+            true,
+            SelectedForeignDemand.Status == EPoliticalDemandStatus::Accepted ?
+                L"요구 수락됨" :
+                L"요구 수락");
+        ConfigureDemandActionRow(
+            Widget.mForeignDetails[15],
+            true,
+            SelectedForeignDemand.Status == EPoliticalDemandStatus::Accepted ?
+                L"요구 포기" :
+                L"요구 거절");
+    }
+    else
+    {
+        SetDetailRowData(
+            Widget.mForeignDetails[12],
+            L"현재 요구 없음",
+            L"해당 초강대국은 현재 별도 조건을 제시하지 않습니다.");
+        SetDetailRowData(
+            Widget.mForeignDetails[13],
+            L"대기 상태",
+            L"-");
+        ConfigureDemandActionRow(
+            Widget.mForeignDetails[14],
+            false,
+            L"");
+        ConfigureDemandActionRow(
+            Widget.mForeignDetails[15],
+            false,
+            L"");
+    }
 
     if (auto Background = Widget.mForeignDetails[2].Background.lock())
         Background->SetTint(0.98f, 0.95f, 0.84f, 0.94f);
     if (auto Label = Widget.mForeignDetails[2].Label.lock())
+        Label->SetTextColor(112, 86, 38, 255);
+    if (auto Background = Widget.mForeignDetails[11].Background.lock())
+        Background->SetTint(0.98f, 0.95f, 0.84f, 0.94f);
+    if (auto Label = Widget.mForeignDetails[11].Label.lock())
         Label->SetTextColor(112, 86, 38, 255);
 
     for (int Index = 0;
         Index < static_cast<int>(Widget.mForeignDetails.size());
         ++Index)
     {
-        if (Index == 2)
+        if (Index == 2 || Index == 11)
             continue;
 
         if (auto Background =
@@ -1343,8 +1638,18 @@ void FAlmanacRenderer::ApplyForeignPage(
 
     if (auto Notice = Widget.mForeignNotice.lock())
     {
-        Notice->SetEnable(false);
-        Notice->SetText(L"");
+        const bool HasRecentDelta =
+            SelectedForeignState.LastRelationChange != 0 ||
+            SelectedForeignState.LastStandingChange != 0;
+        Notice->SetEnable(HasRecentDelta);
+        Notice->SetText(
+            HasRecentDelta ?
+                (std::wstring(L"최근 계약 변화: 관계 ") +
+                    FormatSignedInt(SelectedForeignState.LastRelationChange) +
+                    L", standing " +
+                    FormatSignedInt(SelectedForeignState.LastStandingChange))
+                    .c_str() :
+                L"");
     }
 }
 
@@ -1472,10 +1777,10 @@ void FAlmanacRenderer::ApplyBuildingPage(
         break;
     case EBuildingCategory::Housing:
         DetailRows[4] = {
-            L"주거 수용량",
+            L"주거 수용 가구",
             FormatInteger(Snapshot.ResidentialCapacity) };
         DetailRows[5] = {
-            L"입주 시민",
+            L"입주 가구",
             FormatInteger(Snapshot.AssignedHomeCount) };
         DetailRows[6] = { L"무주택자", FormatInteger(Snapshot.HomelessCount) };
         DetailRows[7] = {
@@ -1591,6 +1896,10 @@ void FAlmanacRenderer::ApplyConflictPage(
         auto ConflictHeadlineBackground = Widget.mConflictHeadlineBackground.lock();
         auto ConflictHeadlineText = Widget.mConflictHeadlineText.lock();
         FVector4 ConflictTint(0.82f, 0.92f, 0.76f, 0.98f);
+        const bool HasActiveWorldCrisis = Snapshot.WorldCrisisStatus.Active;
+        const bool HasRecentWorldCrisis =
+            Snapshot.WorldCrisisStatus.Active ||
+            Snapshot.WorldCrisisStatus.NotificationDays > 0;
         const bool HasRecentTaxEvent =
             Snapshot.TaxEventStatus.Active ||
             Snapshot.TaxEventStatus.NotificationDays > 0;
@@ -1599,6 +1908,11 @@ void FAlmanacRenderer::ApplyConflictPage(
             ConflictTint = FVector4(0.96f, 0.48f, 0.38f, 0.98f);
         else if (Snapshot.RebelRiskScore >= 33.0)
             ConflictTint = FVector4(0.96f, 0.78f, 0.28f, 0.98f);
+        else if (HasActiveWorldCrisis)
+            ConflictTint =
+                Snapshot.WorldCrisisStatus.Type == EWorldCrisisType::FiscalEmergency ?
+                    FVector4(0.94f, 0.54f, 0.40f, 0.98f) :
+                    FVector4(0.94f, 0.70f, 0.30f, 0.98f);
         else if (Snapshot.TaxEventStatus.Active)
             ConflictTint =
                 Snapshot.TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis ?
@@ -1615,10 +1929,24 @@ void FAlmanacRenderer::ApplyConflictPage(
             std::wstring Headline =
                 L"반란 위험: " + Snapshot.RebelRiskLabel;
 
+            if (HasActiveWorldCrisis)
+            {
+                Headline +=
+                    L" / 월드 위기: " +
+                    Snapshot.WorldCrisisStatus.Summary;
+            }
+            else if (HasRecentWorldCrisis &&
+                !Snapshot.WorldCrisisStatus.Summary.empty())
+            {
+                Headline +=
+                    L" / 최근 위기: " +
+                    Snapshot.WorldCrisisStatus.Summary;
+            }
+
             if (Snapshot.TaxEventStatus.Active)
             {
                 Headline +=
-                    L" / 파벌 경고: " +
+                    L"\n파벌 경고: " +
                     Snapshot.TaxEventStatus.Summary;
                 Headline +=
                     L"\n월드 효과: " +
@@ -1655,39 +1983,57 @@ void FAlmanacRenderer::ApplyConflictPage(
 
         SetDetailRowData(
             Widget.mConflictDetails[0],
-            L"정치 사건",
-            Snapshot.TaxEventStatus.Active ?
-                Snapshot.TaxEventStatus.Title :
-                (HasRecentTaxEvent ?
-                    Snapshot.TaxEventStatus.Title :
-                    std::wstring(L"없음")),
-            Snapshot.TaxEventStatus.Active,
-            Snapshot.TaxEventStatus.Active ?
-                (Snapshot.TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis ?
+            HasRecentWorldCrisis ? L"월드 위기" : L"정치 사건",
+            HasActiveWorldCrisis ?
+                Snapshot.WorldCrisisStatus.Title :
+                (HasRecentWorldCrisis ?
+                    Snapshot.WorldCrisisStatus.Title :
+                    (Snapshot.TaxEventStatus.Active ?
+                        Snapshot.TaxEventStatus.Title :
+                        (HasRecentTaxEvent ?
+                            Snapshot.TaxEventStatus.Title :
+                            std::wstring(L"없음")))),
+            HasActiveWorldCrisis || Snapshot.TaxEventStatus.Active,
+            HasActiveWorldCrisis ?
+                (Snapshot.WorldCrisisStatus.Type == EWorldCrisisType::FiscalEmergency ?
                     FVector4(0.82f, 0.24f, 0.18f, 1.f) :
                     FVector4(0.82f, 0.48f, 0.12f, 1.f)) :
-                FVector4(0.20f, 0.56f, 0.20f, 1.f));
+                (Snapshot.TaxEventStatus.Active ?
+                    (Snapshot.TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis ?
+                        FVector4(0.82f, 0.24f, 0.18f, 1.f) :
+                        FVector4(0.82f, 0.48f, 0.12f, 1.f)) :
+                    FVector4(0.20f, 0.56f, 0.20f, 1.f)));
         SetDetailRowData(
             Widget.mConflictDetails[1],
-            Snapshot.TaxEventStatus.Active ? L"파벌 경고 / 효과" :
-                (ComputedData.ElectionWarningActive ? L"선거 경고" : L"사건 메모"),
-            Snapshot.TaxEventStatus.Active ?
-                (Snapshot.TaxEventStatus.Summary +
-                    L" / " +
-                    ComputedData.TaxEventWorldEffectSummary) :
-                (ComputedData.ElectionWarningActive ?
-                    ComputedData.ElectionWarningSummary :
-                    (HasRecentTaxEvent ?
+            HasActiveWorldCrisis ? L"위기 현황 / 연쇄" :
+                (HasRecentWorldCrisis ? L"최근 위기 메모" :
+                    (Snapshot.TaxEventStatus.Active ? L"파벌 경고 / 효과" :
+                        (ComputedData.ElectionWarningActive ? L"선거 경고" : L"사건 메모"))),
+            HasActiveWorldCrisis ?
+                Snapshot.WorldCrisisStatus.Summary :
+                (HasRecentWorldCrisis ?
+                    Snapshot.WorldCrisisStatus.Summary :
+                    (Snapshot.TaxEventStatus.Active ?
                         (Snapshot.TaxEventStatus.Summary +
                             L" / " +
                             ComputedData.TaxEventWorldEffectSummary) :
-                        std::wstring(L"안정"))),
-            Snapshot.TaxEventStatus.Active || ComputedData.ElectionWarningActive,
-            Snapshot.TaxEventStatus.Active ?
+                        (ComputedData.ElectionWarningActive ?
+                            ComputedData.ElectionWarningSummary :
+                            (HasRecentTaxEvent ?
+                                (Snapshot.TaxEventStatus.Summary +
+                                    L" / " +
+                                    ComputedData.TaxEventWorldEffectSummary) :
+                                std::wstring(L"안정"))))),
+            HasActiveWorldCrisis ||
+                Snapshot.TaxEventStatus.Active ||
+                ComputedData.ElectionWarningActive,
+            HasActiveWorldCrisis ?
                 FVector4(0.82f, 0.48f, 0.12f, 1.f) :
-                (ComputedData.ElectionWarningActive ?
-                    ComputedData.ElectionWarningTint :
-                    FVector4(0.31f, 0.27f, 0.21f, 1.f)));
+                (Snapshot.TaxEventStatus.Active ?
+                    FVector4(0.82f, 0.48f, 0.12f, 1.f) :
+                    (ComputedData.ElectionWarningActive ?
+                        ComputedData.ElectionWarningTint :
+                        FVector4(0.31f, 0.27f, 0.21f, 1.f))));
         SetDetailRowData(
             Widget.mConflictDetails[2],
             L"반란 위험 지수",

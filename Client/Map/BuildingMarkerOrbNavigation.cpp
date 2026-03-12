@@ -455,6 +455,30 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
 {
     auto World = mWorld.lock();
     auto& Delivery = mTeamsterDeliveryState;
+    auto ResolveTransportCargoAmount =
+        [&](int RequestedAmount) -> int
+    {
+        if (!World || RequestedAmount <= 0 || mWorkName.empty())
+            return (std::max)(0, RequestedAmount);
+
+        auto OfficeBuilding =
+            World->FindObject<CPlacementAreaObject>(mWorkName).lock();
+
+        if (!OfficeBuilding)
+            return (std::max)(0, RequestedAmount);
+
+        const int LossPercent =
+            OfficeBuilding->GetTeamsterCargoLossPercent();
+
+        if (LossPercent <= 0 || RequestedAmount <= 1)
+            return (std::max)(1, RequestedAmount);
+
+        const int LossAmount = (std::min)(
+            RequestedAmount - 1,
+            static_cast<int>(
+                static_cast<long long>(RequestedAmount) * LossPercent / 100ll));
+        return (std::max)(1, RequestedAmount - LossAmount);
+    };
 
     auto TryRedirectCargoToStorage =
         [&](const std::string& ExcludedDestinationName) -> bool
@@ -582,7 +606,8 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
                     (std::max)(1, Delivery.RequestedAmount)))
             {
                 Delivery.CargoType = Delivery.RequestedType;
-                Delivery.CarryAmount = (std::max)(1, Delivery.RequestedAmount);
+                Delivery.CarryAmount = ResolveTransportCargoAmount(
+                    (std::max)(1, Delivery.RequestedAmount));
                 LoadedCargo = true;
             }
         }
@@ -660,7 +685,7 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
             {
                 ReservedTarget->ReleaseIncomingResource(
                     Delivery.CargoType,
-                    Delivery.CarryAmount);
+                    Delivery.RequestedAmount);
             }
 
             Delivery.DestinationReservationActive = false;
@@ -739,7 +764,8 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
                         Delivery.RequestedType,
                         PickupAmount))
                 {
-                    Delivery.CarryAmount = PickupAmount;
+                    Delivery.CarryAmount =
+                        ResolveTransportCargoAmount(PickupAmount);
                     Delivery.CargoType = Delivery.RequestedType;
                     LoadedCargo = true;
                 }

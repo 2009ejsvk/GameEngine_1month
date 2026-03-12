@@ -1,0 +1,36 @@
+# BuildingId	ProducedPowerMW	RequiredPowerMW	SourceDisplayName
+build_1_9		10	변전소
+build_1_10	360		발전소
+build_1_15	800		원자력 발전소
+build_1_16		20	지하철역
+build_1_17		15	공중 케이블 기지
+build_1_18	70		풍력 터빈
+build_1_19	82		해상 풍력 터빈
+build_1_20	450		태양광 발전소
+build_2_9		10	양식장
+build_2_11		30	대규모 수경 농장
+build_2_12		25	공장식 목장
+build_3_1		50	자동화 광산
+build_3_5		80	통조림 공장
+build_3_13		25	가구 공장
+build_3_15		25	플라스틱 공장
+build_3_16		50	자동차 공장
+build_3_17		60	전자 제품 공장
+build_3_18		25	패션 회사
+build_3_19		80	제약 회사
+build_3_20		30	주스 공장
+build_4_10		50	현대식 아파트
+build_4_11		18	현대식 저택
+build_4_12		18	보안 저택
+build_5_5		20	유원지 부두
+build_5_7		10	오락실
+build_5_9		10	영화관
+build_5_10		15	아쿠아 파크
+build_5_11		35	롤러코스터
+build_5_12		60	경기장
+build_7_12		15	공항
+build_7_13		15	저가 호텔
+build_7_14		20	가족 휴양지
+build_7_15		40	고급 호텔
+build_7_16		20	초고층 호텔
+build_8_7		35	병원

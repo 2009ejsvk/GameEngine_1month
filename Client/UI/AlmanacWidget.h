@@ -533,4 +533,8 @@ private:
     void OnForeignTabClick();
     void OnBuildingsTabClick();
     void OnConflictTabClick();
+    void OnPoliticsDemandAcceptClick();
+    void OnPoliticsDemandRejectClick();
+    void OnForeignDemandAcceptClick();
+    void OnForeignDemandRejectClick();
 };

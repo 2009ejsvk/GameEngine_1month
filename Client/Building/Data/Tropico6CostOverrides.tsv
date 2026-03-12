@@ -1,0 +1,9 @@
+# BuildingId	BlueprintCost	ConstructionCost	SourceAssetName	SourceDisplayName
+build_1_3	0	9600	DA_T6DockBP	Dock
+build_1_4	0	2000	DA_Building_ConstructionOfficeBP	Construction Office
+build_1_5	0	2000	DA_Building_TeamsterBP	Teamsters Office
+build_1_6	0	300	DA_T6LandingBP	Landing
+build_1_7	0	1700	DA_T6StorageQuayBP	Storage Quay
+build_1_8	0	4000	DA_T6Warehouse_BuildingBP	Warehouse
+build_1_13	0	0	DA_BusStop	Bus Stop
+build_1_14	500	2000	DA_Tunnel	Tunnel

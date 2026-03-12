@@ -58,6 +58,14 @@ namespace
         return DistSq <= CoverageRadius * CoverageRadius;
     }
 
+    int ResolveOfficeTransferUnit(
+        const std::shared_ptr<CPlacementAreaObject>& Office)
+    {
+        return Office ?
+            Office->GetTeamsterTransferUnits() :
+            (std::max)(1, GameConstants::Orb::TeamsterTransferUnit);
+    }
+
     bool TryResolveConsumerNeed(
         const std::shared_ptr<CPlacementAreaObject>& Building,
         EResourceType& OutType,
@@ -413,6 +421,7 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
         mCurrentTargetName.clear();
         mFoodVisitBuildingName = VisitBuildingName;
         FoodStockAvailableThisVisit = false;
+        mFoodVisitReserved = false;
         {
             auto FoodWorld = mWorld.lock();
             if (FoodWorld && !mFoodVisitBuildingName.empty())
@@ -422,16 +431,9 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
                         mFoodVisitBuildingName).lock();
                 if (FoodBuilding)
                 {
-                    const EResourceType FoodType =
-                        FoodBuilding->GetVisitConsumptionResourceType();
                     mFoodVisitReserved =
                         FoodBuilding->TryBeginServiceVisit(
                             EBuildingServiceType::Food);
-                    FoodStockAvailableThisVisit =
-                        mFoodVisitReserved &&
-                        (FoodType != EResourceType::None ?
-                            FoodBuilding->TryConsumeResource(FoodType, 1) :
-                            FoodBuilding->TryConsumeResource(1));
                 }
             }
         }
@@ -812,6 +814,8 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     if (!World || !OfficeBuilding)
         return false;
 
+    const int TransferUnit = ResolveOfficeTransferUnit(OfficeBuilding);
+
     std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
 
     if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
@@ -946,7 +950,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
                 CurrentStock);
         RequestedAmount = (std::min)(
             RequestedAmount,
-            GameConstants::Orb::TeamsterTransferUnit);
+            TransferUnit);
         RequestedAmount = (std::min)(RequestedAmount, AvailableAmount);
 
         if (RequestedAmount <= 0)
@@ -1024,6 +1028,8 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
     if (!OfficeBuilding || !World)
         return false;
 
+    const int TransferUnit = ResolveOfficeTransferUnit(OfficeBuilding);
+
     std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
 
     if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
@@ -1092,8 +1098,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
                 SourceBuilding->GetAvailableResourceStock(CargoType);
 
             if (!IsExportableResourceType(CargoType) ||
-                AvailableAmount <
-                    GameConstants::Orb::TeamsterTransferUnit)
+                AvailableAmount < TransferUnit)
             {
                 continue;
             }
@@ -1109,7 +1114,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
                         CargoType)) &&
                 !HarborName.empty() &&
                 Pressure.TotalAvailableStock -
-                    GameConstants::Orb::TeamsterTransferUnit >=
+                    TransferUnit >=
                     DomesticReserveAmount;
 
             std::string DropoffName;
@@ -1128,7 +1133,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
             {
                 if (ShouldPreferWarehouseBuffer(
                         Pressure,
-                        GameConstants::Orb::TeamsterTransferUnit,
+                        TransferUnit,
                         ExportPolicy))
                 {
                     DropoffName = FindBestWarehouseDropoffName(
@@ -1136,7 +1141,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
                         BuildingList,
                         SourceBuilding->GetName(),
                         CargoType,
-                        GameConstants::Orb::TeamsterTransferUnit);
+                        TransferUnit);
 
                     if (!DropoffName.empty())
                     {
@@ -1158,7 +1163,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
                         BuildingList,
                         SourceBuilding->GetName(),
                         CargoType,
-                        GameConstants::Orb::TeamsterTransferUnit);
+                        TransferUnit);
 
                     if (!DropoffName.empty())
                     {
@@ -1227,7 +1232,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
         !DropoffBuilding ||
         !SourceBuilding->ReserveTeamsterPickup(
             BestCargoType,
-            GameConstants::Orb::TeamsterTransferUnit))
+            TransferUnit))
     {
         return false;
     }
@@ -1235,11 +1240,11 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
     if (BestReserveIncoming &&
         !DropoffBuilding->ReserveIncomingResource(
             BestCargoType,
-            GameConstants::Orb::TeamsterTransferUnit))
+            TransferUnit))
     {
         SourceBuilding->ReleaseTeamsterPickup(
             BestCargoType,
-            GameConstants::Orb::TeamsterTransferUnit);
+            TransferUnit);
         return false;
     }
 
@@ -1248,8 +1253,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
         FTeamsterDeliveryState::ESourceReservationKind::Typed;
     OutDelivery.SourceName = BestSourceName;
     OutDelivery.DestinationName = BestDropoffName;
-    OutDelivery.RequestedAmount =
-        GameConstants::Orb::TeamsterTransferUnit;
+    OutDelivery.RequestedAmount = TransferUnit;
     OutDelivery.RequestedType = BestCargoType;
     OutDelivery.DestinationReservationActive = BestReserveIncoming;
     return true;

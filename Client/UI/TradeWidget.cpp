@@ -64,6 +64,9 @@ namespace
         EResourceType ResourceType = EResourceType::None;
         EResourceMarketClass MarketClass = EResourceMarketClass::None;
         int ForeignPowerIndex = 0;
+        int Relation = 0;
+        int Standing = 0;
+        int TradeModifier = 0;
         int BasePricePerThousand = 0;
         int OfferPricePerThousand = 0;
         int MarginPercent = 0;
@@ -512,7 +515,12 @@ namespace
         return Value * 0.06;
     }
 
+    int ApplyTradePriceModifierPercent(
+        int PricePerThousand,
+        int ModifierPercent);
+
     FTradeProposal BuildTradeProposal(
+        const std::shared_ptr<CWorld>& World,
         bool ImportRoute,
         EResourceType Type,
         int AvailabilityUnits,
@@ -520,7 +528,7 @@ namespace
         int SimulationYear,
         int SimulationMonth,
         const std::array<
-            TradeDiplomacyRuntime::FForeignTradeRuntimeData,
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
             TradeDiplomacyRuntime::GForeignPowerCount>& ForeignPowers)
     {
         FTradeProposal Result;
@@ -529,12 +537,13 @@ namespace
         Result.MarketClass = GetResourceMarketClass(Type);
         Result.CategoryName = GetResourceMarketClassDisplayName(Result.MarketClass);
         Result.AvailabilityUnits = AvailabilityUnits;
-        Result.MaxAmount = ClampInt(
+        const int BaseMaxAmount = ClampInt(
             ImportRoute ?
                 RoundUpToThousand((std::max)(1000, AvailabilityUnits)) :
                 RoundDownToThousand(AvailabilityUnits),
             1000,
             12000);
+        Result.MaxAmount = BaseMaxAmount;
         Result.Score = Score;
 
         double BestScore = -1000000.0;
@@ -563,6 +572,9 @@ namespace
         Result.PartnerName = GetForeignPowerName(BestPartner);
 
         const auto& Partner = ForeignPowers[static_cast<size_t>(BestPartner)];
+        Result.Relation = Partner.Relation;
+        Result.Standing = Partner.Standing;
+        Result.TradeModifier = Partner.TradeModifier;
         const int StandardPricePerUnit = ImportRoute ?
             ResourceTradePricing::GetImportPricePerStockUnit(Type) :
             ResourceTradePricing::GetExportPricePerStockUnit(Type);
@@ -580,6 +592,20 @@ namespace
             Type,
             BestPartner,
             ImportRoute);
+        const double VolumeMultiplier = ClampDouble(
+            1.0 +
+                static_cast<double>(Partner.Standing) / 220.0 +
+                static_cast<double>(Partner.Relation - 50) / 280.0,
+            0.70,
+            1.35);
+        Result.MaxAmount = ClampInt(
+            ImportRoute ?
+                RoundUpToThousand(static_cast<int>(std::lround(
+                    static_cast<double>(BaseMaxAmount) * VolumeMultiplier))) :
+                RoundDownToThousand(static_cast<int>(std::lround(
+                    static_cast<double>(BaseMaxAmount) * VolumeMultiplier))),
+            1000,
+            16000);
         const double OfferMultiplier = ImportRoute ?
             ClampDouble(
                 1.0 -
@@ -602,20 +628,30 @@ namespace
             static_cast<int>(std::lround(
                 static_cast<double>(StandardPricePerThousand) *
                 OfferMultiplier / 50.0)) * 50);
+        const auto TradeAccess =
+            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+        const int CustomsModifierPercent =
+            TradeAccess ?
+                (ImportRoute ?
+                    TradeAccess->GetCustomsImportTradePriceModifierPercent() :
+                    TradeAccess->GetCustomsExportTradePriceModifierPercent()) :
+                0;
 
         Result.BasePricePerThousand = StandardPricePerThousand;
-        Result.OfferPricePerThousand = OfferPricePerThousand;
+        Result.OfferPricePerThousand = ApplyTradePriceModifierPercent(
+            OfferPricePerThousand,
+            CustomsModifierPercent);
 
         if (StandardPricePerThousand > 0)
         {
             Result.MarginPercent = static_cast<int>(std::lround(
                 ImportRoute ?
                     static_cast<double>(
-                        StandardPricePerThousand - OfferPricePerThousand) *
+                        StandardPricePerThousand - Result.OfferPricePerThousand) *
                         100.0 /
                         static_cast<double>(StandardPricePerThousand) :
                     static_cast<double>(
-                        OfferPricePerThousand - StandardPricePerThousand) *
+                        Result.OfferPricePerThousand - StandardPricePerThousand) *
                         100.0 /
                         static_cast<double>(StandardPricePerThousand)));
         }
@@ -638,12 +674,28 @@ namespace
 
         const WorldStats::FWorldStatsSnapshot Snapshot =
             WorldStats::BuildSnapshot(World);
-        const auto ForeignPowers =
-            TradeDiplomacyRuntime::BuildForeignTradeRuntimeData(
-                Snapshot,
-                GovernmentProfile,
-                TaxEventStatus,
-                GovernmentEdictStates);
+        const auto TradeAccess =
+            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+        std::array<
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
+            TradeDiplomacyRuntime::GForeignPowerCount> ForeignPowers = {};
+
+        if (TradeAccess)
+        {
+            ForeignPowers = TradeAccess->GetForeignPowerStates();
+        }
+        else
+        {
+            ForeignPowers =
+                TradeDiplomacyRuntime::BuildForeignPowerWorldStates(
+                    Snapshot,
+                    GovernmentProfile,
+                    TaxEventStatus,
+                    GovernmentEdictStates,
+                    std::array<
+                        TradeDiplomacyRuntime::FForeignPowerStandingState,
+                        TradeDiplomacyRuntime::GForeignPowerCount>());
+        }
 
         struct FMetric
         {
@@ -721,6 +773,7 @@ namespace
         {
             Result.push_back(
                 BuildTradeProposal(
+                    World,
                     false,
                     ExportMetrics[Index].Type,
                     ExportMetrics[Index].AvailabilityUnits,
@@ -734,6 +787,7 @@ namespace
         {
             Result.push_back(
                 BuildTradeProposal(
+                    World,
                     true,
                     ImportMetrics[Index].Type,
                     ImportMetrics[Index].AvailabilityUnits,
@@ -1017,6 +1071,21 @@ namespace
         return L"이벤트 없음";
     }
 
+    int ApplyTradePriceModifierPercent(
+        int PricePerThousand,
+        int ModifierPercent)
+    {
+        if (PricePerThousand <= 0 || ModifierPercent == 0)
+            return (std::max)(1000, PricePerThousand);
+
+        return (std::max)(
+            1000,
+            static_cast<int>(std::lround(
+                static_cast<double>(PricePerThousand) *
+                (100.0 + static_cast<double>(ModifierPercent)) /
+                100.0 / 50.0)) * 50);
+    }
+
     FTradeModifierPageSnapshot BuildTradeModifierPageSnapshot(
         const std::shared_ptr<CWorld>& World,
         const FTaxPolicyEventStatus& TaxEventStatus,
@@ -1044,6 +1113,10 @@ namespace
 
         if (TradeAccess)
         {
+            const int CustomsExportModifierPercent =
+                TradeAccess->GetCustomsExportTradePriceModifierPercent();
+            const int CustomsImportModifierPercent =
+                TradeAccess->GetCustomsImportTradePriceModifierPercent();
             const auto& ActiveRoutes = TradeAccess->GetActiveTradeRoutes();
             long long ExportWeightSum = 0;
             long long ExportPercentSum = 0;
@@ -1107,6 +1180,22 @@ namespace
                 Snapshot.ImportRouteTotalPercent = static_cast<int>(std::lround(
                     static_cast<double>(ImportPercentSum) /
                     static_cast<double>(ImportWeightSum)));
+            }
+
+            if (CustomsExportModifierPercent != 0)
+            {
+                Snapshot.ExportRouteLines.push_back(
+                    { L"세관 운영 모드", CustomsExportModifierPercent });
+                Snapshot.ExportRouteTotalPercent +=
+                    CustomsExportModifierPercent;
+            }
+
+            if (CustomsImportModifierPercent != 0)
+            {
+                Snapshot.ImportRouteLines.push_back(
+                    { L"세관 운영 모드", CustomsImportModifierPercent });
+                Snapshot.ImportRouteTotalPercent +=
+                    CustomsImportModifierPercent;
             }
         }
 
@@ -3025,8 +3114,8 @@ void CTradeWidget::RefreshFromState()
             L"종료 사유",
             SelectedCompletedRoute->ImportRoute ? L"비용" : L"수익",
             L"완료 보상",
-            L"기타 수정치",
-            L"관계 수정치"
+            L"관계 변화",
+            L"standing 변화"
         };
         DetailValues[0] = SelectedCompletedRoute->CategoryName;
         DetailValues[1] = SelectedCompletedRoute->PartnerName;
@@ -3054,7 +3143,7 @@ void CTradeWidget::RefreshFromState()
             L"거래 유형",
             L"상품",
             L"분류",
-            L"무역국",
+            L"무역국 / standing",
             L"기준 단가 (1,000)",
             L"제안 단가 (1,000)",
             L"차익",
@@ -3072,7 +3161,10 @@ void CTradeWidget::RefreshFromState()
         DetailValues[1] =
             GetResourceTypeDisplayName(SelectedProposal->ResourceType);
         DetailValues[2] = SelectedProposal->CategoryName;
-        DetailValues[3] = SelectedProposal->PartnerName;
+        DetailValues[3] =
+            SelectedProposal->PartnerName +
+            L" / " +
+            FormatSignedInteger(SelectedProposal->Standing);
         DetailValues[4] =
             FormatCurrency(SelectedProposal->BasePricePerThousand);
         DetailValues[5] =

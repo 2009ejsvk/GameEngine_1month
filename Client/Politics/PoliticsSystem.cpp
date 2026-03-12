@@ -76,6 +76,223 @@ namespace
         }
     }
 
+    float EvaluateFactionMembershipScore(
+        const CBuildingMarkerOrb& Citizen,
+        EPoliticalFaction Faction)
+    {
+        const FNpcPoliticalProfile& PoliticalProfile =
+            Citizen.GetPoliticalProfile();
+        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
+        const FCitizenIdentityProfile& Identity = Citizen.GetIdentityProfile();
+        const bool HasHome = !Citizen.GetHomeBuilding().empty();
+        const bool HasWork = !Citizen.GetWorkBuilding().empty();
+        const bool HasFaithAccess = !Citizen.GetFaithBuilding().empty();
+        const EPoliticalAxis Axis = GetPoliticalFactionAxis(Faction);
+        const EPoliticalStance Stance = GetPoliticalFactionStance(Faction);
+        const FNpcPoliticalChoice& Choice = PoliticalProfile.Get(Axis);
+        const float SupportWeight = GetSupportLevelWeight(Choice.Support);
+        float Score = 0.f;
+
+        if (Choice.Stance == Stance)
+            Score = 24.f + SupportWeight * 12.f;
+        else if (Choice.Stance == EPoliticalStance::Neutral)
+            Score = 10.f + SupportWeight * 3.f;
+        else
+            Score = 2.5f;
+
+        switch (Faction)
+        {
+        case EPoliticalFaction::Communists:
+            Score +=
+                Identity.WealthLevel == ECitizenWealthLevel::Poor ? 8.f :
+                Identity.WealthLevel == ECitizenWealthLevel::WellOff ? 3.f :
+                -4.f;
+            Score += (std::max)(0.f, 60.f - Satisfaction.Housing) * 0.14f;
+            Score += (std::max)(0.f, 58.f - Satisfaction.Job) * 0.12f;
+            if (!HasHome)
+                Score += 4.f;
+            if (!HasWork)
+                Score += 5.f;
+            break;
+        case EPoliticalFaction::Capitalists:
+            Score +=
+                Identity.WealthLevel == ECitizenWealthLevel::Rich ? 9.f :
+                Identity.WealthLevel == ECitizenWealthLevel::WellOff ? 4.f :
+                -3.f;
+            Score += (std::max)(0.f, Satisfaction.Freedom - 52.f) * 0.10f;
+            if (HasWork)
+                Score += 3.f;
+            break;
+        case EPoliticalFaction::Religious:
+            Score += (std::max)(0.f, Satisfaction.Faith - 50.f) * 0.12f;
+            if (HasFaithAccess)
+                Score += 4.f;
+            break;
+        case EPoliticalFaction::Militarists:
+            Score += (std::max)(0.f, Satisfaction.Security - 48.f) * 0.10f;
+            break;
+        case EPoliticalFaction::Environmentalists:
+            Score +=
+                Identity.EducationLevel == ECitizenEducationLevel::College ? 4.f :
+                Identity.EducationLevel == ECitizenEducationLevel::HighSchool ?
+                    1.5f :
+                    0.f;
+            Score += (std::max)(0.f, 60.f - Satisfaction.Health) * 0.10f;
+            break;
+        case EPoliticalFaction::Industrialists:
+            if (HasWork)
+                Score += 4.f;
+            Score += (std::max)(0.f, Satisfaction.Job - 52.f) * 0.10f;
+            break;
+        case EPoliticalFaction::Intellectuals:
+            Score +=
+                Identity.EducationLevel == ECitizenEducationLevel::College ? 9.f :
+                Identity.EducationLevel == ECitizenEducationLevel::HighSchool ?
+                    4.f :
+                    -2.f;
+            Score += (std::max)(0.f, Satisfaction.Freedom - 52.f) * 0.12f;
+            break;
+        case EPoliticalFaction::Conservatives:
+            Score += (std::max)(0.f, Satisfaction.Security - 50.f) * 0.08f;
+            Score += (std::max)(0.f, Satisfaction.Faith - 52.f) * 0.06f;
+            if (HasHome)
+                Score += 2.f;
+            break;
+        default:
+            break;
+        }
+
+        return Score;
+    }
+
+    EPoliticalFaction ResolvePrimaryFaction(
+        const CBuildingMarkerOrb& Citizen)
+    {
+        EPoliticalFaction BestFaction = EPoliticalFaction::Communists;
+        float BestScore = -1.f;
+
+        for (int FactionIndex = 0;
+            FactionIndex < GPoliticalFactionCount;
+            ++FactionIndex)
+        {
+            const EPoliticalFaction Candidate =
+                static_cast<EPoliticalFaction>(FactionIndex);
+            const float CandidateScore =
+                EvaluateFactionMembershipScore(Citizen, Candidate);
+
+            if (FactionIndex == 0 || CandidateScore > BestScore)
+            {
+                BestFaction = Candidate;
+                BestScore = CandidateScore;
+            }
+        }
+
+        return BestFaction;
+    }
+
+    float EvaluateFactionAlignmentScore(
+        const CBuildingMarkerOrb& Citizen,
+        const FGovernmentProfile& GovernmentProfile,
+        EPoliticalFaction Faction)
+    {
+        const EPoliticalAxis Axis = GetPoliticalFactionAxis(Faction);
+        const EPoliticalStance FactionStance = GetPoliticalFactionStance(Faction);
+        const FNpcPoliticalChoice& CitizenChoice =
+            Citizen.GetPoliticalProfile().Get(Axis);
+        const FNpcPoliticalChoice& GovernmentChoice =
+            GovernmentProfile.Ideology.Get(Axis);
+        const float SupportWeight = GetSupportLevelWeight(CitizenChoice.Support);
+        const float MembershipWeight =
+            CitizenChoice.Stance == FactionStance ? 1.0f :
+            CitizenChoice.Stance == EPoliticalStance::Neutral ? 0.45f :
+            0.18f;
+
+        if (GovernmentChoice.Stance == FactionStance)
+            return (6.f + SupportWeight * 6.f) * MembershipWeight;
+
+        if (GovernmentChoice.Stance == EPoliticalStance::Neutral)
+            return 1.5f * MembershipWeight;
+
+        return -(5.f + SupportWeight * 5.f) * MembershipWeight;
+    }
+
+    float EvaluateFactionIssueScore(
+        const CBuildingMarkerOrb& Citizen,
+        const FGovernmentProfile& GovernmentProfile,
+        EPoliticalFaction Faction)
+    {
+        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
+        const FCitizenIdentityProfile& Identity = Citizen.GetIdentityProfile();
+        const bool IsWorker = !Citizen.GetWorkBuilding().empty();
+        const bool IsResident = !Citizen.GetHomeBuilding().empty();
+        const bool HasFaithAccess = !Citizen.GetFaithBuilding().empty();
+        const float TaxBurden = GetCitizenTaxBurdenNormalized(
+            GovernmentProfile.TaxPolicy,
+            IsWorker,
+            IsResident);
+        float Score = 0.f;
+
+        switch (Faction)
+        {
+        case EPoliticalFaction::Communists:
+            Score += (Satisfaction.Housing - 55.f) * 0.12f;
+            Score += (Satisfaction.Job - 55.f) * 0.11f;
+            Score += (Satisfaction.Food - 55.f) * 0.08f;
+            Score += GovernmentProfile.WelfareBias * 9.f;
+            Score -= (std::max)(0.f, TaxBurden) * 6.f;
+            break;
+        case EPoliticalFaction::Capitalists:
+            Score += (Satisfaction.Job - 55.f) * 0.10f;
+            Score += (Satisfaction.Freedom - 55.f) * 0.11f;
+            Score -= (std::max)(0.f, TaxBurden) * 13.f;
+            Score += (std::max)(0.f, -GovernmentProfile.WelfareBias) * 6.f;
+            Score +=
+                Identity.WealthLevel == ECitizenWealthLevel::Rich ? 4.f :
+                Identity.WealthLevel == ECitizenWealthLevel::Poor ? -2.f :
+                0.f;
+            break;
+        case EPoliticalFaction::Religious:
+            Score += (Satisfaction.Faith - 55.f) * 0.17f;
+            Score += (Satisfaction.Security - 55.f) * 0.04f;
+            if (!HasFaithAccess)
+                Score -= 4.f;
+            break;
+        case EPoliticalFaction::Militarists:
+            Score += (Satisfaction.Security - 55.f) * 0.16f;
+            Score += GovernmentProfile.Militarization * 10.f;
+            break;
+        case EPoliticalFaction::Environmentalists:
+            Score += (Satisfaction.Health - 55.f) * 0.18f;
+            Score += (Satisfaction.Freedom - 55.f) * 0.05f;
+            break;
+        case EPoliticalFaction::Industrialists:
+            Score += (Satisfaction.Job - 55.f) * 0.15f;
+            Score += (Satisfaction.Security - 55.f) * 0.05f;
+            if (!IsWorker)
+                Score -= 4.f;
+            break;
+        case EPoliticalFaction::Intellectuals:
+            Score += (Satisfaction.Freedom - 55.f) * 0.15f;
+            Score += (Satisfaction.Health - 55.f) * 0.05f;
+            Score +=
+                Identity.EducationLevel == ECitizenEducationLevel::College ? 4.f :
+                Identity.EducationLevel == ECitizenEducationLevel::HighSchool ?
+                    1.5f :
+                    -2.f;
+            break;
+        case EPoliticalFaction::Conservatives:
+            Score += (Satisfaction.Security - 55.f) * 0.11f;
+            Score += (Satisfaction.Faith - 55.f) * 0.08f;
+            if (!IsResident)
+                Score -= 2.f;
+            break;
+        default:
+            break;
+        }
+
+        return Score;
+    }
+
     float CalculateNeedDistressPenalty(
         float Value,
         float WarningThreshold,
@@ -617,6 +834,25 @@ namespace
             Evaluation.ActionScore +
             Evaluation.FearScore);
 
+        Evaluation.PrimaryFaction = ResolvePrimaryFaction(Citizen);
+        Evaluation.FactionAlignmentScore = EvaluateFactionAlignmentScore(
+            Citizen,
+            GovernmentProfile,
+            Evaluation.PrimaryFaction);
+        Evaluation.FactionApprovalScore = ClampSupportScore(
+            Evaluation.TotalSupportScore * 0.72f +
+            14.f +
+            Evaluation.FactionAlignmentScore +
+            EvaluateFactionIssueScore(
+                Citizen,
+                GovernmentProfile,
+                Evaluation.PrimaryFaction) +
+            static_cast<float>(
+                GovernmentProfile.FactionApprovalModifiers[
+                    static_cast<size_t>(Evaluation.PrimaryFaction)] +
+                GovernmentProfile.EdictFactionApprovalModifiers[
+                    static_cast<size_t>(Evaluation.PrimaryFaction)]));
+
         if (Evaluation.TotalSupportScore >= 58.f)
             Evaluation.VoteIntent = EVoteIntent::Incumbent;
         else if (Evaluation.TotalSupportScore < 46.f)
@@ -666,6 +902,175 @@ namespace
         InOutStatus.NextElectionYear = CurrentYear + SafeYearsUntilElection;
         InOutStatus.NextElectionMonth = ElectionMonth;
         InOutStatus.NextElectionDay = ElectionDay;
+    }
+
+    int CountActiveElectionPromises(const FElectionStatus& ElectionStatus)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            if (ElectionStatus.ActivePromises[static_cast<size_t>(Index)].Active)
+                ++Count;
+        }
+
+        return Count;
+    }
+
+    int CountMetElectionPromises(const FElectionStatus& ElectionStatus)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            if (IsElectionPromiseMet(
+                    ElectionStatus.ActivePromises[static_cast<size_t>(Index)]))
+            {
+                ++Count;
+            }
+        }
+
+        return Count;
+    }
+
+    double ComputeElectionPromiseRisk(const FElectionStatus& ElectionStatus)
+    {
+        int ActiveCount = 0;
+        double RiskSum = 0.0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            const FElectionPromiseState& Promise =
+                ElectionStatus.ActivePromises[static_cast<size_t>(Index)];
+
+            if (!Promise.Active)
+                continue;
+
+            ++ActiveCount;
+
+            if (Promise.TargetValue <= Promise.BaselineValue)
+            {
+                RiskSum += IsElectionPromiseMet(Promise) ? 0.0 : 1.0;
+                continue;
+            }
+
+            const double Progress =
+                Clamp<double>(
+                    static_cast<double>(Promise.CurrentValue - Promise.BaselineValue) /
+                        static_cast<double>(
+                            Promise.TargetValue - Promise.BaselineValue),
+                    0.0,
+                    1.0);
+            RiskSum += 1.0 - Progress;
+        }
+
+        if (ActiveCount <= 0)
+            return 0.0;
+
+        return Clamp<double>(
+            RiskSum / static_cast<double>(ActiveCount),
+            0.0,
+            1.0);
+    }
+
+    int ComputeElectionPromiseVoteModifierPercent(
+        const FElectionStatus& ElectionStatus,
+        int& OutMetCount,
+        int& OutFailedCount)
+    {
+        int VoteModifierPercent = 0;
+        OutMetCount = 0;
+        OutFailedCount = 0;
+
+        for (int Index = 0; Index < GElectionPromiseCount; ++Index)
+        {
+            const FElectionPromiseState& Promise =
+                ElectionStatus.ActivePromises[static_cast<size_t>(Index)];
+
+            if (!Promise.Active)
+                continue;
+
+            if (IsElectionPromiseMet(Promise))
+            {
+                ++OutMetCount;
+                VoteModifierPercent += Promise.SuccessVoteModifierPercent;
+            }
+            else
+            {
+                ++OutFailedCount;
+                VoteModifierPercent -= Promise.FailureVoteModifierPercent;
+            }
+        }
+
+        return VoteModifierPercent;
+    }
+
+    void ApplyElectionPromiseVoteModifier(
+        int VoteModifierPercent,
+        int ActiveCitizenCount,
+        int& InOutIncumbentVotes,
+        int& InOutOppositionVotes,
+        int& InOutAbstainVotes)
+    {
+        if (VoteModifierPercent == 0 || ActiveCitizenCount <= 0)
+            return;
+
+        int VoteShift = static_cast<int>(std::lround(
+            static_cast<double>(ActiveCitizenCount) *
+            static_cast<double>(VoteModifierPercent) / 100.0));
+
+        if (VoteShift > 0)
+        {
+            int ShiftFromOpposition =
+                (std::min)(InOutOppositionVotes, VoteShift / 2);
+            int ShiftFromAbstain =
+                (std::min)(InOutAbstainVotes, VoteShift - ShiftFromOpposition);
+            int RemainingShift =
+                VoteShift - ShiftFromOpposition - ShiftFromAbstain;
+
+            if (RemainingShift > 0)
+            {
+                const int AdditionalOppositionShift =
+                    (std::min)(
+                        InOutOppositionVotes - ShiftFromOpposition,
+                        RemainingShift);
+                ShiftFromOpposition += AdditionalOppositionShift;
+                RemainingShift -= AdditionalOppositionShift;
+            }
+
+            if (RemainingShift > 0)
+            {
+                ShiftFromAbstain +=
+                    (std::min)(
+                        InOutAbstainVotes - ShiftFromAbstain,
+                        RemainingShift);
+            }
+
+            InOutOppositionVotes -= ShiftFromOpposition;
+            InOutAbstainVotes -= ShiftFromAbstain;
+            InOutIncumbentVotes += ShiftFromOpposition + ShiftFromAbstain;
+            return;
+        }
+
+        VoteShift = -VoteShift;
+        int ShiftToOpposition =
+            (std::min)(InOutIncumbentVotes, VoteShift * 2 / 3);
+        int ShiftToAbstain =
+            (std::min)(
+                InOutIncumbentVotes - ShiftToOpposition,
+                VoteShift - ShiftToOpposition);
+
+        if (ShiftToOpposition + ShiftToAbstain < VoteShift)
+        {
+            ShiftToOpposition +=
+                (std::min)(
+                    InOutIncumbentVotes - ShiftToOpposition - ShiftToAbstain,
+                    VoteShift - ShiftToOpposition - ShiftToAbstain);
+        }
+
+        InOutIncumbentVotes -= ShiftToOpposition + ShiftToAbstain;
+        InOutOppositionVotes += ShiftToOpposition;
+        InOutAbstainVotes += ShiftToAbstain;
     }
 }
 
@@ -818,6 +1223,12 @@ namespace PoliticsSystem
         double BuildingScoreSum = 0.0;
         double ActionScoreSum = 0.0;
         double SupportScoreSum = 0.0;
+        std::array<int, GPoliticalFactionCount> FactionCounts = {};
+        std::array<double, GPoliticalFactionCount> FactionApprovalSums = {};
+        std::array<double, GPoliticalFactionCount> FactionLifeSums = {};
+        std::array<double, GPoliticalFactionCount> FactionBuildingSums = {};
+        std::array<double, GPoliticalFactionCount> FactionActionSums = {};
+        std::array<double, GPoliticalFactionCount> FactionAlignmentSums = {};
 
         for (size_t i = 0; i < OrbList.size(); ++i)
         {
@@ -839,6 +1250,23 @@ namespace PoliticsSystem
             BuildingScoreSum += Evaluation.BuildingScore;
             ActionScoreSum += Evaluation.ActionScore;
             SupportScoreSum += Evaluation.TotalSupportScore;
+            const int FactionIndex =
+                static_cast<int>(Evaluation.PrimaryFaction);
+
+            if (FactionIndex >= 0 && FactionIndex < GPoliticalFactionCount)
+            {
+                ++FactionCounts[static_cast<size_t>(FactionIndex)];
+                FactionApprovalSums[static_cast<size_t>(FactionIndex)] +=
+                    Evaluation.FactionApprovalScore;
+                FactionLifeSums[static_cast<size_t>(FactionIndex)] +=
+                    Evaluation.LifeScore;
+                FactionBuildingSums[static_cast<size_t>(FactionIndex)] +=
+                    Evaluation.BuildingScore;
+                FactionActionSums[static_cast<size_t>(FactionIndex)] +=
+                    Evaluation.ActionScore;
+                FactionAlignmentSums[static_cast<size_t>(FactionIndex)] +=
+                    Evaluation.FactionAlignmentScore;
+            }
 
             switch (Evaluation.VoteIntent)
             {
@@ -866,6 +1294,52 @@ namespace PoliticsSystem
         Snapshot.AverageBuildingScore = BuildingScoreSum / Denominator;
         Snapshot.AverageActionScore = ActionScoreSum / Denominator;
         Snapshot.AverageSupportScore = SupportScoreSum / Denominator;
+
+        for (int FactionIndex = 0;
+            FactionIndex < GPoliticalFactionCount;
+            ++FactionIndex)
+        {
+            auto& FactionSnapshot =
+                Snapshot.Factions[static_cast<size_t>(FactionIndex)];
+            const int MemberCount =
+                FactionCounts[static_cast<size_t>(FactionIndex)];
+            FactionSnapshot.MemberCount = MemberCount;
+            FactionSnapshot.ApprovalModifier =
+                static_cast<double>(
+                    GovernmentProfile.FactionApprovalModifiers[
+                        static_cast<size_t>(FactionIndex)] +
+                    GovernmentProfile.EdictFactionApprovalModifiers[
+                        static_cast<size_t>(FactionIndex)]);
+
+            if (MemberCount <= 0)
+            {
+                FactionSnapshot.AverageApproval = 50.0;
+                FactionSnapshot.AverageLifeScore = 0.0;
+                FactionSnapshot.AverageBuildingScore = 0.0;
+                FactionSnapshot.AverageActionScore = 0.0;
+                FactionSnapshot.AverageAlignmentScore = 0.0;
+                continue;
+            }
+
+            const double FactionDenominator =
+                static_cast<double>(MemberCount);
+            FactionSnapshot.AverageApproval =
+                FactionApprovalSums[static_cast<size_t>(FactionIndex)] /
+                FactionDenominator;
+            FactionSnapshot.AverageLifeScore =
+                FactionLifeSums[static_cast<size_t>(FactionIndex)] /
+                FactionDenominator;
+            FactionSnapshot.AverageBuildingScore =
+                FactionBuildingSums[static_cast<size_t>(FactionIndex)] /
+                FactionDenominator;
+            FactionSnapshot.AverageActionScore =
+                FactionActionSums[static_cast<size_t>(FactionIndex)] /
+                FactionDenominator;
+            FactionSnapshot.AverageAlignmentScore =
+                FactionAlignmentSums[static_cast<size_t>(FactionIndex)] /
+                FactionDenominator;
+        }
+
         return Snapshot;
     }
 
@@ -877,6 +1351,11 @@ namespace PoliticsSystem
         int ElectionDay)
     {
         OutStatus = FElectionStatus();
+        OutStatus.ActivePromises = {};
+        OutStatus.CampaignPromisesIssued = false;
+        OutStatus.PromiseIssueYear = 0;
+        OutStatus.PromiseIssueMonth = 0;
+        OutStatus.PromiseIssueDay = 0;
         ScheduleNextElection(
             OutStatus,
             CurrentYear,
@@ -907,12 +1386,25 @@ namespace PoliticsSystem
 
         const int ActiveCitizenCount =
             (std::max)(0, Snapshot.ActiveCitizenCount);
-        const int IncumbentVotes =
+        int IncumbentVotes =
             (std::max)(0, Snapshot.IncumbentCount);
-        const int OppositionVotes =
+        int OppositionVotes =
             (std::max)(0, Snapshot.OppositionCount);
-        const int AbstainVotes =
+        int AbstainVotes =
             (std::max)(0, Snapshot.AbstainCount);
+        int PromiseMetCount = 0;
+        int PromiseFailedCount = 0;
+        const int PromiseVoteModifierPercent =
+            ComputeElectionPromiseVoteModifierPercent(
+                InOutStatus,
+                PromiseMetCount,
+                PromiseFailedCount);
+        ApplyElectionPromiseVoteModifier(
+            PromiseVoteModifierPercent,
+            ActiveCitizenCount,
+            IncumbentVotes,
+            OppositionVotes,
+            AbstainVotes);
         const int CastVotes = IncumbentVotes + OppositionVotes;
         const bool IncumbentWon =
             CastVotes > 0 && IncumbentVotes >= OppositionVotes;
@@ -935,6 +1427,17 @@ namespace PoliticsSystem
             static_cast<double>(CastVotes) /
                 static_cast<double>(ActiveCitizenCount) * 100.0 :
             0.0;
+        InOutStatus.HasPromiseEvaluation =
+            CountActiveElectionPromises(InOutStatus) > 0;
+        InOutStatus.LastPromiseMetCount = PromiseMetCount;
+        InOutStatus.LastPromiseFailedCount = PromiseFailedCount;
+        InOutStatus.LastPromiseVoteModifierPercent =
+            PromiseVoteModifierPercent;
+        InOutStatus.ActivePromises = {};
+        InOutStatus.CampaignPromisesIssued = false;
+        InOutStatus.PromiseIssueYear = 0;
+        InOutStatus.PromiseIssueMonth = 0;
+        InOutStatus.PromiseIssueDay = 0;
 
         if (IncumbentWon)
         {
@@ -1077,6 +1580,10 @@ namespace PoliticsSystem
             Clamp<double>((6.0 - Snapshot.AverageLifeScore) / 18.0, 0.0, 1.0);
         const double ActionRisk =
             Clamp<double>((0.0 - Snapshot.AverageActionScore) / 18.0, 0.0, 1.0);
+        const double PromiseRisk =
+            DaysUntilElection <= 365 ?
+                ComputeElectionPromiseRisk(ElectionStatus) :
+                0.0;
 
         double EventPressure = 0.0;
 
@@ -1105,6 +1612,8 @@ namespace PoliticsSystem
             0.06 * AbstainRisk +
             0.14 * LifeRisk +
             0.12 * ActionRisk +
+            0.09 * PromiseRisk +
+            0.08 * (ProximityPressure * PromiseRisk) +
             0.22 * (ProximityPressure * Clamp<double>(EventPressure, 0.0, 1.0));
 
         return Clamp<double>(Score, 0.0, 1.0);

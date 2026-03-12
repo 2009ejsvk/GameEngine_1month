@@ -29,10 +29,7 @@ void FAlmanacRenderer::ApplyPopulationPage(
         (std::max)(0, RoundToInt(
             static_cast<double>(Snapshot.ActiveCitizenCount) * 0.058));
     const int HomelessFamilyCount =
-        (std::max)(0, RoundToInt(
-            static_cast<double>(
-                (std::max)(0, Snapshot.ActiveCitizenCount - Snapshot.AssignedHomeCount)) /
-            128.0));
+        (std::max)(0, Snapshot.HomelessHouseholdCount);
     const int JoblessCitizenCount =
         (std::max)(0, RoundToInt(
             static_cast<double>(
@@ -615,12 +612,12 @@ void FAlmanacRenderer::ApplyPopulationPage(
         SelectedPopulationIndex == 4);
     SetDetailRowData(
         Widget.mPopulationDetails[5],
-        L"무주택자 가족",
+        L"무주택 가구",
         std::to_wstring(HomelessFamilyCount),
         SelectedPopulationIndex == 5);
     SetDetailRowData(
         Widget.mPopulationDetails[6],
-        L"빈방",
+        L"빈 주거 슬롯",
         std::to_wstring(HousingVacancy),
         SelectedPopulationIndex == 6);
     SetDetailRowData(
@@ -1815,7 +1812,7 @@ void FAlmanacRenderer::ApplyPopulationPage(
         }
 
         if (auto TrendTitle = Widget.mPopulationTrendTitle.lock())
-            TrendTitle->SetText(L"빈 방");
+            TrendTitle->SetText(L"빈 주거 슬롯");
         if (auto ChangeTitleBackground = Widget.mPopulationChangeTitleBackground.lock())
             ChangeTitleBackground->SetEnable(true);
         if (auto ChangeTitle = Widget.mPopulationChangeTitle.lock())

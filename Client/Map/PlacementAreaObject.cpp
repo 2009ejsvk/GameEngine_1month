@@ -196,9 +196,12 @@ void CPlacementAreaObject::ApplyCatalogEntry(
     mPreferredWarehouseResourceType = EResourceType::None;
     mPowerSupplyRatio = 1.f;
     mLocalPollutionExposure = 0;
+    mLocalFreedomSupport = 0;
+    mLocalSecuritySupport = 0;
     mOperations.ConfigureStorageBehavior(IsWarehouse());
     RefreshWarehouseStorageRuntime();
     SetRequiredEducationLevel(Entry.RequiredEducationLevel);
+    SetAllowedWealthMask(Entry.AllowedWealthMask);
     SetBuildingDisplayInfo(
         WideToUtf8(Entry.DisplayName),
         WideToUtf8(Entry.CategoryName),
