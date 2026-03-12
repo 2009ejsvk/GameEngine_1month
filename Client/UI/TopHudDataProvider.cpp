@@ -63,6 +63,22 @@ namespace
         return Buffer;
     }
 
+    const wchar_t* GetCompactEraLabel(EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::WorldWars:
+            return L"세계대전";
+        case EBuildingEra::ColdWar:
+            return L"냉전";
+        case EBuildingEra::Modern:
+            return L"현대";
+        case EBuildingEra::Colonial:
+        default:
+            return L"식민지";
+        }
+    }
+
     std::wstring FormatTaxPolicyCompact(const FTaxPolicy& TaxPolicy)
     {
         return
@@ -121,6 +137,8 @@ namespace TopHudDataProvider
             MainWorld->GetElectionStatus();
         const FTaxPolicyEventStatus& TaxEventStatus =
             MainWorld->GetTaxPolicyEventStatus();
+        const FWorldCrisisStatus& WorldCrisisStatus =
+            MainWorld->GetWorldCrisisStatus();
         const int DaysUntilElection = MainWorld->GetDaysUntilNextElection();
         const double ElectionWarningScore = MainWorld->GetElectionWarningScore();
         const bool ElectionWarningActive =
@@ -129,6 +147,9 @@ namespace TopHudDataProvider
             MainWorld->GetPoliticalSnapshot();
         const int ActiveNpcCount = PoliticalSnapshot.ActiveCitizenCount;
 
+        Result.GamePaused = MainWorld->IsSimulationPaused();
+        Result.GameSpeedMultiplier = (std::max)(
+            1, MainWorld->GetSimulationSpeedMultiplier());
         Result.BudgetText = FormatCurrency(MainWorld->GetNationalBudget());
         Result.NpcText = std::to_wstring(ActiveNpcCount);
 
@@ -147,6 +168,9 @@ namespace TopHudDataProvider
             MainWorld->GetSimulationYear(),
             MainWorld->GetSimulationMonth(),
             MainWorld->GetSimulationDay());
+        Result.DateText += L" | ";
+        Result.DateText += GetCompactEraLabel(
+            MainWorld->GetCurrentEra());
 
         if (ElectionStatus.GameLost)
         {
@@ -200,7 +224,36 @@ namespace TopHudDataProvider
         Result.EventText = UIStrings::Get(L"top_hud.placeholder.event_stable");
         Result.EventTextColor = MakeColor(208, 226, 198, 255);
 
-        if (TaxEventStatus.Active)
+        if (WorldCrisisStatus.Active)
+        {
+            Result.EventText =
+                UIStrings::Get(L"top_hud.fragment.warning_prefix") +
+                WorldCrisisStatus.Title;
+
+            if (ElectionWarningActive)
+            {
+                Result.EventText += UIStrings::Get(L"top_hud.fragment.separator");
+                Result.EventText += GetElectionWarningTierLabel(ElectionWarningScore);
+            }
+            else
+            {
+                Result.EventText += UIStrings::Get(L"top_hud.fragment.separator");
+                Result.EventText +=
+                    std::to_wstring((std::max)(0, WorldCrisisStatus.RemainingDays));
+                Result.EventText += UIStrings::Get(L"top_hud.fragment.day_suffix");
+            }
+
+            if (ElectionWarningScore >= 0.78 ||
+                WorldCrisisStatus.DaysActive >= 4)
+            {
+                Result.EventTextColor = MakeColor(238, 108, 90, 255);
+            }
+            else
+            {
+                Result.EventTextColor = MakeColor(238, 178, 88, 255);
+            }
+        }
+        else if (TaxEventStatus.Active)
         {
             Result.EventText =
                 UIStrings::Get(L"top_hud.fragment.warning_prefix") +
@@ -258,6 +311,14 @@ namespace TopHudDataProvider
             Result.EventText =
                 UIStrings::Get(L"top_hud.fragment.recent_warning_prefix") +
                 TaxEventStatus.Summary;
+            Result.EventTextColor = MakeColor(228, 214, 188, 255);
+        }
+        else if (WorldCrisisStatus.NotificationDays > 0 &&
+            !WorldCrisisStatus.Summary.empty())
+        {
+            Result.EventText =
+                UIStrings::Get(L"top_hud.fragment.recent_warning_prefix") +
+                WorldCrisisStatus.Summary;
             Result.EventTextColor = MakeColor(228, 214, 188, 255);
         }
 

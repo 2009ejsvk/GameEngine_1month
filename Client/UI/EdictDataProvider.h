@@ -77,6 +77,7 @@ namespace EdictDataProvider
     struct FEdictCatalogSnapshot
     {
         EEdictUiCategory SelectedCategory;
+        int MaxUnlockedCategoryIndex = 0;
         int CurrentPage = 0;
         int PageCount = 1;
         int PreviewEntryIndex = -1;

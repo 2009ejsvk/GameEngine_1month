@@ -29,6 +29,8 @@ namespace TopHudDataProvider
         float MonthProgress = 0.f;
         bool GameLost = false;
         bool CanUseButtons = true;
+        bool GamePaused = false;
+        int GameSpeedMultiplier = 1;
     };
 
     FTopHudSnapshot BuildSnapshot(const std::shared_ptr<CWorld>& World);

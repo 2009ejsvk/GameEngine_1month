@@ -48,6 +48,129 @@ namespace
         return CitizenStance == TargetStance ? 1.f : -1.f;
     }
 
+    float ResolveWealthTaxSensitivity(
+        const FCitizenIdentityProfile& Identity)
+    {
+        switch (Identity.WealthLevel)
+        {
+        case ECitizenWealthLevel::Rich:
+            return 0.92f;
+        case ECitizenWealthLevel::WellOff:
+            return 1.00f;
+        default:
+            return 1.12f;
+        }
+    }
+
+    float ResolveExpectedLivingStandard(
+        const FCitizenIdentityProfile& Identity)
+    {
+        switch (Identity.WealthLevel)
+        {
+        case ECitizenWealthLevel::Rich:
+            return 76.f;
+        case ECitizenWealthLevel::WellOff:
+            return 67.f;
+        default:
+            return 58.f;
+        }
+    }
+
+    float CalculateNeedDistressPenalty(
+        float Value,
+        float WarningThreshold,
+        float CrisisThreshold,
+        float WarningScale,
+        float CrisisScale)
+    {
+        if (Value >= WarningThreshold)
+            return 0.f;
+
+        float Penalty = (WarningThreshold - Value) * WarningScale;
+
+        if (Value < CrisisThreshold)
+            Penalty += (CrisisThreshold - Value) * CrisisScale;
+
+        return Penalty;
+    }
+
+    float CalculateLivingStandardAdjustment(
+        const CBuildingMarkerOrb& Citizen)
+    {
+        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
+        const float LivingAverage =
+            Satisfaction.Food * 0.24f +
+            Satisfaction.Housing * 0.24f +
+            Satisfaction.Job * 0.18f +
+            Satisfaction.Health * 0.14f +
+            Satisfaction.Fun * 0.10f +
+            Satisfaction.Faith * 0.10f;
+        const float Expected =
+            ResolveExpectedLivingStandard(Citizen.GetIdentityProfile());
+        return (LivingAverage - Expected) * 0.24f;
+    }
+
+    float CalculateServiceScarcityPenalty(
+        const FNpcSatisfaction& Satisfaction)
+    {
+        return
+            CalculateNeedDistressPenalty(
+                Satisfaction.Food, 58.f, 34.f, 0.12f, 0.24f) +
+            CalculateNeedDistressPenalty(
+                Satisfaction.Health, 56.f, 34.f, 0.10f, 0.18f) +
+            CalculateNeedDistressPenalty(
+                Satisfaction.Fun, 52.f, 28.f, 0.08f, 0.15f) +
+            CalculateNeedDistressPenalty(
+                Satisfaction.Faith, 50.f, 28.f, 0.06f, 0.12f);
+    }
+
+    float CalculateSecurityFreedomPressure(
+        const CBuildingMarkerOrb& Citizen)
+    {
+        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
+        const FNpcPoliticalProfile& PoliticalProfile =
+            Citizen.GetPoliticalProfile();
+        const FNpcPoliticalChoice& OrderChoice =
+            PoliticalProfile.Get(EPoliticalAxis::ReligionMilitarism);
+        const FNpcPoliticalChoice& LibertyChoice =
+            PoliticalProfile.Get(EPoliticalAxis::IntellectualConservative);
+        const float OrderSensitivity =
+            1.f +
+            (std::max)(
+                0.f,
+                GetStanceAlignment(
+                    OrderChoice.Stance,
+                    EPoliticalStance::Right)) *
+                0.55f *
+                GetSupportLevelWeight(OrderChoice.Support);
+        const float LibertySensitivity =
+            0.85f +
+            (std::max)(
+                0.f,
+                GetStanceAlignment(
+                    LibertyChoice.Stance,
+                    EPoliticalStance::Left)) *
+                0.65f *
+                GetSupportLevelWeight(LibertyChoice.Support);
+        const float SecurityPenalty =
+            CalculateNeedDistressPenalty(
+                Satisfaction.Security,
+                58.f,
+                34.f,
+                0.10f,
+                0.20f) *
+            OrderSensitivity;
+        const float FreedomPenalty =
+            CalculateNeedDistressPenalty(
+                Satisfaction.Freedom,
+                58.f,
+                36.f,
+                0.09f,
+                0.18f) *
+            LibertySensitivity;
+        return -(SecurityPenalty + FreedomPenalty);
+    }
+
     bool DoesCitizenMatchScope(
         const CBuildingMarkerOrb& Citizen,
         const FPlacedPoliticalSignal& PlacedSignal)
@@ -137,10 +260,26 @@ namespace
     {
         const bool IsWorker = !Citizen.GetWorkBuilding().empty();
         const bool IsResident = !Citizen.GetHomeBuilding().empty();
+        const FCitizenIdentityProfile& Identity = Citizen.GetIdentityProfile();
         const float TaxBurden = GetCitizenTaxBurdenNormalized(
             GovernmentProfile.TaxPolicy,
             IsWorker,
             IsResident);
+        const float ConsumptionTaxStress = (std::max)(
+            0.f,
+            GetTaxPolicyDeviationNormalized(
+                GovernmentProfile.TaxPolicy,
+                ETaxPolicyType::Consumption));
+        const float IncomeTaxStress = (std::max)(
+            0.f,
+            GetTaxPolicyDeviationNormalized(
+                GovernmentProfile.TaxPolicy,
+                ETaxPolicyType::Income));
+        const float PropertyTaxStress = (std::max)(
+            0.f,
+            GetTaxPolicyDeviationNormalized(
+                GovernmentProfile.TaxPolicy,
+                ETaxPolicyType::Property));
 
         if (TaxBurden == 0.f)
             return 0.f;
@@ -151,22 +290,42 @@ namespace
             PoliticalProfile.Get(EPoliticalAxis::Economy);
         const float SupportWeight =
             GetSupportLevelWeight(EconomyChoice.Support);
+        const float WealthSensitivity =
+            ResolveWealthTaxSensitivity(Identity);
         const float TaxStress = (std::max)(0.f, TaxBurden);
         const float TaxRelief = (std::max)(0.f, -TaxBurden);
         float Score =
-            -TaxStress * (IsWorker ? 1.8f : 1.2f) +
-            TaxRelief * 0.6f;
+            -TaxStress * (IsWorker ? 3.6f : 2.8f) * WealthSensitivity +
+            TaxRelief * (IsWorker ? 1.1f : 0.8f);
+
+        Score -=
+            ConsumptionTaxStress * 4.4f *
+            (0.85f + WealthSensitivity * 0.40f);
+        Score -=
+            IncomeTaxStress *
+            (IsWorker ? 5.1f : 1.4f) *
+            WealthSensitivity;
+        Score -=
+            PropertyTaxStress *
+            (IsResident ?
+                (Identity.WealthLevel == ECitizenWealthLevel::Rich ?
+                    5.6f :
+                    3.5f) :
+                0.8f);
+
+        if (TaxStress > 0.30f)
+            Score -= (TaxStress - 0.30f) * 10.5f;
 
         switch (EconomyChoice.Stance)
         {
         case EPoliticalStance::Left:
-            Score += -TaxBurden * SupportWeight * 8.5f;
+            Score += -TaxBurden * SupportWeight * 10.5f;
             break;
         case EPoliticalStance::Right:
-            Score += TaxBurden * SupportWeight * 4.8f;
+            Score += TaxBurden * SupportWeight * 6.2f;
             break;
         default:
-            Score += -TaxStress * 1.4f + TaxRelief * 0.5f;
+            Score += -TaxStress * 2.1f + TaxRelief * 0.7f;
             break;
         }
 
@@ -193,7 +352,7 @@ namespace
             (std::min)(
                 1.10f,
                 static_cast<float>(TaxEventStatus->DaysActive) / 4.5f);
-        float Score = -2.5f * Severity;
+        float Score = -3.5f * Severity;
         const auto ApplyDemandPressure =
             [&](EPoliticalAxis Axis,
                 EPoliticalStance DemandingStance,
@@ -217,45 +376,45 @@ namespace
         switch (TaxEventStatus->Type)
         {
         case ETaxPolicyEventType::WorkerTaxStrike:
-            Score += (IsWorker ? -11.5f : -4.0f) * Severity;
+            Score += (IsWorker ? -14.0f : -5.2f) * Severity;
 
             if (IsResident)
-                Score += -1.8f * Severity;
+                Score += -2.6f * Severity;
 
             Score += ApplyDemandPressure(
                 EPoliticalAxis::Economy,
                 EPoliticalStance::Left,
-                4.6f * Severity);
+                5.6f * Severity);
             Score += ApplyDemandPressure(
                 EPoliticalAxis::IntellectualConservative,
                 EPoliticalStance::Left,
-                2.8f * Severity);
+                3.4f * Severity);
             break;
         case ETaxPolicyEventType::PropertyTaxBacklash:
-            Score += (IsResident ? -11.0f : -3.5f) * Severity;
+            Score += (IsResident ? -13.0f : -4.6f) * Severity;
 
             if (IsWorker)
-                Score += -1.5f * Severity;
+                Score += -2.2f * Severity;
 
             Score += ApplyDemandPressure(
                 EPoliticalAxis::IntellectualConservative,
                 EPoliticalStance::Right,
-                4.4f * Severity);
+                5.0f * Severity);
             Score += ApplyDemandPressure(
                 EPoliticalAxis::Economy,
                 EPoliticalStance::Left,
-                3.2f * Severity);
+                3.8f * Severity);
             break;
         case ETaxPolicyEventType::BudgetCrisis:
-            Score += (IsWorker || IsResident ? -9.0f : -6.5f) * Severity;
+            Score += (IsWorker || IsResident ? -11.5f : -8.0f) * Severity;
             Score += ApplyDemandPressure(
                 EPoliticalAxis::IntellectualConservative,
                 EPoliticalStance::Right,
-                4.2f * Severity);
+                4.8f * Severity);
             Score += ApplyDemandPressure(
                 EPoliticalAxis::Economy,
                 EPoliticalStance::Right,
-                3.6f * Severity);
+                4.2f * Severity);
             break;
         default:
             break;
@@ -275,18 +434,52 @@ namespace
         const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
         const FNpcPoliticalProfile& PoliticalProfile =
             Citizen.GetPoliticalProfile();
+        const bool HasHome = !Citizen.GetHomeBuilding().empty();
+        const bool HasWork = !Citizen.GetWorkBuilding().empty();
+        const bool HasFoodAccess = !Citizen.GetFoodBuilding().empty();
+        const bool HasFunAccess = !Citizen.GetFunBuilding().empty();
+        const bool HasHealthAccess = !Citizen.GetHealthBuilding().empty();
+        const bool HasFaithAccess = !Citizen.GetFaithBuilding().empty();
+        const float CoreNeedPenalty =
+            CalculateNeedDistressPenalty(
+                Satisfaction.Housing, 60.f, 36.f, 0.11f, 0.20f) +
+            CalculateNeedDistressPenalty(
+                Satisfaction.Job, 58.f, 34.f, 0.12f, 0.22f);
+        const float ServiceScarcityPenalty =
+            CalculateServiceScarcityPenalty(Satisfaction);
+        const float CommutePenalty =
+            Clamp<float>(
+                Satisfaction.CommuteTimePenalty,
+                0.f,
+                100.f) * 0.08f;
 
         Evaluation.LifeScore =
-            (Satisfaction.Overall - 50.f) * 0.55f;
+            (Satisfaction.Overall - 50.f) * 0.68f;
 
-        if (Citizen.GetHomeBuilding().empty())
+        Evaluation.LifeScore +=
+            CalculateLivingStandardAdjustment(Citizen);
+        Evaluation.LifeScore +=
+            CalculateSecurityFreedomPressure(Citizen);
+        Evaluation.LifeScore -=
+            CoreNeedPenalty + ServiceScarcityPenalty + CommutePenalty;
+
+        if (!HasHome)
+            Evaluation.LifeScore -= 18.f;
+
+        if (!HasWork)
+            Evaluation.LifeScore -= 20.f;
+
+        if (!HasFoodAccess)
             Evaluation.LifeScore -= 12.f;
 
-        if (Citizen.GetWorkBuilding().empty())
-            Evaluation.LifeScore -= 10.f;
+        if (!HasFunAccess)
+            Evaluation.LifeScore -= 3.5f;
 
-        if (Citizen.GetFoodBuilding().empty())
-            Evaluation.LifeScore -= 8.f;
+        if (!HasHealthAccess)
+            Evaluation.LifeScore -= 3.0f;
+
+        if (!HasFaithAccess)
+            Evaluation.LifeScore -= 2.0f;
 
         const std::array<EPoliticalAxis, 4> Axes =
         {
@@ -369,6 +562,23 @@ namespace
             Citizen,
             TaxEventStatus);
 
+        if (!HasWork)
+            Evaluation.ActionScore -= 6.5f;
+
+        if (!HasHome)
+            Evaluation.ActionScore -= 5.5f;
+
+        if (Satisfaction.Food < 42.f)
+            Evaluation.ActionScore -= (42.f - Satisfaction.Food) * 0.12f;
+
+        if (Satisfaction.Security < 45.f)
+            Evaluation.ActionScore -=
+                (45.f - Satisfaction.Security) * 0.10f;
+
+        if (Satisfaction.Overall < 45.f)
+            Evaluation.ActionScore -=
+                (45.f - Satisfaction.Overall) * 0.16f;
+
         const FNpcPoliticalChoice& ReligionMilitarismChoice =
             PoliticalProfile.Get(EPoliticalAxis::ReligionMilitarism);
 
@@ -407,9 +617,9 @@ namespace
             Evaluation.ActionScore +
             Evaluation.FearScore);
 
-        if (Evaluation.TotalSupportScore >= 60.f)
+        if (Evaluation.TotalSupportScore >= 58.f)
             Evaluation.VoteIntent = EVoteIntent::Incumbent;
-        else if (Evaluation.TotalSupportScore < 40.f)
+        else if (Evaluation.TotalSupportScore < 46.f)
             Evaluation.VoteIntent = EVoteIntent::Opposition;
         else
             Evaluation.VoteIntent = EVoteIntent::Abstain;
@@ -863,6 +1073,10 @@ namespace PoliticsSystem
             Clamp<double>((OppositionPercent - 34.0) / 24.0, 0.0, 1.0);
         const double AbstainRisk =
             Clamp<double>((AbstainPercent - 18.0) / 25.0, 0.0, 1.0);
+        const double LifeRisk =
+            Clamp<double>((6.0 - Snapshot.AverageLifeScore) / 18.0, 0.0, 1.0);
+        const double ActionRisk =
+            Clamp<double>((0.0 - Snapshot.AverageActionScore) / 18.0, 0.0, 1.0);
 
         double EventPressure = 0.0;
 
@@ -885,11 +1099,13 @@ namespace PoliticsSystem
         }
 
         const double Score =
-            0.45 * ProximityPressure +
-            0.25 * SupportRisk +
-            0.12 * OppositionRisk +
-            0.08 * AbstainRisk +
-            0.20 * (ProximityPressure * Clamp<double>(EventPressure, 0.0, 1.0));
+            0.34 * ProximityPressure +
+            0.19 * SupportRisk +
+            0.10 * OppositionRisk +
+            0.06 * AbstainRisk +
+            0.14 * LifeRisk +
+            0.12 * ActionRisk +
+            0.22 * (ProximityPressure * Clamp<double>(EventPressure, 0.0, 1.0));
 
         return Clamp<double>(Score, 0.0, 1.0);
     }

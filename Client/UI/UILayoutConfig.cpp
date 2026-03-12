@@ -1,6 +1,6 @@
 #include "UILayoutConfig.h"
+#include "RuntimeConfigRegistry.h"
 #include <Windows.h>
-#include <sys/stat.h>
 #include <fstream>
 #include <string>
 #include <algorithm>
@@ -208,31 +208,202 @@ namespace UIConfig
     float GameOverBodyOffsetY       = 138.f;
     float GameOverBodyBottomPadding = 210.f;
 
-    // ── 내부 구현 ────────────────────────────────────────────
+    void RegisterRuntimeConfig();
 
     namespace
     {
-        // exe 옆에 있는 UILayout.ini 경로를 반환
-        std::wstring GetConfigPath()
+        constexpr const wchar_t* GConfigId = L"UI.Layout";
+
+        void ResetToDefaults()
         {
-            wchar_t ExePath[MAX_PATH] = {};
-            GetModuleFileNameW(nullptr, ExePath, MAX_PATH);
+            StatusBarX              = 14.f;
+            StatusBarY              = 10.f;
+            StatusBarHeight         = 94.f;
+            StatusBarPaddingX       = 20.f;
+            StatusBudgetBlockWidth  = 218.f;
+            StatusNpcBlockWidth     = 128.f;
+            StatusSupportBlockWidth = 132.f;
+            StatusBlockGap          = 18.f;
+            StatusIconSize          = 26.f;
+            StatusIconTextGap       = 10.f;
+            StatusLabelOffsetY      = 12.f;
+            StatusValueOffsetY      = 30.f;
+            StatusLabelHeight       = 16.f;
+            StatusValueHeight       = 30.f;
+            StatusLabelFontSize     = 12.f;
+            StatusValueFontSize     = 22.f;
 
-            std::wstring Path(ExePath);
-            const auto Slash = Path.rfind(L'\\');
+            BudgetBlockOffsetX  = 0.f;
+            BudgetBlockOffsetY  = 0.f;
+            NpcBlockOffsetX     = 0.f;
+            NpcBlockOffsetY     = 0.f;
+            SupportBlockOffsetX = 0.f;
+            SupportBlockOffsetY = 0.f;
 
-            if (Slash != std::wstring::npos)
-                Path = Path.substr(0, Slash + 1);
+            SpeedPanelX             = 16.f;
+            SpeedPanelWidth         = 388.f;
+            SpeedPanelHeight        = 182.f;
+            SpeedPanelBottomMargin  = 18.f;
+            SpeedPanelMinY          = 12.f;
+            PanelTextOffsetX        = 74.f;
+            TimeBarOffsetY          = 16.f;
+            TimeBarWidth            = 226.f;
+            TimeBarHeight           = 14.f;
+            DateTextOffsetY         = 34.f;
+            DateTextWidth           = 240.f;
+            DateTextHeight          = 28.f;
+            DateFontSize            = 22.f;
 
-            return Path + L"UILayout.ini";
+            SpeedButtonSize         = 44.f;
+            SpeedButtonStep         = 52.f;
+            SpeedButtonOffsetX      = 24.f;
+            SpeedButtonBottomMargin = 18.f;
+
+            MenuButtonSize         = 60.f;
+            MenuButtonGap          = 10.f;
+            MenuLabelGap           = 8.f;
+            MenuButtonStartOffsetX = 26.f;
+            MenuButtonOffsetY      = 8.f;
+            MenuMinWidth           = 120.f;
+            MenuRightMargin        = 14.f;
+            MenuMinScaleFactor     = 0.70f;
+            MenuLabelBaseFontSize  = 12.5f;
+            MenuLabelBaseHeight    = 18.f;
+
+            EdictPanelWidth            = 1120.f;
+            EdictPanelHeight           = 760.f;
+            EdictHeaderTopPadding      = 40.f;
+            EdictHeaderHeight          = 48.f;
+            EdictHorizontalMargin      = 24.f;
+            EdictVerticalMargin        = 18.f;
+            EdictGridFrameHeight       = 404.f;
+            EdictGridGapFromHeader     = 10.f;
+            EdictDetailGapFromGrid     = 12.f;
+            EdictTitleFontSize         = 30.f;
+            EdictCategoryWidth         = 74.f;
+            EdictCategoryHeight        = 90.f;
+            EdictCategoryGap           = 12.f;
+            EdictSlotPaddingLeft       = 18.f;
+            EdictSlotPaddingTop        = 26.f;
+            EdictSlotGapX              = 12.f;
+            EdictSlotGapY              = 14.f;
+            EdictDetailTitleFontSize   = 23.f;
+            EdictDetailBodyFontSize    = 15.f;
+            EdictDetailCostFontSize    = 18.f;
+            EdictApplyButtonWidth      = 140.f;
+            EdictApplyButtonHeight     = 38.f;
+            EdictScrollTrackWidth      = 10.f;
+            EdictCloseButtonSize       = 40.f;
+            EdictEnableTaxPolicyPanel  = false;
+            EdictTaxPolicyPanelWidth   = 296.f;
+            EdictTaxPolicyPanelHeight  = 168.f;
+            EdictTaxPolicySummaryHeight = 40.f;
+
+            AlmanacPanelWidth          = 1120.f;
+            AlmanacPanelHeight         = 756.f;
+            AlmanacPanelTopOffset      = 18.f;
+            AlmanacHeaderHeight        = 82.f;
+            AlmanacHeaderPadding       = 30.f;
+            AlmanacRibbonTopOffset     = 18.f;
+            AlmanacFrameInsetX         = 16.f;
+            AlmanacFrameHeaderOverlap  = 10.f;
+            AlmanacFrameBottomInset    = 14.f;
+            AlmanacRailLeftInset       = 8.f;
+            AlmanacRailTopInset        = 22.f;
+            AlmanacRailBottomInset     = 46.f;
+            AlmanacRailThumbTopOffset  = 10.f;
+            AlmanacRailThumbMinHeight  = 88.f;
+            AlmanacRailThumbExpand     = 1.f;
+            AlmanacRailToContentGap    = 14.f;
+            AlmanacContentMarginX      = 42.f;
+            AlmanacContentMarginTop    = 20.f;
+            AlmanacContentMarginBottom = 30.f;
+            AlmanacContentTopInset     = 18.f;
+            AlmanacContentBottomInset  = 18.f;
+            AlmanacTabSize             = 64.f;
+            AlmanacTabGap              = 10.f;
+            AlmanacTabBaseOffsetY      = 22.f;
+            AlmanacTabSelectedOffsetY  = 6.f;
+            AlmanacTitleFontSize       = 30.f;
+            AlmanacTitlePaddingX       = 34.f;
+            AlmanacTitlePaddingY       = 1.f;
+            AlmanacCloseButtonSize     = 40.f;
+            AlmanacCloseButtonOffsetX  = 44.f;
+            AlmanacCloseButtonOffsetY  = 10.f;
+            AlmanacMetricRowHeight     = 46.f;
+            AlmanacMetricRowGap        = 6.f;
+            AlmanacDetailRowHeight     = 42.f;
+            AlmanacDetailRowGap        = 6.f;
+            AlmanacCardColumns         = 3.f;
+            AlmanacCardGapX            = 18.f;
+            AlmanacCardGapY            = 18.f;
+            AlmanacLeftPanelRatio      = 0.47f;
+            AlmanacPageColumnGap       = 22.f;
+            AlmanacWidePageColumnGap   = 24.f;
+            AlmanacPageTitleHeight     = 28.f;
+            AlmanacPageFrameTop        = 34.f;
+            AlmanacOffscreenHideOffset = 200.f;
+
+            BuildingPanelWidthRatio          = 0.24f;
+            BuildingPanelMinWidth            = 320.f;
+            BuildingPanelMaxWidth            = 410.f;
+            BuildingPanelTopOffset           = 58.f;
+            BuildingPanelInnerMarginX        = 18.f;
+            BuildingPanelInnerMarginTop      = 16.f;
+            BuildingTabWidth                 = 56.f;
+            BuildingTabHeight                = 56.f;
+            BuildingTabGap                   = 10.f;
+            BuildingTitleFontSize            = 26.f;
+            BuildingSubtitleFontSize         = 15.f;
+            BuildingBodyFontSize             = 18.f;
+            BuildingTitleRibbonOffsetX       = 40.f;
+            BuildingTitleRibbonOffsetY       = 18.f;
+            BuildingTitleRibbonHeight        = 48.f;
+            BuildingCloseButtonOffsetX       = 38.f;
+            BuildingCloseButtonSize          = 34.f;
+            BuildingActionButtonHeight       = 34.f;
+            BuildingActionButtonWidth        = 124.f;
+            BuildingActionButtonBottomMargin = 52.f;
+            BuildingBudgetButtonHeight       = 30.f;
+            BuildingScrollTrackWidth         = 15.f;
+            BuildingIconSize                 = 36.f;
+
+            CitizenPanelWidthRatio       = 0.24f;
+            CitizenPanelMinWidth         = 320.f;
+            CitizenPanelMaxWidth         = 410.f;
+            CitizenPanelTopOffset        = 58.f;
+            CitizenPanelBottomMargin     = 10.f;
+            CitizenPanelRightInset       = 10.f;
+            CitizenPanelMinHeight        = 420.f;
+            CitizenPanelInnerMarginX     = 18.f;
+            CitizenPanelInnerTopOffset   = 16.f;
+            CitizenPanelInnerBottomInset = 28.f;
+            CitizenTitleFontSize         = 26.f;
+            CitizenSubtitleFontSize      = 15.f;
+            CitizenBodyFontSize          = 18.f;
+            CitizenTitleRibbonHeight     = 44.f;
+            CitizenSectionRibbonHeight   = 34.f;
+            CitizenSectionRibbonOffsetY  = 28.f;
+            CitizenScrollTrackWidth      = 15.f;
+            CitizenScrollBottomInset     = 52.f;
+            CitizenScrollThumbHeight     = 94.f;
+            CitizenScrollThumbTopOffset  = 14.f;
+            CitizenCloseButtonSize       = 34.f;
+            CitizenCloseButtonOffsetY    = 4.f;
+            CitizenBudgetBaseOffsetY     = 36.f;
+            CitizenActionStackTopOffset  = 238.f;
+            CitizenFooterBottomInset     = 28.f;
+            CitizenBodyBottomInset       = 22.f;
+
+            GameOverPanelWidth        = 720.f;
+            GameOverPanelHeight       = 390.f;
+            GameOverTitlePaddingX     = 70.f;
+            GameOverTitleOffsetY      = 70.f;
+            GameOverTitleHeight       = 48.f;
+            GameOverBodyPaddingX      = 84.f;
+            GameOverBodyOffsetY       = 138.f;
+            GameOverBodyBottomPadding = 210.f;
         }
-
-        // 마지막으로 읽은 파일 수정 시각
-        __time64_t LastWriteTime = 0;
-
-        // 파일 체크 주기 (초)
-        float CheckInterval  = 0.5f;
-        float CheckCooldown  = 0.f;
 
         void TrimString(std::string& S)
         {
@@ -511,12 +682,12 @@ namespace UIConfig
             if (ApplyValue_BuildingCitizen(Key, Val)) return;
         }
 
-        void LoadFile(const std::wstring& Path)
+        bool LoadFile(const std::wstring& Path)
         {
             std::ifstream File(Path);
 
             if (!File.is_open())
-                return;
+                return false;
 
             std::string Line;
 
@@ -556,31 +727,28 @@ namespace UIConfig
                     // 숫자로 변환 불가한 줄은 조용히 무시
                 }
             }
+
+            return true;
         }
+    }
+
+    void RegisterRuntimeConfig()
+    {
+        RuntimeConfigRegistry::RegisterSource(
+            {
+                GConfigId,
+                RuntimeConfigRegistry::BuildExeRelativePath(L"UILayout.ini"),
+                0.5f,
+                &ResetToDefaults,
+                &LoadFile,
+                nullptr
+            });
     }
 
     bool ReloadIfChanged(float DeltaTime)
     {
-        CheckCooldown -= DeltaTime;
-
-        if (CheckCooldown > 0.f)
-            return false;
-
-        CheckCooldown = CheckInterval;
-
-        const std::wstring Path = GetConfigPath();
-
-        struct _stat64 Stat = {};
-
-        if (_wstat64(Path.c_str(), &Stat) != 0)
-            return false; // 파일 없음
-
-        if (Stat.st_mtime == LastWriteTime)
-            return false; // 변경 없음
-
-        LastWriteTime = Stat.st_mtime;
-        LoadFile(Path);
-        return true;
+        RegisterRuntimeConfig();
+        return RuntimeConfigRegistry::PollSource(GConfigId, DeltaTime);
     }
 
 } // namespace UIConfig

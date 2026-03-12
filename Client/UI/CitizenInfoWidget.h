@@ -266,11 +266,17 @@ public:
         const FVector2& ScreenPos);
 
 private:
+    bool mCustomsModeSelectionOpen = false;
+
+private:
     void RefreshFromState();
     int GetSelectedTabIndexForCurrentMode() const;
     bool SelectCurrentModeTab(int TabIndex);
     bool SelectCitizenTab(ECitizenInfoTab Tab);
     bool SelectBuildingTab(EBuildingInfoTab Tab);
+    bool IsTrackedCustomsOffice() const;
+    bool TrySelectCustomsOperationMode(int ModeIndex);
+    bool OpenTradeWidget();
     void SetBuildingBudgetLevel(int Level);
     void OnCloseButtonClick();
     void OnDemolishButtonClick();

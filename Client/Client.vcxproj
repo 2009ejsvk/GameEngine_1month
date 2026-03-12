@@ -194,7 +194,9 @@
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
     </ClCompile>
+    <ClCompile Include="GameConstants.cpp" />
     <ClCompile Include="GlobalSetting.cpp" />
+    <ClCompile Include="RuntimeConfigRegistry.cpp" />
     <ClCompile Include="Building\BuildingCatalog.cpp" />
     <ClCompile Include="Citizen\CitizenCommuteCalc.cpp" />
     <ClCompile Include="Citizen\CitizenPolitics.cpp" />
@@ -242,6 +244,7 @@
     <ClCompile Include="UI\EdictRendererCreate.cpp" />
     <ClCompile Include="UI\EdictRendererLayout.cpp" />
     <ClCompile Include="UI\EdictWidget.cpp" />
+    <ClCompile Include="UI\TradeWidget.cpp" />
     <ClCompile Include="UI\CitizenInfoDataProvider.cpp" />
     <ClCompile Include="UI\CitizenInfoQueryService.cpp" />
     <ClCompile Include="UI\CitizenInfoRenderer.cpp" />
@@ -275,6 +278,7 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="ClientInfo.h" />
+    <ClInclude Include="GameConstants.h" />
     <ClInclude Include="Building\BuildingCatalog.h" />
     <ClInclude Include="Building\BuildingTypes.h" />
     <ClInclude Include="Citizen\CitizenCommuteCalc.h" />
@@ -284,6 +288,7 @@
     <ClInclude Include="Citizen\CitizenSystem.h" />
     <ClInclude Include="Economy\EconomySystem.h" />
     <ClInclude Include="GlobalSetting.h" />
+    <ClInclude Include="RuntimeConfigRegistry.h" />
     <ClInclude Include="Map\BuildingMarkerOrb.h" />
     <ClInclude Include="Map\PlacementAreaObject.h" />
     <ClInclude Include="Map\PlacementController.h" />
@@ -324,6 +329,7 @@
     <ClInclude Include="UI\TopHudRenderer.h" />
     <ClInclude Include="UI\AlmanacWidget.h" />
     <ClInclude Include="UI\EdictWidget.h" />
+    <ClInclude Include="UI\TradeWidget.h" />
     <ClInclude Include="UI\TropicoUiStyle.h" />
     <ClInclude Include="UI\TopHudWidget.h" />
     <ClInclude Include="UI\CitizenInfoWidget.h" />

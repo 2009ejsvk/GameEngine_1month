@@ -19,7 +19,10 @@ enum class EBuildingCategory
     MediaEducation  = 5,  // 미디어 및 교육
     Tourism         = 6,  // 관광업
     PublicService   = 7,  // 공익 서비스
-    Count           = 8
+    LuxuryEntertainment = 8,   // 호화 오락
+    Military       = 9,   // 습격 및 군사
+    GovernmentFinance = 10, // 정부 및 재정
+    Count           = 11
 };
 
 enum class EBuildingEra
@@ -29,6 +32,40 @@ enum class EBuildingEra
     ColdWar,
     Modern
 };
+
+inline int GetBuildingEraRank(EBuildingEra Era)
+{
+    return static_cast<int>(Era);
+}
+
+inline EBuildingEra GetNextBuildingEra(EBuildingEra Era)
+{
+    switch (Era)
+    {
+    case EBuildingEra::Colonial:
+        return EBuildingEra::WorldWars;
+    case EBuildingEra::WorldWars:
+        return EBuildingEra::ColdWar;
+    case EBuildingEra::ColdWar:
+        return EBuildingEra::Modern;
+    case EBuildingEra::Modern:
+    default:
+        return EBuildingEra::Modern;
+    }
+}
+
+inline bool HasNextBuildingEra(EBuildingEra Era)
+{
+    return Era != EBuildingEra::Modern;
+}
+
+inline bool IsBuildingEraUnlocked(
+    EBuildingEra CurrentEra,
+    EBuildingEra RequiredEra)
+{
+    return GetBuildingEraRank(CurrentEra) >=
+        GetBuildingEraRank(RequiredEra);
+}
 
 inline const wchar_t* GetBuildingEraDisplayName(EBuildingEra Era)
 {
@@ -46,6 +83,32 @@ inline const wchar_t* GetBuildingEraDisplayName(EBuildingEra Era)
         return UIStrings::Get(L"building.era.unknown").c_str();
     }
 }
+
+struct FEraUnlockRequirement
+{
+    int MinPopulation = 0;
+    int MinTotalBuildings = 0;
+    int MinFoodProviders = 0;
+    int MinIndustryBuildings = 0;
+    int MinPublicServiceBuildings = 0;
+    int MinEntertainmentBuildings = 0;
+    int MinPowerMW = 0;
+};
+
+struct FEraProgressState
+{
+    EBuildingEra CurrentEra = EBuildingEra::Colonial;
+    bool HasNextEra = true;
+    EBuildingEra NextEra = EBuildingEra::WorldWars;
+    FEraUnlockRequirement NextRequirement;
+    int Population = 0;
+    int TotalBuildings = 0;
+    int FoodProviders = 0;
+    int IndustryBuildings = 0;
+    int PublicServiceBuildings = 0;
+    int EntertainmentBuildings = 0;
+    int PowerMW = 0;
+};
 
 enum class EBuildingHousingClass
 {
@@ -103,43 +166,201 @@ inline const wchar_t* GetTouristPreferenceDisplayName(
 enum class EResourceType
 {
     None = 0,
+    Coconuts,
+    Logs,
+    Fish,
+    Crops,
+    AnimalProducts,
+    Ore,
+    Oil,
+    FarmedFish,
+    HydroponicProduce,
+    FactoryLivestock,
+    Planks,
+    Rum,
+    Leather,
+    CannedGoods,
+    Cheese,
+    Cigars,
+    Boats,
+    Steel,
+    Textiles,
+    Weapons,
+    Chocolate,
+    Furniture,
+    Jewelry,
+    Plastic,
+    Cars,
+    Electronics,
+    Apparel,
+    Pharmaceuticals,
+    Juice,
+    Count
+};
+
+enum class EResourceMarketClass
+{
+    None = 0,
     Food,
     RawGoods,
     ManufacturedGoods,
-    LuxuryGoods,
+    LuxuryGoods
+};
+
+enum class EBuildingServiceType
+{
+    Food = 0,
+    Fun,
+    Health,
+    Faith,
     Count
 };
+
+constexpr int GProductionInputSlotCount = 2;
+constexpr int GBuildingServiceTypeCount =
+    static_cast<int>(EBuildingServiceType::Count);
 
 inline const wchar_t* GetResourceTypeDisplayName(EResourceType Type)
 {
     switch (Type)
     {
-    case EResourceType::Food:
-        return UIStrings::Get(L"building.resource_type.food").c_str();
-    case EResourceType::RawGoods:
-        return UIStrings::Get(L"building.resource_type.raw_goods").c_str();
-    case EResourceType::ManufacturedGoods:
+    case EResourceType::Coconuts:
+        return UIStrings::Get(L"building.resource_type.coconuts").c_str();
+    case EResourceType::Logs:
+        return UIStrings::Get(L"building.resource_type.logs").c_str();
+    case EResourceType::Fish:
+        return UIStrings::Get(L"building.resource_type.fish").c_str();
+    case EResourceType::Crops:
+        return UIStrings::Get(L"building.resource_type.crops").c_str();
+    case EResourceType::AnimalProducts:
         return UIStrings::Get(
-            L"building.resource_type.manufactured_goods").c_str();
-    case EResourceType::LuxuryGoods:
-        return UIStrings::Get(L"building.resource_type.luxury_goods").c_str();
+            L"building.resource_type.animal_products").c_str();
+    case EResourceType::Ore:
+        return UIStrings::Get(L"building.resource_type.ore").c_str();
+    case EResourceType::Oil:
+        return UIStrings::Get(L"building.resource_type.oil").c_str();
+    case EResourceType::FarmedFish:
+        return UIStrings::Get(L"building.resource_type.farmed_fish").c_str();
+    case EResourceType::HydroponicProduce:
+        return UIStrings::Get(
+            L"building.resource_type.hydroponic_produce").c_str();
+    case EResourceType::FactoryLivestock:
+        return UIStrings::Get(
+            L"building.resource_type.factory_livestock").c_str();
+    case EResourceType::Planks:
+        return UIStrings::Get(L"building.resource_type.planks").c_str();
+    case EResourceType::Rum:
+        return UIStrings::Get(L"building.resource_type.rum").c_str();
+    case EResourceType::Leather:
+        return UIStrings::Get(L"building.resource_type.leather").c_str();
+    case EResourceType::CannedGoods:
+        return UIStrings::Get(
+            L"building.resource_type.canned_goods").c_str();
+    case EResourceType::Cheese:
+        return UIStrings::Get(L"building.resource_type.cheese").c_str();
+    case EResourceType::Cigars:
+        return UIStrings::Get(L"building.resource_type.cigars").c_str();
+    case EResourceType::Boats:
+        return UIStrings::Get(L"building.resource_type.boats").c_str();
+    case EResourceType::Steel:
+        return UIStrings::Get(L"building.resource_type.steel").c_str();
+    case EResourceType::Textiles:
+        return UIStrings::Get(L"building.resource_type.textiles").c_str();
+    case EResourceType::Weapons:
+        return UIStrings::Get(L"building.resource_type.weapons").c_str();
+    case EResourceType::Chocolate:
+        return UIStrings::Get(L"building.resource_type.chocolate").c_str();
+    case EResourceType::Furniture:
+        return UIStrings::Get(L"building.resource_type.furniture").c_str();
+    case EResourceType::Jewelry:
+        return UIStrings::Get(L"building.resource_type.jewelry").c_str();
+    case EResourceType::Plastic:
+        return UIStrings::Get(L"building.resource_type.plastic").c_str();
+    case EResourceType::Cars:
+        return UIStrings::Get(L"building.resource_type.cars").c_str();
+    case EResourceType::Electronics:
+        return UIStrings::Get(L"building.resource_type.electronics").c_str();
+    case EResourceType::Apparel:
+        return UIStrings::Get(L"building.resource_type.apparel").c_str();
+    case EResourceType::Pharmaceuticals:
+        return UIStrings::Get(
+            L"building.resource_type.pharmaceuticals").c_str();
+    case EResourceType::Juice:
+        return UIStrings::Get(L"building.resource_type.juice").c_str();
     default:
         return UIStrings::Get(L"building.resource_type.none").c_str();
     }
 }
 
-inline bool IsExportableResourceType(EResourceType Type)
+inline EResourceMarketClass GetResourceMarketClass(EResourceType Type)
 {
     switch (Type)
     {
-    case EResourceType::Food:
-    case EResourceType::RawGoods:
-    case EResourceType::ManufacturedGoods:
-    case EResourceType::LuxuryGoods:
-        return true;
+    case EResourceType::Coconuts:
+    case EResourceType::Fish:
+    case EResourceType::Crops:
+    case EResourceType::AnimalProducts:
+    case EResourceType::FarmedFish:
+    case EResourceType::HydroponicProduce:
+    case EResourceType::FactoryLivestock:
+    case EResourceType::CannedGoods:
+    case EResourceType::Cheese:
+    case EResourceType::Juice:
+        return EResourceMarketClass::Food;
+    case EResourceType::Logs:
+    case EResourceType::Ore:
+    case EResourceType::Oil:
+        return EResourceMarketClass::RawGoods;
+    case EResourceType::Planks:
+    case EResourceType::Rum:
+    case EResourceType::Leather:
+    case EResourceType::Steel:
+    case EResourceType::Textiles:
+    case EResourceType::Plastic:
+        return EResourceMarketClass::ManufacturedGoods;
+    case EResourceType::Cigars:
+    case EResourceType::Boats:
+    case EResourceType::Weapons:
+    case EResourceType::Chocolate:
+    case EResourceType::Furniture:
+    case EResourceType::Jewelry:
+    case EResourceType::Cars:
+    case EResourceType::Electronics:
+    case EResourceType::Apparel:
+    case EResourceType::Pharmaceuticals:
+        return EResourceMarketClass::LuxuryGoods;
     default:
-        return false;
+        return EResourceMarketClass::None;
     }
+}
+
+inline const wchar_t* GetResourceMarketClassDisplayName(
+    EResourceMarketClass MarketClass)
+{
+    switch (MarketClass)
+    {
+    case EResourceMarketClass::Food:
+        return L"식품";
+    case EResourceMarketClass::RawGoods:
+        return L"원자재";
+    case EResourceMarketClass::ManufacturedGoods:
+        return L"가공재";
+    case EResourceMarketClass::LuxuryGoods:
+        return L"사치재";
+    default:
+        return L"전체";
+    }
+}
+
+inline bool IsFoodResourceType(EResourceType Type)
+{
+    return GetResourceMarketClass(Type) == EResourceMarketClass::Food;
+}
+
+inline bool IsExportableResourceType(EResourceType Type)
+{
+    return Type != EResourceType::None &&
+        Type != EResourceType::Count;
 }
 
 struct FResourceInventory
@@ -275,15 +496,15 @@ struct FResourceInventory
     }
 };
 
-// PlacementController 가 생성할 비주얼 오브젝트 종류.
-// 각 값은 PlacementBuildingVisual 이 어떤 메시/텍스처 세트를 쓸지 결정한다.
+// PlacementController / PlacementBuildingVisual 이 참조하는 건물 비주얼 분기 타입.
+// Texture 파일 경로는 SpriteTexturePath 가 담당하고, 이 enum 은
+// "어떤 종류의 비주얼 규칙을 적용할지"만 결정한다.
 enum class EPlacementBuildingKind
 {
-    BuildingA,          // 일반 소형 건물 A
-    BuildingB,          // 일반 소형 건물 B (기본값)
-    Road,               // 도로 타일
-    TransportOffice,    // 교통 관련 건물
-    Harbor              // 항구
+    Structure,          // 일반 구조물 기본 분기
+    Road,               // 도로 전용 분기
+    TransportOffice,    // 운송업자 사무소 전용 분기
+    Harbor              // 항구 전용 분기
 };
 
 // 배치 시 점유하는 타일 영역의 모양·크기 프리셋.

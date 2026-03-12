@@ -51,37 +51,22 @@ private:
     std::string mFoodName;
     std::string mFoodVisitBuildingName;
     std::string mFunName;
+    std::string mFunVisitBuildingName;
+    std::string mHealthName;
+    std::string mHealthVisitBuildingName;
+    std::string mFaithName;
+    std::string mFaithVisitBuildingName;
+    bool mFoodVisitReserved = false;
+    bool mFunVisitReserved = false;
+    bool mHealthVisitReserved = false;
+    bool mFaithVisitReserved = false;
     FTeamsterDeliveryState mTeamsterDeliveryState;
     ECitizenState mCitizenState = ECitizenState::Wander;
     ECitizenState mResumeStateAfterService = ECitizenState::GoingToWork;
     float mDwellTimer = 0.f;
     float mDefaultMoveSpeed = 200.f;
-    static constexpr float GAtWorkDuration =
-        GameConstants::Orb::AtWorkDurationSeconds;
-    static constexpr float GAtHomeDuration =
-        GameConstants::Orb::AtHomeDurationSeconds;
-    static constexpr float GAtFoodDuration =
-        GameConstants::Orb::AtFoodDurationSeconds;
-    static constexpr float GAtFunDuration =
-        GameConstants::Orb::AtFunDurationSeconds;
-    static constexpr float GFoodInterruptThreshold =
-        GameConstants::Orb::FoodInterruptThreshold;
-    static constexpr float GFunInterruptThreshold =
-        GameConstants::Orb::FunInterruptThreshold;
-    static constexpr float GHealthRemoveThreshold =
-        GameConstants::Orb::HealthRemovalThreshold;
-    static constexpr float GTeamsterSpeedMultiplier =
-        GameConstants::Orb::TeamsterSpeedMultiplier;
-    static constexpr float GTeamsterCoverageRadius =
-        GameConstants::Orb::TeamsterCoverageRadiusTiles;
-    static constexpr int GTeamsterTransferUnit =
-        GameConstants::Orb::TeamsterTransferUnit;
-    static constexpr int GTeamsterConsumerRestockThreshold =
-        GameConstants::Orb::TeamsterConsumerRestockThreshold;
-    static constexpr int GTeamsterConsumerTargetStock =
-        GameConstants::Orb::TeamsterConsumerTargetStock;
-    static constexpr float GPoliticalShiftInterval =
-        GameConstants::Orb::PoliticalShiftIntervalSeconds;
+    float mMoveSpeedVarianceAlpha = 0.f;
+    bool mHasConfiguredMoveSpeed = false;
     bool mHasLockedTarget = false;
     bool mWaitingForPath = false;
     bool mScaleInitialized = false;
@@ -203,11 +188,40 @@ public:
 
     void SetMoveSpeed(float Speed)
     {
+        const float Variance =
+            (std::max)(0.f, GameConstants::Citizen::NpcMoveSpeedVariance);
+
+        if (Variance > 0.001f)
+        {
+            mMoveSpeedVarianceAlpha =
+                (Speed - GameConstants::Citizen::NpcBaseMoveSpeed) / Variance;
+        }
+        else
+            mMoveSpeedVarianceAlpha = 0.f;
+
+        mHasConfiguredMoveSpeed = true;
+        RefreshMoveSpeedFromGameConstants();
+    }
+
+    void RefreshMoveSpeedFromGameConstants()
+    {
+        if (!mHasConfiguredMoveSpeed)
+            return;
+
+        const float Speed =
+            GameConstants::Citizen::NpcBaseMoveSpeed +
+            mMoveSpeedVarianceAlpha *
+                (std::max)(0.f, GameConstants::Citizen::NpcMoveSpeedVariance);
+
         mDefaultMoveSpeed = Speed;
         mMoveSpeed = Speed;
 
         if (mTeamsterDeliveryState.SpeedBoostActive)
-            mMoveSpeed = mDefaultMoveSpeed * GTeamsterSpeedMultiplier;
+        {
+            mMoveSpeed =
+                mDefaultMoveSpeed *
+                GameConstants::Orb::TeamsterSpeedMultiplier;
+        }
     }
 
     void AddTargetBuildingName(const std::string& BuildingName)
@@ -239,6 +253,8 @@ public:
     void SetWorkBuilding(const std::string& Name);
     void SetFoodBuilding(const std::string& Name);
     void SetFunBuilding(const std::string& Name);
+    void SetHealthBuilding(const std::string& Name);
+    void SetFaithBuilding(const std::string& Name);
     ECitizenState GetCitizenState() const { return mCitizenState; }
     bool IsConsumingFoodThisVisit() const
     {
@@ -248,10 +264,24 @@ public:
     {
         return mFoodVisitBuildingName;
     }
+    const std::string& GetFunVisitBuilding() const
+    {
+        return mFunVisitBuildingName;
+    }
+    const std::string& GetHealthVisitBuilding() const
+    {
+        return mHealthVisitBuildingName;
+    }
+    const std::string& GetFaithVisitBuilding() const
+    {
+        return mFaithVisitBuildingName;
+    }
     const std::string& GetHomeBuilding() const { return mHomeName; }
     const std::string& GetWorkBuilding() const { return mWorkName; }
     const std::string& GetFoodBuilding() const { return mFoodName; }
     const std::string& GetFunBuilding() const { return mFunName; }
+    const std::string& GetHealthBuilding() const { return mHealthName; }
+    const std::string& GetFaithBuilding() const { return mFaithName; }
     bool HasCoreAssignments() const
     {
         return !mHomeName.empty() &&
@@ -284,6 +314,7 @@ private:
     void StartTeamsterSpeedBoost();
     void ResetTeamsterSpeed();
     void ReleaseTeamsterReservations();
+    void ReleaseServiceVisitReservations();
     bool TryStartTeamsterDelivery();
     bool TryPlanTeamsterConsumerDelivery(
         const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
@@ -295,7 +326,8 @@ private:
     std::string FindHarborName() const;
     std::string FindTeamsterExportDropoffName(
         const std::string& SourceName,
-        EResourceType CargoType) const;
+        EResourceType CargoType,
+        int CargoAmount) const;
     void UpdateSpriteAnimationFromVelocity(const FVector3& Velocity);
     int ResolveDirectionIndexFromVelocity(const FVector3& Velocity) const;
     const char* GetIdleAnimationNameByDir(int Direction) const;

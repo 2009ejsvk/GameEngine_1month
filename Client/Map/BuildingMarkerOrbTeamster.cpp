@@ -1,7 +1,9 @@
 #include "BuildingMarkerOrb.h"
 #include "PlacementAreaObject.h"
+#include "../World/MainWorldAccess.h"
 #include "World/World.h"
 #include <cfloat>
+#include <limits>
 
 namespace
 {
@@ -74,20 +76,52 @@ namespace
             return false;
         }
 
-        OutType = Building->GetVisitConsumptionResourceType();
+        bool FoundNeed = false;
+        int BestCurrentStock = 0;
 
-        if (OutType == EResourceType::None)
-            return false;
+        auto ConsiderNeed = [&](EResourceType Type)
+        {
+            if (Type == EResourceType::None ||
+                Type == Building->GetProducedResourceType())
+            {
+                return;
+            }
 
-        // 자가 생산 가능한 시설은 우선순위에서 제외한다.
-        if (Building->GetProducedResourceType() == OutType)
-            return false;
+            const int CurrentStock =
+                Building->GetResourceStock(Type) +
+                Building->GetReservedIncomingResourceAmount(Type);
 
-        OutCurrentStock =
-            Building->GetResourceStock(OutType) +
-            Building->GetReservedIncomingResourceAmount(OutType);
-        return OutCurrentStock <
-            GameConstants::Orb::TeamsterConsumerRestockThreshold;
+            if (CurrentStock >=
+                GameConstants::Orb::TeamsterConsumerRestockThreshold)
+            {
+                return;
+            }
+
+            if (!FoundNeed || CurrentStock < BestCurrentStock)
+            {
+                FoundNeed = true;
+                OutType = Type;
+                BestCurrentStock = CurrentStock;
+                OutCurrentStock = CurrentStock;
+            }
+        };
+
+        ConsiderNeed(Building->GetVisitConsumptionResourceType());
+
+        for (int SlotIndex = 0;
+             SlotIndex < Building->GetProductionInputCount();
+             ++SlotIndex)
+        {
+            const EResourceType InputType =
+                Building->GetProductionInputType(SlotIndex);
+
+            if (InputType == Building->GetVisitConsumptionResourceType())
+                continue;
+
+            ConsiderNeed(InputType);
+        }
+
+        return FoundNeed;
     }
 
     int ResolveConsumerSupplyAmount(
@@ -111,6 +145,214 @@ namespace
 
         return Building->GetAvailableResourceStock(Type);
     }
+
+    struct FTeamsterResourcePressure
+    {
+        int ConsumerCount = 0;
+        int GlobalShortage = 0;
+        int TotalAvailableStock = 0;
+        int WarehouseBufferedStock = 0;
+        int WarehouseFreeCapacity = 0;
+    };
+
+    bool BuildingConsumesResource(
+        const std::shared_ptr<CPlacementAreaObject>& Building,
+        EResourceType Type)
+    {
+        if (!IsOperationalBuilding(Building) ||
+            Type == EResourceType::None ||
+            Building->IsRoad() ||
+            Building->IsBusStop() ||
+            Building->IsHarbor() ||
+            Building->IsTransportOffice() ||
+            Building->IsWarehouse())
+        {
+            return false;
+        }
+
+        if (Building->GetVisitConsumptionResourceType() == Type &&
+            Building->GetProducedResourceType() != Type)
+        {
+            return true;
+        }
+
+        return Building->UsesProductionInputResource(Type);
+    }
+
+    bool WarehouseHasAssignedSlot(
+        const std::shared_ptr<CPlacementAreaObject>& Building,
+        EResourceType Type)
+    {
+        if (!IsOperationalBuilding(Building) ||
+            !Building->IsWarehouse() ||
+            Type == EResourceType::None)
+        {
+            return false;
+        }
+
+        for (int SlotIndex = 0;
+             SlotIndex < Building->GetWarehouseSlotCount();
+             ++SlotIndex)
+        {
+            if (Building->GetWarehouseSlotType(SlotIndex) == Type)
+                return true;
+        }
+
+        return false;
+    }
+
+    FTeamsterResourcePressure BuildTeamsterResourcePressure(
+        const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList,
+        EResourceType Type)
+    {
+        FTeamsterResourcePressure Pressure;
+
+        if (Type == EResourceType::None)
+            return Pressure;
+
+        for (size_t i = 0; i < BuildingList.size(); ++i)
+        {
+            auto Building = BuildingList[i].lock();
+
+            if (!IsOperationalBuilding(Building))
+                continue;
+
+            Pressure.TotalAvailableStock +=
+                Building->GetAvailableResourceStock(Type);
+
+            if (Building->IsWarehouse())
+            {
+                Pressure.WarehouseBufferedStock +=
+                    Building->GetResourceStock(Type) +
+                    Building->GetReservedIncomingResourceAmount(Type);
+                Pressure.WarehouseFreeCapacity +=
+                    Building->GetAvailableIncomingCapacity(Type);
+            }
+
+            if (!BuildingConsumesResource(Building, Type))
+                continue;
+
+            ++Pressure.ConsumerCount;
+
+            const int CurrentStock =
+                Building->GetResourceStock(Type) +
+                Building->GetReservedIncomingResourceAmount(Type);
+            Pressure.GlobalShortage += (std::max)(
+                0,
+                GameConstants::Orb::TeamsterConsumerTargetStock -
+                    CurrentStock);
+        }
+
+        return Pressure;
+    }
+
+    const TradePolicy::FExportTradePolicy* ResolveExportTradePolicy(
+        const std::shared_ptr<CWorld>& World)
+    {
+        auto MainWorldAccess =
+            std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World);
+
+        if (!MainWorldAccess)
+            return nullptr;
+
+        return &MainWorldAccess->GetGovernmentProfile().ExportTradePolicy;
+    }
+
+    int ResolveDomesticReserveAmount(
+        const FTeamsterResourcePressure& Pressure,
+        const TradePolicy::FExportTradePolicy* ExportPolicy)
+    {
+        const int ReserveBufferUnits = ExportPolicy ?
+            TradePolicy::GetDomesticReserveBufferUnits(*ExportPolicy) :
+            GameConstants::Orb::TeamsterTransferUnit;
+        return Pressure.GlobalShortage +
+            (Pressure.ConsumerCount > 0 ?
+                ReserveBufferUnits :
+                0);
+    }
+
+    bool ShouldPreferWarehouseBuffer(
+        const FTeamsterResourcePressure& Pressure,
+        int Amount,
+        const TradePolicy::FExportTradePolicy* ExportPolicy)
+    {
+        if (Amount <= 0 || Pressure.WarehouseFreeCapacity < Amount)
+            return false;
+
+        return Pressure.WarehouseBufferedStock <
+            ResolveDomesticReserveAmount(Pressure, ExportPolicy);
+    }
+
+    std::string FindBestWarehouseDropoffName(
+        const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
+        const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList,
+        const std::string& ExcludedBuildingName,
+        EResourceType CargoType,
+        int CargoAmount)
+    {
+        if (!OfficeBuilding ||
+            CargoType == EResourceType::None ||
+            CargoAmount <= 0)
+        {
+            return std::string();
+        }
+
+        std::string BestName;
+        bool BestHasAssignedSlot = false;
+        int BestBufferedStock = (std::numeric_limits<int>::max)();
+        int BestIncomingCapacity = -1;
+        float BestDistSq = FLT_MAX;
+
+        for (size_t i = 0; i < BuildingList.size(); ++i)
+        {
+            auto Building = BuildingList[i].lock();
+
+            if (!IsOperationalBuilding(Building) ||
+                !Building->IsWarehouse() ||
+                Building->GetName() == ExcludedBuildingName ||
+                !IsWithinTeamsterCoverage(OfficeBuilding, Building) ||
+                !Building->CanStoreResourceType(CargoType) ||
+                Building->GetAvailableIncomingCapacity(CargoType) <
+                    CargoAmount)
+            {
+                continue;
+            }
+
+            float DistSq = FLT_MAX;
+
+            if (!TryGetCoverageDistanceSq(OfficeBuilding, Building, DistSq))
+                continue;
+
+            const bool HasAssignedSlot =
+                WarehouseHasAssignedSlot(Building, CargoType);
+            const int BufferedStock =
+                Building->GetResourceStock(CargoType) +
+                Building->GetReservedIncomingResourceAmount(CargoType);
+            const int IncomingCapacity =
+                Building->GetAvailableIncomingCapacity(CargoType);
+
+            if (BestName.empty() ||
+                (HasAssignedSlot && !BestHasAssignedSlot) ||
+                (HasAssignedSlot == BestHasAssignedSlot &&
+                 BufferedStock < BestBufferedStock) ||
+                (HasAssignedSlot == BestHasAssignedSlot &&
+                 BufferedStock == BestBufferedStock &&
+                 IncomingCapacity > BestIncomingCapacity) ||
+                (HasAssignedSlot == BestHasAssignedSlot &&
+                 BufferedStock == BestBufferedStock &&
+                 IncomingCapacity == BestIncomingCapacity &&
+                 DistSq < BestDistSq))
+            {
+                BestName = Building->GetName();
+                BestHasAssignedSlot = HasAssignedSlot;
+                BestBufferedStock = BufferedStock;
+                BestIncomingCapacity = IncomingCapacity;
+                BestDistSq = DistSq;
+            }
+        }
+
+        return BestName;
+    }
 }
 
 void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
@@ -118,6 +360,15 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
     auto& Delivery = mTeamsterDeliveryState;
     auto& FoodStockAvailableThisVisit =
         mCitizenProfileState.FoodStockAvailableThisVisit;
+    auto& FunServiceAvailableThisVisit =
+        mCitizenProfileState.FunServiceAvailableThisVisit;
+    auto& HealthServiceAvailableThisVisit =
+        mCitizenProfileState.HealthServiceAvailableThisVisit;
+    auto& FaithServiceAvailableThisVisit =
+        mCitizenProfileState.FaithServiceAvailableThisVisit;
+
+    if (mCitizenState != NewState)
+        ReleaseServiceVisitReservations();
 
     if (!IsTeamsterState(NewState))
         ResetTeamsterSpeed();
@@ -137,7 +388,7 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
         mFoodVisitBuildingName.clear();
         ReleaseTeamsterReservations();
         Delivery.ClearRoute();
-        mDwellTimer = GAtWorkDuration;
+        mDwellTimer = GameConstants::Orb::AtWorkDurationSeconds;
         mCurrentTargetName.clear();
         break;
     case ECitizenState::GoingHome:
@@ -146,7 +397,7 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
         break;
     case ECitizenState::AtHome:
         mFoodVisitBuildingName.clear();
-        mDwellTimer = GAtHomeDuration;
+        mDwellTimer = GameConstants::Orb::AtHomeDurationSeconds;
         mCurrentTargetName.clear();
         break;
     case ECitizenState::GoingToFood:
@@ -154,10 +405,13 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
         mCurrentTargetName = mFoodName;
         break;
     case ECitizenState::AtFood:
-        mDwellTimer = GAtFoodDuration;
+    {
+        const std::string VisitBuildingName = mCurrentTargetName.empty() ?
+            mFoodName :
+            mCurrentTargetName;
+        mDwellTimer = GameConstants::Orb::AtFoodDurationSeconds;
         mCurrentTargetName.clear();
-        if (mFoodVisitBuildingName.empty())
-            mFoodVisitBuildingName = mFoodName;
+        mFoodVisitBuildingName = VisitBuildingName;
         FoodStockAvailableThisVisit = false;
         {
             auto FoodWorld = mWorld.lock();
@@ -168,23 +422,129 @@ void CBuildingMarkerOrb::TransitionFsm(ECitizenState NewState)
                         mFoodVisitBuildingName).lock();
                 if (FoodBuilding)
                 {
+                    const EResourceType FoodType =
+                        FoodBuilding->GetVisitConsumptionResourceType();
+                    mFoodVisitReserved =
+                        FoodBuilding->TryBeginServiceVisit(
+                            EBuildingServiceType::Food);
                     FoodStockAvailableThisVisit =
-                        FoodBuilding->TryConsumeResource(
-                            EResourceType::Food,
-                            1);
+                        mFoodVisitReserved &&
+                        (FoodType != EResourceType::None ?
+                            FoodBuilding->TryConsumeResource(FoodType, 1) :
+                            FoodBuilding->TryConsumeResource(1));
                 }
             }
         }
         break;
+    }
     case ECitizenState::GoingToFun:
         mFoodVisitBuildingName.clear();
         mCurrentTargetName = mFunName;
         break;
     case ECitizenState::AtFun:
+    {
+        const std::string VisitBuildingName = mCurrentTargetName.empty() ?
+            mFunName :
+            mCurrentTargetName;
         mFoodVisitBuildingName.clear();
-        mDwellTimer = GAtFunDuration;
+        mDwellTimer = GameConstants::Orb::AtFunDurationSeconds;
         mCurrentTargetName.clear();
+        mFunVisitBuildingName = VisitBuildingName;
+        FunServiceAvailableThisVisit = false;
+        {
+            auto FunWorld = mWorld.lock();
+            if (FunWorld && !mFunVisitBuildingName.empty())
+            {
+                auto FunBuilding =
+                    FunWorld->FindObject<CPlacementAreaObject>(
+                        mFunVisitBuildingName).lock();
+                if (FunBuilding)
+                {
+                    mFunVisitReserved =
+                        FunBuilding->TryBeginServiceVisit(
+                            EBuildingServiceType::Fun);
+                    FunServiceAvailableThisVisit =
+                        mFunVisitReserved &&
+                        FunBuilding->TryConsumeServiceStock(
+                            EBuildingServiceType::Fun,
+                            1);
+                }
+            }
+        }
         break;
+    }
+    case ECitizenState::GoingToHealth:
+        mFoodVisitBuildingName.clear();
+        mCurrentTargetName = mHealthName;
+        break;
+    case ECitizenState::AtHealth:
+    {
+        const std::string VisitBuildingName = mCurrentTargetName.empty() ?
+            mHealthName :
+            mCurrentTargetName;
+        mFoodVisitBuildingName.clear();
+        mDwellTimer = GameConstants::Orb::AtHealthDurationSeconds;
+        mCurrentTargetName.clear();
+        mHealthVisitBuildingName = VisitBuildingName;
+        HealthServiceAvailableThisVisit = false;
+        {
+            auto HealthWorld = mWorld.lock();
+            if (HealthWorld && !mHealthVisitBuildingName.empty())
+            {
+                auto HealthBuilding =
+                    HealthWorld->FindObject<CPlacementAreaObject>(
+                        mHealthVisitBuildingName).lock();
+                if (HealthBuilding)
+                {
+                    mHealthVisitReserved =
+                        HealthBuilding->TryBeginServiceVisit(
+                            EBuildingServiceType::Health);
+                    HealthServiceAvailableThisVisit =
+                        mHealthVisitReserved &&
+                        HealthBuilding->TryConsumeServiceStock(
+                            EBuildingServiceType::Health,
+                            1);
+                }
+            }
+        }
+        break;
+    }
+    case ECitizenState::GoingToFaith:
+        mFoodVisitBuildingName.clear();
+        mCurrentTargetName = mFaithName;
+        break;
+    case ECitizenState::AtFaith:
+    {
+        const std::string VisitBuildingName = mCurrentTargetName.empty() ?
+            mFaithName :
+            mCurrentTargetName;
+        mFoodVisitBuildingName.clear();
+        mDwellTimer = GameConstants::Orb::AtFaithDurationSeconds;
+        mCurrentTargetName.clear();
+        mFaithVisitBuildingName = VisitBuildingName;
+        FaithServiceAvailableThisVisit = false;
+        {
+            auto FaithWorld = mWorld.lock();
+            if (FaithWorld && !mFaithVisitBuildingName.empty())
+            {
+                auto FaithBuilding =
+                    FaithWorld->FindObject<CPlacementAreaObject>(
+                        mFaithVisitBuildingName).lock();
+                if (FaithBuilding)
+                {
+                    mFaithVisitReserved =
+                        FaithBuilding->TryBeginServiceVisit(
+                            EBuildingServiceType::Faith);
+                    FaithServiceAvailableThisVisit =
+                        mFaithVisitReserved &&
+                        FaithBuilding->TryConsumeServiceStock(
+                            EBuildingServiceType::Faith,
+                            1);
+                }
+            }
+        }
+        break;
+    }
     case ECitizenState::GoingToTeamsterSource:
         mFoodVisitBuildingName.clear();
         StartTeamsterSpeedBoost();
@@ -253,6 +613,16 @@ void CBuildingMarkerOrb::SetFunBuilding(const std::string& Name)
     mFunName = Name;
 }
 
+void CBuildingMarkerOrb::SetHealthBuilding(const std::string& Name)
+{
+    mHealthName = Name;
+}
+
+void CBuildingMarkerOrb::SetFaithBuilding(const std::string& Name)
+{
+    mFaithName = Name;
+}
+
 void CBuildingMarkerOrb::TryStartCoreLoop()
 {
     if (mCitizenState != ECitizenState::Wander)
@@ -278,13 +648,62 @@ bool CBuildingMarkerOrb::IsTeamsterState(ECitizenState State) const
 void CBuildingMarkerOrb::StartTeamsterSpeedBoost()
 {
     mTeamsterDeliveryState.SpeedBoostActive = true;
-    mMoveSpeed = mDefaultMoveSpeed * GTeamsterSpeedMultiplier;
+    mMoveSpeed =
+        mDefaultMoveSpeed *
+        GameConstants::Orb::TeamsterSpeedMultiplier;
 }
 
 void CBuildingMarkerOrb::ResetTeamsterSpeed()
 {
     mTeamsterDeliveryState.SpeedBoostActive = false;
     mMoveSpeed = mDefaultMoveSpeed;
+}
+
+void CBuildingMarkerOrb::ReleaseServiceVisitReservations()
+{
+    auto World = mWorld.lock();
+
+    auto ReleaseVisit = [&](const std::string& BuildingName,
+                            bool& Reserved,
+                            EBuildingServiceType ServiceType)
+    {
+        if (World && Reserved && !BuildingName.empty())
+        {
+            auto Building =
+                World->FindObject<CPlacementAreaObject>(BuildingName).lock();
+
+            if (Building)
+                Building->EndServiceVisit(ServiceType);
+        }
+
+        Reserved = false;
+    };
+
+    ReleaseVisit(
+        mFoodVisitBuildingName,
+        mFoodVisitReserved,
+        EBuildingServiceType::Food);
+    ReleaseVisit(
+        mFunVisitBuildingName,
+        mFunVisitReserved,
+        EBuildingServiceType::Fun);
+    ReleaseVisit(
+        mHealthVisitBuildingName,
+        mHealthVisitReserved,
+        EBuildingServiceType::Health);
+    ReleaseVisit(
+        mFaithVisitBuildingName,
+        mFaithVisitReserved,
+        EBuildingServiceType::Faith);
+
+    mFoodVisitBuildingName.clear();
+    mFunVisitBuildingName.clear();
+    mHealthVisitBuildingName.clear();
+    mFaithVisitBuildingName.clear();
+    mCitizenProfileState.FoodStockAvailableThisVisit = false;
+    mCitizenProfileState.FunServiceAvailableThisVisit = false;
+    mCitizenProfileState.HealthServiceAvailableThisVisit = false;
+    mCitizenProfileState.FaithServiceAvailableThisVisit = false;
 }
 
 void CBuildingMarkerOrb::ReleaseTeamsterReservations()
@@ -484,7 +903,8 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     std::string BestConsumerName;
     std::string BestSourceName;
     EResourceType BestResourceType = EResourceType::None;
-    int BestCurrentStock = GTeamsterConsumerRestockThreshold + 1;
+    int BestCurrentStock =
+        GameConstants::Orb::TeamsterConsumerRestockThreshold + 1;
     int BestRequestedAmount = 0;
     float BestConsumerDistSq = FLT_MAX;
     float BestSourceDistSq = FLT_MAX;
@@ -522,8 +942,11 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
 
         int RequestedAmount = (std::max)(
             1,
-            GTeamsterConsumerTargetStock - CurrentStock);
-        RequestedAmount = (std::min)(RequestedAmount, GTeamsterTransferUnit);
+            GameConstants::Orb::TeamsterConsumerTargetStock -
+                CurrentStock);
+        RequestedAmount = (std::min)(
+            RequestedAmount,
+            GameConstants::Orb::TeamsterTransferUnit);
         RequestedAmount = (std::min)(RequestedAmount, AvailableAmount);
 
         if (RequestedAmount <= 0)
@@ -596,70 +1019,239 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
 {
     OutDelivery.ClearRoute();
 
-    if (!OfficeBuilding)
-        return false;
-
-    const std::string SourceName = FindTeamsterSourceName();
-
-    if (SourceName.empty())
-        return false;
-
     auto World = mWorld.lock();
 
-    if (!World)
+    if (!OfficeBuilding || !World)
         return false;
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return false;
+
+    const TradePolicy::FExportTradePolicy* const ExportPolicy =
+        ResolveExportTradePolicy(World);
+    std::array<FTeamsterResourcePressure,
+        static_cast<size_t>(EResourceType::Count)> ResourcePressure = {};
+
+    for (size_t ResourceIndex = 1;
+         ResourceIndex < static_cast<size_t>(EResourceType::Count);
+         ++ResourceIndex)
+    {
+        ResourcePressure[ResourceIndex] = BuildTeamsterResourcePressure(
+            BuildingList,
+            static_cast<EResourceType>(ResourceIndex));
+    }
+
+    const std::string HarborName = FindHarborName();
+
+    std::string BestSourceName;
+    std::string BestDropoffName;
+    EResourceType BestCargoType = EResourceType::None;
+    int BestPriorityBucket = (std::numeric_limits<int>::max)();
+    int BestAvailableAmount = 0;
+    float BestSourceDistSq = FLT_MAX;
+    float BestDropoffDistSq = FLT_MAX;
+    bool BestReserveIncoming = false;
+
+    for (size_t i = 0; i < BuildingList.size(); ++i)
+    {
+        auto SourceBuilding = BuildingList[i].lock();
+
+        if (!IsOperationalBuilding(SourceBuilding) ||
+            !IsWithinTeamsterCoverage(OfficeBuilding, SourceBuilding))
+        {
+            continue;
+        }
+
+        const bool SourceIsWarehouse = SourceBuilding->IsWarehouse();
+
+        if (!SourceIsWarehouse &&
+            !SourceBuilding->SupportsTeamsterPickup())
+        {
+            continue;
+        }
+
+        float SourceDistSq = FLT_MAX;
+
+        if (!TryGetCoverageDistanceSq(
+                OfficeBuilding,
+                SourceBuilding,
+                SourceDistSq))
+        {
+            continue;
+        }
+
+        for (size_t ResourceIndex = 1;
+             ResourceIndex < static_cast<size_t>(EResourceType::Count);
+             ++ResourceIndex)
+        {
+            const EResourceType CargoType =
+                static_cast<EResourceType>(ResourceIndex);
+            const int AvailableAmount =
+                SourceBuilding->GetAvailableResourceStock(CargoType);
+
+            if (!IsExportableResourceType(CargoType) ||
+                AvailableAmount <
+                    GameConstants::Orb::TeamsterTransferUnit)
+            {
+                continue;
+            }
+
+            const FTeamsterResourcePressure& Pressure =
+                ResourcePressure[ResourceIndex];
+            const int DomesticReserveAmount =
+                ResolveDomesticReserveAmount(Pressure, ExportPolicy);
+            const bool HarborExportAllowed =
+                (!ExportPolicy ||
+                    TradePolicy::IsResourceExportAllowed(
+                        *ExportPolicy,
+                        CargoType)) &&
+                !HarborName.empty() &&
+                Pressure.TotalAvailableStock -
+                    GameConstants::Orb::TeamsterTransferUnit >=
+                    DomesticReserveAmount;
+
+            std::string DropoffName;
+            bool ReserveIncoming = false;
+            int PriorityBucket = 0;
+
+            if (SourceIsWarehouse)
+            {
+                if (!HarborExportAllowed)
+                    continue;
+
+                DropoffName = HarborName;
+                PriorityBucket = 0;
+            }
+            else
+            {
+                if (ShouldPreferWarehouseBuffer(
+                        Pressure,
+                        GameConstants::Orb::TeamsterTransferUnit,
+                        ExportPolicy))
+                {
+                    DropoffName = FindBestWarehouseDropoffName(
+                        OfficeBuilding,
+                        BuildingList,
+                        SourceBuilding->GetName(),
+                        CargoType,
+                        GameConstants::Orb::TeamsterTransferUnit);
+
+                    if (!DropoffName.empty())
+                    {
+                        ReserveIncoming = true;
+                        PriorityBucket = 1;
+                    }
+                }
+
+                if (DropoffName.empty() && HarborExportAllowed)
+                {
+                    DropoffName = HarborName;
+                    PriorityBucket = 2;
+                }
+
+                if (DropoffName.empty())
+                {
+                    DropoffName = FindBestWarehouseDropoffName(
+                        OfficeBuilding,
+                        BuildingList,
+                        SourceBuilding->GetName(),
+                        CargoType,
+                        GameConstants::Orb::TeamsterTransferUnit);
+
+                    if (!DropoffName.empty())
+                    {
+                        ReserveIncoming = true;
+                        PriorityBucket = 3;
+                    }
+                }
+            }
+
+            if (DropoffName.empty())
+                continue;
+
+            auto DropoffBuilding =
+                World->FindObject<CPlacementAreaObject>(DropoffName).lock();
+
+            if (!DropoffBuilding)
+                continue;
+
+            float DropoffDistSq = FLT_MAX;
+
+            if (!TryGetCoverageDistanceSq(
+                    OfficeBuilding,
+                    DropoffBuilding,
+                    DropoffDistSq))
+            {
+                continue;
+            }
+
+            if (BestSourceName.empty() ||
+                PriorityBucket < BestPriorityBucket ||
+                (PriorityBucket == BestPriorityBucket &&
+                 AvailableAmount > BestAvailableAmount) ||
+                (PriorityBucket == BestPriorityBucket &&
+                 AvailableAmount == BestAvailableAmount &&
+                 SourceDistSq < BestSourceDistSq) ||
+                (PriorityBucket == BestPriorityBucket &&
+                 AvailableAmount == BestAvailableAmount &&
+                 SourceDistSq == BestSourceDistSq &&
+                 DropoffDistSq < BestDropoffDistSq))
+            {
+                BestSourceName = SourceBuilding->GetName();
+                BestDropoffName = DropoffName;
+                BestCargoType = CargoType;
+                BestPriorityBucket = PriorityBucket;
+                BestAvailableAmount = AvailableAmount;
+                BestSourceDistSq = SourceDistSq;
+                BestDropoffDistSq = DropoffDistSq;
+                BestReserveIncoming = ReserveIncoming;
+            }
+        }
+    }
+
+    if (BestSourceName.empty() ||
+        BestDropoffName.empty() ||
+        BestCargoType == EResourceType::None)
+    {
+        return false;
+    }
 
     auto SourceBuilding =
-        World->FindObject<CPlacementAreaObject>(SourceName).lock();
-
-    EResourceType CargoType = EResourceType::None;
+        World->FindObject<CPlacementAreaObject>(BestSourceName).lock();
+    auto DropoffBuilding =
+        World->FindObject<CPlacementAreaObject>(BestDropoffName).lock();
 
     if (!SourceBuilding ||
-        !SourceBuilding->TryGetExportableResourceTypeForAmount(
-            GTeamsterTransferUnit,
-            CargoType) ||
-        CargoType == EResourceType::None)
+        !DropoffBuilding ||
+        !SourceBuilding->ReserveTeamsterPickup(
+            BestCargoType,
+            GameConstants::Orb::TeamsterTransferUnit))
     {
         return false;
     }
 
-    const std::string DropoffName =
-        FindTeamsterExportDropoffName(SourceName, CargoType);
-
-    if (DropoffName.empty())
-        return false;
-
-    auto DropoffBuilding =
-        World->FindObject<CPlacementAreaObject>(DropoffName).lock();
-
-    if (!SourceBuilding->ReserveTeamsterPickup(
-            CargoType,
-            GTeamsterTransferUnit))
-    {
-        return false;
-    }
-
-    if (DropoffBuilding &&
-        DropoffBuilding->IsWarehouse() &&
+    if (BestReserveIncoming &&
         !DropoffBuilding->ReserveIncomingResource(
-            CargoType,
-            GTeamsterTransferUnit))
+            BestCargoType,
+            GameConstants::Orb::TeamsterTransferUnit))
     {
         SourceBuilding->ReleaseTeamsterPickup(
-            CargoType,
-            GTeamsterTransferUnit);
+            BestCargoType,
+            GameConstants::Orb::TeamsterTransferUnit);
         return false;
     }
 
     OutDelivery.Mode = FTeamsterDeliveryState::ERouteMode::Export;
     OutDelivery.SourceReservationKind =
         FTeamsterDeliveryState::ESourceReservationKind::Typed;
-    OutDelivery.SourceName = SourceName;
-    OutDelivery.DestinationName = DropoffName;
-    OutDelivery.RequestedAmount = GTeamsterTransferUnit;
-    OutDelivery.RequestedType = CargoType;
-    OutDelivery.DestinationReservationActive =
-        DropoffBuilding && DropoffBuilding->IsWarehouse();
+    OutDelivery.SourceName = BestSourceName;
+    OutDelivery.DestinationName = BestDropoffName;
+    OutDelivery.RequestedAmount =
+        GameConstants::Orb::TeamsterTransferUnit;
+    OutDelivery.RequestedType = BestCargoType;
+    OutDelivery.DestinationReservationActive = BestReserveIncoming;
     return true;
 }
 
@@ -717,9 +1309,9 @@ std::string CBuildingMarkerOrb::FindTeamsterSourceName() const
 
             EResourceType ExportType = EResourceType::None;
 
-            if (Stock < GTeamsterTransferUnit ||
+            if (Stock < GameConstants::Orb::TeamsterTransferUnit ||
                 !Building->TryGetExportableResourceTypeForAmount(
-                    GTeamsterTransferUnit,
+                    GameConstants::Orb::TeamsterTransferUnit,
                     ExportType))
             {
                 continue;
@@ -802,14 +1394,15 @@ std::string CBuildingMarkerOrb::FindHarborName() const
 
 std::string CBuildingMarkerOrb::FindTeamsterExportDropoffName(
     const std::string& SourceName,
-    EResourceType CargoType) const
+    EResourceType CargoType,
+    int CargoAmount) const
 {
     auto World = mWorld.lock();
 
     if (!World ||
         mWorkName.empty() ||
-        SourceName.empty() ||
-        CargoType == EResourceType::None)
+        CargoType == EResourceType::None ||
+        CargoAmount <= 0)
     {
         return std::string();
     }
@@ -820,54 +1413,62 @@ std::string CBuildingMarkerOrb::FindTeamsterExportDropoffName(
     if (!OfficeBuilding)
         return std::string();
 
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return std::string();
+
     auto SourceBuilding =
-        World->FindObject<CPlacementAreaObject>(SourceName).lock();
+        SourceName.empty() ?
+            std::shared_ptr<CPlacementAreaObject>() :
+            World->FindObject<CPlacementAreaObject>(SourceName).lock();
+    const bool SourceIsWarehouse =
+        SourceBuilding && SourceBuilding->IsWarehouse();
+    const TradePolicy::FExportTradePolicy* const ExportPolicy =
+        ResolveExportTradePolicy(World);
+    const FTeamsterResourcePressure Pressure =
+        BuildTeamsterResourcePressure(BuildingList, CargoType);
+    const int DomesticReserveAmount =
+        ResolveDomesticReserveAmount(Pressure, ExportPolicy);
+    const bool HarborExportAllowed =
+        (!ExportPolicy ||
+            TradePolicy::IsResourceExportAllowed(
+                *ExportPolicy,
+                CargoType)) &&
+        Pressure.TotalAvailableStock - CargoAmount >= DomesticReserveAmount;
+    const std::string HarborName = FindHarborName();
 
-    if (SourceBuilding && !SourceBuilding->IsWarehouse())
+    if (!SourceIsWarehouse)
     {
-        std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
-
-        if (World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        if (ShouldPreferWarehouseBuffer(
+                Pressure,
+                CargoAmount,
+                ExportPolicy))
         {
-            std::string BestWarehouseName;
-            float BestDistSq = FLT_MAX;
+            const std::string WarehouseName = FindBestWarehouseDropoffName(
+                OfficeBuilding,
+                BuildingList,
+                SourceName,
+                CargoType,
+                CargoAmount);
 
-            for (size_t i = 0; i < BuildingList.size(); ++i)
-            {
-                auto Building = BuildingList[i].lock();
-
-                if (!IsOperationalBuilding(Building) ||
-                    !Building->IsWarehouse() ||
-                    Building->GetName() == SourceName ||
-                    !Building->CanStoreResourceType(CargoType) ||
-                    Building->GetAvailableIncomingCapacity(CargoType) <
-                        GTeamsterTransferUnit)
-                {
-                    continue;
-                }
-
-                float DistSq = FLT_MAX;
-
-                if (!TryGetCoverageDistanceSq(
-                        OfficeBuilding,
-                        Building,
-                        DistSq) ||
-                    !IsWithinTeamsterCoverage(OfficeBuilding, Building))
-                {
-                    continue;
-                }
-
-                if (BestWarehouseName.empty() || DistSq < BestDistSq)
-                {
-                    BestWarehouseName = Building->GetName();
-                    BestDistSq = DistSq;
-                }
-            }
-
-            if (!BestWarehouseName.empty())
-                return BestWarehouseName;
+            if (!WarehouseName.empty())
+                return WarehouseName;
         }
+
+        if (HarborExportAllowed && !HarborName.empty())
+            return HarborName;
+
+        return FindBestWarehouseDropoffName(
+            OfficeBuilding,
+            BuildingList,
+            SourceName,
+            CargoType,
+            CargoAmount);
     }
 
-    return FindHarborName();
+    if (HarborExportAllowed && !HarborName.empty())
+        return HarborName;
+
+    return std::string();
 }

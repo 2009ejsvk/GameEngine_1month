@@ -58,6 +58,8 @@ namespace
                 mMainWorldAccess->GetElectionWarningScore();
             Result.TaxEventStatus =
                 mMainWorldAccess->GetTaxPolicyEventStatus();
+            Result.WorldCrisisStatus =
+                mMainWorldAccess->GetWorldCrisisStatus();
             Result.GovernmentEdictStates =
                 mMainWorldAccess->GetGovernmentEdictStates();
             return Result;

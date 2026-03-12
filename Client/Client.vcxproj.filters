@@ -90,6 +90,9 @@
     <ClCompile Include="main.cpp">
       <Filter>�ҽ� ����</Filter>
     </ClCompile>
+    <ClCompile Include="GameConstants.cpp">
+      <Filter>06. Setting</Filter>
+    </ClCompile>
     <ClCompile Include="World\MainWorld.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
@@ -112,6 +115,9 @@
       <Filter>02. World</Filter>
     </ClCompile>
     <ClCompile Include="GlobalSetting.cpp">
+      <Filter>06. Setting</Filter>
+    </ClCompile>
+    <ClCompile Include="RuntimeConfigRegistry.cpp">
       <Filter>06. Setting</Filter>
     </ClCompile>
     <ClCompile Include="Building\BuildingCatalog.cpp">
@@ -309,6 +315,9 @@
     <ClCompile Include="UI\EdictWidget.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
+    <ClCompile Include="UI\TradeWidget.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
     <ClCompile Include="Politics\EdictSystem.cpp">
       <Filter>15. Politics</Filter>
     </ClCompile>
@@ -319,6 +328,9 @@
   <ItemGroup>
     <ClInclude Include="resource.h">
       <Filter>��� ����</Filter>
+    </ClInclude>
+    <ClInclude Include="GameConstants.h">
+      <Filter>06. Setting</Filter>
     </ClInclude>
     <ClInclude Include="World\MainWorld.h">
       <Filter>02. World</Filter>
@@ -344,6 +356,9 @@
     <ClInclude Include="GlobalSetting.h">
       <Filter>06. Setting</Filter>
     </ClInclude>
+    <ClInclude Include="RuntimeConfigRegistry.h">
+      <Filter>06. Setting</Filter>
+    </ClInclude>
     <ClInclude Include="UI\MainWidget.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
@@ -360,6 +375,9 @@
       <Filter>07. UI\01. Main\02. PlayerState</Filter>
     </ClInclude>
     <ClInclude Include="UI\WorldHUD.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TradeWidget.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
     <ClInclude Include="World\StartWorld.h">

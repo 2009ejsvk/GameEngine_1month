@@ -1,11 +1,12 @@
 #include "TopHudWidget.h"
 #include "TopHudDataProvider.h"
 #include "TopHudRenderer.h"
-#include "UILayoutConfig.h"
 #include "AlmanacWidget.h"
 #include "BuildMenuWidget.h"
 #include "EdictWidget.h"
+#include "TradeWidget.h"
 #include "../ObjectNames.h"
+#include "../World/MainWorldAccess.h"
 #include "World/World.h"
 #include "World/WorldUIManager.h"
 
@@ -33,7 +34,6 @@ bool CTopHudWidget::Init()
 void CTopHudWidget::Update(float DeltaTime)
 {
     CWidgetContainer::Update(DeltaTime);
-    UIConfig::ReloadIfChanged(DeltaTime);
     RefreshFromState();
 }
 
@@ -43,7 +43,7 @@ void CTopHudWidget::RefreshFromState()
 
     if (Snapshot.GameLost && !mGameOverMenusClosed)
     {
-        CloseMenus(true, true, true);
+        CloseMenus(true, true, true, true);
         mGameOverMenusClosed = true;
     }
     else if (!Snapshot.GameLost)
@@ -58,7 +58,8 @@ void CTopHudWidget::RefreshFromState()
 void CTopHudWidget::CloseMenus(
     bool CloseBuildMenu,
     bool CloseAlmanac,
-    bool CloseEdicts)
+    bool CloseEdicts,
+    bool CloseTrade)
 {
     auto World = mWorld.lock();
 
@@ -76,6 +77,8 @@ void CTopHudWidget::CloseMenus(
         UIManager->FindWidget<CAlmanacWidget>(GAlmanacWidgetName).lock();
     auto EdictWidget =
         UIManager->FindWidget<CEdictWidget>(GEdictWidgetName).lock();
+    auto TradeWidget =
+        UIManager->FindWidget<CTradeWidget>(GTradeWidgetName).lock();
 
     if (BuildMenu)
     {
@@ -91,6 +94,9 @@ void CTopHudWidget::CloseMenus(
 
     if (EdictWidget && CloseEdicts)
         EdictWidget->SetOpen(false);
+
+    if (TradeWidget && CloseTrade)
+        TradeWidget->SetOpen(false);
 }
 
 void CTopHudWidget::OnConstructionButtonClick()
@@ -103,7 +109,7 @@ void CTopHudWidget::OnConstructionButtonClick()
     if (!World)
         return;
 
-    CloseMenus(false, true, true);
+    CloseMenus(false, true, true, true);
 
     auto UIManager = World->GetUIManager().lock();
 
@@ -127,7 +133,7 @@ void CTopHudWidget::OnAlmanacButtonClick()
     if (!World)
         return;
 
-    CloseMenus(true, false, true);
+    CloseMenus(true, false, true, true);
 
     auto UIManager = World->GetUIManager().lock();
 
@@ -151,7 +157,7 @@ void CTopHudWidget::OnEdictsButtonClick()
     if (!World)
         return;
 
-    CloseMenus(true, true, false);
+    CloseMenus(true, true, false, true);
 
     auto UIManager = World->GetUIManager().lock();
 
@@ -163,6 +169,50 @@ void CTopHudWidget::OnEdictsButtonClick()
 
     if (EdictWidget)
         EdictWidget->ToggleOpen();
+}
+
+void CTopHudWidget::OnTradeButtonClick()
+{
+    if (mGameLost)
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    CloseMenus(true, true, true, false);
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return;
+
+    auto TradeWidget =
+        UIManager->FindWidget<CTradeWidget>(GTradeWidgetName).lock();
+
+    if (TradeWidget)
+        TradeWidget->ToggleOpen();
+}
+
+void CTopHudWidget::OnSpeedStateButtonClick()
+{
+    if (mGameLost)
+        return;
+
+    auto HudAccess =
+        std::dynamic_pointer_cast<IMainWorldHudAccess>(mWorld.lock());
+
+    if (!HudAccess)
+        return;
+
+    HudAccess->CycleSimulationSpeedState();
+    RefreshFromState();
+}
+
+void CTopHudWidget::OnSpeedMultiplierButtonClick()
+{
+    OnSpeedStateButtonClick();
 }
 
 void CTopHudWidget::OnAnyButtonClick()

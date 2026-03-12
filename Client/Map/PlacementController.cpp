@@ -2,6 +2,7 @@
 #include "BuildingMarkerOrb.h"
 #include "PlacementBuildingVisual.h"
 #include "../UI/CitizenInfoWidget.h"
+#include "../World/MainWorldAccess.h"
 #include "../ObjectNames.h"
 #include "Component/CameraComponent.h"
 #include "Component/TileMapComponent.h"
@@ -206,6 +207,17 @@ bool CPlacementController::BeginBuildPlacement(
 
     if (!World)
         return false;
+
+    const auto MainWorldAccess =
+        std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World);
+
+    if (MainWorldAccess &&
+        !IsBuildingEraUnlocked(
+            MainWorldAccess->GetCurrentEra(),
+            Entry.UnlockEra))
+    {
+        return false;
+    }
 
     if (mDemolitionMode)
         SetDemolitionMode(false);

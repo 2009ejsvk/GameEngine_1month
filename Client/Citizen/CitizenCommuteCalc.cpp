@@ -104,16 +104,135 @@ namespace
         return RouteDistance / WalkingSpeed;
     }
 
-    float EstimateTransitCommuteTime(
+    float ResolveCommutePenaltyNormalized(float CommuteTimeSeconds)
+    {
+        const float GraceSeconds =
+            GameConstants::Citizen::CommutePenaltyGraceSeconds;
+        const float MaxSeconds =
+            GameConstants::Citizen::CommutePenaltyMaxSeconds;
+
+        if (CommuteTimeSeconds <= GraceSeconds)
+            return 0.f;
+
+        if (MaxSeconds <= GraceSeconds)
+            return 1.f;
+
+        return Clamp01(
+            (CommuteTimeSeconds - GraceSeconds) /
+            (MaxSeconds - GraceSeconds));
+    }
+
+    float ResolveVehicleServiceQuality(
+        const std::shared_ptr<CPlacementAreaObject>& HomeBuilding,
+        const std::shared_ptr<CPlacementAreaObject>& WorkBuilding)
+    {
+        const float HomeAccess =
+            HomeBuilding ?
+                Clamp01(HomeBuilding->GetAccessibilityScore()) :
+                0.5f;
+        const float WorkAccess =
+            WorkBuilding ?
+                Clamp01(WorkBuilding->GetAccessibilityScore()) :
+                0.5f;
+        return Clamp01((HomeAccess + WorkAccess) * 0.5f);
+    }
+
+    FCommuteProfile BuildCommuteProfile(
+        ECommuteMode Mode,
+        float DirectDistanceWorld,
+        float TravelSeconds,
+        float WalkDistance,
+        float RideDistance,
+        float WaitSeconds,
+        float ServiceQuality,
+        float CrowdingPenalty)
+    {
+        FCommuteProfile Profile;
+        Profile.Mode = Mode;
+        Profile.DirectDistanceWorld = DirectDistanceWorld;
+        Profile.TravelSeconds = (std::max)(0.f, TravelSeconds);
+        Profile.WalkDistance = (std::max)(0.f, WalkDistance);
+        Profile.RideDistance = (std::max)(0.f, RideDistance);
+        Profile.WaitSeconds = (std::max)(0.f, WaitSeconds);
+        Profile.ServiceQuality = Clamp01(ServiceQuality);
+        Profile.CrowdingPenalty = Clamp01(CrowdingPenalty);
+
+        const float PenaltyRatio =
+            ResolveCommutePenaltyNormalized(Profile.TravelSeconds);
+        float Productivity =
+            1.f - PenaltyRatio * 0.50f - Profile.CrowdingPenalty * 0.10f;
+        float JobRecovery =
+            1.f - PenaltyRatio * 0.42f - Profile.CrowdingPenalty * 0.08f;
+
+        switch (Mode)
+        {
+        case ECommuteMode::Transit:
+            Productivity += Profile.ServiceQuality * 0.10f;
+            JobRecovery += Profile.ServiceQuality * 0.08f;
+            break;
+        case ECommuteMode::Vehicle:
+            Productivity += 0.08f + Profile.ServiceQuality * 0.06f;
+            JobRecovery += 0.06f + Profile.ServiceQuality * 0.05f;
+            break;
+        case ECommuteMode::Walk:
+            Productivity -= PenaltyRatio * 0.08f;
+            JobRecovery -= PenaltyRatio * 0.06f;
+            break;
+        default:
+            break;
+        }
+
+        Profile.ProductivityMultiplier =
+            Clamp<float>(Productivity, 0.45f, 1.12f);
+        Profile.JobRecoveryMultiplier =
+            Clamp<float>(JobRecovery, 0.50f, 1.10f);
+        return Profile;
+    }
+
+    float ScoreCommuteChoice(
+        const FCommuteProfile& Profile,
+        ECitizenWealthLevel WealthLevel)
+    {
+        float Score =
+            Profile.TravelSeconds -
+            Profile.ProductivityMultiplier * 18.f -
+            Profile.ServiceQuality * 6.f +
+            Profile.CrowdingPenalty * 12.f;
+
+        switch (WealthLevel)
+        {
+        case ECitizenWealthLevel::Rich:
+            if (Profile.Mode == ECommuteMode::Vehicle)
+                Score -= 8.f;
+            else if (Profile.Mode == ECommuteMode::Walk)
+                Score += 14.f;
+            break;
+        case ECitizenWealthLevel::WellOff:
+            if (Profile.Mode == ECommuteMode::Transit)
+                Score -= 4.f;
+            else if (Profile.Mode == ECommuteMode::Walk)
+                Score += 5.f;
+            break;
+        default:
+            if (Profile.Mode == ECommuteMode::Transit)
+                Score -= 3.f;
+            break;
+        }
+
+        return Score;
+    }
+
+    bool TryBuildTransitCommuteProfile(
         const std::shared_ptr<CPlacementAreaObject>& HomeBuilding,
         const std::shared_ptr<CPlacementAreaObject>& WorkBuilding,
         float DirectDistanceWorld,
-        const CBusRouteSystem* BusRouteSystem)
+        const CBusRouteSystem* BusRouteSystem,
+        FCommuteProfile& OutProfile)
     {
         (void)DirectDistanceWorld;
 
         if (!BusRouteSystem)
-            return -1.f;
+            return false;
 
         FVector3 HomeAnchor = FVector3::Zero;
         FVector3 WorkAnchor = FVector3::Zero;
@@ -121,7 +240,7 @@ namespace
         if (!TryResolveCommuteAnchor(HomeBuilding, WorkBuilding, HomeAnchor) ||
             !TryResolveCommuteAnchor(WorkBuilding, HomeBuilding, WorkAnchor))
         {
-            return -1.f;
+            return false;
         }
 
         const float TileWorldSpan =
@@ -135,32 +254,41 @@ namespace
                     GameConstants::Citizen::CommuteTransitSpeedMultiplier);
         const float MaxWalkDistance =
             TileWorldSpan * GameConstants::Citizen::CommuteBusStopSearchTiles;
-        float WalkDistance = 0.f;
-        float RideDistance = 0.f;
-        float WaitSeconds = 0.f;
+        FBusCommuteEstimate Estimate;
 
-        if (!BusRouteSystem->TryEstimateCommute(
+        if (!BusRouteSystem->TryEstimateCommuteDetailed(
                 HomeAnchor,
                 WorkAnchor,
                 MaxWalkDistance,
-                WalkDistance,
-                RideDistance,
-                WaitSeconds))
+                Estimate))
         {
-            return -1.f;
+            return false;
         }
 
-        return WaitSeconds +
-            WalkDistance / WalkingSpeed +
-            RideDistance / TransitSpeed;
+        OutProfile = BuildCommuteProfile(
+            ECommuteMode::Transit,
+            DirectDistanceWorld,
+            Estimate.WaitSeconds +
+                Estimate.WalkDistance / WalkingSpeed +
+                Estimate.RideDistance / TransitSpeed,
+            Estimate.WalkDistance,
+            Estimate.RideDistance,
+            Estimate.WaitSeconds,
+            Estimate.ServiceQuality,
+            Estimate.CrowdingPenalty);
+        return true;
     }
 
-    float EstimateVehicleCommuteTime(
+    bool TryBuildVehicleCommuteProfile(
         const std::shared_ptr<CPlacementAreaObject>& HomeBuilding,
         const std::shared_ptr<CPlacementAreaObject>& WorkBuilding,
         float DirectDistanceWorld,
-        const CRoadNetwork* RoadNetwork)
+        const CRoadNetwork* RoadNetwork,
+        FCommuteProfile& OutProfile)
     {
+        if (!HasRoadAccess(HomeBuilding) || !HasRoadAccess(WorkBuilding))
+            return false;
+
         const float TileWorldSpan =
             ResolveApproxTileWorldSpan(HomeBuilding, WorkBuilding);
         const float WalkingSpeed =
@@ -195,14 +323,23 @@ namespace
                 GameConstants::Citizen::CommuteRoadRouteFactor;
         }
 
-        return ConnectorDistance / WalkingSpeed +
-            RoadDistance / VehicleSpeed;
+        OutProfile = BuildCommuteProfile(
+            ECommuteMode::Vehicle,
+            DirectDistanceWorld,
+            ConnectorDistance / WalkingSpeed +
+                RoadDistance / VehicleSpeed,
+            ConnectorDistance,
+            RoadDistance,
+            0.f,
+            ResolveVehicleServiceQuality(HomeBuilding, WorkBuilding),
+            0.f);
+        return true;
     }
 }
 
 namespace CitizenCommuteCalc
 {
-    float EstimateCommuteTime(
+    FCommuteProfile ResolveCommuteProfile(
         const std::shared_ptr<CPlacementAreaObject>& HomeBuilding,
         const std::shared_ptr<CPlacementAreaObject>& WorkBuilding,
         const FCitizenIdentityProfile& IdentityProfile,
@@ -213,70 +350,79 @@ namespace CitizenCommuteCalc
             ResolveDirectDistanceWorld(HomeBuilding, WorkBuilding);
 
         if (DirectDistanceWorld <= 1.f)
-            return 0.f;
+            return FCommuteProfile();
 
-        switch (IdentityProfile.WealthLevel)
+        const float WalkDistance =
+            DirectDistanceWorld *
+            GameConstants::Citizen::CommuteWalkingRouteFactor;
+        FCommuteProfile BestProfile = BuildCommuteProfile(
+            ECommuteMode::Walk,
+            DirectDistanceWorld,
+            EstimateWalkingCommuteTime(DirectDistanceWorld),
+            WalkDistance,
+            0.f,
+            0.f,
+            0.30f,
+            0.f);
+        float BestScore =
+            ScoreCommuteChoice(BestProfile, IdentityProfile.WealthLevel);
+
+        FCommuteProfile TransitProfile;
+
+        if (TryBuildTransitCommuteProfile(
+                HomeBuilding,
+                WorkBuilding,
+                DirectDistanceWorld,
+                BusRouteSystem,
+                TransitProfile))
         {
-        case ECitizenWealthLevel::Rich:
-            if (HasRoadAccess(HomeBuilding) && HasRoadAccess(WorkBuilding))
+            const float TransitScore =
+                ScoreCommuteChoice(TransitProfile, IdentityProfile.WealthLevel);
+
+            if (TransitScore < BestScore)
             {
-                return EstimateVehicleCommuteTime(
-                    HomeBuilding,
-                    WorkBuilding,
-                    DirectDistanceWorld,
-                    RoadNetwork);
+                BestProfile = TransitProfile;
+                BestScore = TransitScore;
             }
-
-            if (BusRouteSystem)
-            {
-                const float TransitTime = EstimateTransitCommuteTime(
-                    HomeBuilding,
-                    WorkBuilding,
-                    DirectDistanceWorld,
-                    BusRouteSystem);
-
-                if (TransitTime > 0.f)
-                    return TransitTime;
-            }
-            break;
-
-        case ECitizenWealthLevel::WellOff:
-            if (BusRouteSystem)
-            {
-                const float TransitTime = EstimateTransitCommuteTime(
-                    HomeBuilding,
-                    WorkBuilding,
-                    DirectDistanceWorld,
-                    BusRouteSystem);
-
-                if (TransitTime > 0.f)
-                    return TransitTime;
-            }
-            break;
-
-        default:
-            break;
         }
 
-        return EstimateWalkingCommuteTime(DirectDistanceWorld);
+        FCommuteProfile VehicleProfile;
+
+        if (IdentityProfile.WealthLevel == ECitizenWealthLevel::Rich &&
+            TryBuildVehicleCommuteProfile(
+                HomeBuilding,
+                WorkBuilding,
+                DirectDistanceWorld,
+                RoadNetwork,
+                VehicleProfile))
+        {
+            const float VehicleScore =
+                ScoreCommuteChoice(VehicleProfile, IdentityProfile.WealthLevel);
+
+            if (VehicleScore < BestScore)
+                BestProfile = VehicleProfile;
+        }
+
+        return BestProfile;
+    }
+
+    float EstimateCommuteTime(
+        const std::shared_ptr<CPlacementAreaObject>& HomeBuilding,
+        const std::shared_ptr<CPlacementAreaObject>& WorkBuilding,
+        const FCitizenIdentityProfile& IdentityProfile,
+        const CRoadNetwork* RoadNetwork,
+        const CBusRouteSystem* BusRouteSystem)
+    {
+        return ResolveCommuteProfile(
+            HomeBuilding,
+            WorkBuilding,
+            IdentityProfile,
+            RoadNetwork,
+            BusRouteSystem).TravelSeconds;
     }
 
     float EstimateCommutePenalty(float CommuteTimeSeconds)
     {
-        const float GraceSeconds =
-            GameConstants::Citizen::CommutePenaltyGraceSeconds;
-        const float MaxSeconds =
-            GameConstants::Citizen::CommutePenaltyMaxSeconds;
-
-        if (CommuteTimeSeconds <= GraceSeconds)
-            return 0.f;
-
-        if (MaxSeconds <= GraceSeconds)
-            return 100.f;
-
-        const float Ratio =
-            (CommuteTimeSeconds - GraceSeconds) /
-            (MaxSeconds - GraceSeconds);
-        return Clamp01(Ratio) * 100.f;
+        return ResolveCommutePenaltyNormalized(CommuteTimeSeconds) * 100.f;
     }
 }

@@ -75,6 +75,9 @@ struct FCitizenWellbeingState
     float SatisfactionTickAccum = 0.f;
     float PoliticalTickAccum = 0.f;
     bool FoodStockAvailableThisVisit = false;
+    bool FunServiceAvailableThisVisit = false;
+    bool HealthServiceAvailableThisVisit = false;
+    bool FaithServiceAvailableThisVisit = false;
 
     void InitializeDefaults()
     {

@@ -26,6 +26,16 @@ struct FBusRoute
     float LoopDistance = 0.f;
 };
 
+struct FBusCommuteEstimate
+{
+    int RouteIndex = -1;
+    float WalkDistance = 0.f;
+    float RideDistance = 0.f;
+    float WaitSeconds = 0.f;
+    float ServiceQuality = 0.f;
+    float CrowdingPenalty = 0.f;
+};
+
 class CBusRouteSystem
 {
 public:
@@ -50,6 +60,12 @@ public:
         float& OutRideDistance,
         float& OutWaitSeconds) const;
 
+    bool TryEstimateCommuteDetailed(
+        const FVector3& StartPos,
+        const FVector3& EndPos,
+        float MaxWalkDistance,
+        FBusCommuteEstimate& OutEstimate) const;
+
     const std::vector<FBusStop>& GetStops() const
     {
         return mStops;
@@ -66,6 +82,9 @@ private:
         const FBusRoute& Route,
         int BoardOrderIndex,
         int AlightOrderIndex) const;
+    float EstimateRouteServiceQuality(
+        const FBusRoute& Route,
+        float& OutCrowdingPenalty) const;
 
 private:
     std::vector<FBusStop> mStops;

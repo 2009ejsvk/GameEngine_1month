@@ -1,4 +1,6 @@
 #include "EconomySystem.h"
+#include "ResourceTradePricing.h"
+#include "TradePolicyRuntime.h"
 #include "../Politics/EdictSystem.h"
 #include "../GameConstants.h"
 #include "World/World.h"
@@ -12,11 +14,32 @@
 
 namespace
 {
-    struct FHarborImportDemandSnapshot
+    struct FHarborTradeDemandSnapshot
     {
         int HarborCount = 0;
         std::array<int, static_cast<size_t>(EResourceType::Count)>
             ConsumerShortageByType = {};
+        std::array<int, static_cast<size_t>(EResourceType::Count)>
+            ConsumerCountByType = {};
+        std::array<int, static_cast<size_t>(EResourceType::Count)>
+            RemainingAvailableByType = {};
+    };
+
+    struct FHarborExportCandidate
+    {
+        EResourceType Type = EResourceType::None;
+        int ExportAmount = 0;
+        int UnitPrice = 0;
+    };
+
+    struct FHarborImportCandidate
+    {
+        EResourceType Type = EResourceType::None;
+        int Priority = 0;
+        int NormalAmount = 0;
+        int EmergencyAmount = 0;
+        int NormalUnitPrice = 0;
+        int EmergencyUnitPrice = 0;
     };
 
     struct FTaxEventEconomyEffects
@@ -39,44 +62,10 @@ namespace
             Building->HasPlacedArea();
     }
 
-    bool TryResolveImportConsumerShortage(
-        const std::shared_ptr<CPlacementAreaObject>& Building,
-        EResourceType& OutType,
-        int& OutShortage)
-    {
-        OutType = EResourceType::None;
-        OutShortage = 0;
-
-        if (!IsOperationalBuilding(Building) ||
-            Building->IsRoad() ||
-            Building->IsBusStop() ||
-            Building->IsHarbor() ||
-            Building->IsTransportOffice() ||
-            Building->IsWarehouse())
-        {
-            return false;
-        }
-
-        OutType = Building->GetVisitConsumptionResourceType();
-
-        if (OutType == EResourceType::None ||
-            Building->GetProducedResourceType() == OutType)
-        {
-            return false;
-        }
-
-        const int CurrentStock = Building->GetResourceStock(OutType);
-        OutShortage = (std::max)(
-            0,
-            GameConstants::Economy::HarborImportTargetStockPerConsumer -
-                CurrentStock);
-        return OutShortage > 0;
-    }
-
-    FHarborImportDemandSnapshot BuildHarborImportDemandSnapshot(
+    FHarborTradeDemandSnapshot BuildHarborTradeDemandSnapshot(
         const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList)
     {
-        FHarborImportDemandSnapshot Snapshot;
+        FHarborTradeDemandSnapshot Snapshot;
 
         for (size_t i = 0; i < BuildingList.size(); ++i)
         {
@@ -88,61 +77,385 @@ namespace
             if (Building->IsHarbor())
                 ++Snapshot.HarborCount;
 
-            EResourceType ResourceType = EResourceType::None;
-            int Shortage = 0;
+            for (int ResourceIndex = 1;
+                ResourceIndex < static_cast<int>(EResourceType::Count);
+                ++ResourceIndex)
+            {
+                const EResourceType ResourceType =
+                    static_cast<EResourceType>(ResourceIndex);
+                Snapshot.RemainingAvailableByType[
+                    static_cast<size_t>(ResourceType)] +=
+                        Building->GetAvailableResourceStock(ResourceType);
+            }
 
-            if (!TryResolveImportConsumerShortage(
-                    Building,
-                    ResourceType,
-                    Shortage))
+            if (Building->IsRoad() ||
+                Building->IsBusStop() ||
+                Building->IsHarbor() ||
+                Building->IsTransportOffice() ||
+                Building->IsWarehouse())
             {
                 continue;
             }
 
-            const size_t ResourceIndex = static_cast<size_t>(ResourceType);
+            auto AccumulateShortage = [&](EResourceType ResourceType)
+            {
+                if (ResourceType == EResourceType::None ||
+                    ResourceType == Building->GetProducedResourceType())
+                {
+                    return;
+                }
 
-            if (ResourceIndex >= Snapshot.ConsumerShortageByType.size())
-                continue;
+                const size_t ResourceIndex = static_cast<size_t>(ResourceType);
 
-            Snapshot.ConsumerShortageByType[ResourceIndex] += Shortage;
+                if (ResourceIndex >= Snapshot.ConsumerShortageByType.size())
+                    return;
+
+                const int CurrentStock =
+                    Building->GetResourceStock(ResourceType) +
+                    Building->GetReservedIncomingResourceAmount(ResourceType);
+                const int Shortage = (std::max)(
+                    0,
+                    GameConstants::Economy::HarborImportTargetStockPerConsumer -
+                        CurrentStock);
+
+                ++Snapshot.ConsumerCountByType[ResourceIndex];
+                Snapshot.ConsumerShortageByType[ResourceIndex] += Shortage;
+            };
+
+            AccumulateShortage(Building->GetVisitConsumptionResourceType());
+
+            for (int SlotIndex = 0;
+                 SlotIndex < Building->GetProductionInputCount();
+                 ++SlotIndex)
+            {
+                const EResourceType InputType =
+                    Building->GetProductionInputType(SlotIndex);
+
+                if (InputType == Building->GetVisitConsumptionResourceType())
+                    continue;
+
+                AccumulateShortage(InputType);
+            }
         }
 
         return Snapshot;
     }
 
-    int ResolveHarborImportAmount(
+    FHarborImportCandidate ResolveHarborImportCandidate(
         const std::shared_ptr<CPlacementAreaObject>& Harbor,
         EResourceType ResourceType,
-        const FHarborImportDemandSnapshot& DemandSnapshot)
+        const FHarborTradeDemandSnapshot& DemandSnapshot,
+        const TradePolicy::FImportTradePolicy& ImportPolicy)
     {
+        FHarborImportCandidate Candidate;
+        Candidate.Type = ResourceType;
+
         if (!IsOperationalBuilding(Harbor) ||
             !Harbor->IsHarbor() ||
             !IsExportableResourceType(ResourceType) ||
+            !TradePolicy::IsResourceImportAllowed(
+                ImportPolicy,
+                ResourceType) ||
             DemandSnapshot.HarborCount <= 0)
         {
-            return 0;
+            return Candidate;
         }
 
         const size_t ResourceIndex = static_cast<size_t>(ResourceType);
 
         if (ResourceIndex >= DemandSnapshot.ConsumerShortageByType.size())
-            return 0;
+            return Candidate;
 
         const int GlobalShortage =
             DemandSnapshot.ConsumerShortageByType[ResourceIndex];
 
         if (GlobalShortage <= 0)
-            return 0;
+            return Candidate;
 
         const int HarborShare =
             (GlobalShortage + DemandSnapshot.HarborCount - 1) /
             DemandSnapshot.HarborCount;
         const int CurrentStock = Harbor->GetResourceStock(ResourceType);
         const int NeededAmount = (std::max)(0, HarborShare - CurrentStock);
+        const int NormalCap =
+            TradePolicy::GetImportMaxUnitsPerResource(ImportPolicy);
 
-        return (std::min)(
-            NeededAmount,
-            GameConstants::Economy::HarborImportMaxPerResourcePerShip);
+        if (NeededAmount <= 0 || NormalCap <= 0)
+            return Candidate;
+
+        Candidate.Priority = NeededAmount;
+        Candidate.NormalAmount = (std::min)(NeededAmount, NormalCap);
+        Candidate.NormalUnitPrice =
+            ResourceTradePricing::GetImportPricePerStockUnit(ResourceType);
+        Candidate.EmergencyUnitPrice = (std::max)(
+            Candidate.NormalUnitPrice + 1,
+            static_cast<int>(std::ceil(
+                static_cast<double>(Candidate.NormalUnitPrice) *
+                TradePolicy::GEmergencyImportCostMultiplier)));
+
+        const int RemainingNeed =
+            (std::max)(0, NeededAmount - Candidate.NormalAmount);
+        const bool CriticalShortage =
+            RemainingNeed >= NormalCap / 2 ||
+            CurrentStock <=
+                GameConstants::Economy::HarborImportTargetStockPerConsumer / 4;
+
+        if (TradePolicy::AllowsEmergencyImports(ImportPolicy) &&
+            CriticalShortage &&
+            RemainingNeed > 0)
+        {
+            Candidate.EmergencyAmount = (std::min)(RemainingNeed, NormalCap);
+        }
+
+        return Candidate;
+    }
+
+    int ResolveDomesticExportReserveAmount(
+        const FHarborTradeDemandSnapshot& DemandSnapshot,
+        EResourceType ResourceType,
+        const TradePolicy::FExportTradePolicy& ExportPolicy)
+    {
+        const size_t ResourceIndex = static_cast<size_t>(ResourceType);
+
+        if (ResourceIndex >= DemandSnapshot.ConsumerShortageByType.size())
+            return 0;
+
+        const int ConsumerCount =
+            DemandSnapshot.ConsumerCountByType[ResourceIndex];
+        return DemandSnapshot.ConsumerShortageByType[ResourceIndex] +
+            (ConsumerCount > 0 ?
+                TradePolicy::GetDomesticReserveBufferUnits(ExportPolicy) :
+                0);
+    }
+
+    long long SettleHarborExportIncome(
+        const std::shared_ptr<CPlacementAreaObject>& Harbor,
+        const TradePolicy::FExportTradePolicy& ExportPolicy,
+        double ExportMultiplier,
+        FHarborTradeDemandSnapshot& DemandSnapshot)
+    {
+        if (!IsOperationalBuilding(Harbor) || !Harbor->IsHarbor())
+            return 0;
+
+        const int ShipCapacity =
+            TradePolicy::GetHarborExportShipCapacityUnits(ExportPolicy);
+
+        if (ShipCapacity <= 0 || ExportMultiplier <= 0.0)
+            return 0;
+
+        long long ExportIncome = 0;
+        int RemainingShipCapacity = ShipCapacity;
+        std::vector<FHarborExportCandidate> Candidates;
+
+        for (int ResourceIndex = 1;
+             ResourceIndex < static_cast<int>(EResourceType::Count);
+             ++ResourceIndex)
+        {
+            const EResourceType ResourceType =
+                static_cast<EResourceType>(ResourceIndex);
+
+            if (!TradePolicy::IsResourceExportAllowed(
+                    ExportPolicy,
+                    ResourceType))
+                continue;
+
+            const int ResourceStock = Harbor->GetResourceStock(ResourceType);
+            const int EffectiveExportStock = static_cast<int>(std::floor(
+                static_cast<double>(ResourceStock) * ExportMultiplier));
+            const size_t ResourceArrayIndex =
+                static_cast<size_t>(ResourceType);
+            const int DomesticReserveAmount =
+                ResolveDomesticExportReserveAmount(
+                    DemandSnapshot,
+                    ResourceType,
+                    ExportPolicy);
+            const int GlobalExportHeadroom =
+                ResourceArrayIndex <
+                    DemandSnapshot.RemainingAvailableByType.size() ?
+                (std::max)(
+                    0,
+                    DemandSnapshot.RemainingAvailableByType[
+                        ResourceArrayIndex] - DomesticReserveAmount) :
+                0;
+            const int ExportAmount = (std::min)(
+                EffectiveExportStock,
+                GlobalExportHeadroom);
+
+            if (ExportAmount <= 0)
+                continue;
+
+            FHarborExportCandidate Candidate;
+            Candidate.Type = ResourceType;
+            Candidate.ExportAmount = ExportAmount;
+            Candidate.UnitPrice =
+                ResourceTradePricing::GetExportPricePerStockUnit(ResourceType);
+            Candidates.push_back(Candidate);
+        }
+
+        std::sort(
+            Candidates.begin(),
+            Candidates.end(),
+            [&](const FHarborExportCandidate& A,
+                const FHarborExportCandidate& B)
+            {
+                if (ExportPolicy.PrioritizeHighValueCargo &&
+                    A.UnitPrice != B.UnitPrice)
+                {
+                    return A.UnitPrice > B.UnitPrice;
+                }
+
+                if (A.ExportAmount != B.ExportAmount)
+                    return A.ExportAmount > B.ExportAmount;
+
+                return static_cast<int>(A.Type) < static_cast<int>(B.Type);
+            });
+
+        for (const FHarborExportCandidate& Candidate : Candidates)
+        {
+            if (RemainingShipCapacity <= 0)
+                break;
+
+            const int AmountToExport = (std::min)(
+                Candidate.ExportAmount,
+                RemainingShipCapacity);
+
+            if (AmountToExport <= 0)
+                continue;
+
+            if (!Harbor->TryConsumeResource(
+                    Candidate.Type,
+                    AmountToExport))
+            {
+                continue;
+            }
+
+            ExportIncome += ResourceTradePricing::ComputeExportValue(
+                Candidate.Type,
+                AmountToExport);
+            RemainingShipCapacity -= AmountToExport;
+
+            const size_t ResourceArrayIndex =
+                static_cast<size_t>(Candidate.Type);
+
+            if (ResourceArrayIndex <
+                DemandSnapshot.RemainingAvailableByType.size())
+            {
+                DemandSnapshot.RemainingAvailableByType[
+                    ResourceArrayIndex] = (std::max)(
+                        0,
+                        DemandSnapshot.RemainingAvailableByType[
+                            ResourceArrayIndex] - AmountToExport);
+            }
+        }
+
+        return ExportIncome;
+    }
+
+    long long SettleHarborImportExpense(
+        const std::shared_ptr<CPlacementAreaObject>& Harbor,
+        const FHarborTradeDemandSnapshot& DemandSnapshot,
+        const TradePolicy::FImportTradePolicy& ImportPolicy,
+        long long& InOutRemainingImportBudget)
+    {
+        if (!IsOperationalBuilding(Harbor) || !Harbor->IsHarbor())
+            return 0;
+
+        long long ImportExpense = 0;
+        const bool UseBudgetCap =
+            TradePolicy::GetDailyImportBudgetCap(ImportPolicy) > 0;
+        std::vector<FHarborImportCandidate> Candidates;
+
+        for (int ResourceIndex = 1;
+             ResourceIndex < static_cast<int>(EResourceType::Count);
+             ++ResourceIndex)
+        {
+            const EResourceType ResourceType =
+                static_cast<EResourceType>(ResourceIndex);
+            const FHarborImportCandidate Candidate =
+                ResolveHarborImportCandidate(
+                    Harbor,
+                    ResourceType,
+                    DemandSnapshot,
+                    ImportPolicy);
+
+            if (Candidate.NormalAmount <= 0 &&
+                Candidate.EmergencyAmount <= 0)
+            {
+                continue;
+            }
+
+            Candidates.push_back(Candidate);
+        }
+
+        std::sort(
+            Candidates.begin(),
+            Candidates.end(),
+            [](const FHarborImportCandidate& A,
+                const FHarborImportCandidate& B)
+            {
+                if (A.Priority != B.Priority)
+                    return A.Priority > B.Priority;
+
+                if (A.NormalUnitPrice != B.NormalUnitPrice)
+                    return A.NormalUnitPrice < B.NormalUnitPrice;
+
+                return static_cast<int>(A.Type) < static_cast<int>(B.Type);
+            });
+
+        auto ImportCargo = [&](EResourceType Type, int RequestedAmount, int UnitPrice)
+        {
+            if (RequestedAmount <= 0 || UnitPrice <= 0)
+                return;
+
+            int AmountToImport = RequestedAmount;
+
+            if (UseBudgetCap)
+            {
+                if (InOutRemainingImportBudget <= 0)
+                    return;
+
+                const long long MaxAffordableAmount =
+                    InOutRemainingImportBudget /
+                    static_cast<long long>(UnitPrice);
+                AmountToImport = (std::min)(
+                    AmountToImport,
+                    static_cast<int>((std::max)(0ll, MaxAffordableAmount)));
+            }
+
+            if (AmountToImport <= 0)
+                return;
+
+            Harbor->AddResourceStock(Type, AmountToImport);
+            const long long PurchaseCost =
+                static_cast<long long>(AmountToImport) *
+                static_cast<long long>(UnitPrice);
+            ImportExpense += PurchaseCost;
+
+            if (UseBudgetCap)
+            {
+                InOutRemainingImportBudget = (std::max)(
+                    0ll,
+                    InOutRemainingImportBudget - PurchaseCost);
+            }
+        };
+
+        for (size_t Index = 0; Index < Candidates.size(); ++Index)
+        {
+            ImportCargo(
+                Candidates[Index].Type,
+                Candidates[Index].NormalAmount,
+                Candidates[Index].NormalUnitPrice);
+        }
+
+        for (size_t Index = 0; Index < Candidates.size(); ++Index)
+        {
+            ImportCargo(
+                Candidates[Index].Type,
+                Candidates[Index].EmergencyAmount,
+                Candidates[Index].EmergencyUnitPrice);
+        }
+
+        return ImportExpense;
     }
 
     int* ResolveTaxRatePercent(
@@ -363,9 +676,12 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
     if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
         return Result;
 
-    const FHarborImportDemandSnapshot HarborImportDemand =
-        BuildHarborImportDemandSnapshot(BuildingList);
+    FHarborTradeDemandSnapshot HarborTradeDemand =
+        BuildHarborTradeDemandSnapshot(BuildingList);
     double PropertyTaxIncome = 0.0;
+    long long RemainingImportBudget =
+        TradePolicy::GetDailyImportBudgetCap(
+            GovernmentProfile.ImportTradePolicy);
 
     for (size_t i = 0; i < BuildingList.size(); ++i)
     {
@@ -408,39 +724,20 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
             if (!ShipArrived)
                 continue;
 
-            const int ExportStock = Building->GetExportableResourceStock();
-            const int EffectiveExportStock = static_cast<int>(std::floor(
-                static_cast<double>(ExportStock) *
-                EventEffects.ExportMultiplier));
-
-            if (EffectiveExportStock > 0 &&
-                Building->TryConsumeExportableResources(
-                    EffectiveExportStock))
-            {
-                Result.ExportIncome += static_cast<long long>(
-                    EffectiveExportStock) *
-                    GameConstants::Economy::ExportPricePerStockUnit;
-            }
-
-            for (int ResourceIndex = 0;
-                 ResourceIndex < static_cast<int>(EResourceType::Count);
-                 ++ResourceIndex)
-            {
-                const EResourceType ResourceType =
-                    static_cast<EResourceType>(ResourceIndex);
-                const int ImportAmount = ResolveHarborImportAmount(
-                    Building,
-                    ResourceType,
-                    HarborImportDemand);
-
-                if (ImportAmount <= 0)
-                    continue;
-
-                Building->AddResourceStock(ResourceType, ImportAmount);
-                Result.ImportExpense += static_cast<long long>(ImportAmount) *
-                    GameConstants::Economy::ImportPricePerStockUnit;
-            }
+            Result.ExportIncome += SettleHarborExportIncome(
+                Building,
+                GovernmentProfile.ExportTradePolicy,
+                EventEffects.ExportMultiplier,
+                HarborTradeDemand);
+            Result.ImportExpense += SettleHarborImportExpense(
+                Building,
+                HarborTradeDemand,
+                GovernmentProfile.ImportTradePolicy,
+                RemainingImportBudget);
         }
+
+        if (Building->IsWarehouse())
+            Building->ApplyDailyWarehouseStorageLoss();
     }
 
     std::vector<std::weak_ptr<CBuildingMarkerOrb>> CitizenList;
@@ -586,13 +883,20 @@ EconomySystem::FWorldSettlementResult EconomySystem::ApplyDailyWorldSettlement(
             DaysInMonth);
     const long long DailyEdictBudgetDelta =
         EdictModifiers.DailyBudgetDelta;
+    Result.DailyTradePolicyBudgetDelta =
+        TradePolicyRuntime::ComputeDailyTradePolicyBudgetDelta(
+            GovernmentProfile.ExportTradePolicy,
+            GovernmentProfile.ImportTradePolicy,
+            Result.BaseResult.ExportIncome,
+            Result.BaseResult.ImportExpense);
 
     Result.DailyEdictCost = DailyEdictUpkeep - DailyEdictBudgetDelta;
     Result.NetBudgetChange =
         Result.BaseResult.NetChange +
         TaxRevenueDelta -
         DailyEdictUpkeep +
-        DailyEdictBudgetDelta;
+        DailyEdictBudgetDelta +
+        Result.DailyTradePolicyBudgetDelta;
     return Result;
 }
 

@@ -1,6 +1,7 @@
 #include "AlmanacRenderer.h"
 #include "AlmanacRendererCalc.h"
 #include "AlmanacRendererInternal.h"
+#include "../Economy/ResourceTradePricing.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -46,6 +47,168 @@ namespace
             return L"+" + FormatCompactCurrency(Value);
 
         return FormatCompactCurrency(Value);
+    }
+
+    std::wstring FormatSignedPercentValue(int Value)
+    {
+        return std::wstring(Value > 0 ? L"+" : L"") +
+            std::to_wstring(Value) +
+            L"%";
+    }
+
+    FVector4 ResolveMarketPressureTint(int Value)
+    {
+        if (Value > 0)
+            return FVector4(0.82f, 0.52f, 0.20f, 0.95f);
+        if (Value < 0)
+            return FVector4(0.22f, 0.56f, 0.78f, 0.95f);
+
+        return FVector4(0.62f, 0.60f, 0.52f, 0.90f);
+    }
+
+    std::wstring BuildStoragePressureText(int BiasPercent)
+    {
+        if (BiasPercent > 0)
+            return L"희소성 " + FormatSignedPercentValue(BiasPercent);
+        if (BiasPercent < 0)
+            return L"공급 과잉 " + FormatSignedPercentValue(BiasPercent);
+
+        return L"안정";
+    }
+
+    std::wstring BuildBalancePressureText(int BiasPercent)
+    {
+        if (BiasPercent > 0)
+            return L"소비 우세 " + FormatSignedPercentValue(BiasPercent);
+        if (BiasPercent < 0)
+            return L"생산 우세 " + FormatSignedPercentValue(BiasPercent);
+
+        return L"균형";
+    }
+
+    std::wstring BuildTemporalPressureText(int BiasPercent)
+    {
+        if (BiasPercent > 0)
+            return L"상승 파동 " + FormatSignedPercentValue(BiasPercent);
+        if (BiasPercent < 0)
+            return L"하락 파동 " + FormatSignedPercentValue(BiasPercent);
+
+        return L"횡보";
+    }
+
+    std::wstring BuildEventPressureText(
+        const AlmanacDataProvider::FAlmanacSnapshot& Snapshot,
+        int BiasPercent)
+    {
+        std::wstring SourceText;
+
+        if (Snapshot.TaxEventStatus.Active &&
+            !Snapshot.TaxEventStatus.Title.empty())
+        {
+            SourceText = Snapshot.TaxEventStatus.Title;
+        }
+
+        if (Snapshot.WorldCrisisStatus.Active &&
+            !Snapshot.WorldCrisisStatus.Title.empty())
+        {
+            if (!SourceText.empty())
+                SourceText += L" / ";
+
+            SourceText += Snapshot.WorldCrisisStatus.Title;
+        }
+
+        if (SourceText.empty())
+            return L"없음";
+
+        return SourceText + L" " + FormatSignedPercentValue(BiasPercent);
+    }
+
+    std::wstring BuildTopBuildingMetricSummary(
+        const std::vector<std::pair<std::wstring, int>>& Entries,
+        size_t MaxCount,
+        const wchar_t* Suffix = nullptr)
+    {
+        std::wstring Result;
+
+        for (size_t Index = 0;
+            Index < Entries.size() && Index < MaxCount;
+            ++Index)
+        {
+            if (Entries[Index].second <= 0)
+                continue;
+
+            if (!Result.empty())
+                Result += L", ";
+
+            Result += Entries[Index].first;
+            Result += L" ";
+            Result += FormatInteger(Entries[Index].second);
+
+            if (Suffix && *Suffix)
+                Result += Suffix;
+        }
+
+        return Result;
+    }
+
+    std::wstring BuildResourceLogisticsWarning(
+        const AlmanacDataProvider::FAlmanacResourceTypeSnapshot& Resource)
+    {
+        if (Resource.ShortagePressure > 0 &&
+            !Resource.TopShortageBuildings.empty())
+        {
+            return L"병목: " +
+                BuildTopBuildingMetricSummary(
+                    Resource.TopShortageBuildings,
+                    2);
+        }
+
+        if (Resource.ReservedPickup > 0 &&
+            !Resource.TopReservedBuildings.empty())
+        {
+            return L"운송 대기: " +
+                BuildTopBuildingMetricSummary(
+                    Resource.TopReservedBuildings,
+                    2);
+        }
+
+        if (!Resource.TopOverflowBuildings.empty())
+        {
+            return L"과잉 재고: " +
+                BuildTopBuildingMetricSummary(
+                    Resource.TopOverflowBuildings,
+                    2,
+                    L"%");
+        }
+
+        return L"흐름 안정";
+    }
+
+    std::wstring BuildFlowStageHeadline(
+        const std::vector<std::pair<std::wstring, int>>& Entries,
+        const wchar_t* EmptyText)
+    {
+        if (Entries.empty())
+            return EmptyText ? std::wstring(EmptyText) : std::wstring(L"-");
+
+        return Entries.front().first;
+    }
+
+    std::wstring BuildFlowStageNotice(
+        const AlmanacDataProvider::FAlmanacResourceTypeSnapshot& Resource)
+    {
+        return L"대표 흐름: " +
+            BuildFlowStageHeadline(Resource.TopProducerBuildings, L"-") +
+            L" -> " +
+            BuildFlowStageHeadline(Resource.TopWarehouseBuildings, L"-") +
+            L" -> " +
+            BuildFlowStageHeadline(
+                Resource.ShortagePressure > 0 ?
+                    Resource.TopShortageBuildings :
+                    Resource.TopConsumerBuildings,
+                L"-") +
+            L" -> " +
+            BuildFlowStageHeadline(Resource.TopHarborBuildings, L"-");
     }
 
     std::wstring BuildOverviewElectionText(
@@ -1289,27 +1452,24 @@ void FAlmanacRenderer::ApplyResourcePage(
             nullptr;
         std::wstring Name;
     };
-    struct FResourceGraphEntry
-    {
-        std::wstring Label;
-        int Value = 0;
-        FVector4 Tint = FVector4(0.22f, 0.58f, 0.82f, 0.92f);
-    };
-
-    constexpr int GTrackedResourceEntryCount =
-        static_cast<int>(EResourceType::Count) - 1;
-    std::array<FResourceUiEntry, GTrackedResourceEntryCount> ResourceEntries = {};
+    std::vector<FResourceUiEntry> ResourceEntries;
+    ResourceEntries.reserve(static_cast<size_t>(EResourceType::Count));
 
     for (int ResourceIndex = 1;
         ResourceIndex < static_cast<int>(EResourceType::Count);
         ++ResourceIndex)
     {
-        const int EntryIndex = ResourceIndex - 1;
-        ResourceEntries[static_cast<size_t>(EntryIndex)].Resource =
+        const EResourceType ResourceType =
+            static_cast<EResourceType>(ResourceIndex);
+
+        if (!IsExportableResourceType(ResourceType))
+            continue;
+
+        FResourceUiEntry Entry;
+        Entry.Resource =
             &Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)];
-        ResourceEntries[static_cast<size_t>(EntryIndex)].Name =
-            GetResourceTypeDisplayName(
-                static_cast<EResourceType>(ResourceIndex));
+        Entry.Name = GetResourceTypeDisplayName(ResourceType);
+        ResourceEntries.push_back(std::move(Entry));
     }
 
     const int ResourceMaxIndex =
@@ -1317,44 +1477,51 @@ void FAlmanacRenderer::ApplyResourcePage(
     const int SelectedResourceIndex =
         (std::max)(0, (std::min)(Widget.mSelectedResourceIndex, ResourceMaxIndex));
     Widget.mSelectedResourceIndex = SelectedResourceIndex;
+    const int VisibleRowCount =
+        static_cast<int>(Widget.mResourceRows.size());
+    const int ResourceWindowMaxStart = (std::max)(
+        0,
+        static_cast<int>(ResourceEntries.size()) - VisibleRowCount);
+    const int VisibleStartIndex = (std::max)(
+        0,
+        (std::min)(
+            SelectedResourceIndex - VisibleRowCount / 2,
+            ResourceWindowMaxStart));
+    Widget.mVisibleResourceRowOffset = VisibleStartIndex;
     const FResourceUiEntry& SelectedResourceEntry =
         ResourceEntries[static_cast<size_t>(SelectedResourceIndex)];
     const AlmanacDataProvider::FAlmanacResourceTypeSnapshot& SelectedResource =
         *SelectedResourceEntry.Resource;
-    const int GraphMaxValue = (std::max)(
-        1,
-        (std::max)(
-            SelectedResource.ReservedIncoming,
-            !SelectedResource.TopStockBuildings.empty() ?
-                SelectedResource.TopStockBuildings[0].second :
-                SelectedResource.TotalStock));
-    const double CapacityRatio =
-        SelectedResource.Capacity > 0 ?
-            static_cast<double>(SelectedResource.TotalStock) /
-                static_cast<double>(SelectedResource.Capacity) :
-            0.0;
-    const double AvailableRatio =
-        SelectedResource.Capacity > 0 ?
-            static_cast<double>(SelectedResource.AvailableStock) /
-                static_cast<double>(SelectedResource.Capacity) :
-            0.0;
-    const double IncomingRatio =
-        SelectedResource.Capacity > 0 ?
-            static_cast<double>(SelectedResource.ReservedIncoming) /
-                static_cast<double>(SelectedResource.Capacity) :
-            0.0;
-    const double StorageSiteRatio =
-        Snapshot.TotalBuildingCount > 0 ?
-            static_cast<double>(SelectedResource.StorageBuildingCount) /
-                static_cast<double>(Snapshot.TotalBuildingCount) :
-            0.0;
-    const std::wstring TopStockBuildingText =
-        SelectedResource.TopStockBuildings.empty() ?
-            std::wstring(L"없음") :
-            (SelectedResource.TopStockBuildings[0].first +
-                L" (" +
-                FormatInteger(SelectedResource.TopStockBuildings[0].second) +
-                L")");
+    const int ExportUnitPrice =
+        ResourceTradePricing::GetExportPricePerStockUnit(
+            SelectedResource.Type);
+    const int ImportUnitPrice =
+        ResourceTradePricing::GetImportPricePerStockUnit(
+            SelectedResource.Type);
+    const int StorageBiasPercent =
+        ResourceTradePricing::GetStorageBiasPercent(
+            SelectedResource.Type);
+    const int BalanceBiasPercent =
+        ResourceTradePricing::GetBalanceBiasPercent(
+            SelectedResource.Type);
+    const int TemporalBiasPercent =
+        ResourceTradePricing::GetTemporalBiasPercent(
+            SelectedResource.Type);
+    const int EventBiasPercent =
+        ResourceTradePricing::GetEventBiasPercent(
+            SelectedResource.Type);
+    const int DiplomacyExportBiasPercent =
+        ResourceTradePricing::GetDiplomacyExportBiasPercent(
+            SelectedResource.Type);
+    const int DiplomacyImportBiasPercent =
+        ResourceTradePricing::GetDiplomacyImportBiasPercent(
+            SelectedResource.Type);
+    const int EdictExportBiasPercent =
+        ResourceTradePricing::GetEdictExportBiasPercent(
+            SelectedResource.Type);
+    const int EdictImportBiasPercent =
+        ResourceTradePricing::GetEdictImportBiasPercent(
+            SelectedResource.Type);
 
     for (int Index = 0; Index < static_cast<int>(Widget.mResourceRows.size()); ++Index)
     {
@@ -1362,16 +1529,17 @@ void FAlmanacRenderer::ApplyResourcePage(
         auto Button = Row.Button.lock();
         auto Label = Row.Label.lock();
         auto Value = Row.Value.lock();
+        const int EntryIndex = VisibleStartIndex + Index;
 
-        if (Index < static_cast<int>(ResourceEntries.size()))
+        if (EntryIndex < static_cast<int>(ResourceEntries.size()))
         {
             SetDetailRowData(
                 Row,
-                ResourceEntries[static_cast<size_t>(Index)].Name,
+                ResourceEntries[static_cast<size_t>(EntryIndex)].Name,
                 FormatInteger(
-                    ResourceEntries[static_cast<size_t>(Index)].
+                    ResourceEntries[static_cast<size_t>(EntryIndex)].
                         Resource->TotalStock),
-                Index == SelectedResourceIndex);
+                EntryIndex == SelectedResourceIndex);
 
             if (Button)
             {
@@ -1410,49 +1578,55 @@ void FAlmanacRenderer::ApplyResourcePage(
     if (auto Text = Widget.mResourceFilterText.lock())
         Text->SetText(L"실시간 집계");
     if (auto Title = Widget.mResourceProductionTitle.lock())
-        Title->SetText(L"주요 보관 거점");
+        Title->SetText(L"시장 가격 추세");
     if (auto Title = Widget.mResourceDistributionTitle.lock())
-        Title->SetText(L"자원 현황");
+        Title->SetText(L"자원 흐름 단계");
     if (auto Text = Widget.mResourceDistributionFilterText.lock())
-        Text->SetText(L"현재 상태");
+        Text->SetText(L"생산지 -> 창고 -> 소비지 -> 항구");
     if (auto Title = Widget.mResourceTrackingTitle.lock())
-        Title->SetText(L"선택 자원");
+        Title->SetText(L"흐름 세부");
     if (auto Name = Widget.mResourceTrackingName.lock())
         Name->SetText(SelectedResourceEntry.Name.c_str());
     if (auto Value = Widget.mResourceTrackingValue.lock())
         Value->SetText(FormatInteger(SelectedResource.TotalStock).c_str());
     if (auto Text = Widget.mResourceProductionLegendPrimaryText.lock())
-        Text->SetText(L"재고");
+        Text->SetText(L"수출 단가");
     if (auto Text = Widget.mResourceProductionLegendSecondaryText.lock())
-        Text->SetText(L"예약 입고");
+        Text->SetText(L"수입 단가");
     if (auto Swatch = Widget.mResourceProductionLegendPrimarySwatch.lock())
         Swatch->SetTint(0.22f, 0.58f, 0.82f, 0.92f);
     if (auto Swatch = Widget.mResourceProductionLegendSecondarySwatch.lock())
-        Swatch->SetTint(0.38f, 0.70f, 0.28f, 0.92f);
+        Swatch->SetTint(0.84f, 0.62f, 0.18f, 0.92f);
 
-    std::array<FResourceGraphEntry, GResourceProductionXAxisLabelCount>
-        GraphEntries = {};
+    constexpr int PriceHistoryGroupCount = GResourceProductionBarCount / 2;
+    std::array<int, PriceHistoryGroupCount> ExportHistory = {};
+    std::array<int, PriceHistoryGroupCount> ImportHistory = {};
+    int GraphMaxValue = 1;
 
-    for (int Index = 0; Index < GResourceProductionXAxisLabelCount - 1; ++Index)
+    for (int Index = 0; Index < PriceHistoryGroupCount; ++Index)
     {
-        if (Index < static_cast<int>(SelectedResource.TopStockBuildings.size()))
-        {
-            GraphEntries[static_cast<size_t>(Index)].Label =
-                std::to_wstring(Index + 1) + L"위";
-            GraphEntries[static_cast<size_t>(Index)].Value =
-                SelectedResource.TopStockBuildings[static_cast<size_t>(Index)].
-                    second;
-            GraphEntries[static_cast<size_t>(Index)].Tint =
-                FVector4(0.22f, 0.58f, 0.82f, 0.92f);
-        }
+        ExportHistory[static_cast<size_t>(Index)] =
+            ResourceTradePricing::GetExportPriceHistoryPoint(
+                SelectedResource.Type,
+                Index);
+        ImportHistory[static_cast<size_t>(Index)] =
+            ResourceTradePricing::GetImportPriceHistoryPoint(
+                SelectedResource.Type,
+                Index);
+        GraphMaxValue = (std::max)(
+            GraphMaxValue,
+            (std::max)(
+                ExportHistory[static_cast<size_t>(Index)],
+                ImportHistory[static_cast<size_t>(Index)]));
     }
 
-    GraphEntries[static_cast<size_t>(GResourceProductionXAxisLabelCount - 1)].
-        Label = L"입고";
-    GraphEntries[static_cast<size_t>(GResourceProductionXAxisLabelCount - 1)].
-        Value = SelectedResource.ReservedIncoming;
-    GraphEntries[static_cast<size_t>(GResourceProductionXAxisLabelCount - 1)].
-        Tint = FVector4(0.38f, 0.70f, 0.28f, 0.92f);
+    const std::wstring ResourceXAxisLabels[GResourceProductionXAxisLabelCount] =
+    {
+        L"11일 전",
+        L"7일 전",
+        L"3일 전",
+        L"오늘"
+    };
 
     for (int Index = 0; Index < GResourceProductionXAxisLabelCount; ++Index)
     {
@@ -1461,13 +1635,8 @@ void FAlmanacRenderer::ApplyResourcePage(
 
         if (auto Label = Widget.mResourceProductionXAxisLabels[static_cast<size_t>(Index)].lock())
         {
-            const bool ShowLabel =
-                !GraphEntries[static_cast<size_t>(Index)].Label.empty();
-            Label->SetEnable(ShowLabel);
-            Label->SetText(
-                ShowLabel ?
-                    GraphEntries[static_cast<size_t>(Index)].Label.c_str() :
-                    L"");
+            Label->SetEnable(true);
+            Label->SetText(ResourceXAxisLabels[static_cast<size_t>(Index)].c_str());
         }
     }
 
@@ -1501,44 +1670,92 @@ void FAlmanacRenderer::ApplyResourcePage(
         const float GraphTop = Frame->GetPos().y + 14.f;
         const float GraphWidth = Frame->GetSize().x - 40.f;
         const float GraphHeight = Frame->GetSize().y - 32.f;
-        const float BarGroupWidth =
-            GraphWidth /
-            static_cast<float>((std::max)(1, GResourceProductionXAxisLabelCount));
-        const float SingleBarWidth =
-            (std::max)(8.f, BarGroupWidth * 0.36f);
+        const float GroupWidth =
+            GraphWidth / static_cast<float>((std::max)(1, PriceHistoryGroupCount));
+        const float BarWidth =
+            (std::max)(4.f, GroupWidth * 0.26f);
+        const float GroupInset =
+            (GroupWidth - BarWidth * 2.f) * 0.5f;
 
-        for (int Index = 0; Index < GResourceProductionXAxisLabelCount; ++Index)
+        for (int Index = 0; Index < PriceHistoryGroupCount; ++Index)
         {
-            if (Index >= static_cast<int>(Widget.mResourceProductionBars.size()))
-                break;
+            const float ExportHeight =
+                GraphHeight *
+                Clamp01(
+                    static_cast<float>(ExportHistory[static_cast<size_t>(Index)]) /
+                    static_cast<float>(GraphMaxValue));
+            const float ImportHeight =
+                GraphHeight *
+                Clamp01(
+                    static_cast<float>(ImportHistory[static_cast<size_t>(Index)]) /
+                    static_cast<float>(GraphMaxValue));
+            const float GroupX =
+                GraphLeft + GroupWidth * static_cast<float>(Index);
+            const int ExportBarIndex = Index * 2;
+            const int ImportBarIndex = ExportBarIndex + 1;
 
-            if (auto Bar = Widget.mResourceProductionBars[static_cast<size_t>(Index)].lock())
+            if (ExportBarIndex < static_cast<int>(Widget.mResourceProductionBars.size()))
             {
-                if (GraphEntries[static_cast<size_t>(Index)].Value <= 0)
+                if (auto Bar = Widget.mResourceProductionBars[
+                        static_cast<size_t>(ExportBarIndex)].lock())
                 {
-                    Bar->SetEnable(false);
-                    continue;
+                    if (ExportHeight <= 0.f)
+                    {
+                        Bar->SetEnable(false);
+                    }
+                    else
+                    {
+                        Bar->SetTint(FVector4(0.22f, 0.58f, 0.82f, 0.92f));
+                        Bar->SetEnable(true);
+                        Bar->SetPos(
+                            GroupX + GroupInset,
+                            GraphTop + GraphHeight - ExportHeight);
+                        Bar->SetSize(BarWidth, (std::max)(2.f, ExportHeight));
+                    }
                 }
+            }
 
-                const float Height =
-                    GraphHeight *
-                    Clamp01(
-                        static_cast<float>(
-                            GraphEntries[static_cast<size_t>(Index)].Value) /
-                        static_cast<float>(GraphMaxValue));
-                if (Height <= 0.f)
-                    continue;
-
-                const float BarX =
-                    GraphLeft + BarGroupWidth * static_cast<float>(Index) +
-                    (BarGroupWidth - SingleBarWidth) * 0.5f;
-                Bar->SetTint(GraphEntries[static_cast<size_t>(Index)].Tint);
-                Bar->SetEnable(true);
-                Bar->SetPos(BarX, GraphTop + GraphHeight - Height);
-                Bar->SetSize(SingleBarWidth, (std::max)(2.f, Height));
+            if (ImportBarIndex < static_cast<int>(Widget.mResourceProductionBars.size()))
+            {
+                if (auto Bar = Widget.mResourceProductionBars[
+                        static_cast<size_t>(ImportBarIndex)].lock())
+                {
+                    if (ImportHeight <= 0.f)
+                    {
+                        Bar->SetEnable(false);
+                    }
+                    else
+                    {
+                        Bar->SetTint(FVector4(0.84f, 0.62f, 0.18f, 0.92f));
+                        Bar->SetEnable(true);
+                        Bar->SetPos(
+                            GroupX + GroupInset + BarWidth,
+                            GraphTop + GraphHeight - ImportHeight);
+                        Bar->SetSize(BarWidth, (std::max)(2.f, ImportHeight));
+                    }
+                }
             }
         }
     }
+
+    const int ProducerFlowValue =
+        (std::max)(0, SelectedResource.ProducerAvailableStock);
+    const int WarehouseFlowValue =
+        (std::max)(0, SelectedResource.WarehouseBufferedStock);
+    const int ConsumerFlowValue =
+        (std::max)(
+            0,
+            SelectedResource.ShortagePressure > 0 ?
+                SelectedResource.ShortagePressure :
+                SelectedResource.ConsumerCoveredStock);
+    const int HarborFlowValue =
+        (std::max)(0, SelectedResource.HarborExportableStock);
+    const int FlowStageMaxValue =
+        (std::max)(
+            1,
+            (std::max)(
+                (std::max)(ProducerFlowValue, WarehouseFlowValue),
+                (std::max)(ConsumerFlowValue, HarborFlowValue)));
 
     const struct FResourceDistributionRow
     {
@@ -1549,28 +1766,71 @@ void FAlmanacRenderer::ApplyResourcePage(
     } DistributionRows[GResourceDistributionRowCount] =
     {
         {
-            L"전체 재고",
-            FormatInteger(SelectedResource.TotalStock),
-            static_cast<float>(Clamp01(CapacityRatio)),
-            FVector4(0.36f, 0.70f, 0.20f, 0.95f)
+            L"생산지",
+            L"대기 " +
+                FormatInteger(SelectedResource.ProducerAvailableStock) +
+                L" / 건물 " +
+                FormatInteger(SelectedResource.ProducerBuildingCount) +
+                L" / 대표 " +
+                BuildFlowStageHeadline(
+                    SelectedResource.TopProducerBuildings,
+                    L"-"),
+            static_cast<float>(Clamp01(
+                static_cast<double>(ProducerFlowValue) /
+                static_cast<double>(FlowStageMaxValue))),
+            FVector4(0.22f, 0.58f, 0.82f, 0.95f)
         },
         {
-            L"사용 가능",
-            FormatInteger(SelectedResource.AvailableStock),
-            static_cast<float>(Clamp01(AvailableRatio)),
-            FVector4(0.10f, 0.56f, 0.74f, 0.95f)
+            L"창고",
+            L"보관 " +
+                FormatInteger(SelectedResource.WarehouseBufferedStock) +
+                L" / 창고 " +
+                FormatInteger(SelectedResource.WarehouseBuildingCount) +
+                L" / 대표 " +
+                BuildFlowStageHeadline(
+                    SelectedResource.TopWarehouseBuildings,
+                    L"-"),
+            static_cast<float>(Clamp01(
+                static_cast<double>(WarehouseFlowValue) /
+                static_cast<double>(FlowStageMaxValue))),
+            FVector4(0.42f, 0.66f, 0.32f, 0.95f)
         },
         {
-            L"예약 입고",
-            FormatInteger(SelectedResource.ReservedIncoming),
-            static_cast<float>(Clamp01(IncomingRatio)),
-            FVector4(0.38f, 0.70f, 0.28f, 0.95f)
+            L"소비지",
+            (SelectedResource.ShortagePressure > 0 ?
+                (L"부족 " +
+                    FormatInteger(SelectedResource.ShortagePressure)) :
+                (L"보급 " +
+                    FormatInteger(SelectedResource.ConsumerCoveredStock))) +
+                L" / 소비처 " +
+                FormatInteger(SelectedResource.ConsumerBuildingCount) +
+                L" / 대표 " +
+                BuildFlowStageHeadline(
+                    SelectedResource.ShortagePressure > 0 ?
+                        SelectedResource.TopShortageBuildings :
+                        SelectedResource.TopConsumerBuildings,
+                    L"-"),
+            static_cast<float>(Clamp01(
+                static_cast<double>(ConsumerFlowValue) /
+                static_cast<double>(FlowStageMaxValue))),
+            SelectedResource.ShortagePressure > 0 ?
+                FVector4(0.82f, 0.38f, 0.28f, 0.95f) :
+                FVector4(0.80f, 0.62f, 0.22f, 0.95f)
         },
         {
-            L"저장 거점",
-            FormatInteger(SelectedResource.StorageBuildingCount),
-            static_cast<float>(Clamp01(StorageSiteRatio)),
-            FVector4(0.78f, 0.62f, 0.22f, 0.95f)
+            L"항구",
+            L"수출 가능 " +
+                FormatInteger(SelectedResource.HarborExportableStock) +
+                L" / 예약 " +
+                FormatInteger(SelectedResource.HarborReservedPickup) +
+                L" / 대표 " +
+                BuildFlowStageHeadline(
+                    SelectedResource.TopHarborBuildings,
+                    L"-"),
+            static_cast<float>(Clamp01(
+                static_cast<double>(HarborFlowValue) /
+                static_cast<double>(FlowStageMaxValue))),
+            FVector4(0.66f, 0.48f, 0.84f, 0.95f)
         }
     };
 
@@ -1610,19 +1870,40 @@ void FAlmanacRenderer::ApplyResourcePage(
 
     const std::wstring ResourceTrackingValues[GResourceDetailCount] =
     {
-        FormatInteger(SelectedResource.AvailableStock),
-        std::to_wstring(SelectedResource.ProducerBuildingCount) +
-            L" / " + std::to_wstring(SelectedResource.ConsumerBuildingCount),
-        FormatInteger(SelectedResource.TotalStock) +
-            L" / " + FormatInteger(SelectedResource.Capacity),
-        TopStockBuildingText
+        FormatInteger(SelectedResource.AvailableStock) +
+            L" / " +
+            FormatInteger(SelectedResource.ReservedPickup),
+        FormatInteger(SelectedResource.ReservedIncoming) +
+            L" / " +
+            FormatInteger(SelectedResource.AvailableIncomingCapacity),
+        FormatCurrency(ExportUnitPrice) +
+            L" / " +
+            FormatCurrency(ImportUnitPrice) +
+            L" | 가치 " +
+            FormatCompactCurrency(
+                ResourceTradePricing::ComputeExportValue(
+                    SelectedResource.Type,
+                    SelectedResource.AvailableStock)),
+        BuildStoragePressureText(StorageBiasPercent) +
+            L" | " +
+            BuildBalancePressureText(BalanceBiasPercent) +
+            L" | 외교 수출 " +
+            FormatSignedPercentValue(DiplomacyExportBiasPercent) +
+            L" / 수입 " +
+            FormatSignedPercentValue(DiplomacyImportBiasPercent) +
+            L" | 칙령 수출 " +
+            FormatSignedPercentValue(EdictExportBiasPercent) +
+            L" / 수입 " +
+            FormatSignedPercentValue(EdictImportBiasPercent) +
+            L" | " +
+            BuildEventPressureText(Snapshot, EventBiasPercent)
     };
     const wchar_t* ResourceTrackingLabels[GResourceDetailCount] =
     {
-        L"사용 가능",
-        L"생산 / 소비",
-        L"재고 / 용량",
-        L"대표 거점"
+        L"사용 가능 / 픽업 예약",
+        L"예약 입고 / 여유 용량",
+        L"수출 / 수입 단가",
+        L"시장 요인"
     };
 
     for (int Index = 0; Index < static_cast<int>(Widget.mResourceDetails.size()); ++Index)
@@ -1670,13 +1951,18 @@ void FAlmanacRenderer::ApplyResourcePage(
         const bool ShowNotice =
             SelectedResource.TotalStock <= 0 &&
             SelectedResource.ReservedIncoming <= 0 &&
+            SelectedResource.ReservedPickup <= 0 &&
             SelectedResource.ProducerBuildingCount <= 0 &&
             SelectedResource.ConsumerBuildingCount <= 0;
-        Notice->SetEnable(ShowNotice);
-        Notice->SetText(
+        const std::wstring NoticeText =
             ShowNotice ?
-                L"활성 자원 흐름이 없습니다." :
-                L"");
+                std::wstring(L"활성 자원 흐름이 없습니다.") :
+                (BuildFlowStageNotice(SelectedResource) +
+                    L"\n" +
+                    L"경보: " +
+                    BuildResourceLogisticsWarning(SelectedResource));
+        Notice->SetEnable(true);
+        Notice->SetText(NoticeText.c_str());
     }
 }
 

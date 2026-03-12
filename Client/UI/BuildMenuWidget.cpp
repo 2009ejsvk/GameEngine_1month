@@ -166,9 +166,7 @@ void CBuildMenuWidget::StartPlacementBySlot(int SlotIndex)
     PlacementCtrl->SetDemolitionMode(false);
 
     const std::string SpriteTexturePath =
-        GetCatalogEntryIconPathUtf8(
-            Entry.Category,
-            Entry.CategoryLocalIndex);
+        GetCatalogEntrySpriteTexturePathUtf8(Entry);
 
     const bool Started = PlacementCtrl->BeginBuildPlacement(
         Entry,

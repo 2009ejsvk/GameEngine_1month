@@ -15,10 +15,13 @@ namespace
     using namespace TropicoUiAssets;
     using namespace TropicoUiStyle;
 
-    constexpr int GSpeedButtonCount = 4;
+    constexpr int GSpeedButtonCount = 2;
+    constexpr int GSpeedStateButtonIndex = 0;
+    constexpr int GSpeedMultiplierButtonIndex = 1;
     constexpr int GMenuButtonCount = 8;
     constexpr int GMenuConstructionIndex = 1;
     constexpr int GMenuEdictsIndex = 2;
+    constexpr int GMenuTradeIndex = 4;
     constexpr int GMenuAlmanacIndex = 7;
 
     constexpr const TCHAR* GSpeedPanelTexture = TEXT(
@@ -40,11 +43,19 @@ namespace
     constexpr const TCHAR* GStatusSupportIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_political_approval.png");
 
-    const TCHAR* const GSpeedIcons[GSpeedButtonCount] =
+    const TCHAR* const GSpeedStateIcons[] =
     {
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_pause.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_play.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_playTwo.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_playThree.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_playThree.png")
+    };
+
+    const TCHAR* const GSpeedMultiplierIcons[] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_single.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_double.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_tripple.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ButtonIcons\\T_ICO_gamespeed_quadruple.png")
     };
 
@@ -119,6 +130,57 @@ namespace
         Text->EnableShadow(true);
         Text->SetShadowOffset(1.f, 1.f);
         Text->SetShadowTextColor(16, 16, 16, 220);
+    }
+
+    const TCHAR* GetSpeedStateIconPath(
+        const TopHudDataProvider::FTopHudSnapshot& Snapshot)
+    {
+        if (Snapshot.GamePaused)
+            return GSpeedStateIcons[0];
+
+        if (Snapshot.GameSpeedMultiplier >= 4)
+            return GSpeedStateIcons[3];
+
+        if (Snapshot.GameSpeedMultiplier >= 2)
+            return GSpeedStateIcons[2];
+
+        return GSpeedStateIcons[1];
+    }
+
+    const TCHAR* GetSpeedMultiplierIconPath(
+        const TopHudDataProvider::FTopHudSnapshot& Snapshot)
+    {
+        if (Snapshot.GameSpeedMultiplier >= 4)
+            return GSpeedMultiplierIcons[3];
+
+        if (Snapshot.GameSpeedMultiplier >= 3)
+            return GSpeedMultiplierIcons[2];
+
+        if (Snapshot.GameSpeedMultiplier >= 2)
+            return GSpeedMultiplierIcons[1];
+
+        return GSpeedMultiplierIcons[0];
+    }
+
+    FVector4 GetSpeedStateTint(
+        const TopHudDataProvider::FTopHudSnapshot& Snapshot)
+    {
+        if (Snapshot.GamePaused)
+            return FVector4(1.10f, 0.78f, 0.56f, 1.f);
+
+        return FVector4(1.15f, 1.00f, 0.52f, 1.f);
+    }
+
+    FVector4 GetSpeedMultiplierTint(
+        const TopHudDataProvider::FTopHudSnapshot& Snapshot)
+    {
+        if (Snapshot.GamePaused)
+            return FVector4(1.06f, 0.94f, 0.70f, 0.88f);
+
+        if (Snapshot.GameSpeedMultiplier >= 4)
+            return FVector4(1.22f, 1.06f, 0.58f, 1.f);
+
+        return FVector4(1.12f, 1.00f, 0.60f, 1.f);
     }
 
 }
@@ -423,10 +485,20 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
             GRoundButtonHoverTexture,
             GRoundButtonSelectedTexture,
             GRoundButtonTexture);
-        Button->SetEventCallback<CTopHudWidget>(
-            EButtonEventState::Click,
-            &Widget,
-            &CTopHudWidget::OnAnyButtonClick);
+        if (i == GSpeedStateButtonIndex)
+        {
+            Button->SetEventCallback<CTopHudWidget>(
+                EButtonEventState::Click,
+                &Widget,
+                &CTopHudWidget::OnSpeedStateButtonClick);
+        }
+        else
+        {
+            Button->SetEventCallback<CTopHudWidget>(
+                EButtonEventState::Click,
+                &Widget,
+                &CTopHudWidget::OnSpeedMultiplierButtonClick);
+        }
 
         auto Icon = CWidget::CreateStaticWidget<CImage>(
             "TopHud_SpeedButtonIcon_" + std::to_string(i + 1),
@@ -436,8 +508,13 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         {
             Icon->SetTexture(
                 "TopHudSpeedIcon_" + std::to_string(i),
-                GSpeedIcons[i]);
-            Icon->SetTint(1.15f, 1.00f, 0.52f, 1.f);
+                i == GSpeedStateButtonIndex ?
+                GSpeedStateIcons[1] :
+                GSpeedMultiplierIcons[0]);
+            Icon->SetTint(
+                i == GSpeedStateButtonIndex ?
+                FVector4(1.15f, 1.00f, 0.52f, 1.f) :
+                FVector4(1.12f, 1.00f, 0.60f, 1.f));
             Button->SetChild(Icon);
             Widget.mSpeedButtonIcons[i] = Icon;
         }
@@ -474,6 +551,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
             MenuCallback = &CTopHudWidget::OnConstructionButtonClick;
         else if (i == GMenuEdictsIndex)
             MenuCallback = &CTopHudWidget::OnEdictsButtonClick;
+        else if (i == GMenuTradeIndex)
+            MenuCallback = &CTopHudWidget::OnTradeButtonClick;
         else if (i == GMenuAlmanacIndex)
             MenuCallback = &CTopHudWidget::OnAlmanacButtonClick;
 
@@ -569,6 +648,41 @@ void FTopHudRenderer::ApplySnapshot(
 
         if (Button)
             Button->ButtonEnable(Snapshot.CanUseButtons);
+    }
+
+    if (Widget.mSpeedButtonIcons.size() > GSpeedStateButtonIndex)
+    {
+        auto StateIcon = Widget.mSpeedButtonIcons[GSpeedStateButtonIndex].lock();
+
+        if (StateIcon)
+        {
+            StateIcon->SetTexture(
+                "TopHudSpeedStateIcon_" +
+                    std::to_string(Snapshot.GamePaused ? 0 :
+                        Snapshot.GameSpeedMultiplier >= 4 ? 3 :
+                        Snapshot.GameSpeedMultiplier >= 2 ? 2 : 1),
+                GetSpeedStateIconPath(Snapshot));
+            StateIcon->SetTint(GetSpeedStateTint(Snapshot));
+        }
+    }
+
+    if (Widget.mSpeedButtonIcons.size() > GSpeedMultiplierButtonIndex)
+    {
+        auto MultiplierIcon =
+            Widget.mSpeedButtonIcons[GSpeedMultiplierButtonIndex].lock();
+
+        if (MultiplierIcon)
+        {
+            const int IconIndex =
+                Snapshot.GameSpeedMultiplier >= 4 ? 3 :
+                Snapshot.GameSpeedMultiplier >= 3 ? 2 :
+                Snapshot.GameSpeedMultiplier >= 2 ? 1 : 0;
+
+            MultiplierIcon->SetTexture(
+                "TopHudSpeedMultiplierIcon_" + std::to_string(IconIndex),
+                GetSpeedMultiplierIconPath(Snapshot));
+            MultiplierIcon->SetTint(GetSpeedMultiplierTint(Snapshot));
+        }
     }
 
     for (size_t i = 0; i < Widget.mMenuButtons.size(); ++i)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Citizen/CitizenTypes.h"
+#include "../Economy/TradePolicy.h"
 #include <string>
 #include <vector>
 
@@ -289,6 +290,8 @@ struct FGovernmentProfile
 {
     FNpcPoliticalProfile            Ideology;
     FTaxPolicy                      TaxPolicy;
+    TradePolicy::FExportTradePolicy ExportTradePolicy;
+    TradePolicy::FImportTradePolicy ImportTradePolicy;
     float                           WelfareBias = 0.f;
     float                           LibertyBias = 0.f;
     float                           Militarization = 0.f;
@@ -325,6 +328,30 @@ enum class ETaxPolicyEventType
 struct FTaxPolicyEventStatus
 {
     ETaxPolicyEventType Type = ETaxPolicyEventType::None;
+    bool Active = false;
+    int RemainingDays = 0;
+    int CooldownDays = 0;
+    int NotificationDays = 0;
+    int DaysActive = 0;
+    int TriggerYear = 0;
+    int TriggerMonth = 0;
+    int TriggerDay = 0;
+    std::wstring Title;
+    std::wstring Summary;
+};
+
+enum class EWorldCrisisType
+{
+    None = 0,
+    Raid,
+    LaborStrike,
+    CrimeWave,
+    FiscalEmergency
+};
+
+struct FWorldCrisisStatus
+{
+    EWorldCrisisType Type = EWorldCrisisType::None;
     bool Active = false;
     int RemainingDays = 0;
     int CooldownDays = 0;

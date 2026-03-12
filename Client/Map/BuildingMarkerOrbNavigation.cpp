@@ -94,10 +94,16 @@ bool CBuildingMarkerOrb::TryInterruptByNeed()
     const bool IsFunState =
         mCitizenState == ECitizenState::GoingToFun ||
         mCitizenState == ECitizenState::AtFun;
+    const bool IsHealthState =
+        mCitizenState == ECitizenState::GoingToHealth ||
+        mCitizenState == ECitizenState::AtHealth;
+    const bool IsFaithState =
+        mCitizenState == ECitizenState::GoingToFaith ||
+        mCitizenState == ECitizenState::AtFaith;
 
     if (!IsFoodState &&
         !mFoodName.empty() &&
-        Satisfaction.Food <= GFoodInterruptThreshold)
+        Satisfaction.Food <= GameConstants::Orb::FoodInterruptThreshold)
     {
         mResumeStateAfterService = NormalizeResumeState(mCitizenState);
         CancelCurrentPath();
@@ -106,10 +112,39 @@ bool CBuildingMarkerOrb::TryInterruptByNeed()
         return true;
     }
 
+    if (!IsHealthState &&
+        !IsFoodState &&
+        !mHealthName.empty() &&
+        Satisfaction.Health <=
+            GameConstants::Orb::HealthInterruptThreshold)
+    {
+        mResumeStateAfterService = NormalizeResumeState(mCitizenState);
+        CancelCurrentPath();
+        TransitionFsm(ECitizenState::GoingToHealth);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
+    if (!IsFaithState &&
+        !IsFoodState &&
+        !IsHealthState &&
+        !mFaithName.empty() &&
+        Satisfaction.Faith <=
+            GameConstants::Orb::FaithInterruptThreshold)
+    {
+        mResumeStateAfterService = NormalizeResumeState(mCitizenState);
+        CancelCurrentPath();
+        TransitionFsm(ECitizenState::GoingToFaith);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
     if (!IsFunState &&
         !IsFoodState &&
+        !IsHealthState &&
+        !IsFaithState &&
         !mFunName.empty() &&
-        Satisfaction.Fun <= GFunInterruptThreshold)
+        Satisfaction.Fun <= GameConstants::Orb::FunInterruptThreshold)
     {
         mResumeStateAfterService = NormalizeResumeState(mCitizenState);
         CancelCurrentPath();
@@ -135,6 +170,10 @@ std::string CBuildingMarkerOrb::ResolveTargetByState() const
         return mFoodName;
     case ECitizenState::GoingToFun:
         return mFunName;
+    case ECitizenState::GoingToHealth:
+        return mHealthName;
+    case ECitizenState::GoingToFaith:
+        return mFaithName;
     case ECitizenState::GoingToTeamsterSource:
         return Delivery.SourceName;
     case ECitizenState::GoingToTeamsterHarbor:
@@ -156,7 +195,9 @@ bool CBuildingMarkerOrb::TickDwellState(float DeltaTime)
         mCitizenState == ECitizenState::AtWork  ||
         mCitizenState == ECitizenState::AtHome  ||
         mCitizenState == ECitizenState::AtFood  ||
-        mCitizenState == ECitizenState::AtFun;
+        mCitizenState == ECitizenState::AtFun   ||
+        mCitizenState == ECitizenState::AtHealth ||
+        mCitizenState == ECitizenState::AtFaith;
 
     if (!IsDwelling)
         return false;
@@ -257,10 +298,69 @@ bool CBuildingMarkerOrb::TickInitialPosition(float CurrentZ)
 
 void CBuildingMarkerOrb::HandleMissingTarget()
 {
+    auto World = mWorld.lock();
     auto& Delivery = mTeamsterDeliveryState;
+    const bool MissingDeliveryTargetWithCargo =
+        World &&
+        Delivery.CarryAmount > 0 &&
+        Delivery.CargoType != EResourceType::None &&
+        (mCitizenState == ECitizenState::GoingToTeamsterHarbor ||
+         mCitizenState == ECitizenState::GoingToTeamsterConsumerTarget);
 
     CancelCurrentPath();
     ReleaseTeamsterReservations();
+
+    if (MissingDeliveryTargetWithCargo)
+    {
+        const std::string RecoveryName =
+            FindTeamsterExportDropoffName(
+                Delivery.SourceName,
+                Delivery.CargoType,
+                Delivery.CarryAmount);
+
+        if (!RecoveryName.empty() && RecoveryName != mCurrentTargetName)
+        {
+            auto RecoveryBuilding =
+                World->FindObject<CPlacementAreaObject>(RecoveryName).lock();
+            const bool NeedsReservation =
+                RecoveryBuilding && RecoveryBuilding->IsWarehouse();
+
+            if (RecoveryBuilding &&
+                (!NeedsReservation ||
+                 RecoveryBuilding->ReserveIncomingResource(
+                    Delivery.CargoType,
+                    Delivery.CarryAmount)))
+            {
+                Delivery.DestinationName = RecoveryName;
+                Delivery.DestinationReservationActive = NeedsReservation;
+                ResetTeamsterSpeed();
+                TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
+                RequestMoveTo(RecoveryName);
+                mPathRetryAccum = 0.f;
+                return;
+            }
+        }
+
+        if (!Delivery.SourceName.empty())
+        {
+            auto SourceBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    Delivery.SourceName).lock();
+
+            if (SourceBuilding &&
+                SourceBuilding->TryAddResourceStock(
+                    Delivery.CargoType,
+                    Delivery.CarryAmount))
+            {
+                Delivery.ClearCargo();
+                ResetTeamsterSpeed();
+                TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+                RequestMoveTo(mWorkName);
+                mPathRetryAccum = 0.f;
+                return;
+            }
+        }
+    }
 
     switch (mCitizenState)
     {
@@ -281,6 +381,14 @@ void CBuildingMarkerOrb::HandleMissingTarget()
     case ECitizenState::GoingToFun:
     case ECitizenState::AtFun:
         mFunName.clear();
+        break;
+    case ECitizenState::GoingToHealth:
+    case ECitizenState::AtHealth:
+        mHealthName.clear();
+        break;
+    case ECitizenState::GoingToFaith:
+    case ECitizenState::AtFaith:
+        mFaithName.clear();
         break;
     case ECitizenState::GoingToTeamsterSource:
         Delivery.SourceName.clear();
@@ -318,7 +426,11 @@ void CBuildingMarkerOrb::HandleMissingTarget()
     else if (mCitizenState == ECitizenState::GoingToFood ||
              mCitizenState == ECitizenState::AtFood      ||
              mCitizenState == ECitizenState::GoingToFun  ||
-             mCitizenState == ECitizenState::AtFun)
+             mCitizenState == ECitizenState::AtFun       ||
+             mCitizenState == ECitizenState::GoingToHealth ||
+             mCitizenState == ECitizenState::AtHealth    ||
+             mCitizenState == ECitizenState::GoingToFaith ||
+             mCitizenState == ECitizenState::AtFaith)
     {
         TransitionFsm(ResolveStateAfterService());
     }
@@ -341,7 +453,78 @@ void CBuildingMarkerOrb::HandleMissingTarget()
 
 void CBuildingMarkerOrb::HandleArrival(float Dist)
 {
+    auto World = mWorld.lock();
     auto& Delivery = mTeamsterDeliveryState;
+
+    auto TryRedirectCargoToStorage =
+        [&](const std::string& ExcludedDestinationName) -> bool
+    {
+        if (!World ||
+            Delivery.CarryAmount <= 0 ||
+            Delivery.CargoType == EResourceType::None)
+        {
+            return false;
+        }
+
+        const std::string RecoveryName =
+            FindTeamsterExportDropoffName(
+                Delivery.SourceName,
+                Delivery.CargoType,
+                Delivery.CarryAmount);
+
+        if (RecoveryName.empty() ||
+            RecoveryName == ExcludedDestinationName)
+        {
+            return false;
+        }
+
+        auto RecoveryBuilding =
+            World->FindObject<CPlacementAreaObject>(RecoveryName).lock();
+
+        if (!RecoveryBuilding)
+            return false;
+
+        const bool NeedsReservation = RecoveryBuilding->IsWarehouse();
+
+        if (NeedsReservation &&
+            !RecoveryBuilding->ReserveIncomingResource(
+                Delivery.CargoType,
+                Delivery.CarryAmount))
+        {
+            return false;
+        }
+
+        Delivery.DestinationName = RecoveryName;
+        Delivery.DestinationReservationActive = NeedsReservation;
+        TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
+        mPathRetryAccum = -((float)(rand() % 10) / 100.f);
+        return true;
+    };
+
+    auto TryRestoreCargoToSource = [&]() -> bool
+    {
+        if (!World ||
+            Delivery.CarryAmount <= 0 ||
+            Delivery.CargoType == EResourceType::None ||
+            Delivery.SourceName.empty())
+        {
+            return false;
+        }
+
+        auto SourceBuilding =
+            World->FindObject<CPlacementAreaObject>(Delivery.SourceName).lock();
+
+        if (!SourceBuilding ||
+            !SourceBuilding->TryAddResourceStock(
+                Delivery.CargoType,
+                Delivery.CarryAmount))
+        {
+            return false;
+        }
+
+        Delivery.ClearCargo();
+        return true;
+    };
 
     CancelCurrentPath();
 
@@ -355,16 +538,22 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
     }
     else if (mCitizenState == ECitizenState::GoingToFood)
     {
-        mFoodVisitBuildingName = mCurrentTargetName;
         TransitionFsm(ECitizenState::AtFood);
     }
     else if (mCitizenState == ECitizenState::GoingToFun)
     {
         TransitionFsm(ECitizenState::AtFun);
     }
+    else if (mCitizenState == ECitizenState::GoingToHealth)
+    {
+        TransitionFsm(ECitizenState::AtHealth);
+    }
+    else if (mCitizenState == ECitizenState::GoingToFaith)
+    {
+        TransitionFsm(ECitizenState::AtFaith);
+    }
     else if (mCitizenState == ECitizenState::GoingToTeamsterSource)
     {
-        auto World = mWorld.lock();
         bool LoadedCargo = false;
 
         if (World && !mCurrentTargetName.empty())
@@ -405,13 +594,49 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
                 Delivery.DestinationName =
                     FindTeamsterExportDropoffName(
                         mCurrentTargetName,
-                        Delivery.CargoType);
+                        Delivery.CargoType,
+                        Delivery.CarryAmount);
             }
 
-            if (!Delivery.DestinationName.empty())
+            bool HasValidDestination = !Delivery.DestinationName.empty();
+
+            if (HasValidDestination &&
+                !Delivery.DestinationReservationActive)
+            {
+                auto DestinationBuilding =
+                    World->FindObject<CPlacementAreaObject>(
+                        Delivery.DestinationName).lock();
+
+                if (!DestinationBuilding)
+                {
+                    HasValidDestination = false;
+                    Delivery.DestinationName.clear();
+                }
+                else if (DestinationBuilding->IsWarehouse())
+                {
+                    HasValidDestination =
+                        DestinationBuilding->ReserveIncomingResource(
+                            Delivery.CargoType,
+                            Delivery.CarryAmount);
+                    Delivery.DestinationReservationActive =
+                        HasValidDestination;
+
+                    if (!HasValidDestination)
+                        Delivery.DestinationName.clear();
+                }
+            }
+
+            if (HasValidDestination)
                 TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
-            else
+            else if (TryRedirectCargoToStorage(std::string()))
+                return;
+            else if (TryRestoreCargoToSource())
                 TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+            else
+            {
+                Delivery.ClearCargo();
+                TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+            }
         }
         else
         {
@@ -421,8 +646,6 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
     }
     else if (mCitizenState == ECitizenState::GoingToTeamsterHarbor)
     {
-        auto World = mWorld.lock();
-
         if (World &&
             Delivery.DestinationReservationActive &&
             Delivery.CargoType != EResourceType::None &&
@@ -443,8 +666,6 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
             Delivery.DestinationReservationActive = false;
         }
 
-        bool Delivered = false;
-
         if (World &&
             Delivery.CarryAmount > 0 &&
             !mCurrentTargetName.empty())
@@ -460,31 +681,30 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
                         Delivery.CargoType,
                         Delivery.CarryAmount))
                 {
-                    Delivered = true;
+                    Delivery.ClearCargo();
+                    TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+                    mPathRetryAccum = -((float)(rand() % 10) / 100.f);
+                    return;
                 }
-                else if (!DestinationBuilding->IsHarbor())
+                else if (TryRedirectCargoToStorage(mCurrentTargetName))
                 {
-                    const std::string HarborName = FindHarborName();
-
-                    if (!HarborName.empty() &&
-                        HarborName != mCurrentTargetName)
-                    {
-                        Delivery.DestinationName = HarborName;
-                        TransitionFsm(ECitizenState::GoingToTeamsterHarbor);
-                        mPathRetryAccum = -((float)(rand() % 10) / 100.f);
-                        return;
-                    }
+                    return;
                 }
             }
         }
 
-        (void)Delivered;
+        if (TryRestoreCargoToSource())
+        {
+            TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+            mPathRetryAccum = -((float)(rand() % 10) / 100.f);
+            return;
+        }
+
         Delivery.ClearCargo();
         TransitionFsm(ECitizenState::GoingToTeamsterOffice);
     }
     else if (mCitizenState == ECitizenState::GoingToTeamsterConsumerSource)
     {
-        auto World = mWorld.lock();
         bool LoadedCargo = false;
 
         if (World &&
@@ -533,8 +753,6 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
     }
     else if (mCitizenState == ECitizenState::GoingToTeamsterConsumerTarget)
     {
-        auto World = mWorld.lock();
-
         if (World &&
             Delivery.DestinationReservationActive &&
             Delivery.RequestedType != EResourceType::None &&
@@ -555,6 +773,8 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
             Delivery.DestinationReservationActive = false;
         }
 
+        bool Delivered = false;
+
         if (World &&
             Delivery.CarryAmount > 0 &&
             Delivery.CargoType != EResourceType::None &&
@@ -565,14 +785,26 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
                     mCurrentTargetName).lock();
 
             if (ConsumerBuilding &&
-                ConsumerBuilding->GetVisitConsumptionResourceType() ==
-                    Delivery.CargoType)
-            {
+                (ConsumerBuilding->GetVisitConsumptionResourceType() ==
+                    Delivery.CargoType ||
+                 ConsumerBuilding->UsesProductionInputResource(
+                    Delivery.CargoType)) &&
                 ConsumerBuilding->TryAddResourceStock(
                     Delivery.CargoType,
-                    Delivery.CarryAmount);
+                    Delivery.CarryAmount))
+            {
+                Delivered = true;
             }
         }
+
+        if (!Delivered &&
+            TryRedirectCargoToStorage(mCurrentTargetName))
+        {
+            return;
+        }
+
+        if (!Delivered)
+            TryRestoreCargoToSource();
 
         Delivery.ClearCargo();
         TransitionFsm(ECitizenState::GoingToTeamsterOffice);
@@ -610,7 +842,8 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
     UpdateSatisfaction(DeltaTime);
     UpdatePoliticalProfile(DeltaTime);
 
-    if (mCitizenProfileState.Satisfaction.Health <= GHealthRemoveThreshold)
+    if (mCitizenProfileState.Satisfaction.Health <=
+        GameConstants::Orb::HealthRemovalThreshold)
     {
         Destroy();
         return;
@@ -1316,8 +1549,29 @@ void CBuildingMarkerOrb::RemoveTargetBuildingName(
     {
         mFoodVisitBuildingName.clear();
         mCitizenProfileState.FoodStockAvailableThisVisit = false;
+        mFoodVisitReserved = false;
     }
     if (mFunName == BuildingName) { mFunName.clear(); }
+    if (mFunVisitBuildingName == BuildingName)
+    {
+        mFunVisitBuildingName.clear();
+        mCitizenProfileState.FunServiceAvailableThisVisit = false;
+        mFunVisitReserved = false;
+    }
+    if (mHealthName == BuildingName) { mHealthName.clear(); }
+    if (mHealthVisitBuildingName == BuildingName)
+    {
+        mHealthVisitBuildingName.clear();
+        mCitizenProfileState.HealthServiceAvailableThisVisit = false;
+        mHealthVisitReserved = false;
+    }
+    if (mFaithName == BuildingName) { mFaithName.clear(); }
+    if (mFaithVisitBuildingName == BuildingName)
+    {
+        mFaithVisitBuildingName.clear();
+        mCitizenProfileState.FaithServiceAvailableThisVisit = false;
+        mFaithVisitReserved = false;
+    }
     if (mTeamsterDeliveryState.SourceName == BuildingName ||
         mTeamsterDeliveryState.DestinationName == BuildingName)
     {
@@ -1350,9 +1604,15 @@ void CBuildingMarkerOrb::RemoveTargetBuildingName(
         mCurrentTargetName.clear();
         mHasLockedTarget = false;
     }
-    else if ((mCitizenState == ECitizenState::GoingToFun ||
+    else if (((mCitizenState == ECitizenState::GoingToFun ||
         mCitizenState == ECitizenState::AtFun) &&
-        mFunName.empty())
+        mFunName.empty()) ||
+        ((mCitizenState == ECitizenState::GoingToHealth ||
+          mCitizenState == ECitizenState::AtHealth) &&
+         mHealthName.empty()) ||
+        ((mCitizenState == ECitizenState::GoingToFaith ||
+          mCitizenState == ECitizenState::AtFaith) &&
+         mFaithName.empty()))
     {
         TransitionFsm(ECitizenState::GoingToWork);
     }

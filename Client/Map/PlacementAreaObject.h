@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include "../Building/BuildingCatalog.h"
 #include "../Building/BuildingTypes.h"
 #include "../Citizen/CitizenTypes.h"
 #include "PlacementAreaComponents.h"
@@ -8,8 +9,6 @@
 #include <cmath>
 #include <string>
 #include <vector>
-
-struct FBuildingCatalogEntry;
 
 class CPlacementAreaObject :
     public CGameObject
@@ -51,10 +50,263 @@ private:
     std::string mBuildingSpriteTexturePath;
     FBuildingServiceProfile mServiceProfile;
     FBuildingOperationsState mOperations;
-    EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::BuildingB;
+    int mActiveOperationModeIndex = 0;
+    int mActiveRuntimeUpgradeIndex = -1;
+    EWarehouseStoragePolicy mWarehouseStoragePolicy =
+        EWarehouseStoragePolicy::Balanced;
+    EResourceType mPreferredWarehouseResourceType =
+        EResourceType::None;
+    float mPowerSupplyRatio = 1.f;
+    int mLocalPollutionExposure = 0;
+    EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::Structure;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
     float mAccessibilityScore = 0.f;
+
+    const FBuildingCatalogEntry* ResolveCatalogEntry() const
+    {
+        return FindBuildingCatalogEntry(mBuildingId);
+    }
+
+    int ResolveActiveOperationModeIndex(
+        const FBuildingCatalogEntry* Entry) const
+    {
+        if (!Entry || Entry->OperationModeDefs.empty())
+            return 0;
+
+        const int ModeCount =
+            static_cast<int>(Entry->OperationModeDefs.size());
+        return (std::max)(0, (std::min)(ModeCount - 1, mActiveOperationModeIndex));
+    }
+
+    const FBuildingOperationModeDef* ResolveActiveOperationModeDef() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+        if (!Entry || Entry->OperationModeDefs.empty())
+            return nullptr;
+
+        return &Entry->OperationModeDefs[
+            static_cast<size_t>(ResolveActiveOperationModeIndex(Entry))];
+    }
+
+    const FBuildingOperationModeEffect& ResolveActiveOperationModeEffect() const
+    {
+        static const FBuildingOperationModeEffect GDefaultEffect;
+        const FBuildingOperationModeDef* const ModeDef =
+            ResolveActiveOperationModeDef();
+        return ModeDef ? ModeDef->Effect : GDefaultEffect;
+    }
+
+    int ResolveActiveRuntimeUpgradeIndex(
+        const FBuildingCatalogEntry* Entry) const
+    {
+        if (!Entry || Entry->RuntimeUpgradeDefs.empty())
+            return -1;
+
+        const int UpgradeCount =
+            static_cast<int>(Entry->RuntimeUpgradeDefs.size());
+        return mActiveRuntimeUpgradeIndex >= 0 &&
+            mActiveRuntimeUpgradeIndex < UpgradeCount ?
+                mActiveRuntimeUpgradeIndex :
+                -1;
+    }
+
+    const FBuildingRuntimeUpgradeDef* ResolveActiveRuntimeUpgradeDef() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const int UpgradeIndex = ResolveActiveRuntimeUpgradeIndex(Entry);
+
+        if (!Entry || UpgradeIndex < 0)
+            return nullptr;
+
+        return &Entry->RuntimeUpgradeDefs[static_cast<size_t>(UpgradeIndex)];
+    }
+
+    const FBuildingOperationModeEffect& ResolveActiveRuntimeUpgradeEffect() const
+    {
+        static const FBuildingOperationModeEffect GDefaultEffect;
+        const FBuildingRuntimeUpgradeDef* const UpgradeDef =
+            ResolveActiveRuntimeUpgradeDef();
+        return UpgradeDef ? UpgradeDef->Effect : GDefaultEffect;
+    }
+
+    FBuildingOperationModeEffect ResolveRuntimeEffect() const
+    {
+        FBuildingOperationModeEffect Result =
+            ResolveActiveOperationModeEffect();
+        const FBuildingOperationModeEffect& UpgradeEffect =
+            ResolveActiveRuntimeUpgradeEffect();
+
+        Result.ProductionMultiplier *= UpgradeEffect.ProductionMultiplier;
+        Result.InputConsumptionMultiplier *=
+            UpgradeEffect.InputConsumptionMultiplier;
+        Result.ServiceThroughputMultiplier *=
+            UpgradeEffect.ServiceThroughputMultiplier;
+        Result.HarborProgressMultiplier *=
+            UpgradeEffect.HarborProgressMultiplier;
+        Result.ProducedPowerMultiplier *=
+            UpgradeEffect.ProducedPowerMultiplier;
+        Result.RequiredPowerMultiplier *=
+            UpgradeEffect.RequiredPowerMultiplier;
+        Result.WarehouseSlotCapacityMultiplier *=
+            UpgradeEffect.WarehouseSlotCapacityMultiplier;
+        Result.StorageLossMultiplier *=
+            UpgradeEffect.StorageLossMultiplier;
+        Result.PollutionMultiplier *= UpgradeEffect.PollutionMultiplier;
+        Result.WageMultiplier *= UpgradeEffect.WageMultiplier;
+        Result.UpkeepMultiplier *= UpgradeEffect.UpkeepMultiplier;
+        Result.HousingQualityMultiplier *=
+            UpgradeEffect.HousingQualityMultiplier;
+        Result.JobQualityMultiplier *=
+            UpgradeEffect.JobQualityMultiplier;
+        Result.GenericServiceQualityMultiplier *=
+            UpgradeEffect.GenericServiceQualityMultiplier;
+        Result.ProducedPowerDeltaMW += UpgradeEffect.ProducedPowerDeltaMW;
+        Result.RequiredPowerDeltaMW += UpgradeEffect.RequiredPowerDeltaMW;
+        Result.WarehouseSlotCapacityDelta +=
+            UpgradeEffect.WarehouseSlotCapacityDelta;
+        Result.PollutionFlatDelta += UpgradeEffect.PollutionFlatDelta;
+        Result.WageFlatDelta += UpgradeEffect.WageFlatDelta;
+        Result.UpkeepFlatDelta += UpgradeEffect.UpkeepFlatDelta;
+        Result.CapacityDelta += UpgradeEffect.CapacityDelta;
+        Result.ServiceCapacityDelta += UpgradeEffect.ServiceCapacityDelta;
+        Result.PerWorkerServiceCapacityDelta +=
+            UpgradeEffect.PerWorkerServiceCapacityDelta;
+        Result.HousingQualityDelta += UpgradeEffect.HousingQualityDelta;
+        Result.JobQualityDelta += UpgradeEffect.JobQualityDelta;
+        Result.GenericServiceQualityDelta +=
+            UpgradeEffect.GenericServiceQualityDelta;
+        return Result;
+    }
+
+    int ResolveEffectiveWarehouseSlotCapacity() const
+    {
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        const int ScaledCapacity = static_cast<int>(roundf(
+            static_cast<float>(FBuildingOperationsState::WarehouseSlotCapacity) *
+            (std::max)(0.f, Effect.WarehouseSlotCapacityMultiplier)));
+        return (std::max)(
+            1000,
+            ScaledCapacity + Effect.WarehouseSlotCapacityDelta);
+    }
+
+    float ResolveWarehouseStorageLossMultiplier() const
+    {
+        float LossMultiplier = (std::max)(
+            0.f,
+            ResolveRuntimeEffect().StorageLossMultiplier);
+
+        if (mWarehouseStoragePolicy == EWarehouseStoragePolicy::Dedicated)
+            LossMultiplier *= 0.85f;
+
+        return LossMultiplier;
+    }
+
+    void RefreshWarehouseStorageRuntime()
+    {
+        if (!IsWarehouse())
+            return;
+
+        mOperations.ConfigureWarehouseRuntime(
+            ResolveEffectiveWarehouseSlotCapacity(),
+            mWarehouseStoragePolicy,
+            mPreferredWarehouseResourceType);
+    }
+
+    int ApplyOperationModeCapEffect(
+        int BaseCap,
+        float Multiplier,
+        int Delta) const
+    {
+        const int ScaledCap = static_cast<int>(roundf(
+            static_cast<float>(BaseCap) * (std::max)(0.f, Multiplier)));
+        return (std::max)(0, (std::min)(100, ScaledCap + Delta));
+    }
+
+    int ApplyOperationModeEconomyEffect(
+        int BaseValue,
+        float Multiplier,
+        int Delta) const
+    {
+        const int ScaledValue = static_cast<int>(roundf(
+            static_cast<float>(BaseValue) * (std::max)(0.f, Multiplier)));
+        return (std::max)(0, ScaledValue + Delta);
+    }
+
+    int ResolveOperationModeCapacityDelta() const
+    {
+        return ResolveRuntimeEffect().CapacityDelta;
+    }
+
+    int ResolveOperationModeServiceCapacityDelta() const
+    {
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return Effect.ServiceCapacityDelta +
+            Effect.PerWorkerServiceCapacityDelta * GetCapacity();
+    }
+
+    int ResolveEffectiveServiceCapacityDelta() const
+    {
+        return static_cast<int>(roundf(
+            static_cast<float>(ResolveOperationModeServiceCapacityDelta()) *
+            ResolvePowerOperationalMultiplier()));
+    }
+
+    float ResolveOperationModeProductionMultiplier() const
+    {
+        return ResolveRuntimeEffect().ProductionMultiplier;
+    }
+
+    float ResolveOperationModeInputConsumptionMultiplier() const
+    {
+        return ResolveRuntimeEffect().InputConsumptionMultiplier;
+    }
+
+    float ResolveOperationModeServiceThroughputMultiplier() const
+    {
+        return ResolveRuntimeEffect().ServiceThroughputMultiplier;
+    }
+
+    float ResolveOperationModeHarborProgressMultiplier() const
+    {
+        return ResolveRuntimeEffect().HarborProgressMultiplier;
+    }
+
+    float ResolveOperationModeProducedPowerMultiplier() const
+    {
+        return ResolveRuntimeEffect().ProducedPowerMultiplier;
+    }
+
+    float ResolveOperationModeRequiredPowerMultiplier() const
+    {
+        return ResolveRuntimeEffect().RequiredPowerMultiplier;
+    }
+
+    float ResolveOperationModePollutionMultiplier() const
+    {
+        return ResolveRuntimeEffect().PollutionMultiplier;
+    }
+
+    float ResolveOperationModePollutionMitigationMultiplier() const
+    {
+        return (std::max)(
+            0.f,
+            2.f - ResolveRuntimeEffect().PollutionMultiplier);
+    }
+
+    float ResolvePowerOperationalMultiplier() const
+    {
+        if (GetRequiredPowerMW() <= 0)
+            return 1.f;
+
+        if (mPowerSupplyRatio <= 0.05f)
+            return 0.f;
+
+        return (std::max)(0.f, (std::min)(1.f, mPowerSupplyRatio));
+    }
 
 public:
     void SetTileMapObject(
@@ -72,6 +324,11 @@ public:
     void SetBuildingKind(EPlacementBuildingKind Kind)
     {
         mBuildingKind = Kind;
+    }
+
+    EPlacementBuildingKind GetBuildingKind() const
+    {
+        return mBuildingKind;
     }
 
     void SetBuildingCategory(EBuildingCategory Category)
@@ -104,10 +361,15 @@ public:
         int Capacity,
         bool FoodProvider = false,
         bool EntertainmentProvider = false,
+        bool HealthProvider = false,
+        bool FaithProvider = false,
         int HousingSatisfactionCap = 100,
         int JobSatisfactionCap = 100,
         int FoodSatisfactionCap = 100,
         int FunSatisfactionCap = 100,
+        int HealthSatisfactionCap = 100,
+        int FaithSatisfactionCap = 100,
+        int ServiceCapacity = 0,
         int BaseMonthlyWage = -1,
         int BaseMonthlyUpkeep = -1);
     void ApplyCatalogEntry(const FBuildingCatalogEntry& Entry);
@@ -121,13 +383,258 @@ public:
         EResourceType ProducedResourceType,
         EResourceType VisitConsumptionResourceType,
         bool SupportsTeamsterPickup,
-        bool CanExportStoredResources)
+        bool CanExportStoredResources,
+        const std::array<EResourceType, GProductionInputSlotCount>&
+            ProductionInputTypes =
+            {
+                EResourceType::None,
+                EResourceType::None
+            },
+        const std::array<int, GProductionInputSlotCount>&
+            ProductionInputAmounts = {})
     {
         mOperations.ConfigureResourceBehavior(
             ProducedResourceType,
             VisitConsumptionResourceType,
             SupportsTeamsterPickup,
-            CanExportStoredResources);
+            CanExportStoredResources,
+            ProductionInputTypes,
+            ProductionInputAmounts);
+    }
+
+    bool HasOperationModes() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        return Entry && !Entry->OperationModeDefs.empty();
+    }
+
+    int GetOperationModeCount() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        return Entry ?
+            static_cast<int>(Entry->OperationModeDefs.size()) :
+            0;
+    }
+
+    int GetActiveOperationModeIndex() const
+    {
+        return ResolveActiveOperationModeIndex(ResolveCatalogEntry());
+    }
+
+    std::wstring GetOperationModeDisplayName(int ModeIndex) const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        return Entry ?
+            ::GetOperationModeDisplayName(*Entry, ModeIndex) :
+            std::wstring();
+    }
+
+    std::wstring GetActiveOperationModeDisplayName() const
+    {
+        return GetOperationModeDisplayName(GetActiveOperationModeIndex());
+    }
+
+    std::wstring GetActiveOperationModeEffectSummary() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        return Entry ?
+            ::GetOperationModeEffectSummary(
+                *Entry,
+                GetActiveOperationModeIndex()) :
+            std::wstring();
+    }
+
+    bool SetActiveOperationMode(int ModeIndex, std::wstring& OutMessage);
+    bool CycleOperationMode(std::wstring& OutMessage);
+
+    bool HasRuntimeUpgrades() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        return Entry && !Entry->RuntimeUpgradeDefs.empty();
+    }
+
+    int GetRuntimeUpgradeCount() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        return Entry ?
+            static_cast<int>(Entry->RuntimeUpgradeDefs.size()) :
+            0;
+    }
+
+    int GetActiveRuntimeUpgradeIndex() const
+    {
+        return ResolveActiveRuntimeUpgradeIndex(ResolveCatalogEntry());
+    }
+
+    std::wstring GetRuntimeUpgradeDisplayName(int UpgradeIndex) const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        return Entry ?
+            ::GetRuntimeUpgradeDisplayName(*Entry, UpgradeIndex) :
+            std::wstring();
+    }
+
+    std::wstring GetActiveRuntimeUpgradeDisplayName() const
+    {
+        return GetRuntimeUpgradeDisplayName(GetActiveRuntimeUpgradeIndex());
+    }
+
+    std::wstring GetRuntimeUpgradeEffectSummary(int UpgradeIndex) const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        return Entry ?
+            ::GetRuntimeUpgradeEffectSummary(*Entry, UpgradeIndex) :
+            std::wstring();
+    }
+
+    std::wstring GetActiveRuntimeUpgradeEffectSummary() const
+    {
+        return GetRuntimeUpgradeEffectSummary(
+            GetActiveRuntimeUpgradeIndex());
+    }
+
+    bool CycleRuntimeUpgrade(std::wstring& OutMessage);
+
+    bool HasWarehouseStorageControls() const
+    {
+        return IsWarehouse();
+    }
+
+    std::wstring GetWarehouseStoragePolicyDisplayName() const
+    {
+        switch (mWarehouseStoragePolicy)
+        {
+        case EWarehouseStoragePolicy::Dedicated:
+            return L"전용 슬롯 유지";
+        default:
+            return L"균형 보관";
+        }
+    }
+
+    std::wstring GetWarehousePriorityDisplayName() const
+    {
+        if (mPreferredWarehouseResourceType == EResourceType::None)
+            return L"전체 허용";
+
+        return std::wstring(
+            GetResourceTypeDisplayName(mPreferredWarehouseResourceType)) +
+            L" 우선";
+    }
+
+    bool CycleWarehouseStoragePolicy(std::wstring& OutMessage);
+    bool CycleWarehousePriority(std::wstring& OutMessage);
+
+    int GetProducedPowerMW() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+        if (!Entry)
+            return 0;
+
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        const int ScaledValue = static_cast<int>(roundf(
+            static_cast<float>(Entry->BaseProducedPowerMW) *
+            ResolveOperationModeProducedPowerMultiplier()));
+        return (std::max)(0, ScaledValue + Effect.ProducedPowerDeltaMW);
+    }
+
+    int GetRequiredPowerMW() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+        if (!Entry)
+            return 0;
+
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        const int ScaledValue = static_cast<int>(roundf(
+            static_cast<float>(Entry->BaseRequiredPowerMW) *
+            ResolveOperationModeRequiredPowerMultiplier()));
+        return (std::max)(0, ScaledValue + Effect.RequiredPowerDeltaMW);
+    }
+
+    float GetPowerSupplyRatio() const
+    {
+        return GetRequiredPowerMW() > 0 ?
+            (std::max)(0.f, (std::min)(1.f, mPowerSupplyRatio)) :
+            1.f;
+    }
+
+    void SetPowerSupplyRatio(float Ratio)
+    {
+        mPowerSupplyRatio = (std::max)(0.f, (std::min)(1.f, Ratio));
+    }
+
+    int GetPollutionOutput() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+        if (!Entry)
+            return 0;
+
+        const int BaseOutput = (std::max)(0, Entry->BasePollutionOutput);
+        const int BaseMitigation =
+            (std::max)(0, Entry->BasePollutionMitigation);
+
+        if (BaseOutput <= 0)
+            return 0;
+
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        const bool PollutionDominant = BaseOutput >= BaseMitigation;
+        const int ScaledValue = PollutionDominant ?
+            static_cast<int>(roundf(
+                static_cast<float>(BaseOutput) *
+                ResolveOperationModePollutionMultiplier())) :
+            BaseOutput;
+        const int Delta = PollutionDominant ? Effect.PollutionFlatDelta : 0;
+        return (std::max)(0, ScaledValue + Delta);
+    }
+
+    int GetPollutionMitigation() const
+    {
+        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+        if (!Entry)
+            return 0;
+
+        const int BaseOutput = (std::max)(0, Entry->BasePollutionOutput);
+        const int BaseMitigation =
+            (std::max)(0, Entry->BasePollutionMitigation);
+
+        if (BaseMitigation <= 0)
+            return 0;
+
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        const bool MitigationDominant = BaseMitigation > BaseOutput;
+        const int ScaledValue = MitigationDominant ?
+            static_cast<int>(roundf(
+                static_cast<float>(BaseMitigation) *
+                ResolveOperationModePollutionMitigationMultiplier())) :
+            BaseMitigation;
+        const int Delta = MitigationDominant ? -Effect.PollutionFlatDelta : 0;
+        return (std::max)(0, ScaledValue + Delta);
+    }
+
+    int GetLocalPollutionExposure() const
+    {
+        return mLocalPollutionExposure;
+    }
+
+    float GetLocalPollutionExposureNormalized() const
+    {
+        return (std::max)(
+            0.f,
+            (std::min)(
+                1.f,
+                static_cast<float>(mLocalPollutionExposure) / 100.f));
+    }
+
+    void SetLocalPollutionExposure(int Value)
+    {
+        mLocalPollutionExposure = (std::max)(0, Value);
     }
 
     const std::string& GetBuildingDisplayName() const
@@ -172,6 +679,16 @@ public:
         return mServiceProfile.EntertainmentProvider;
     }
 
+    bool IsHealthProvider() const
+    {
+        return mServiceProfile.HealthProvider;
+    }
+
+    bool IsFaithProvider() const
+    {
+        return mServiceProfile.FaithProvider;
+    }
+
     bool IsTransportOffice() const
     {
         return mBuildingKind == EPlacementBuildingKind::TransportOffice;
@@ -205,7 +722,7 @@ public:
 
     bool IsFoodProductionFacility() const
     {
-        return mOperations.ProducedResourceType == EResourceType::Food &&
+        return IsFoodResourceType(mOperations.ProducedResourceType) &&
             !IsTransportOffice() &&
             !IsHarbor();
     }
@@ -217,19 +734,31 @@ public:
 
     int GetCapacity() const
     {
-        return mServiceProfile.Capacity;
+        return (std::max)(
+            0,
+            mServiceProfile.Capacity + ResolveOperationModeCapacityDelta());
     }
 
     int GetHousingSatisfactionCap() const
     {
-        return mOperations.ApplyBudgetScale(
-            mServiceProfile.HousingSatisfactionCap);
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return ApplyOperationModeCapEffect(
+            mOperations.ApplyBudgetScale(
+                mServiceProfile.HousingSatisfactionCap),
+            Effect.HousingQualityMultiplier,
+            Effect.HousingQualityDelta);
     }
 
     int GetJobSatisfactionCap() const
     {
-        return mOperations.ApplyBudgetScale(
-            mServiceProfile.JobSatisfactionCap);
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return ApplyOperationModeCapEffect(
+            mOperations.ApplyBudgetScale(
+                mServiceProfile.JobSatisfactionCap),
+            Effect.JobQualityMultiplier,
+            Effect.JobQualityDelta);
     }
 
     int GetEffectiveJobSatisfactionCap() const
@@ -247,14 +776,46 @@ public:
 
     int GetFoodSatisfactionCap() const
     {
-        return mOperations.ApplyBudgetScale(
-            mServiceProfile.FoodSatisfactionCap);
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return ApplyOperationModeCapEffect(
+            mOperations.ApplyBudgetScale(
+                mServiceProfile.FoodSatisfactionCap),
+            Effect.GenericServiceQualityMultiplier,
+            Effect.GenericServiceQualityDelta);
     }
 
     int GetFunSatisfactionCap() const
     {
-        return mOperations.ApplyBudgetScale(
-            mServiceProfile.FunSatisfactionCap);
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return ApplyOperationModeCapEffect(
+            mOperations.ApplyBudgetScale(
+                mServiceProfile.FunSatisfactionCap),
+            Effect.GenericServiceQualityMultiplier,
+            Effect.GenericServiceQualityDelta);
+    }
+
+    int GetHealthSatisfactionCap() const
+    {
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return ApplyOperationModeCapEffect(
+            mOperations.ApplyBudgetScale(
+                mServiceProfile.HealthSatisfactionCap),
+            Effect.GenericServiceQualityMultiplier,
+            Effect.GenericServiceQualityDelta);
+    }
+
+    int GetFaithSatisfactionCap() const
+    {
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return ApplyOperationModeCapEffect(
+            mOperations.ApplyBudgetScale(
+                mServiceProfile.FaithSatisfactionCap),
+            Effect.GenericServiceQualityMultiplier,
+            Effect.GenericServiceQualityDelta);
     }
 
     int GetBudgetLevel() const
@@ -297,6 +858,83 @@ public:
         return mOperations.VisitConsumptionResourceType;
     }
 
+    int GetProductionInputCount() const
+    {
+        return mOperations.GetProductionInputCount();
+    }
+
+    EResourceType GetProductionInputType(int SlotIndex) const
+    {
+        return mOperations.GetProductionInputType(SlotIndex);
+    }
+
+    int GetProductionInputAmount(int SlotIndex) const
+    {
+        return mOperations.GetProductionInputAmount(SlotIndex);
+    }
+
+    bool UsesProductionInputResource(EResourceType Type) const
+    {
+        return mOperations.UsesProductionInputResource(Type);
+    }
+
+    float GetLastProductionEfficiency() const
+    {
+        return mOperations.GetLastProductionEfficiency();
+    }
+
+    int GetServiceVisitCapacity(EBuildingServiceType Type) const
+    {
+        return mOperations.GetServiceVisitCapacity(
+            Type,
+            ResolveOperationModeServiceThroughputMultiplier() *
+                ResolvePowerOperationalMultiplier(),
+            ResolveEffectiveServiceCapacityDelta());
+    }
+
+    int GetActiveServiceVisitorCount(EBuildingServiceType Type) const
+    {
+        return mOperations.GetActiveServiceVisitorCount(Type);
+    }
+
+    int GetMaxServiceVisitCapacity() const
+    {
+        int MaxCapacity = 0;
+
+        for (int ServiceIndex = 0;
+            ServiceIndex < GBuildingServiceTypeCount;
+            ++ServiceIndex)
+        {
+            MaxCapacity = (std::max)(
+                MaxCapacity,
+                GetServiceVisitCapacity(
+                    static_cast<EBuildingServiceType>(ServiceIndex)));
+        }
+
+        return MaxCapacity;
+    }
+
+    bool TryBeginServiceVisit(EBuildingServiceType Type)
+    {
+        return mOperations.TryBeginServiceVisit(
+            Type,
+            ResolveOperationModeServiceThroughputMultiplier() *
+                ResolvePowerOperationalMultiplier(),
+            ResolveEffectiveServiceCapacityDelta());
+    }
+
+    void EndServiceVisit(EBuildingServiceType Type)
+    {
+        mOperations.EndServiceVisit(Type);
+    }
+
+    bool TryConsumeServiceStock(
+        EBuildingServiceType Type,
+        int Amount = 1)
+    {
+        return mOperations.TryConsumeServiceStock(Type, Amount);
+    }
+
     bool SupportsTeamsterPickup() const
     {
         return mOperations.SupportsTeamsterPickup;
@@ -309,29 +947,51 @@ public:
 
     int GetMonthlyWageCost() const
     {
-        return mOperations.GetMonthlyWageCost();
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return ApplyOperationModeEconomyEffect(
+            mOperations.GetMonthlyWageCost(),
+            Effect.WageMultiplier,
+            Effect.WageFlatDelta);
     }
 
     int GetMonthlyUpkeepCost() const
     {
-        return mOperations.GetMonthlyUpkeepCost();
+        const FBuildingOperationModeEffect& Effect =
+            ResolveRuntimeEffect();
+        return ApplyOperationModeEconomyEffect(
+            mOperations.GetMonthlyUpkeepCost(),
+            Effect.UpkeepMultiplier,
+            Effect.UpkeepFlatDelta);
     }
 
     int GetDailyWageCost(int DaysInMonth) const
     {
-        return mOperations.GetDailyWageCost(DaysInMonth);
+        const int SafeDays = (std::max)(1, DaysInMonth);
+        return (std::max)(
+            0,
+            static_cast<int>(roundf(
+                static_cast<float>(GetMonthlyWageCost()) /
+                static_cast<float>(SafeDays))));
     }
 
     int GetDailyUpkeepCost(int DaysInMonth) const
     {
-        return mOperations.GetDailyUpkeepCost(DaysInMonth);
+        const int SafeDays = (std::max)(1, DaysInMonth);
+        return (std::max)(
+            0,
+            static_cast<int>(roundf(
+                static_cast<float>(GetMonthlyUpkeepCost()) /
+                static_cast<float>(SafeDays))));
     }
 
     bool AdvanceHarborShipProgressAndCheckArrival(int DaysInMonth)
     {
         return mOperations.AdvanceHarborShipProgressAndCheckArrival(
             IsHarbor(),
-            DaysInMonth);
+            DaysInMonth,
+            ResolveOperationModeHarborProgressMultiplier() *
+                ResolvePowerOperationalMultiplier());
     }
 
     float GetHarborShipProgressPercent() const
@@ -364,6 +1024,14 @@ public:
     {
         return mOperations.GetReservedIncomingResourceAmount(Type);
     }
+    int GetReservedResourcePickupAmount(EResourceType Type) const
+    {
+        return mOperations.GetReservedResourcePickupAmount(Type);
+    }
+    int GetReservedExportPickupAmount() const
+    {
+        return mOperations.GetReservedExportPickupAmount();
+    }
     int GetWarehouseSlotCount() const
     {
         return IsWarehouse() ?
@@ -374,6 +1042,12 @@ public:
     {
         return static_cast<EResourceType>(
             mOperations.GetWarehouseSlotType(SlotIndex));
+    }
+    int GetWarehouseSlotCapacityUnits() const
+    {
+        return IsWarehouse() ?
+            mOperations.GetWarehouseSlotCapacityUnits() :
+            0;
     }
     int GetResourceTypeCapacity(EResourceType Type) const
     {
@@ -386,6 +1060,19 @@ public:
     int GetMaxResourceStock() const
     {
         return mOperations.GetMaxTotalResourceStock();
+    }
+    int GetLastDailyWarehouseStorageLoss() const
+    {
+        return IsWarehouse() ?
+            mOperations.GetLastDailyStorageLoss() :
+            0;
+    }
+    int ApplyDailyWarehouseStorageLoss()
+    {
+        return IsWarehouse() ?
+            mOperations.ApplyDailyWarehouseStorageLoss(
+                ResolveWarehouseStorageLossMultiplier()) :
+            0;
     }
 
     void AddResourceStock(int Amount)
@@ -414,7 +1101,12 @@ public:
             return;
         }
 
-        mOperations.AddProduction(UnitsPerSec, DeltaTime);
+        mOperations.AddProduction(
+            UnitsPerSec,
+            DeltaTime,
+            ResolveOperationModeProductionMultiplier() *
+                ResolvePowerOperationalMultiplier(),
+            ResolveOperationModeInputConsumptionMultiplier());
     }
 
     // AtFood 진입 시 호출 - 재고 1단위 소비 시도, 성공하면 true

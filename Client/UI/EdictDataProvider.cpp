@@ -73,6 +73,22 @@ namespace
         return (std::max)(1, (Days + 29) / 30);
     }
 
+    EBuildingEra ConvertEdictEra(EEdictEra Era)
+    {
+        switch (Era)
+        {
+        case EEdictEra::WorldWars:
+            return EBuildingEra::WorldWars;
+        case EEdictEra::ColdWar:
+            return EBuildingEra::ColdWar;
+        case EEdictEra::Modern:
+            return EBuildingEra::Modern;
+        case EEdictEra::Colonial:
+        default:
+            return EBuildingEra::Colonial;
+        }
+    }
+
     EEdictUiCategory ResolveEdictUiCategory(EEdictEra Era)
     {
         switch (Era)
@@ -159,6 +175,22 @@ namespace
         if (!State || !MainWorld)
             return Info;
 
+        const EBuildingEra CurrentEra = MainWorld->GetCurrentEra();
+
+        if (!IsBuildingEraUnlocked(
+                CurrentEra,
+                ConvertEdictEra(Definition.Era)))
+        {
+            Info.CanApply = false;
+            Info.StatusText =
+                UIStrings::Get(L"edict.status.requirement_missing");
+            Info.RequirementText =
+                L"필요 시대: " +
+                std::wstring(GetBuildingEraDisplayName(
+                    ConvertEdictEra(Definition.Era)));
+            return Info;
+        }
+
         const int ActiveCitizenCount = (std::max)(
             0,
             MainWorld->GetPoliticalSnapshot().ActiveCitizenCount);
@@ -241,7 +273,8 @@ namespace
     }
 
     std::vector<int> CollectCategoryEntryIndices(
-        EEdictUiCategory Category)
+        EEdictUiCategory Category,
+        EBuildingEra CurrentEra)
     {
         std::vector<int> Result;
         const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
@@ -250,6 +283,13 @@ namespace
         {
             if (ResolveEdictUiCategory(Definitions[i].Era) != Category)
                 continue;
+
+            if (!IsBuildingEraUnlocked(
+                    CurrentEra,
+                    ConvertEdictEra(Definitions[i].Era)))
+            {
+                continue;
+            }
 
             Result.push_back(i);
         }
@@ -546,14 +586,27 @@ namespace
         int SelectedEntryIndex)
     {
         EdictDataProvider::FEdictCatalogSnapshot Result;
-        Result.SelectedCategory = SelectedCategory;
-        Result.TitleText = GetCategoryLabel(SelectedCategory);
+        const EBuildingEra CurrentEra =
+            MainWorld ? MainWorld->GetCurrentEra() : EBuildingEra::Colonial;
+        const int MaxUnlockedCategoryIndex = GetBuildingEraRank(CurrentEra);
+        const EEdictUiCategory ClampedCategory =
+            static_cast<EEdictUiCategory>((std::max)(
+                0,
+                (std::min)(
+                    MaxUnlockedCategoryIndex,
+                    static_cast<int>(SelectedCategory))));
+
+        Result.SelectedCategory = ClampedCategory;
+        Result.MaxUnlockedCategoryIndex = MaxUnlockedCategoryIndex;
+        Result.TitleText = GetCategoryLabel(ClampedCategory);
         Result.VisibleEntryIndices.assign(GEdictSlotsPerPage, -1);
         Result.Slots.resize(GEdictSlotsPerPage);
 
         const auto& Definitions = EdictSystem::GetGovernmentEdictDefinitions();
         const std::vector<int> CategoryEntries =
-            CollectCategoryEntryIndices(SelectedCategory);
+            CollectCategoryEntryIndices(
+                ClampedCategory,
+                CurrentEra);
         const int EntryCount = static_cast<int>(CategoryEntries.size());
         const int PageCount = (std::max)(
             1,
@@ -619,8 +672,8 @@ namespace
             Slot.HasEntry = true;
             Slot.EntryIndex = EntryIndex;
             Slot.DisplayName = Definition.DisplayName;
-            Slot.IconPath = Definition.IconPath ?
-                Definition.IconPath :
+            Slot.IconPath = !Definition.IconPath.empty() ?
+                Definition.IconPath.c_str() :
                 GCostIconTexture;
             Slot.Focused = FocusedEntryIndex == EntryIndex;
             Slot.Active = Availability.Active;

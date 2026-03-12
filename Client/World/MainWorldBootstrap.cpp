@@ -2,13 +2,19 @@
 #include "BusRouteSystem.h"
 #include "MainWorldConfig.h"
 #include "RoadNetwork.h"
+#include "RuntimeConfigRegistry.h"
+#include "../GameConstants.h"
 #include "../ObjectNames.h"
 #include "Asset/AssetManager.h"
+#include "../UI/UILayoutConfig.h"
+#include "../UI/AlmanacPageData.h"
 #include "../UI/TopHudWidget.h"
+#include "../UI/TradeWidget.h"
 #include "../UI/BuildMenuWidget.h"
 #include "../UI/AlmanacWidget.h"
 #include "../UI/EdictWidget.h"
 #include "../Building/BuildingCatalog.h"
+#include "../Economy/ResourceTradePricing.h"
 #include "World/WorldUIManager.h"
 #include "Render/RenderManager.h"
 #include "Component/TileMapComponent.h"
@@ -237,12 +243,12 @@ namespace
 
         if (CatalogEntry)
         {
-            const std::string IconPath = GetCatalogEntryIconPathUtf8(
-                CatalogEntry->Category,
-                CatalogEntry->CategoryLocalIndex);
+            const std::string SpriteTexturePath =
+                GetCatalogEntrySpriteTexturePathUtf8(*CatalogEntry);
 
-            if (!IconPath.empty())
-                BuildingObj->SetBuildingSpriteTexturePath(IconPath);
+            if (!SpriteTexturePath.empty())
+                BuildingObj->SetBuildingSpriteTexturePath(
+                    SpriteTexturePath);
 
             BuildingObj->ApplyCatalogEntry(*CatalogEntry);
         }
@@ -316,16 +322,30 @@ void CMainWorld::ResetWorldState()
     mSimulationDay = MainWorldConfig::GSimulationStartDay;
     mDayProgressAccum = 0.f;
     mSecondsPerSimulationDay = MainWorldConfig::GSecondsPerSimulationDay;
+    mSimulationPaused = false;
+    mSimulationSpeedMultiplier = 1;
     mPoliticalSnapshotAccum = 0.f;
     mWorkerTaxPressureDays = 0;
     mPropertyTaxPressureDays = 0;
     mBudgetCrisisPressureDays = 0;
+    mRaidPressureDays = 0;
+    mLaborStrikePressureDays = 0;
+    mCrimeWavePressureDays = 0;
+    mFiscalEmergencyPressureDays = 0;
     PoliticsSystem::SetDefaultGovernmentProfile(mGovernmentProfile);
     mPoliticalSnapshot = FPoliticalWorldSnapshot();
     mElectionStatus = FElectionStatus();
     mTaxEventStatus = FTaxPolicyEventStatus();
+    mWorldCrisisStatus = FWorldCrisisStatus();
+    mEraProgress = FEraProgressState();
     EdictSystem::InitializeGovernmentEdictStates(mGovernmentEdicts);
     mEdictModifiers = FGovernmentEdictModifiers();
+    mActiveTradeRoutes.clear();
+    mCompletedTradeRoutes.clear();
+    mNextTradeRouteId = 1;
+    mNextTradeRouteCompletionRecordId = 1;
+    mTradeRouteCompletionNotificationVersion = 0;
+    ResourceTradePricing::ResetWorldMarketPriceState();
 }
 
 bool CMainWorld::Init()
@@ -333,6 +353,16 @@ bool CMainWorld::Init()
     CWorld::Init();
 
     CRenderManager::GetInst()->SetDebugTarget(false);
+    RuntimeConfigRegistry::Reset();
+    GameConstants::RegisterRuntimeConfig();
+    RegisterRuntimeConfig();
+    EdictSystem::RegisterRuntimeConfig();
+    UIConfig::RegisterRuntimeConfig();
+    AlmanacPageData::RegisterRuntimeConfig();
+    mLastGameConstantsGeneration =
+        GameConstants::GetRuntimeConfigGeneration();
+    mLastEdictConfigGeneration =
+        EdictSystem::GetRuntimeConfigGeneration();
 
     LoadCitizenAnimation2D();
     CreateUI();
@@ -449,9 +479,13 @@ bool CMainWorld::Init()
         SpawnCitizenOrb();
     }
 
+    RefreshPowerGridCoverage();
     ReassignCitizenNeeds();
+    RefreshBuildingPollutionExposure();
+    RefreshEraProgress();
     RefreshPoliticalSnapshot();
     RefreshEdictModifiers();
+    RefreshWorldMarketPrices();
 
     return true;
 }
@@ -654,6 +688,8 @@ void CMainWorld::CreateUI()
         GEdictWidgetName, 280);
     mUIManager->CreateWidget<CBuildMenuWidget>(
         GBuildMenuWidgetName, 300);
+    mUIManager->CreateWidget<CTradeWidget>(
+        GTradeWidgetName, 310);
     mUIManager->CreateWidget<CAlmanacWidget>(
         GAlmanacWidgetName, 320);
 }

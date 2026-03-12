@@ -47,6 +47,7 @@ CBuildingMarkerOrb::~CBuildingMarkerOrb()
 
 void CBuildingMarkerOrb::Destroy()
 {
+    ReleaseServiceVisitReservations();
     ReleaseTeamsterReservations();
     CGameObject::Destroy();
 }

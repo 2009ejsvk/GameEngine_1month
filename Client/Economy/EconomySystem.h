@@ -29,6 +29,7 @@ namespace EconomySystem
         long long AdjustedIncomeTaxIncome = 0;
         long long AdjustedPropertyTaxIncome = 0;
         long long DailyEdictCost = 0;
+        long long DailyTradePolicyBudgetDelta = 0;
         long long NetBudgetChange = 0;
     };
 

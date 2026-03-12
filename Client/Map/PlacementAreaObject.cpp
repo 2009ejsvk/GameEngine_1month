@@ -45,6 +45,26 @@ namespace
         return Utf8;
     }
 
+    std::wstring Utf8ToWide(const std::string& Text)
+    {
+        if (Text.empty())
+            return std::wstring();
+
+        const int RequiredCount = MultiByteToWideChar(
+            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
+            nullptr, 0);
+
+        if (RequiredCount <= 0)
+            return std::wstring(Text.begin(), Text.end());
+
+        std::wstring WideText;
+        WideText.resize(RequiredCount);
+        MultiByteToWideChar(
+            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
+            &WideText[0], RequiredCount);
+        return WideText;
+    }
+
 }
 
 void CPlacementAreaObject::BeginTopologyBatchUpdate()
@@ -89,6 +109,12 @@ void CPlacementAreaObject::EndTopologyBatchUpdate()
     {
         RoadNetworkAccess->RebuildRoadNetwork();
     }
+
+    if (auto RefreshAccess =
+            dynamic_cast<IMainWorldRuntimeRefreshAccess*>(World.get()))
+    {
+        RefreshAccess->RefreshRuntimeBuildingState();
+    }
 }
 
 CPlacementAreaObject::CPlacementAreaObject()
@@ -121,10 +147,15 @@ void CPlacementAreaObject::SetBuildingDisplayInfo(
     int Capacity,
     bool FoodProvider,
     bool EntertainmentProvider,
+    bool HealthProvider,
+    bool FaithProvider,
     int HousingSatisfactionCap,
     int JobSatisfactionCap,
     int FoodSatisfactionCap,
     int FunSatisfactionCap,
+    int HealthSatisfactionCap,
+    int FaithSatisfactionCap,
+    int ServiceCapacity,
     int BaseMonthlyWage,
     int BaseMonthlyUpkeep)
 {
@@ -135,16 +166,22 @@ void CPlacementAreaObject::SetBuildingDisplayInfo(
         Capacity,
         FoodProvider,
         EntertainmentProvider,
+        HealthProvider,
+        FaithProvider,
         HousingSatisfactionCap,
         JobSatisfactionCap,
         FoodSatisfactionCap,
-        FunSatisfactionCap);
+        FunSatisfactionCap,
+        HealthSatisfactionCap,
+        FaithSatisfactionCap,
+        ServiceCapacity);
     mOperations.ConfigureEconomy(
         mServiceProfile,
         IsTransportOffice(),
         IsHarbor(),
         BaseMonthlyWage,
         BaseMonthlyUpkeep);
+    mOperations.ConfigureServiceBehavior(mServiceProfile);
 }
 
 void CPlacementAreaObject::ApplyCatalogEntry(
@@ -153,7 +190,14 @@ void CPlacementAreaObject::ApplyCatalogEntry(
     SetBuildingId(Entry.Id);
     SetBuildingCategory(Entry.Category);
     SetBuildingKind(Entry.BuildingKind);
+    mActiveOperationModeIndex = 0;
+    mActiveRuntimeUpgradeIndex = -1;
+    mWarehouseStoragePolicy = EWarehouseStoragePolicy::Balanced;
+    mPreferredWarehouseResourceType = EResourceType::None;
+    mPowerSupplyRatio = 1.f;
+    mLocalPollutionExposure = 0;
     mOperations.ConfigureStorageBehavior(IsWarehouse());
+    RefreshWarehouseStorageRuntime();
     SetRequiredEducationLevel(Entry.RequiredEducationLevel);
     SetBuildingDisplayInfo(
         WideToUtf8(Entry.DisplayName),
@@ -162,16 +206,23 @@ void CPlacementAreaObject::ApplyCatalogEntry(
         Entry.Capacity,
         Entry.FoodProvider,
         Entry.EntertainmentProvider,
+        Entry.HealthProvider,
+        Entry.FaithProvider,
         Entry.HousingSatisfactionCap,
         Entry.JobSatisfactionCap,
         Entry.FoodSatisfactionCap,
-        Entry.FunSatisfactionCap);
+        Entry.FunSatisfactionCap,
+        Entry.HealthSatisfactionCap,
+        Entry.FaithSatisfactionCap,
+        Entry.ServiceCapacity);
     SetPlacementTemplateType(Entry.TemplateType);
     SetResourceBehavior(
         Entry.ProducedResourceType,
         Entry.VisitConsumptionResourceType,
         Entry.SupportsTeamsterPickup,
-        Entry.CanExportStoredResources);
+        Entry.CanExportStoredResources,
+        Entry.ProductionInputTypes,
+        Entry.ProductionInputAmounts);
 }
 
 bool CPlacementAreaObject::Init()
@@ -185,6 +236,14 @@ void CPlacementAreaObject::Update(float DeltaTime)
 {
     CGameObject::Update(DeltaTime);
     EnsurePlacementObject();
+    if (HasPlacedArea())
+    {
+        mOperations.TickServiceStock(
+            DeltaTime,
+            ResolveOperationModeServiceThroughputMultiplier() *
+                ResolvePowerOperationalMultiplier(),
+            ResolveEffectiveServiceCapacityDelta());
+    }
 
     if (mTileMapPrepared)
     {
@@ -217,6 +276,219 @@ void CPlacementAreaObject::Update(float DeltaTime)
         return;
 
     UpdatePlacementPreviewFromMouse(Input->GetMouseWorldPos());
+}
+
+bool CPlacementAreaObject::CycleOperationMode(std::wstring& OutMessage)
+{
+    OutMessage.clear();
+
+    const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+    if (!Entry || Entry->OperationModeDefs.empty())
+        return false;
+
+    const int ModeCount = static_cast<int>(Entry->OperationModeDefs.size());
+    mActiveOperationModeIndex =
+        (ResolveActiveOperationModeIndex(Entry) + 1) % ModeCount;
+    RefreshWarehouseStorageRuntime();
+
+    if (auto World = mWorld.lock())
+    {
+        auto RefreshAccess =
+            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+
+        if (RefreshAccess)
+            RefreshAccess->RefreshRuntimeBuildingState();
+    }
+
+    std::wstring ModeLabel = GetActiveOperationModeDisplayName();
+
+    if (ModeLabel.empty())
+        ModeLabel = L"-";
+
+    OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
+        L": " +
+        ModeLabel;
+
+    const std::wstring EffectSummary = GetActiveOperationModeEffectSummary();
+
+    if (!EffectSummary.empty())
+    {
+        OutMessage += L" (";
+        OutMessage += EffectSummary;
+        OutMessage += L")";
+    }
+
+    return true;
+}
+
+bool CPlacementAreaObject::SetActiveOperationMode(
+    int ModeIndex,
+    std::wstring& OutMessage)
+{
+    OutMessage.clear();
+
+    const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+    if (!Entry || Entry->OperationModeDefs.empty())
+        return false;
+
+    const int ModeCount = static_cast<int>(Entry->OperationModeDefs.size());
+
+    if (ModeIndex < 0 || ModeIndex >= ModeCount)
+        return false;
+
+    const int SafeModeIndex = ResolveActiveOperationModeIndex(Entry);
+
+    if (SafeModeIndex == ModeIndex)
+    {
+        OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
+            L": " +
+            GetActiveOperationModeDisplayName();
+        return true;
+    }
+
+    mActiveOperationModeIndex = ModeIndex;
+    RefreshWarehouseStorageRuntime();
+
+    if (auto World = mWorld.lock())
+    {
+        auto RefreshAccess =
+            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+
+        if (RefreshAccess)
+            RefreshAccess->RefreshRuntimeBuildingState();
+    }
+
+    std::wstring ModeLabel = GetActiveOperationModeDisplayName();
+
+    if (ModeLabel.empty())
+        ModeLabel = L"-";
+
+    OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
+        L": " +
+        ModeLabel;
+
+    const std::wstring EffectSummary = GetActiveOperationModeEffectSummary();
+
+    if (!EffectSummary.empty())
+    {
+        OutMessage += L" (";
+        OutMessage += EffectSummary;
+        OutMessage += L")";
+    }
+
+    return true;
+}
+
+bool CPlacementAreaObject::CycleRuntimeUpgrade(std::wstring& OutMessage)
+{
+    OutMessage.clear();
+
+    const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+    if (!Entry || Entry->RuntimeUpgradeDefs.empty())
+        return false;
+
+    const int UpgradeCount = static_cast<int>(Entry->RuntimeUpgradeDefs.size());
+    const int CurrentIndex = ResolveActiveRuntimeUpgradeIndex(Entry);
+    mActiveRuntimeUpgradeIndex =
+        CurrentIndex < 0 ? 0 :
+        (CurrentIndex + 1 < UpgradeCount ? CurrentIndex + 1 : -1);
+    RefreshWarehouseStorageRuntime();
+
+    if (auto World = mWorld.lock())
+    {
+        auto RefreshAccess =
+            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+
+        if (RefreshAccess)
+            RefreshAccess->RefreshRuntimeBuildingState();
+    }
+
+    const std::wstring ActiveUpgrade =
+        GetActiveRuntimeUpgradeDisplayName();
+    OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
+        L": " +
+        (ActiveUpgrade.empty() ? L"업그레이드 없음" : ActiveUpgrade);
+
+    const std::wstring EffectSummary =
+        GetActiveRuntimeUpgradeEffectSummary();
+
+    if (!EffectSummary.empty())
+    {
+        OutMessage += L" (";
+        OutMessage += EffectSummary;
+        OutMessage += L")";
+    }
+
+    return true;
+}
+
+bool CPlacementAreaObject::CycleWarehouseStoragePolicy(std::wstring& OutMessage)
+{
+    OutMessage.clear();
+
+    if (!IsWarehouse())
+        return false;
+
+    mWarehouseStoragePolicy =
+        mWarehouseStoragePolicy == EWarehouseStoragePolicy::Balanced ?
+            EWarehouseStoragePolicy::Dedicated :
+            EWarehouseStoragePolicy::Balanced;
+    RefreshWarehouseStorageRuntime();
+
+    if (auto World = mWorld.lock())
+    {
+        auto RefreshAccess =
+            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+
+        if (RefreshAccess)
+            RefreshAccess->RefreshRuntimeBuildingState();
+    }
+
+    OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
+        L": " +
+        GetWarehouseStoragePolicyDisplayName();
+    return true;
+}
+
+bool CPlacementAreaObject::CycleWarehousePriority(std::wstring& OutMessage)
+{
+    OutMessage.clear();
+
+    if (!IsWarehouse())
+        return false;
+
+    if (mPreferredWarehouseResourceType == EResourceType::None)
+    {
+        mPreferredWarehouseResourceType = EResourceType::Coconuts;
+    }
+    else
+    {
+        const int NextValue =
+            static_cast<int>(mPreferredWarehouseResourceType) + 1;
+        mPreferredWarehouseResourceType =
+            NextValue < static_cast<int>(EResourceType::Count) ?
+                static_cast<EResourceType>(NextValue) :
+                EResourceType::None;
+    }
+
+    RefreshWarehouseStorageRuntime();
+
+    if (auto World = mWorld.lock())
+    {
+        auto RefreshAccess =
+            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+
+        if (RefreshAccess)
+            RefreshAccess->RefreshRuntimeBuildingState();
+    }
+
+    OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
+        L": " +
+        GetWarehousePriorityDisplayName();
+    return true;
 }
 
 void CPlacementAreaObject::Destroy()
@@ -317,5 +589,11 @@ void CPlacementAreaObject::NotifyPlacementTopologyChanged()
             dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()))
     {
         RoadNetworkAccess->RebuildRoadNetwork();
+    }
+
+    if (auto RefreshAccess =
+            dynamic_cast<IMainWorldRuntimeRefreshAccess*>(World.get()))
+    {
+        RefreshAccess->RefreshRuntimeBuildingState();
     }
 }

@@ -62,7 +62,9 @@ void FBuildMenuRenderer::ApplySnapshot(
         if (!CategoryButton)
             continue;
 
-        const bool Selected = i == static_cast<int>(Widget.mSelectedCategory);
+        const EBuildingCategory Category =
+            BuildingCategoryInfo::GetBuildMenuCategory(i);
+        const bool Selected = Category == Widget.mSelectedCategory;
         ApplyButtonTextureSet(
             CategoryButton,
             "BuildMenuCategoryRefresh_" + std::to_string(i),
@@ -105,7 +107,7 @@ void FBuildMenuRenderer::ApplySnapshot(
         if (ButtonIcon && Slot.Enabled && Slot.IconPath)
         {
             ButtonIcon->SetTexture(
-                "BuildMenuSlotIcon_" + std::to_string(i),
+                Slot.IconTextureKey,
                 Slot.IconPath);
             ButtonIcon->SetEnable(true);
             ButtonIcon->SetTint(1.f, 1.f, 1.f, 1.f);
@@ -894,6 +896,8 @@ void FBuildMenuRenderer::CreateCategoryButtons(CBuildMenuWidget& Widget)
 
     for (int i = 0; i < GCategoryCount; ++i)
     {
+        const EBuildingCategory Category =
+            BuildingCategoryInfo::GetBuildMenuCategory(i);
         auto Button =
             Widget.CreateWidget<CButton>(
                 "BuildMenu_Category_" + std::to_string(i + 1),
@@ -912,9 +916,9 @@ void FBuildMenuRenderer::CreateCategoryButtons(CBuildMenuWidget& Widget)
         ConfigureCategoryTabButtonStyle(Button, false);
         Button->SetEventCallback(
             EButtonEventState::Click,
-            [&Widget, i]()
+            [&Widget, Category]()
             {
-                Widget.SelectCategory(static_cast<EBuildingCategory>(i));
+                Widget.SelectCategory(Category);
                 Widget.RefreshFromState();
             });
 
@@ -927,7 +931,7 @@ void FBuildMenuRenderer::CreateCategoryButtons(CBuildMenuWidget& Widget)
         {
             CategoryIcon->SetTexture(
                 "BuildMenuCategoryIconTex_" + std::to_string(i + 1),
-                BuildingCategoryInfo::GetTabIconPath(i));
+                BuildingCategoryInfo::GetTabIconPath(Category));
             CategoryIcon->SetTint(1.f, 1.f, 1.f, 1.f);
             Button->SetChild(CategoryIcon);
             Widget.mCategoryButtonIcons[i] = CategoryIcon;

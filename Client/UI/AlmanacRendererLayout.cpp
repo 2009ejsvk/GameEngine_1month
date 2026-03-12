@@ -2030,9 +2030,6 @@ void FAlmanacRenderer::RefreshResourceLayout(
 {
     const float Scale = Layout.Scale;
     const float ContentWidth = Layout.ContentWidth;
-    const float ContentHeight = Layout.ContentHeight;
-    const float HiddenX = ResolveOffscreenHiddenCoord(ContentWidth, Scale);
-    const float HiddenY = ResolveOffscreenHiddenCoord(ContentHeight, Scale);
     const float DetailRowHeight = Layout.DetailRowHeight;
     const float DetailRowGap = Layout.DetailRowGap;
     const auto& PageMetrics = Layout.PageMetrics;
@@ -2067,6 +2064,11 @@ void FAlmanacRenderer::RefreshResourceLayout(
         ResourceTrackingTitleTop + ResourceTitleHeight + 6.f * Scale;
     const float ResourceTrackingRowsTop =
         ResourceTrackingHeaderTop + 28.f * Scale;
+    const float ResourceNoticeTop =
+        ResourceTrackingRowsTop +
+        static_cast<float>(GResourceDetailCount) *
+            (DetailRowHeight + DetailRowGap) +
+        10.f * Scale;
 
     if (auto Background = Widget.mResourceListTitleBackground.lock())
     {
@@ -2292,8 +2294,9 @@ void FAlmanacRenderer::RefreshResourceLayout(
 
     if (auto Notice = Widget.mResourceNotice.lock())
     {
-        Notice->SetPos(HiddenX, HiddenY);
-        Notice->SetSize(1.f, 1.f);
+        Notice->SetPos(ResourceRightX + 6.f * Scale, ResourceNoticeTop);
+        Notice->SetSize(ResourceRightW - 12.f * Scale, 42.f * Scale);
+        Notice->SetFontSize(13.f * Scale);
     }
 
 }

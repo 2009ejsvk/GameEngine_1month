@@ -8,6 +8,7 @@ void FEdictRenderer::ApplySnapshot(
     CEdictWidget& Widget,
     const EdictDataProvider::FEdictSnapshot& Snapshot)
 {
+    Widget.mSelectedCategory = Snapshot.Catalog.SelectedCategory;
     Widget.mCurrentPage = Snapshot.Catalog.CurrentPage;
     Widget.mPageCount = Snapshot.Catalog.PageCount;
     Widget.mPreviewEntryIndex = Snapshot.Catalog.PreviewEntryIndex;
@@ -33,13 +34,22 @@ void FEdictRenderer::ApplySnapshot(
             GCategoryTabTextureSelected,
             GCategoryTabTextureHidden);
         ConfigureCategoryTabButtonStyle(CategoryButton, Selected);
+        CategoryButton->ButtonEnable(
+            Widget.mOpen &&
+            i <= Snapshot.Catalog.MaxUnlockedCategoryIndex);
 
         if (CategoryIcon)
         {
             CategoryIcon->SetTint(
-                Selected ? 1.f : 0.88f,
-                Selected ? 1.f : 0.90f,
-                Selected ? 1.f : 0.94f,
+                i > Snapshot.Catalog.MaxUnlockedCategoryIndex ?
+                    0.45f :
+                    (Selected ? 1.f : 0.88f),
+                i > Snapshot.Catalog.MaxUnlockedCategoryIndex ?
+                    0.45f :
+                    (Selected ? 1.f : 0.90f),
+                i > Snapshot.Catalog.MaxUnlockedCategoryIndex ?
+                    0.45f :
+                    (Selected ? 1.f : 0.94f),
                 1.f);
         }
     }

@@ -291,6 +291,7 @@ private:
         int SelectedPopulationIndex = 0;
         int SelectedEconomyIndex = 0;
         int SelectedResourceIndex = 0;
+        int VisibleResourceRowOffset = 0;
         int SelectedPoliticsFactionIndex = 0;
         int SelectedForeignPowerIndex = 0;
         int SelectedBuildingCategoryIndex = 0;
@@ -489,6 +490,7 @@ private:
     int& mSelectedPopulationIndex = mState.SelectedPopulationIndex;
     int& mSelectedEconomyIndex = mState.SelectedEconomyIndex;
     int& mSelectedResourceIndex = mState.SelectedResourceIndex;
+    int& mVisibleResourceRowOffset = mState.VisibleResourceRowOffset;
     int& mSelectedPoliticsFactionIndex = mState.SelectedPoliticsFactionIndex;
     int& mSelectedForeignPowerIndex = mState.SelectedForeignPowerIndex;
     int& mSelectedBuildingCategoryIndex = mState.SelectedBuildingCategoryIndex;

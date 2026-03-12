@@ -1511,128 +1511,160 @@ void FCitizenInfoRenderer::RefreshBuildingWorkOverviewLayout(
     const float BudgetMargin = Context.BudgetMargin;
     const float OccupancyTop = Context.OccupancyTop;
 
-        const float ResidentStartX = BudgetMargin + 6.f;
-        const float ResidentStartY = OccupancyTop + 26.f;
-        const float ResidentIconSize = 24.f;
-        const float ResidentGapX = 26.f;
-        const float MetricsTop = ResidentStartY + ResidentIconSize + 18.f;
-        const float MetricRowH = 23.f;
+    constexpr int GWorkOverviewResidentColumns = 6;
+    constexpr int GWorkOverviewMaxVisibleResidents = 12;
+    const float ResidentStartX = BudgetMargin + 6.f;
+    const float ResidentStartY = OccupancyTop + 26.f;
+    const float ResidentIconSize = 24.f;
+    const float ResidentGapX = 26.f;
+    const float ResidentGapY = 24.f;
+    int VisibleResidentCount = 0;
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
+        ++Index)
+    {
+        auto Icon =
+            Widget.mOverviewResidentIcons[static_cast<size_t>(Index)].lock();
+
+        if (!Icon || !Icon->GetEnable())
+            continue;
+
+        ++VisibleResidentCount;
+    }
+
+    VisibleResidentCount =
+        (std::min)(VisibleResidentCount, GWorkOverviewMaxVisibleResidents);
+    const int ResidentRowCount =
+        VisibleResidentCount > 0 ?
+            ((VisibleResidentCount + GWorkOverviewResidentColumns - 1) /
+                GWorkOverviewResidentColumns) :
+            1;
+    const float MetricsTop =
+        ResidentStartY +
+        ResidentIconSize +
+        static_cast<float>((std::max)(0, ResidentRowCount - 1)) *
+            ResidentGapY +
+        18.f;
+    const float MetricRowH = 23.f;
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
+        ++Index)
+    {
+        auto Icon =
+            Widget.mOverviewResidentIcons[static_cast<size_t>(Index)].lock();
+
+        if (!Icon)
+            continue;
+
+        if (Index < VisibleResidentCount)
+        {
+            const int Column = Index % GWorkOverviewResidentColumns;
+            const int Row = Index / GWorkOverviewResidentColumns;
+            Icon->SetPos(
+                ResidentStartX + static_cast<float>(Column) * ResidentGapX,
+                ResidentStartY + static_cast<float>(Row) * ResidentGapY);
+            Icon->SetSize(ResidentIconSize, ResidentIconSize);
+        }
+        else
+        {
+            Icon->SetPos(0.f, 0.f);
+            Icon->SetSize(0.f, 0.f);
+        }
+    }
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
+        auto Label =
+            Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock();
+        auto Value =
+            Widget.mOverviewMetricValues[static_cast<size_t>(Index)].lock();
+        const bool SectionHeader =
+            Value &&
+            !Value->GetEnable();
+        const float RowTop =
+            MetricsTop + static_cast<float>(Index) * MetricRowH;
+
+        if (Label)
+        {
+            Label->SetPos(BudgetMargin, RowTop);
+            Label->SetSize(
+                SectionHeader ?
+                    (PanelWidth - BudgetMargin * 2.f) :
+                    160.f,
+                22.f);
+        }
+
+        if (Value)
+        {
+            if (SectionHeader)
+            {
+                Value->SetPos(0.f, 0.f);
+                Value->SetSize(0.f, 0.f);
+            }
+            else
+            {
+                Value->SetPos(PanelWidth - BudgetMargin - 140.f, RowTop);
+                Value->SetSize(140.f, 22.f);
+            }
+        }
+    }
+
+    const bool ShowVisitorIcons =
+        !Widget.mOverviewVisitorIcons[0].expired() &&
+        Widget.mOverviewVisitorIcons[0].lock()->GetEnable();
+
+    if (ShowVisitorIcons)
+    {
+        const float VisitorStartX = BudgetMargin + 2.f;
+        const float VisitorStartY =
+            MetricsTop +
+            static_cast<float>(CCitizenInfoWidget::GOverviewMetricRowCount) *
+                MetricRowH +
+            10.f;
+        const float VisitorIconSize = 24.f;
+        const float VisitorGapX = 22.f;
 
         for (int Index = 0;
-            Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
+            Index < CCitizenInfoWidget::GOverviewVisitorSlotCount;
             ++Index)
         {
             auto Icon =
-                Widget.mOverviewResidentIcons[static_cast<size_t>(Index)].lock();
+                Widget.mOverviewVisitorIcons[static_cast<size_t>(Index)].lock();
 
             if (!Icon)
                 continue;
 
-            if (Index < 6)
-            {
-                Icon->SetPos(
-                    ResidentStartX + static_cast<float>(Index) * ResidentGapX,
-                    ResidentStartY);
-                Icon->SetSize(ResidentIconSize, ResidentIconSize);
-            }
-            else
+            Icon->SetPos(
+                VisitorStartX +
+                    static_cast<float>(Index) * VisitorGapX,
+                VisitorStartY);
+            Icon->SetSize(VisitorIconSize, VisitorIconSize);
+        }
+    }
+    else
+    {
+        for (int Index = 0;
+            Index < CCitizenInfoWidget::GOverviewVisitorSlotCount;
+            ++Index)
+        {
+            if (auto Icon =
+                Widget.mOverviewVisitorIcons[static_cast<size_t>(Index)].lock())
             {
                 Icon->SetPos(0.f, 0.f);
                 Icon->SetSize(0.f, 0.f);
             }
         }
+    }
 
-        for (int Index = 0;
-            Index < CCitizenInfoWidget::GOverviewMetricRowCount;
-            ++Index)
-        {
-            auto Label =
-                Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock();
-            auto Value =
-                Widget.mOverviewMetricValues[static_cast<size_t>(Index)].lock();
-            const bool SectionHeader =
-                Value &&
-                !Value->GetEnable();
-            const float RowTop =
-                MetricsTop + static_cast<float>(Index) * MetricRowH;
-
-            if (Label)
-            {
-                Label->SetPos(BudgetMargin, RowTop);
-                Label->SetSize(
-                    SectionHeader ?
-                        (PanelWidth - BudgetMargin * 2.f) :
-                        160.f,
-                    22.f);
-            }
-
-            if (Value)
-            {
-                if (SectionHeader)
-                {
-                    Value->SetPos(0.f, 0.f);
-                    Value->SetSize(0.f, 0.f);
-                }
-                else
-                {
-                    Value->SetPos(PanelWidth - BudgetMargin - 140.f, RowTop);
-                    Value->SetSize(140.f, 22.f);
-                }
-            }
-        }
-
-        const bool ShowVisitorIcons =
-            !Widget.mOverviewVisitorIcons[0].expired() &&
-            Widget.mOverviewVisitorIcons[0].lock()->GetEnable();
-
-        if (ShowVisitorIcons)
-        {
-            const float VisitorStartX = BudgetMargin + 2.f;
-            const float VisitorStartY =
-                MetricsTop +
-                static_cast<float>(CCitizenInfoWidget::GOverviewMetricRowCount) *
-                    MetricRowH +
-                10.f;
-            const float VisitorIconSize = 24.f;
-            const float VisitorGapX = 22.f;
-
-            for (int Index = 0;
-                Index < CCitizenInfoWidget::GOverviewVisitorSlotCount;
-                ++Index)
-            {
-                auto Icon =
-                    Widget.mOverviewVisitorIcons[static_cast<size_t>(Index)].lock();
-
-                if (!Icon)
-                    continue;
-
-                Icon->SetPos(
-                    VisitorStartX +
-                        static_cast<float>(Index) * VisitorGapX,
-                    VisitorStartY);
-                Icon->SetSize(VisitorIconSize, VisitorIconSize);
-            }
-        }
-        else
-        {
-            for (int Index = 0;
-                Index < CCitizenInfoWidget::GOverviewVisitorSlotCount;
-                ++Index)
-            {
-                if (auto Icon =
-                    Widget.mOverviewVisitorIcons[static_cast<size_t>(Index)].lock())
-                {
-                    Icon->SetPos(0.f, 0.f);
-                    Icon->SetSize(0.f, 0.f);
-                }
-            }
-        }
-
-        if (auto Divider = Widget.mSectionDivider.lock())
-        {
-            Divider->SetPos(0.f, 0.f);
-            Divider->SetSize(0.f, 0.f);
-        }
+    if (auto Divider = Widget.mSectionDivider.lock())
+    {
+        Divider->SetPos(0.f, 0.f);
+        Divider->SetSize(0.f, 0.f);
+    }
 }
 
 void FCitizenInfoRenderer::RefreshBuildingCompactLayout(

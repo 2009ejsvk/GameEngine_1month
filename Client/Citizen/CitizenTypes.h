@@ -15,6 +15,10 @@ enum class ECitizenState
     AtFood,
     GoingToFun,
     AtFun,
+    GoingToHealth,
+    AtHealth,
+    GoingToFaith,
+    AtFaith,
     GoingToTeamsterSource,
     GoingToTeamsterHarbor,
     GoingToTeamsterConsumerSource,
@@ -154,6 +158,8 @@ struct FCitizenAssignmentProfile
     std::string WorkBuildingName;
     std::string FoodBuildingName;
     std::string FunBuildingName;
+    std::string HealthBuildingName;
+    std::string FaithBuildingName;
 
     bool HasCoreAssignments() const
     {

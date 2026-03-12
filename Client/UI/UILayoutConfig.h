@@ -210,8 +210,10 @@ namespace UIConfig
     extern float CitizenFooterBottomInset;
     extern float CitizenBodyBottomInset;
 
+    void RegisterRuntimeConfig();
+
     // ── 런타임 리로드 ────────────────────────────────────────
-    // Update 루프에서 호출하세요.
+    // 공용 RuntimeConfigRegistry를 쓰지 않을 때만 수동 호출하세요.
     // INI 파일이 변경되었으면 다시 읽고 true 를 반환합니다.
     bool ReloadIfChanged(float DeltaTime);
 

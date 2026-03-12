@@ -57,9 +57,13 @@ private:
     void CloseMenus(
         bool CloseBuildMenu,
         bool CloseAlmanac,
-        bool CloseEdicts);
+        bool CloseEdicts,
+        bool CloseTrade);
     void OnConstructionButtonClick();
     void OnEdictsButtonClick();
     void OnAlmanacButtonClick();
+    void OnTradeButtonClick();
+    void OnSpeedStateButtonClick();
+    void OnSpeedMultiplierButtonClick();
     void OnAnyButtonClick();
 };

@@ -7,6 +7,7 @@
 #include "Render/RenderManager.h"
 #include "World/World.h"
 #include "World/WorldAssetManager.h"
+#include "../Building/BuildingCatalog.h"
 #include <string>
 #include <vector>
 
@@ -22,24 +23,49 @@ namespace
 		const CPlacementAreaObject& Building)
 	{
 		std::vector<std::string> Candidates;
-		const std::string& BuildingId = Building.GetBuildingId();
-
-		if (!BuildingId.empty())
-			Candidates.push_back(BuildingId + ".png");
-
-		// 항구는 추후 방향 텍스처를 추가할 수 있도록 후보를 미리 넣어둔다.
-		if (Building.IsHarbor())
+		switch (Building.GetBuildingKind())
 		{
+		case EPlacementBuildingKind::Harbor:
+			// 항구는 방향별 대체 텍스처를 둘 수 있다.
 			Candidates.push_back("harbor_up.png");
 			Candidates.push_back("harbor_right.png");
 			Candidates.push_back("harbor_down.png");
 			Candidates.push_back("harbor_left.png");
 			Candidates.push_back("harbor.png");
+			Candidates.push_back("harbor_default.png");
+			break;
+		case EPlacementBuildingKind::TransportOffice:
+			Candidates.push_back("transport_office_default.png");
+			break;
+		case EPlacementBuildingKind::Road:
+			Candidates.push_back("road_default.png");
+			break;
+		case EPlacementBuildingKind::Structure:
+		default:
+			Candidates.push_back("building_default.png");
+			break;
 		}
 
-		Candidates.push_back("building_default.png");
 		Candidates.push_back("Floors.png");
 		return Candidates;
+	}
+
+	std::string ResolveSpriteTexturePath(
+		const CPlacementAreaObject& Building)
+	{
+		const FBuildingCatalogEntry* CatalogEntry =
+			FindBuildingCatalogEntry(Building.GetBuildingId());
+
+		if (CatalogEntry)
+		{
+			const std::string CatalogTexturePath =
+				GetCatalogEntrySpriteTexturePathUtf8(*CatalogEntry);
+
+			if (!CatalogTexturePath.empty())
+				return CatalogTexturePath;
+		}
+
+		return Building.GetBuildingSpriteTexturePath();
 	}
 }
 
@@ -121,13 +147,17 @@ bool CBuildingVisual::BindSpriteTexture(
 		return false;
 
 	const std::string& BuildingId = Building.GetBuildingId();
-	const std::string& ExplicitTexturePath =
-		Building.GetBuildingSpriteTexturePath();
+	const std::string ExplicitTexturePath =
+		ResolveSpriteTexturePath(Building);
 	const std::vector<std::string> Candidates =
 		BuildTextureCandidates(Building);
+	const unsigned long long CatalogGeneration =
+		::GetRuntimeConfigGeneration();
 	const std::string TexturePrefix =
 		"BuildingSprite_" +
 		(BuildingId.empty() ? "Unknown" : BuildingId) + "_";
+	const std::string GenerationSuffix =
+		"Gen_" + std::to_string(CatalogGeneration) + "_";
 
 	if (!ExplicitTexturePath.empty())
 	{
@@ -135,7 +165,7 @@ bool CBuildingVisual::BindSpriteTexture(
 			ExplicitTexturePath.begin(),
 			ExplicitTexturePath.end());
 		const std::string ExplicitTextureKey =
-			TexturePrefix + "explicit";
+			TexturePrefix + GenerationSuffix + "explicit";
 
 		if (AssetMgr->LoadTexture(
 			ExplicitTextureKey, WideTexturePath.c_str(), "Texture"))
@@ -148,6 +178,7 @@ bool CBuildingVisual::BindSpriteTexture(
 			{
 				mLoadedBuildingId = BuildingId;
 				mLoadedTextureFile = ExplicitTexturePath;
+				mLoadedCatalogGeneration = CatalogGeneration;
 				return true;
 			}
 		}
@@ -159,7 +190,9 @@ bool CBuildingVisual::BindSpriteTexture(
 		const std::wstring WideFileName(
 			FileName.begin(), FileName.end());
 		const std::string TextureKey =
-			TexturePrefix + std::to_string(i);
+			TexturePrefix +
+			GenerationSuffix +
+			std::to_string(i);
 
 		if (!AssetMgr->LoadTexture(
 			TextureKey, WideFileName.c_str(), "Texture"))
@@ -176,12 +209,14 @@ bool CBuildingVisual::BindSpriteTexture(
 		{
 			mLoadedBuildingId = BuildingId;
 			mLoadedTextureFile = FileName;
+			mLoadedCatalogGeneration = CatalogGeneration;
 			return true;
 		}
 	}
 
 	mLoadedBuildingId = BuildingId;
 	mLoadedTextureFile.clear();
+	mLoadedCatalogGeneration = CatalogGeneration;
 	return false;
 }
 
@@ -201,9 +236,8 @@ void CBuildingVisual::SyncVisuals()
 		return;
 	}
 
-	// 건물 ID 기준 파일명 규칙: "<building_id>.png"
-	// 예: build_1_1.png, starter_harbor.png
-	if (mLoadedBuildingId != Building->GetBuildingId())
+	if (mLoadedBuildingId != Building->GetBuildingId() ||
+		mLoadedCatalogGeneration != ::GetRuntimeConfigGeneration())
 	{
 		BindSpriteTexture(*Building);
 	}

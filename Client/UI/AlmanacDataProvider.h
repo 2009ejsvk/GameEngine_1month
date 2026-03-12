@@ -23,13 +23,29 @@ namespace AlmanacDataProvider
         EResourceType Type = EResourceType::None;
         int TotalStock = 0;
         int AvailableStock = 0;
+        int ReservedPickup = 0;
         int ReservedIncoming = 0;
         int Capacity = 0;
+        int AvailableIncomingCapacity = 0;
+        int ShortagePressure = 0;
+        int ProducerAvailableStock = 0;
+        int WarehouseBufferedStock = 0;
+        int ConsumerCoveredStock = 0;
+        int HarborExportableStock = 0;
+        int HarborReservedPickup = 0;
         int ProducerBuildingCount = 0;
         int ConsumerBuildingCount = 0;
         int StorageBuildingCount = 0;
+        int WarehouseBuildingCount = 0;
         int HarborBuildingCount = 0;
         std::vector<std::pair<std::wstring, int>> TopStockBuildings;
+        std::vector<std::pair<std::wstring, int>> TopProducerBuildings;
+        std::vector<std::pair<std::wstring, int>> TopWarehouseBuildings;
+        std::vector<std::pair<std::wstring, int>> TopConsumerBuildings;
+        std::vector<std::pair<std::wstring, int>> TopHarborBuildings;
+        std::vector<std::pair<std::wstring, int>> TopShortageBuildings;
+        std::vector<std::pair<std::wstring, int>> TopReservedBuildings;
+        std::vector<std::pair<std::wstring, int>> TopOverflowBuildings;
     };
 
     struct FAlmanacBuildingCategorySnapshot
@@ -58,6 +74,7 @@ namespace AlmanacDataProvider
         FGovernmentProfile GovernmentProfile;
         FElectionStatus ElectionStatus;
         FTaxPolicyEventStatus TaxEventStatus;
+        FWorldCrisisStatus WorldCrisisStatus;
         std::vector<FGovernmentEdictState> GovernmentEdictStates;
     };
 
@@ -136,6 +153,7 @@ namespace AlmanacDataProvider
         FGovernmentProfile GovernmentProfile;
         FElectionStatus ElectionStatus;
         FTaxPolicyEventStatus TaxEventStatus;
+        FWorldCrisisStatus WorldCrisisStatus;
         std::vector<std::pair<std::wstring, int>> TopBuildings;
         std::vector<std::pair<std::wstring, int>> TopResourceBuildings;
         std::vector<std::wstring> ActiveEdictLines;

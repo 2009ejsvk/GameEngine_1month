@@ -2,7 +2,9 @@
 
 #include "../Building/BuildingTypes.h"
 #include "../Citizen/CitizenTypes.h"
+#include "../GameConstants.h"
 #include <algorithm>
+#include <limits>
 #include <cmath>
 
 struct FBuildingServiceProfile
@@ -11,13 +13,18 @@ struct FBuildingServiceProfile
     bool Residential = false;
     bool FoodProvider = false;
     bool EntertainmentProvider = false;
+    bool HealthProvider = false;
+    bool FaithProvider = false;
     int HousingSatisfactionCap = 100;
     int JobSatisfactionCap = 100;
     int FoodSatisfactionCap = 100;
     int FunSatisfactionCap = 100;
+    int HealthSatisfactionCap = 100;
+    int FaithSatisfactionCap = 100;
     ECitizenEducationLevel RequiredEducationLevel =
         ECitizenEducationLevel::Uneducated;
     int Capacity = 0;
+    int ServiceCapacity = 0;
 
     static int ClampCapToPercent(int Value)
     {
@@ -29,15 +36,22 @@ struct FBuildingServiceProfile
         int InCapacity,
         bool InFoodProvider,
         bool InEntertainmentProvider,
+        bool InHealthProvider,
+        bool InFaithProvider,
         int InHousingSatisfactionCap,
         int InJobSatisfactionCap,
         int InFoodSatisfactionCap,
-        int InFunSatisfactionCap)
+        int InFunSatisfactionCap,
+        int InHealthSatisfactionCap,
+        int InFaithSatisfactionCap,
+        int InServiceCapacity)
     {
         Residential = InResidential;
         Capacity = (std::max)(0, InCapacity);
         FoodProvider = InFoodProvider;
         EntertainmentProvider = InEntertainmentProvider;
+        HealthProvider = InHealthProvider;
+        FaithProvider = InFaithProvider;
         HousingSatisfactionCap =
             ClampCapToPercent(InHousingSatisfactionCap);
         JobSatisfactionCap =
@@ -46,7 +60,18 @@ struct FBuildingServiceProfile
             ClampCapToPercent(InFoodSatisfactionCap);
         FunSatisfactionCap =
             ClampCapToPercent(InFunSatisfactionCap);
+        HealthSatisfactionCap =
+            ClampCapToPercent(InHealthSatisfactionCap);
+        FaithSatisfactionCap =
+            ClampCapToPercent(InFaithSatisfactionCap);
+        ServiceCapacity = (std::max)(0, InServiceCapacity);
     }
+};
+
+enum class EWarehouseStoragePolicy
+{
+    Balanced = 0,
+    Dedicated
 };
 
 struct FBuildingOperationsState
@@ -62,10 +87,29 @@ struct FBuildingOperationsState
     FResourceInventory ResourceInventory;
     EResourceType ProducedResourceType = EResourceType::None;
     EResourceType VisitConsumptionResourceType = EResourceType::None;
+    std::array<EResourceType, GProductionInputSlotCount>
+        ProductionInputTypes =
+        {
+            EResourceType::None,
+            EResourceType::None
+        };
+    std::array<int, GProductionInputSlotCount> ProductionInputAmounts = {};
     bool SupportsTeamsterPickup = false;
     bool CanExportStoredResources = false;
     bool UsesWarehouseSlots = false;
+    int WarehouseSlotCapacityUnits = WarehouseSlotCapacity;
+    EWarehouseStoragePolicy WarehouseStoragePolicy =
+        EWarehouseStoragePolicy::Balanced;
+    EResourceType PreferredWarehouseResourceType =
+        EResourceType::None;
     float ResourceProductionAccum = 0.f;
+    float LastProductionEfficiency = 1.f;
+    int LastDailyStorageLoss = 0;
+    std::array<int, GBuildingServiceTypeCount> ActiveServiceVisitors = {};
+    std::array<int, GBuildingServiceTypeCount> ServiceVisitCaps = {};
+    std::array<int, GBuildingServiceTypeCount> ServiceStocks = {};
+    std::array<int, GBuildingServiceTypeCount> ServiceStockCaps = {};
+    std::array<float, GBuildingServiceTypeCount> ServiceStockAccums = {};
     float HarborShipProgressMonths = 0.f;
     int ReservedExportPickupAmount = 0;
     std::array<EResourceType, WarehouseSlotCount> WarehouseSlotTypes =
@@ -78,6 +122,8 @@ struct FBuildingOperationsState
         ReservedResourcePickupAmounts = {};
     std::array<int, static_cast<size_t>(EResourceType::Count)>
         ReservedIncomingResourceAmounts = {};
+    std::array<float, static_cast<size_t>(EResourceType::Count)>
+        StorageLossAccums = {};
 
     void SetBudgetLevel(int Level)
     {
@@ -109,6 +155,31 @@ struct FBuildingOperationsState
         const float Scaled =
             static_cast<float>(BaseCost) * GetBudgetSatisfactionScale();
         return (std::max)(0, static_cast<int>(roundf(Scaled)));
+    }
+
+    static constexpr size_t GetServiceIndex(EBuildingServiceType Type)
+    {
+        return static_cast<size_t>(Type);
+    }
+
+    static constexpr bool IsValidServiceType(EBuildingServiceType Type)
+    {
+        return Type >= EBuildingServiceType::Food &&
+            Type < EBuildingServiceType::Count;
+    }
+
+    static constexpr bool ServiceConsumesStock(EBuildingServiceType Type)
+    {
+        return Type != EBuildingServiceType::Food;
+    }
+
+    bool ProvidesService(EBuildingServiceType Type) const
+    {
+        if (!IsValidServiceType(Type))
+            return false;
+
+        const size_t Index = GetServiceIndex(Type);
+        return ServiceVisitCaps[Index] > 0;
     }
 
     void ConfigureEconomy(
@@ -174,27 +245,209 @@ struct FBuildingOperationsState
         }
     }
 
+    void ConfigureServiceBehavior(const FBuildingServiceProfile& ServiceProfile)
+    {
+        for (size_t Index = 0; Index < ActiveServiceVisitors.size(); ++Index)
+        {
+            ActiveServiceVisitors[Index] = 0;
+            ServiceVisitCaps[Index] = 0;
+            ServiceStocks[Index] = 0;
+            ServiceStockCaps[Index] = 0;
+            ServiceStockAccums[Index] = 0.f;
+        }
+
+        auto ConfigureService = [&](EBuildingServiceType Type, bool Enabled)
+        {
+            if (!Enabled)
+                return;
+
+            const size_t Index = GetServiceIndex(Type);
+            const int VisitCap = (std::max)(1, ServiceProfile.ServiceCapacity);
+            ServiceVisitCaps[Index] = VisitCap;
+
+            if (!ServiceConsumesStock(Type))
+                return;
+
+            ServiceStockCaps[Index] =
+                VisitCap * GameConstants::Orb::ServiceStockPerCapacity;
+            ServiceStocks[Index] = ServiceStockCaps[Index];
+        };
+
+        ConfigureService(
+            EBuildingServiceType::Food,
+            ServiceProfile.FoodProvider);
+        ConfigureService(
+            EBuildingServiceType::Fun,
+            ServiceProfile.EntertainmentProvider);
+        ConfigureService(
+            EBuildingServiceType::Health,
+            ServiceProfile.HealthProvider);
+        ConfigureService(
+            EBuildingServiceType::Faith,
+            ServiceProfile.FaithProvider);
+    }
+
     void ConfigureResourceBehavior(
         EResourceType InProducedResourceType,
         EResourceType InVisitConsumptionResourceType,
         bool InSupportsTeamsterPickup,
-        bool InCanExportStoredResources)
+        bool InCanExportStoredResources,
+        const std::array<EResourceType, GProductionInputSlotCount>&
+            InProductionInputTypes =
+            {
+                EResourceType::None,
+                EResourceType::None
+            },
+        const std::array<int, GProductionInputSlotCount>&
+            InProductionInputAmounts = {})
     {
         ProducedResourceType = InProducedResourceType;
         VisitConsumptionResourceType = InVisitConsumptionResourceType;
+        ProductionInputTypes = InProductionInputTypes;
+        ProductionInputAmounts = InProductionInputAmounts;
         SupportsTeamsterPickup = InSupportsTeamsterPickup;
         CanExportStoredResources = InCanExportStoredResources;
+
+        for (int SlotIndex = 0;
+             SlotIndex < GProductionInputSlotCount;
+             ++SlotIndex)
+        {
+            if (ProductionInputTypes[SlotIndex] == EResourceType::None ||
+                ProductionInputAmounts[SlotIndex] <= 0)
+            {
+                ProductionInputTypes[SlotIndex] = EResourceType::None;
+                ProductionInputAmounts[SlotIndex] = 0;
+            }
+        }
+    }
+
+    int ResolveEffectiveServiceVisitCap(
+        size_t Index,
+        float ServiceThroughputMultiplier,
+        int ServiceCapacityDelta) const
+    {
+        if (Index >= ServiceVisitCaps.size())
+            return 0;
+
+        const int BaseVisitCap = ServiceVisitCaps[Index];
+
+        if (BaseVisitCap <= 0)
+            return 0;
+
+        const float SafeMultiplier =
+            (std::max)(0.f, ServiceThroughputMultiplier);
+        const int ScaledVisitCap = static_cast<int>(roundf(
+            static_cast<float>(BaseVisitCap) * SafeMultiplier));
+        return (std::max)(0, ScaledVisitCap + ServiceCapacityDelta);
+    }
+
+    void TickServiceStock(
+        float DeltaTime,
+        float ServiceThroughputMultiplier = 1.f,
+        int ServiceCapacityDelta = 0)
+    {
+        if (DeltaTime <= 0.f)
+            return;
+
+        for (size_t Index = 0; Index < ServiceStocks.size(); ++Index)
+        {
+            const int EffectiveVisitCap = ResolveEffectiveServiceVisitCap(
+                Index,
+                ServiceThroughputMultiplier,
+                ServiceCapacityDelta);
+            const int EffectiveStockCap =
+                EffectiveVisitCap *
+                GameConstants::Orb::ServiceStockPerCapacity;
+
+            ServiceStockCaps[Index] = EffectiveStockCap;
+
+            if (EffectiveStockCap <= 0)
+            {
+                ServiceStocks[Index] = 0;
+                ServiceStockAccums[Index] = 0.f;
+                continue;
+            }
+
+            ServiceStocks[Index] = (std::min)(
+                ServiceStocks[Index],
+                EffectiveStockCap);
+
+            const float RegenRate =
+                static_cast<float>(EffectiveVisitCap) *
+                GameConstants::Orb::ServiceStockRegenPerCapacityPerSecond *
+                GetBudgetSatisfactionScale();
+
+            if (RegenRate <= 0.f)
+                continue;
+
+            ServiceStockAccums[Index] =
+                (std::min)(
+                    static_cast<float>(EffectiveStockCap),
+                    ServiceStockAccums[Index] + RegenRate * DeltaTime);
+            const int Whole = static_cast<int>(ServiceStockAccums[Index]);
+
+            if (Whole <= 0)
+                continue;
+
+            const int AddAmount =
+                (std::min)(Whole, EffectiveStockCap - ServiceStocks[Index]);
+
+            if (AddAmount <= 0)
+            {
+                ServiceStockAccums[Index] = 0.f;
+                continue;
+            }
+
+            ServiceStocks[Index] += AddAmount;
+            ServiceStockAccums[Index] -= static_cast<float>(AddAmount);
+        }
     }
 
     void ConfigureStorageBehavior(bool InUsesWarehouseSlots)
     {
         UsesWarehouseSlots = InUsesWarehouseSlots;
+        WarehouseSlotCapacityUnits = WarehouseSlotCapacity;
+        WarehouseStoragePolicy = EWarehouseStoragePolicy::Balanced;
+        PreferredWarehouseResourceType = EResourceType::None;
+        LastDailyStorageLoss = 0;
+        StorageLossAccums.fill(0.f);
 
         if (!UsesWarehouseSlots)
         {
             for (int SlotIndex = 0; SlotIndex < WarehouseSlotCount; ++SlotIndex)
                 WarehouseSlotTypes[SlotIndex] = EResourceType::None;
         }
+    }
+
+    void ConfigureWarehouseRuntime(
+        int InSlotCapacityUnits,
+        EWarehouseStoragePolicy InPolicy,
+        EResourceType InPreferredResourceType)
+    {
+        WarehouseSlotCapacityUnits = (std::max)(1000, InSlotCapacityUnits);
+        WarehouseStoragePolicy = InPolicy;
+        PreferredWarehouseResourceType = InPreferredResourceType;
+        CleanupWarehouseSlots();
+    }
+
+    int GetWarehouseSlotCapacityUnits() const
+    {
+        return UsesWarehouseSlots ? WarehouseSlotCapacityUnits : MaxResourceStock;
+    }
+
+    EWarehouseStoragePolicy GetWarehouseStoragePolicy() const
+    {
+        return WarehouseStoragePolicy;
+    }
+
+    EResourceType GetPreferredWarehouseResourceType() const
+    {
+        return PreferredWarehouseResourceType;
+    }
+
+    int GetLastDailyStorageLoss() const
+    {
+        return LastDailyStorageLoss;
     }
 
     int GetMonthlyWageCost() const
@@ -225,14 +478,16 @@ struct FBuildingOperationsState
 
     bool AdvanceHarborShipProgressAndCheckArrival(
         bool IsHarbor,
-        int DaysInMonth)
+        int DaysInMonth,
+        float HarborProgressMultiplier = 1.f)
     {
         if (!IsHarbor)
             return false;
 
         const int SafeDays = (std::max)(1, DaysInMonth);
         const float DailyProgress =
-            GetBudgetSatisfactionScale() /
+            GetBudgetSatisfactionScale() *
+            (std::max)(0.f, HarborProgressMultiplier) /
             static_cast<float>(SafeDays);
         HarborShipProgressMonths += DailyProgress;
 
@@ -280,7 +535,7 @@ struct FBuildingOperationsState
     int GetMaxTotalResourceStock() const
     {
         return UsesWarehouseSlots ?
-            WarehouseSlotCapacity * WarehouseSlotCount :
+            GetWarehouseSlotCapacityUnits() * WarehouseSlotCount :
             MaxResourceStock;
     }
 
@@ -289,7 +544,7 @@ struct FBuildingOperationsState
         if (Type == EResourceType::None)
             return 0;
 
-        return UsesWarehouseSlots ? WarehouseSlotCapacity : MaxResourceStock;
+        return UsesWarehouseSlots ? GetWarehouseSlotCapacityUnits() : MaxResourceStock;
     }
 
     int GetWarehouseSlotType(int SlotIndex) const
@@ -305,6 +560,91 @@ struct FBuildingOperationsState
         for (int SlotIndex = 0; SlotIndex < WarehouseSlotCount; ++SlotIndex)
         {
             if (WarehouseSlotTypes[SlotIndex] == Type)
+                return SlotIndex;
+        }
+
+        return -1;
+    }
+
+    bool PreservesWarehouseAssignments() const
+    {
+        return WarehouseStoragePolicy == EWarehouseStoragePolicy::Dedicated;
+    }
+
+    bool HasAssignedPreferredWarehouseSlot() const
+    {
+        if (!UsesWarehouseSlots ||
+            PreferredWarehouseResourceType == EResourceType::None)
+        {
+            return false;
+        }
+
+        for (int SlotIndex = 0; SlotIndex < WarehouseSlotCount; ++SlotIndex)
+        {
+            const EResourceType SlotType = WarehouseSlotTypes[SlotIndex];
+
+            if (SlotType == EResourceType::None)
+                continue;
+
+            if (SlotType == PreferredWarehouseResourceType)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool IsWarehouseSlotReusable(int SlotIndex) const
+    {
+        if (SlotIndex < 0 || SlotIndex >= WarehouseSlotCount)
+            return false;
+
+        const EResourceType SlotType = WarehouseSlotTypes[SlotIndex];
+
+        if (SlotType == EResourceType::None)
+            return true;
+
+        if (PreservesWarehouseAssignments())
+            return false;
+
+        const size_t ResourceIndex = static_cast<size_t>(SlotType);
+
+        if (ResourceIndex >= ReservedIncomingResourceAmounts.size())
+            return false;
+
+        return ResourceInventory.Get(SlotType) <= 0 &&
+            ReservedIncomingResourceAmounts[ResourceIndex] <= 0;
+    }
+
+    int CountAssignableWarehouseSlots(EResourceType Type) const
+    {
+        int Count = 0;
+
+        for (int SlotIndex = 0; SlotIndex < WarehouseSlotCount; ++SlotIndex)
+        {
+            if (IsWarehouseSlotReusable(SlotIndex))
+                ++Count;
+        }
+
+        if (PreferredWarehouseResourceType == EResourceType::None ||
+            Type == PreferredWarehouseResourceType ||
+            HasAssignedPreferredWarehouseSlot())
+        {
+            return Count;
+        }
+
+        return (std::max)(0, Count - 1);
+    }
+
+    int FindAssignableWarehouseSlot(EResourceType Type) const
+    {
+        if (CountAssignableWarehouseSlots(Type) <= 0)
+            return -1;
+
+        for (int SlotIndex = 0; SlotIndex < WarehouseSlotCount; ++SlotIndex)
+        {
+            if (IsWarehouseSlotReusable(SlotIndex))
                 return SlotIndex;
         }
 
@@ -331,6 +671,9 @@ struct FBuildingOperationsState
             if (ResourceInventory.Get(SlotType) <= 0 &&
                 ReservedIncomingResourceAmounts[ResourceIndex] <= 0)
             {
+                if (PreservesWarehouseAssignments())
+                    continue;
+
                 WarehouseSlotTypes[SlotIndex] = EResourceType::None;
             }
         }
@@ -357,7 +700,7 @@ struct FBuildingOperationsState
         if (FindWarehouseSlotByType(Type) >= 0)
             return true;
 
-        const int FreeSlot = FindFreeWarehouseSlot();
+        const int FreeSlot = FindAssignableWarehouseSlot(Type);
 
         if (FreeSlot < 0)
             return false;
@@ -374,29 +717,8 @@ struct FBuildingOperationsState
         if (!UsesWarehouseSlots)
             return true;
 
-        if (FindWarehouseSlotByType(Type) >= 0)
-            return true;
-
-        for (int SlotIndex = 0; SlotIndex < WarehouseSlotCount; ++SlotIndex)
-        {
-            const EResourceType SlotType = WarehouseSlotTypes[SlotIndex];
-
-            if (SlotType == EResourceType::None)
-                return true;
-
-            const size_t ResourceIndex = static_cast<size_t>(SlotType);
-
-            if (ResourceIndex >= ReservedIncomingResourceAmounts.size())
-                continue;
-
-            if (ResourceInventory.Get(SlotType) <= 0 &&
-                ReservedIncomingResourceAmounts[ResourceIndex] <= 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return FindWarehouseSlotByType(Type) >= 0 ||
+            CountAssignableWarehouseSlots(Type) > 0;
     }
 
     int GetAvailableIncomingCapacity(EResourceType Type) const
@@ -445,6 +767,164 @@ struct FBuildingOperationsState
         return ReservedIncomingResourceAmounts[Index];
     }
 
+    int GetReservedResourcePickupAmount(EResourceType Type) const
+    {
+        const size_t Index = static_cast<size_t>(Type);
+
+        if (Index >= ReservedResourcePickupAmounts.size())
+            return 0;
+
+        return ReservedResourcePickupAmounts[Index];
+    }
+
+    int GetReservedExportPickupAmount() const
+    {
+        return ReservedExportPickupAmount;
+    }
+
+    int GetProductionInputCount() const
+    {
+        int Count = 0;
+
+        for (int SlotIndex = 0;
+             SlotIndex < GProductionInputSlotCount;
+             ++SlotIndex)
+        {
+            if (ProductionInputTypes[SlotIndex] != EResourceType::None &&
+                ProductionInputAmounts[SlotIndex] > 0)
+            {
+                ++Count;
+            }
+        }
+
+        return Count;
+    }
+
+    EResourceType GetProductionInputType(int SlotIndex) const
+    {
+        if (SlotIndex < 0 || SlotIndex >= GProductionInputSlotCount)
+            return EResourceType::None;
+
+        return ProductionInputTypes[SlotIndex];
+    }
+
+    int GetProductionInputAmount(int SlotIndex) const
+    {
+        if (SlotIndex < 0 || SlotIndex >= GProductionInputSlotCount)
+            return 0;
+
+        return ProductionInputAmounts[SlotIndex];
+    }
+
+    bool UsesProductionInputResource(EResourceType Type) const
+    {
+        if (Type == EResourceType::None)
+            return false;
+
+        for (int SlotIndex = 0;
+             SlotIndex < GProductionInputSlotCount;
+             ++SlotIndex)
+        {
+            if (ProductionInputTypes[SlotIndex] == Type &&
+                ProductionInputAmounts[SlotIndex] > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    float GetLastProductionEfficiency() const
+    {
+        return LastProductionEfficiency;
+    }
+
+    int GetServiceVisitCapacity(
+        EBuildingServiceType Type,
+        float ServiceThroughputMultiplier = 1.f,
+        int ServiceCapacityDelta = 0) const
+    {
+        if (!IsValidServiceType(Type))
+            return 0;
+
+        return ResolveEffectiveServiceVisitCap(
+            GetServiceIndex(Type),
+            ServiceThroughputMultiplier,
+            ServiceCapacityDelta);
+    }
+
+    int GetActiveServiceVisitorCount(EBuildingServiceType Type) const
+    {
+        if (!IsValidServiceType(Type))
+            return 0;
+
+        return ActiveServiceVisitors[GetServiceIndex(Type)];
+    }
+
+    int GetServiceStock(EBuildingServiceType Type) const
+    {
+        if (!IsValidServiceType(Type))
+            return 0;
+
+        return ServiceStocks[GetServiceIndex(Type)];
+    }
+
+    bool TryBeginServiceVisit(
+        EBuildingServiceType Type,
+        float ServiceThroughputMultiplier = 1.f,
+        int ServiceCapacityDelta = 0)
+    {
+        if (!ProvidesService(Type))
+            return false;
+
+        const size_t Index = GetServiceIndex(Type);
+        const int EffectiveVisitCap = ResolveEffectiveServiceVisitCap(
+            Index,
+            ServiceThroughputMultiplier,
+            ServiceCapacityDelta);
+
+        if (EffectiveVisitCap <= 0 ||
+            ActiveServiceVisitors[Index] >= EffectiveVisitCap)
+        {
+            return false;
+        }
+
+        ++ActiveServiceVisitors[Index];
+        return true;
+    }
+
+    void EndServiceVisit(EBuildingServiceType Type)
+    {
+        if (!IsValidServiceType(Type))
+            return;
+
+        const size_t Index = GetServiceIndex(Type);
+        ActiveServiceVisitors[Index] = (std::max)(
+            0,
+            ActiveServiceVisitors[Index] - 1);
+    }
+
+    bool TryConsumeServiceStock(EBuildingServiceType Type, int Amount = 1)
+    {
+        if (Amount <= 0)
+            return true;
+
+        if (!ProvidesService(Type))
+            return false;
+
+        if (!ServiceConsumesStock(Type))
+            return true;
+
+        const size_t Index = GetServiceIndex(Type);
+
+        if (ServiceStocks[Index] < Amount)
+            return false;
+
+        ServiceStocks[Index] -= Amount;
+        return true;
+    }
+
     EResourceType ResolvePrimaryResourceTypeForLegacy() const
     {
         if (ProducedResourceType != EResourceType::None)
@@ -453,7 +933,98 @@ struct FBuildingOperationsState
         if (VisitConsumptionResourceType != EResourceType::None)
             return VisitConsumptionResourceType;
 
-        return EResourceType::ManufacturedGoods;
+        return EResourceType::Crops;
+    }
+
+    static float GetBaseWarehouseStorageLossPercent(EResourceType Type)
+    {
+        switch (Type)
+        {
+        case EResourceType::Fish:
+        case EResourceType::FarmedFish:
+            return 0.55f;
+        case EResourceType::HydroponicProduce:
+        case EResourceType::Juice:
+            return 0.40f;
+        case EResourceType::Coconuts:
+        case EResourceType::Crops:
+        case EResourceType::AnimalProducts:
+        case EResourceType::FactoryLivestock:
+            return 0.30f;
+        case EResourceType::Cheese:
+            return 0.12f;
+        case EResourceType::CannedGoods:
+            return 0.05f;
+        default:
+            break;
+        }
+
+        switch (GetResourceMarketClass(Type))
+        {
+        case EResourceMarketClass::Food:
+            return 0.22f;
+        case EResourceMarketClass::RawGoods:
+            return 0.08f;
+        case EResourceMarketClass::ManufacturedGoods:
+            return 0.03f;
+        case EResourceMarketClass::LuxuryGoods:
+            return 0.01f;
+        default:
+            return 0.f;
+        }
+    }
+
+    int ApplyDailyWarehouseStorageLoss(float LossMultiplier = 1.f)
+    {
+        LastDailyStorageLoss = 0;
+
+        if (!UsesWarehouseSlots)
+            return 0;
+
+        const float SafeLossMultiplier = (std::max)(0.f, LossMultiplier);
+
+        for (size_t Index = 0; Index < StorageLossAccums.size(); ++Index)
+        {
+            const EResourceType Type = static_cast<EResourceType>(Index);
+            const int CurrentStock = ResourceInventory.Get(Type);
+
+            if (CurrentStock <= 0)
+            {
+                StorageLossAccums[Index] = 0.f;
+                continue;
+            }
+
+            const float DailyLossPercent =
+                GetBaseWarehouseStorageLossPercent(Type) *
+                SafeLossMultiplier;
+
+            if (DailyLossPercent <= 0.f)
+                continue;
+
+            StorageLossAccums[Index] +=
+                static_cast<float>(CurrentStock) * DailyLossPercent / 100.f;
+            const int WholeLoss =
+                static_cast<int>(floorf(StorageLossAccums[Index]));
+
+            if (WholeLoss <= 0)
+                continue;
+
+            const int AppliedLoss = (std::min)(CurrentStock, WholeLoss);
+
+            if (AppliedLoss <= 0)
+                continue;
+
+            if (ResourceInventory.Consume(Type, AppliedLoss))
+            {
+                StorageLossAccums[Index] -= static_cast<float>(AppliedLoss);
+                LastDailyStorageLoss += AppliedLoss;
+            }
+        }
+
+        if (LastDailyStorageLoss > 0)
+            CleanupWarehouseSlots();
+
+        return LastDailyStorageLoss;
     }
 
     void AddResourceStock(EResourceType Type, int Amount)
@@ -488,19 +1059,160 @@ struct FBuildingOperationsState
         return true;
     }
 
-    void AddProduction(float UnitsPerSec, float DeltaTime)
+    void AddProduction(
+        float UnitsPerSec,
+        float DeltaTime,
+        float ProductionMultiplier = 1.f,
+        float InputConsumptionMultiplier = 1.f)
     {
-        if (UnitsPerSec <= 0.f ||
+        const float EffectiveOutputPerSec =
+            UnitsPerSec * (std::max)(0.f, ProductionMultiplier);
+
+        if (EffectiveOutputPerSec <= 0.f ||
             ProducedResourceType == EResourceType::None)
         {
+            LastProductionEfficiency = 0.f;
             return;
         }
 
-        ResourceProductionAccum += UnitsPerSec * DeltaTime;
-        const int Whole = static_cast<int>(ResourceProductionAccum);
+        const float EffectiveInputMultiplier =
+            (std::max)(0.f, InputConsumptionMultiplier);
+        const int InputCount = GetProductionInputCount();
+        float SupplyCoverage = 1.f;
+
+        if (InputCount > 0)
+        {
+            for (int SlotIndex = 0;
+                 SlotIndex < GProductionInputSlotCount;
+                 ++SlotIndex)
+            {
+                const EResourceType InputType =
+                    ProductionInputTypes[SlotIndex];
+                const int InputAmount = ProductionInputAmounts[SlotIndex];
+                const float EffectiveInputAmount =
+                    static_cast<float>(InputAmount) *
+                    EffectiveInputMultiplier;
+
+                if (InputType == EResourceType::None ||
+                    InputAmount <= 0 ||
+                    EffectiveInputAmount <= 0.f)
+                {
+                    continue;
+                }
+
+                const float RequiredPerSecond =
+                    EffectiveOutputPerSec * EffectiveInputAmount;
+                const float BufferDemand = (std::max)(
+                    1.f,
+                    RequiredPerSecond *
+                        GameConstants::Economy::ProductionInputBufferSeconds);
+                const float AvailableStock = static_cast<float>(
+                    GetResourceStock(InputType));
+                const float Coverage = (std::max)(
+                    0.f,
+                    (std::min)(1.f, AvailableStock / BufferDemand));
+                SupplyCoverage = (std::min)(SupplyCoverage, Coverage);
+            }
+        }
+
+        LastProductionEfficiency = SupplyCoverage;
+
+        if (SupplyCoverage <= 0.f)
+        {
+            ResourceProductionAccum = (std::min)(ResourceProductionAccum, 0.95f);
+            return;
+        }
+
+        const int OutputCapacityLeft = (std::max)(
+            0,
+            GetResourceTypeCapacity(ProducedResourceType) -
+                GetResourceStock(ProducedResourceType));
+
+        if (OutputCapacityLeft <= 0)
+        {
+            ResourceProductionAccum = (std::min)(ResourceProductionAccum, 0.95f);
+            LastProductionEfficiency = 0.f;
+            return;
+        }
+
+        ResourceProductionAccum = (std::min)(
+            ResourceProductionAccum +
+                EffectiveOutputPerSec * DeltaTime * SupplyCoverage,
+            GameConstants::Economy::ProductionMaxBufferedUnits);
+        int Whole = static_cast<int>(ResourceProductionAccum);
 
         if (Whole <= 0)
             return;
+
+        if (InputCount > 0)
+        {
+            int MaxUnitsByInputs = (std::numeric_limits<int>::max)();
+
+            for (int SlotIndex = 0;
+                 SlotIndex < GProductionInputSlotCount;
+                 ++SlotIndex)
+            {
+                const EResourceType InputType =
+                    ProductionInputTypes[SlotIndex];
+                const int InputAmount = ProductionInputAmounts[SlotIndex];
+                const float EffectiveInputAmount =
+                    static_cast<float>(InputAmount) *
+                    EffectiveInputMultiplier;
+
+                if (InputType == EResourceType::None ||
+                    InputAmount <= 0 ||
+                    EffectiveInputAmount <= 0.f)
+                {
+                    continue;
+                }
+
+                MaxUnitsByInputs = (std::min)(
+                    MaxUnitsByInputs,
+                    static_cast<int>(floorf(
+                        static_cast<float>(GetResourceStock(InputType)) /
+                        EffectiveInputAmount)));
+            }
+
+            Whole = (std::min)(Whole, MaxUnitsByInputs);
+        }
+
+        Whole = (std::min)(Whole, OutputCapacityLeft);
+
+        if (Whole <= 0)
+        {
+            ResourceProductionAccum = (std::min)(ResourceProductionAccum, 0.95f);
+            LastProductionEfficiency = 0.f;
+            return;
+        }
+
+        for (int SlotIndex = 0;
+             SlotIndex < GProductionInputSlotCount;
+             ++SlotIndex)
+        {
+            const EResourceType InputType =
+                ProductionInputTypes[SlotIndex];
+            const int InputAmount = ProductionInputAmounts[SlotIndex];
+            const float EffectiveInputAmount =
+                static_cast<float>(InputAmount) *
+                EffectiveInputMultiplier;
+            const int RequiredAmount = static_cast<int>(roundf(
+                static_cast<float>(Whole) * EffectiveInputAmount));
+
+            if (InputType == EResourceType::None ||
+                InputAmount <= 0 ||
+                EffectiveInputAmount <= 0.f ||
+                RequiredAmount <= 0)
+            {
+                continue;
+            }
+
+            if (!TryConsumeResource(InputType, RequiredAmount))
+            {
+                ResourceProductionAccum = (std::min)(ResourceProductionAccum, 0.95f);
+                LastProductionEfficiency = 0.f;
+                return;
+            }
+        }
 
         ResourceProductionAccum -= static_cast<float>(Whole);
         AddResourceStock(ProducedResourceType, Whole);

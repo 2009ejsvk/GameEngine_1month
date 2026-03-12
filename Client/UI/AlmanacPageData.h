@@ -77,6 +77,7 @@ namespace AlmanacPageData
         std::array<FBuildingCategoryEntry, GBuildingCategoryCount> BuildingCategories = {};
     };
 
+    void RegisterRuntimeConfig();
     const FDataSet& Get();
     bool ReloadIfChanged(float DeltaTime);
 }

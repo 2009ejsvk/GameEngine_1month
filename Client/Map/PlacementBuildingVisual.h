@@ -22,6 +22,7 @@ private:
 	bool mVisible = false;
 	std::string mLoadedBuildingId;
 	std::string mLoadedTextureFile;
+	unsigned long long mLoadedCatalogGeneration = 0;
 
 public:
 	void SetBuilding(const std::weak_ptr<class CPlacementAreaObject>& Building)

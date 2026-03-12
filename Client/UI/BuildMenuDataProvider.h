@@ -14,6 +14,8 @@ namespace BuildMenuDataProvider
     {
         int AliveNpcCount = 0;
         long long NationalBudget = 0;
+        EBuildingEra CurrentEra = EBuildingEra::Colonial;
+        FEraProgressState EraProgress;
         int SimulationYear = 2000;
         int SimulationMonth = 1;
         int SimulationDay = 1;
@@ -39,6 +41,7 @@ namespace BuildMenuDataProvider
         int EntryIndex = -1;
         std::wstring DisplayName;
         const TCHAR* IconPath = nullptr;
+        std::string IconTextureKey;
         bool Previewed = false;
     };
 

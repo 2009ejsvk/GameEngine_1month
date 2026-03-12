@@ -1,18 +1,97 @@
 #include "MainWorld.h"
 #include "MainWorldConfig.h"
+#include "RuntimeConfigRegistry.h"
+#include "../GameConstants.h"
+#include "../Map/BuildingMarkerOrb.h"
+#include "../Politics/EdictSystem.h"
 #include "../Politics/PoliticsSystem.h"
 #include <algorithm>
 
+void CMainWorld::CycleSimulationSpeedState()
+{
+    if (mSimulationPaused)
+    {
+        mSimulationPaused = false;
+        mSimulationSpeedMultiplier = 1;
+        return;
+    }
+
+    if (mSimulationSpeedMultiplier <= 1)
+    {
+        mSimulationSpeedMultiplier = 2;
+        return;
+    }
+
+    if (mSimulationSpeedMultiplier <= 2)
+    {
+        mSimulationSpeedMultiplier = 4;
+        return;
+    }
+
+    mSimulationPaused = true;
+}
+
 void CMainWorld::Update(float DeltaTime)
 {
-    CWorld::Update(DeltaTime);
+    RuntimeConfigRegistry::PollAll(DeltaTime);
+
+    const unsigned long long GameConstantsGeneration =
+        GameConstants::GetRuntimeConfigGeneration();
+
+    if (GameConstantsGeneration != mLastGameConstantsGeneration)
+    {
+        mLastGameConstantsGeneration = GameConstantsGeneration;
+        RebuildRoadNetwork();
+        RefreshRuntimeBuildingState();
+
+        std::vector<std::weak_ptr<CBuildingMarkerOrb>> CitizenList;
+
+        if (FindObjectListByType<CBuildingMarkerOrb>(CitizenList))
+        {
+            for (size_t i = 0; i < CitizenList.size(); ++i)
+            {
+                auto Citizen = CitizenList[i].lock();
+
+                if (Citizen && Citizen->GetAlive() && Citizen->GetEnable())
+                    Citizen->RefreshMoveSpeedFromGameConstants();
+            }
+        }
+    }
+
+    const unsigned long long EdictConfigGeneration =
+        EdictSystem::GetRuntimeConfigGeneration();
+
+    if (EdictConfigGeneration != mLastEdictConfigGeneration)
+    {
+        mLastEdictConfigGeneration = EdictConfigGeneration;
+        EdictSystem::SynchronizeGovernmentEdictStates(mGovernmentEdicts);
+        mGovernmentProfile.ActiveActions.clear();
+
+        for (size_t Index = 0; Index < mGovernmentEdicts.size(); ++Index)
+        {
+            PoliticsSystem::SyncGovernmentActionFromEdict(
+                mGovernmentProfile,
+                mGovernmentEdicts[Index].Type,
+                mGovernmentEdicts[Index].Active);
+        }
+
+        RefreshEdictModifiers();
+        RefreshPoliticalSnapshot();
+    }
+
+    const float SimulationDeltaTime =
+        mSimulationPaused ?
+        0.f :
+        DeltaTime * static_cast<float>((std::max)(1, mSimulationSpeedMultiplier));
+
+    CWorld::Update(SimulationDeltaTime);
 
     if (mElectionStatus.GameLost)
         return;
 
-    AdvanceSimulationDate(DeltaTime);
-    TickPoliticalRefresh(DeltaTime);
-    TickCitizenPopulation(DeltaTime);
+    AdvanceSimulationDate(SimulationDeltaTime);
+    TickPoliticalRefresh(SimulationDeltaTime);
+    TickCitizenPopulation(SimulationDeltaTime);
 }
 
 void CMainWorld::TickPoliticalRefresh(float DeltaTime)
@@ -22,6 +101,7 @@ void CMainWorld::TickPoliticalRefresh(float DeltaTime)
     if (mPoliticalSnapshotAccum >= MainWorldConfig::GPoliticalSnapshotInterval)
     {
         mPoliticalSnapshotAccum = 0.f;
+        RefreshEraProgress();
         RefreshPoliticalSnapshot();
     }
 }
@@ -72,14 +152,21 @@ void CMainWorld::AdvanceSimulationDate(float DeltaTime)
 
 void CMainWorld::AdvanceSimulationDay()
 {
+    RefreshPowerGridCoverage();
+    RefreshBuildingPollutionExposure();
+    RefreshWorldMarketPrices();
     ApplyDailyEconomySettlement();
+    ProcessActiveTradeRoutes();
     ApplyDailyEdictCitizenEffects();
     ApplyDailyTaxPolicyEventEffects();
+    ApplyDailyWorldCrisisEffects();
     TickGovernmentEdicts();
     PoliticsSystem::TickGovernmentActions(mGovernmentProfile);
     RefreshEdictModifiers();
+    RefreshEraProgress();
     RefreshPoliticalSnapshot();
     TickTaxPolicyEvents();
+    TickWorldCrises();
 
     ++mSimulationDay;
     const int CurrentMonthDays =

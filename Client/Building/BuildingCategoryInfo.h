@@ -17,7 +17,10 @@ namespace BuildingCategoryInfo
         L"오락",
         L"미디어 및 교육",
         L"관광업",
-        L"공익 서비스"
+        L"공익 서비스",
+        L"호화 오락",
+        L"습격 및 군사",
+        L"정부 및 재정"
     };
 
     constexpr const TCHAR* const GTabIconPaths[GBuildingCategoryCount] =
@@ -29,7 +32,26 @@ namespace BuildingCategoryInfo
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_entertainment.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_mediaEducation.png"),
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_tourism.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_publicServices.png")
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_publicServices.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_luxuryEntertainment.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_military.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingCategories\\T_ICO_government.png")
+    };
+
+    constexpr EBuildingCategory
+        GBuildMenuDisplayOrder[GBuildingCategoryCount] =
+    {
+        EBuildingCategory::Infrastructure,
+        EBuildingCategory::FoodResource,
+        EBuildingCategory::Industry,
+        EBuildingCategory::Housing,
+        EBuildingCategory::Entertainment,
+        EBuildingCategory::LuxuryEntertainment,
+        EBuildingCategory::MediaEducation,
+        EBuildingCategory::Tourism,
+        EBuildingCategory::PublicService,
+        EBuildingCategory::Military,
+        EBuildingCategory::GovernmentFinance
     };
 
     inline bool IsValidCategoryIndex(int Index)
@@ -60,5 +82,23 @@ namespace BuildingCategoryInfo
     inline const TCHAR* GetTabIconPath(EBuildingCategory Category)
     {
         return GetTabIconPath(ToIndex(Category));
+    }
+
+    inline EBuildingCategory GetBuildMenuCategory(int DisplayIndex)
+    {
+        return IsValidCategoryIndex(DisplayIndex) ?
+            GBuildMenuDisplayOrder[DisplayIndex] :
+            EBuildingCategory::Infrastructure;
+    }
+
+    inline int GetBuildMenuDisplayIndex(EBuildingCategory Category)
+    {
+        for (int Index = 0; Index < GBuildingCategoryCount; ++Index)
+        {
+            if (GBuildMenuDisplayOrder[Index] == Category)
+                return Index;
+        }
+
+        return 0;
     }
 }

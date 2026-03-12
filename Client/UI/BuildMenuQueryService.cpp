@@ -55,6 +55,10 @@ namespace
                 Result.HasSimulationData = true;
                 Result.NationalBudget =
                     mBuildMenuAccess->GetNationalBudget();
+                Result.CurrentEra =
+                    mBuildMenuAccess->GetCurrentEra();
+                Result.EraProgress =
+                    mBuildMenuAccess->GetEraProgress();
                 Result.SimulationYear =
                     mBuildMenuAccess->GetSimulationYear();
                 Result.SimulationMonth =

@@ -305,6 +305,59 @@ int CBusRouteSystem::FindNearestStop(
     return BestStopIndex;
 }
 
+float CBusRouteSystem::EstimateRouteServiceQuality(
+    const FBusRoute& Route,
+    float& OutCrowdingPenalty) const
+{
+    OutCrowdingPenalty = 0.f;
+
+    if (Route.StopIndices.size() < 2 || Route.Capacity <= 0)
+        return 0.f;
+
+    const float TransitSpeed =
+        (std::max)(
+            1.f,
+            GameConstants::Citizen::NpcBaseMoveSpeed *
+                GameConstants::Citizen::CommuteTransitSpeedMultiplier);
+    const float LoopTravelSeconds =
+        Route.LoopDistance > 0.f ?
+            Route.LoopDistance / TransitSpeed :
+            0.f;
+    const float DispatchSeconds =
+        (std::max)(8.f, Route.DispatchIntervalSeconds);
+    const float ServiceCycleSeconds =
+        (std::max)(DispatchSeconds, LoopTravelSeconds);
+    const float SeatsPerMinute =
+        static_cast<float>(Route.Capacity) *
+        60.f / DispatchSeconds;
+    const float DemandProxy =
+        (std::max)(3.f, static_cast<float>(Route.StopIndices.size()) * 2.4f);
+    const float CrowdingRatio =
+        DemandProxy / (std::max)(1.f, SeatsPerMinute);
+    const float FrequencyPenalty =
+        Clamp<float>(
+            (DispatchSeconds -
+                GameConstants::Citizen::BusDispatchSeconds) /
+                GameConstants::Citizen::BusDispatchSeconds,
+            0.f,
+            1.2f);
+    const float LoopPenalty =
+        Clamp<float>(
+            (ServiceCycleSeconds - 80.f) / 200.f,
+            0.f,
+            1.f);
+
+    OutCrowdingPenalty =
+        Clamp<float>((CrowdingRatio - 0.65f) / 1.35f, 0.f, 1.f);
+
+    const float ServiceQuality =
+        1.f -
+        OutCrowdingPenalty * 0.45f -
+        FrequencyPenalty * 0.25f -
+        LoopPenalty * 0.20f;
+    return Clamp<float>(ServiceQuality, 0.f, 1.f);
+}
+
 float CBusRouteSystem::ComputeRouteRideDistance(
     const FBusRoute& Route,
     int BoardOrderIndex,
@@ -352,12 +405,43 @@ bool CBusRouteSystem::TryEstimateCommute(
     float& OutRideDistance,
     float& OutWaitSeconds) const
 {
-    OutWalkDistance = 0.f;
-    OutRideDistance = 0.f;
-    OutWaitSeconds = 0.f;
+    FBusCommuteEstimate Estimate;
+
+    if (!TryEstimateCommuteDetailed(
+            StartPos,
+            EndPos,
+            MaxWalkDistance,
+            Estimate))
+    {
+        OutWalkDistance = 0.f;
+        OutRideDistance = 0.f;
+        OutWaitSeconds = 0.f;
+        return false;
+    }
+
+    OutWalkDistance = Estimate.WalkDistance;
+    OutRideDistance = Estimate.RideDistance;
+    OutWaitSeconds = Estimate.WaitSeconds;
+    return true;
+}
+
+bool CBusRouteSystem::TryEstimateCommuteDetailed(
+    const FVector3& StartPos,
+    const FVector3& EndPos,
+    float MaxWalkDistance,
+    FBusCommuteEstimate& OutEstimate) const
+{
+    OutEstimate = FBusCommuteEstimate();
 
     bool FoundRoute = false;
     float BestScore = FLT_MAX;
+    const float WalkingSpeed =
+        (std::max)(1.f, GameConstants::Citizen::NpcBaseMoveSpeed);
+    const float TransitSpeed =
+        (std::max)(
+            1.f,
+            GameConstants::Citizen::NpcBaseMoveSpeed *
+                GameConstants::Citizen::CommuteTransitSpeedMultiplier);
 
     for (size_t RouteIdx = 0; RouteIdx < mRoutes.size(); ++RouteIdx)
     {
@@ -365,6 +449,10 @@ bool CBusRouteSystem::TryEstimateCommute(
 
         if (Route.StopIndices.size() < 2)
             continue;
+
+        float CrowdingPenalty = 0.f;
+        const float ServiceQuality =
+            EstimateRouteServiceQuality(Route, CrowdingPenalty);
 
         for (size_t BoardOrder = 0;
              BoardOrder < Route.StopIndices.size();
@@ -398,18 +486,30 @@ bool CBusRouteSystem::TryEstimateCommute(
                 if (RideDistance <= 0.f)
                     continue;
 
+                const float WaitSeconds =
+                    Route.DispatchIntervalSeconds *
+                    GameConstants::Citizen::CommuteBusAverageWaitFactor *
+                    (1.f + CrowdingPenalty * 0.65f);
+                const float TravelSeconds =
+                    (StartWalkDistance + EndWalkDistance) / WalkingSpeed +
+                    RideDistance / TransitSpeed +
+                    WaitSeconds;
                 const float Score =
-                    StartWalkDistance + EndWalkDistance + RideDistance;
+                    TravelSeconds +
+                    CrowdingPenalty * 18.f -
+                    ServiceQuality * 6.f;
 
                 if (Score >= BestScore)
                     continue;
 
                 BestScore = Score;
-                OutWalkDistance = StartWalkDistance + EndWalkDistance;
-                OutRideDistance = RideDistance;
-                OutWaitSeconds =
-                    Route.DispatchIntervalSeconds *
-                    GameConstants::Citizen::CommuteBusAverageWaitFactor;
+                OutEstimate.RouteIndex = static_cast<int>(RouteIdx);
+                OutEstimate.WalkDistance =
+                    StartWalkDistance + EndWalkDistance;
+                OutEstimate.RideDistance = RideDistance;
+                OutEstimate.WaitSeconds = WaitSeconds;
+                OutEstimate.ServiceQuality = ServiceQuality;
+                OutEstimate.CrowdingPenalty = CrowdingPenalty;
                 FoundRoute = true;
             }
         }

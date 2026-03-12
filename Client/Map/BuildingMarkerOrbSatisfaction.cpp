@@ -1,6 +1,7 @@
 #include "BuildingMarkerOrb.h"
 #include "PlacementAreaObject.h"
 #include "../Citizen/CitizenCommuteCalc.h"
+#include "../Economy/TradePolicyRuntime.h"
 #include "../World/MainWorldAccess.h"
 #include "World/World.h"
 #include <algorithm>
@@ -28,6 +29,37 @@ namespace
             return 0.74f - 0.30f * Severity;
         case ETaxPolicyEventType::BudgetCrisis:
             return 0.92f - 0.18f * Severity;
+        default:
+            return 1.f;
+        }
+    }
+
+    float ResolveWorldCrisisProductionMultiplier(
+        const FWorldCrisisStatus* WorldCrisisStatus)
+    {
+        if (!WorldCrisisStatus ||
+            !WorldCrisisStatus->Active ||
+            WorldCrisisStatus->Type == EWorldCrisisType::None)
+        {
+            return 1.f;
+        }
+
+        const float Severity = Clamp<float>(
+            static_cast<float>(WorldCrisisStatus->DaysActive + 1) / 6.f,
+            0.f,
+            1.f);
+
+        switch (WorldCrisisStatus->Type)
+        {
+        case EWorldCrisisType::Raid:
+            return 0.90f - 0.14f * Severity;
+        case EWorldCrisisType::LaborStrike:
+            return 0.78f - 0.24f * Severity;
+        case EWorldCrisisType::CrimeWave:
+            return 0.92f - 0.12f * Severity;
+        case EWorldCrisisType::FiscalEmergency:
+            return 0.94f - 0.10f * Severity;
+        case EWorldCrisisType::None:
         default:
             return 1.f;
         }
@@ -70,6 +102,12 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     auto& Satisfaction = mCitizenProfileState.Satisfaction;
     auto& FoodStockAvailableThisVisit =
         mCitizenProfileState.FoodStockAvailableThisVisit;
+    auto& FunServiceAvailableThisVisit =
+        mCitizenProfileState.FunServiceAvailableThisVisit;
+    auto& HealthServiceAvailableThisVisit =
+        mCitizenProfileState.HealthServiceAvailableThisVisit;
+    auto& FaithServiceAvailableThisVisit =
+        mCitizenProfileState.FaithServiceAvailableThisVisit;
     auto World = mWorld.lock();
     const IMainWorldCitizenPolicyAccess* MainWorld =
         World ? dynamic_cast<IMainWorldCitizenPolicyAccess*>(World.get()) : nullptr;
@@ -79,16 +117,22 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         World ? dynamic_cast<IMainWorldTransitAccess*>(World.get()) : nullptr;
     const FGovernmentEdictModifiers* EdictModifiers =
         MainWorld ? &MainWorld->GetEdictModifiers() : nullptr;
+    const FGovernmentProfile* GovernmentProfile =
+        MainWorld ? &MainWorld->GetGovernmentProfile() : nullptr;
     const FTaxPolicy* TaxPolicy =
         MainWorld ? &MainWorld->GetTaxPolicy() : nullptr;
     const FTaxPolicyEventStatus* TaxEventStatus =
         MainWorld ? &MainWorld->GetTaxPolicyEventStatus() : nullptr;
+    const FWorldCrisisStatus* WorldCrisisStatus =
+        MainWorld ? &MainWorld->GetWorldCrisisStatus() : nullptr;
     const float FoodGainMultiplier =
         EdictModifiers ? EdictModifiers->FoodGainMultiplier : 1.f;
     const float ProductionMultiplier =
         EdictModifiers ? EdictModifiers->ProductionMultiplier : 1.f;
     const float TaxEventProductionMultiplier =
         ResolveTaxEventProductionMultiplier(TaxEventStatus);
+    const float WorldCrisisProductionMultiplier =
+        ResolveWorldCrisisProductionMultiplier(WorldCrisisStatus);
     const int FoodConsumptionPerVisit =
         EdictModifiers ?
         (std::max)(1, EdictModifiers->FoodConsumptionPerVisit) :
@@ -119,6 +163,14 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         return static_cast<float>((Building.get()->*Getter)());
     };
 
+    auto ResolveServiceRecoveryMultiplier = [&](float SatisfactionCap) -> float
+    {
+        return Clamp<float>(
+            0.75f + Clamp<float>(SatisfactionCap / 100.f, 0.f, 1.f) * 0.50f,
+            0.55f,
+            1.35f);
+    };
+
     const auto HomeBuilding = ResolveBuilding(mHomeName);
     const auto WorkBuilding = ResolveBuilding(mWorkName);
     const float HomeHousingCap = ResolveBuildingCap(
@@ -129,25 +181,75 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     const auto FoodCapBuilding = ResolveBuilding(FoodCapBuildingName);
     const float FoodCap = ResolveBuildingCap(
         FoodCapBuilding, &CPlacementAreaObject::GetFoodSatisfactionCap);
-    const auto FunBuilding = ResolveBuilding(mFunName);
+    const std::string& FunCapBuildingName = mFunVisitBuildingName.empty() ?
+        mFunName :
+        mFunVisitBuildingName;
+    const auto FunCapBuilding = ResolveBuilding(FunCapBuildingName);
     const float FunCap = ResolveBuildingCap(
-        FunBuilding, &CPlacementAreaObject::GetFunSatisfactionCap);
+        FunCapBuilding, &CPlacementAreaObject::GetFunSatisfactionCap);
+    const std::string& HealthCapBuildingName =
+        mHealthVisitBuildingName.empty() ?
+            mHealthName :
+            mHealthVisitBuildingName;
+    const auto HealthCapBuilding = ResolveBuilding(HealthCapBuildingName);
+    const float HealthCap = ResolveBuildingCap(
+        HealthCapBuilding, &CPlacementAreaObject::GetHealthSatisfactionCap);
+    const std::string& FaithCapBuildingName =
+        mFaithVisitBuildingName.empty() ?
+            mFaithName :
+            mFaithVisitBuildingName;
+    const auto FaithCapBuilding = ResolveBuilding(FaithCapBuildingName);
+    const float FaithCap = ResolveBuildingCap(
+        FaithCapBuilding, &CPlacementAreaObject::GetFaithSatisfactionCap);
     const float WorkJobCap = ResolveBuildingCap(
         WorkBuilding, &CPlacementAreaObject::GetEffectiveJobSatisfactionCap);
-    const float CommuteTimeSeconds =
-        CitizenCommuteCalc::EstimateCommuteTime(
+    const float HomePollution =
+        HomeBuilding ?
+            HomeBuilding->GetLocalPollutionExposureNormalized() :
+            0.f;
+    const float WorkPollution =
+        WorkBuilding ?
+            WorkBuilding->GetLocalPollutionExposureNormalized() :
+            0.f;
+    const float FoodPollution =
+        FoodCapBuilding ?
+            FoodCapBuilding->GetLocalPollutionExposureNormalized() :
+            0.f;
+    const float FunPollution =
+        FunCapBuilding ?
+            FunCapBuilding->GetLocalPollutionExposureNormalized() :
+            0.f;
+    const float HealthPollution =
+        HealthCapBuilding ?
+            HealthCapBuilding->GetLocalPollutionExposureNormalized() :
+            0.f;
+    const float FaithPollution =
+        FaithCapBuilding ?
+            FaithCapBuilding->GetLocalPollutionExposureNormalized() :
+            0.f;
+    const float FoodRecoveryMultiplier =
+        ResolveServiceRecoveryMultiplier(FoodCap);
+    const float FunRecoveryMultiplier =
+        ResolveServiceRecoveryMultiplier(FunCap);
+    const float HealthRecoveryMultiplier =
+        ResolveServiceRecoveryMultiplier(HealthCap);
+    const float FaithRecoveryMultiplier =
+        ResolveServiceRecoveryMultiplier(FaithCap);
+    const FCommuteProfile CommuteProfile =
+        CitizenCommuteCalc::ResolveCommuteProfile(
             HomeBuilding,
             WorkBuilding,
             mCitizenProfileState.IdentityProfile,
             RoadNetworkAccess ? RoadNetworkAccess->GetRoadNetwork() : nullptr,
             TransitAccess ? TransitAccess->GetBusRouteSystem() : nullptr);
+    const float CommuteTimeSeconds = CommuteProfile.TravelSeconds;
     Satisfaction.CommuteTimePenalty =
         CitizenCommuteCalc::EstimateCommutePenalty(CommuteTimeSeconds);
+    const float CommutePenaltyNormalized =
+        Clamp<float>(Satisfaction.CommuteTimePenalty / 100.f, 0.f, 1.f);
     const float EffectiveWorkJobCap = (std::max)(
         0.f,
-        WorkJobCap -
-            Satisfaction.CommuteTimePenalty *
-                GameConstants::Citizen::CommuteJobPenaltyWeight);
+        WorkJobCap * CommuteProfile.JobRecoveryMultiplier);
     const float ConsumptionTaxDeviation =
         TaxPolicy ?
         GetTaxPolicyDeviationNormalized(
@@ -188,12 +290,49 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         0.f, Satisfaction.Health - 0.2f * DeltaTime);
     Satisfaction.Faith = (std::max)(
         0.f, Satisfaction.Faith - 0.15f * DeltaTime);
+    Satisfaction.Job = (std::max)(
+        0.f,
+        Satisfaction.Job - 0.75f * CommutePenaltyNormalized * DeltaTime);
+    Satisfaction.Fun = (std::max)(
+        0.f,
+        Satisfaction.Fun - 0.30f * CommutePenaltyNormalized * DeltaTime);
+
+    if (CommuteProfile.Mode == ECommuteMode::Transit)
+    {
+        Satisfaction.Freedom = (std::max)(
+            0.f,
+            Satisfaction.Freedom -
+                0.18f *
+                (CommutePenaltyNormalized + CommuteProfile.CrowdingPenalty) *
+                DeltaTime);
+    }
+    else if (CommuteProfile.Mode == ECommuteMode::Vehicle)
+    {
+        Satisfaction.Freedom = (std::min)(
+            100.f,
+            Satisfaction.Freedom +
+                0.08f * CommuteProfile.ServiceQuality * DeltaTime);
+    }
+    else if (CommuteProfile.Mode == ECommuteMode::Walk &&
+        CommuteTimeSeconds > 0.f &&
+        CommutePenaltyNormalized < 0.15f)
+    {
+        Satisfaction.Health = (std::min)(
+            100.f,
+            Satisfaction.Health + 0.10f * DeltaTime);
+    }
 
     // FSM 상태별 회복
     switch (mCitizenState)
     {
     case ECitizenState::AtWork:
-        RecoverUnderCap(Satisfaction.Job, 10.f, EffectiveWorkJobCap);
+        Satisfaction.Health = (std::max)(
+            0.f,
+            Satisfaction.Health - WorkPollution * 0.45f * DeltaTime);
+        RecoverUnderCap(
+            Satisfaction.Job,
+            10.f * CommuteProfile.JobRecoveryMultiplier,
+            EffectiveWorkJobCap);
         // 생산/식량 시설만 재고를 생산한다.
         // 운송업자 사무소/항구는 재고를 직접 생산하지 않는다.
         if (WorkBuilding)
@@ -201,49 +340,76 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             float ProductionPerSec = 0.f;
             const EResourceType ProducedType =
                 WorkBuilding->GetProducedResourceType();
-
-            if (ProducedType == EResourceType::Food)
+            const EResourceType InputTypeA =
+                WorkBuilding->GetProductionInputCount() > 0 ?
+                    WorkBuilding->GetProductionInputType(0) :
+                    EResourceType::None;
+            const EResourceType InputTypeB =
+                WorkBuilding->GetProductionInputCount() > 1 ?
+                    WorkBuilding->GetProductionInputType(1) :
+                    EResourceType::None;
+            const float TradePolicyProductionMultiplier =
+                GovernmentProfile ?
+                    TradePolicyRuntime::ComputeBuildingProductionMultiplier(
+                        ProducedType,
+                        InputTypeA,
+                        InputTypeB,
+                        GovernmentProfile->ExportTradePolicy,
+                        GovernmentProfile->ImportTradePolicy) :
+                    1.f;
+            switch (GetResourceMarketClass(ProducedType))
             {
+            case EResourceMarketClass::Food:
                 ProductionPerSec =
                     (WorkBuilding->GetBuildingCategory() ==
                         EBuildingCategory::FoodResource ?
                         40.f :
                         8.f) *
                     ProductionMultiplier *
-                    TaxEventProductionMultiplier;
-            }
-            else if (ProducedType == EResourceType::RawGoods)
-            {
+                    TaxEventProductionMultiplier *
+                    WorldCrisisProductionMultiplier;
+                break;
+            case EResourceMarketClass::RawGoods:
                 ProductionPerSec =
                     10.f *
                     ProductionMultiplier *
-                    TaxEventProductionMultiplier;
-            }
-            else if (ProducedType == EResourceType::ManufacturedGoods)
-            {
+                    TaxEventProductionMultiplier *
+                    WorldCrisisProductionMultiplier;
+                break;
+            case EResourceMarketClass::ManufacturedGoods:
                 ProductionPerSec =
                     6.f *
                     ProductionMultiplier *
-                    TaxEventProductionMultiplier;
-            }
-            else if (ProducedType == EResourceType::LuxuryGoods)
-            {
+                    TaxEventProductionMultiplier *
+                    WorldCrisisProductionMultiplier;
+                break;
+            case EResourceMarketClass::LuxuryGoods:
                 ProductionPerSec =
                     4.f *
                     ProductionMultiplier *
-                    TaxEventProductionMultiplier;
+                    TaxEventProductionMultiplier *
+                    WorldCrisisProductionMultiplier;
+                break;
+            default:
+                break;
             }
 
+            ProductionPerSec *=
+                CommuteProfile.ProductivityMultiplier *
+                TradePolicyProductionMultiplier;
             WorkBuilding->AddProduction(ProductionPerSec, DeltaTime);
         }
         break;
     case ECitizenState::AtHome:
         RecoverUnderCap(Satisfaction.Housing, 8.f, HomeHousingCap);
         Satisfaction.Health = (std::min)(
-            100.f, Satisfaction.Health + 1.f * DeltaTime);
+            100.f,
+            Satisfaction.Health +
+                (1.f - HomePollution * 0.30f) * DeltaTime);
         break;
     case ECitizenState::AtFood:
-        if (!FoodStockAvailableThisVisit &&
+        if (mFoodVisitReserved &&
+            !FoodStockAvailableThisVisit &&
             World && !mFoodVisitBuildingName.empty())
         {
             auto FoodBuilding =
@@ -251,25 +417,125 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
                     mFoodVisitBuildingName).lock();
 
             if (FoodBuilding)
+            {
+                const EResourceType FoodType =
+                    FoodBuilding->GetVisitConsumptionResourceType();
                 FoodStockAvailableThisVisit =
-                    FoodBuilding->TryConsumeResource(
-                        EResourceType::Food,
-                        FoodConsumptionPerVisit);
+                    FoodType != EResourceType::None ?
+                        FoodBuilding->TryConsumeResource(
+                            FoodType,
+                            FoodConsumptionPerVisit) :
+                        FoodBuilding->TryConsumeResource(
+                            FoodConsumptionPerVisit);
+            }
         }
 
         // 재고가 있었을 때만 음식 만족도 회복
-        if (FoodStockAvailableThisVisit)
+        if (mFoodVisitReserved && FoodStockAvailableThisVisit)
         {
             RecoverUnderCap(
                 Satisfaction.Food,
-                30.f * FoodGainMultiplier,
+                30.f * FoodGainMultiplier * FoodRecoveryMultiplier,
                 FoodCap);
         }
         Satisfaction.Health = (std::min)(
-            100.f, Satisfaction.Health + 3.f * DeltaTime);
+            100.f,
+            Satisfaction.Health +
+                (3.f * HealthRecoveryMultiplier - FoodPollution * 0.18f) *
+                DeltaTime);
         break;
     case ECitizenState::AtFun:
-        RecoverUnderCap(Satisfaction.Fun, 26.f, FunCap);
+        if (mFunVisitReserved &&
+            !FunServiceAvailableThisVisit &&
+            World && !mFunVisitBuildingName.empty())
+        {
+            auto FunVisitBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mFunVisitBuildingName).lock();
+
+            if (FunVisitBuilding)
+            {
+                FunServiceAvailableThisVisit =
+                    FunVisitBuilding->TryConsumeServiceStock(
+                        EBuildingServiceType::Fun,
+                        1);
+            }
+        }
+
+        if (mFunVisitReserved && FunServiceAvailableThisVisit)
+        {
+            RecoverUnderCap(
+                Satisfaction.Fun,
+                26.f * FunRecoveryMultiplier,
+                FunCap);
+        }
+
+        Satisfaction.Health = (std::max)(
+            0.f,
+            Satisfaction.Health - FunPollution * 0.08f * DeltaTime);
+        break;
+    case ECitizenState::AtHealth:
+        if (mHealthVisitReserved &&
+            !HealthServiceAvailableThisVisit &&
+            World && !mHealthVisitBuildingName.empty())
+        {
+            auto HealthVisitBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mHealthVisitBuildingName).lock();
+
+            if (HealthVisitBuilding)
+            {
+                HealthServiceAvailableThisVisit =
+                    HealthVisitBuilding->TryConsumeServiceStock(
+                        EBuildingServiceType::Health,
+                        1);
+            }
+        }
+
+        if (mHealthVisitReserved && HealthServiceAvailableThisVisit)
+        {
+            RecoverUnderCap(
+                Satisfaction.Health,
+                24.f * HealthRecoveryMultiplier,
+                HealthCap);
+        }
+
+        if (HealthPollution > 0.f)
+        {
+            Satisfaction.Health = (std::max)(
+                0.f,
+                Satisfaction.Health - HealthPollution * 0.05f * DeltaTime);
+        }
+        break;
+    case ECitizenState::AtFaith:
+        if (mFaithVisitReserved &&
+            !FaithServiceAvailableThisVisit &&
+            World && !mFaithVisitBuildingName.empty())
+        {
+            auto FaithVisitBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    mFaithVisitBuildingName).lock();
+
+            if (FaithVisitBuilding)
+            {
+                FaithServiceAvailableThisVisit =
+                    FaithVisitBuilding->TryConsumeServiceStock(
+                        EBuildingServiceType::Faith,
+                        1);
+            }
+        }
+
+        if (mFaithVisitReserved && FaithServiceAvailableThisVisit)
+        {
+            RecoverUnderCap(
+                Satisfaction.Faith,
+                22.f * FaithRecoveryMultiplier,
+                FaithCap);
+        }
+
+        Satisfaction.Health = (std::max)(
+            0.f,
+            Satisfaction.Health - FaithPollution * 0.05f * DeltaTime);
         break;
     default:
         break;

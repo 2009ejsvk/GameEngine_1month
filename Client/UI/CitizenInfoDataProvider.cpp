@@ -3,6 +3,7 @@
 #include "CitizenInfoQueryService.h"
 #include "UIStrings.h"
 #include "../Building/BuildingCatalog.h"
+#include "../Economy/ResourceTradePricing.h"
 #include <Windows.h>
 #include <algorithm>
 #include <cmath>
@@ -13,6 +14,16 @@ namespace
 {
     using CitizenInfoConstants::GBuildingTabCount;
     using CitizenInfoConstants::GCitizenTabCount;
+
+    std::string BuildCatalogIconTextureKey(
+        const FBuildingCatalogEntry& Entry)
+    {
+        return
+            "BuildingCatalogIcon_" +
+            Entry.Id +
+            "_Gen_" +
+            std::to_string(::GetRuntimeConfigGeneration());
+    }
 
     struct FBuildingUiSnapshot
     {
@@ -31,10 +42,24 @@ namespace
         std::wstring EffectText;
         std::wstring NoteText;
         std::wstring ServiceCapacityText;
+        std::wstring ActiveOperationModeText;
+        std::wstring ActiveOperationModeEffectSummary;
+        std::wstring ActiveRuntimeUpgradeText;
+        std::wstring ActiveRuntimeUpgradeEffectSummary;
         std::vector<std::wstring> NarrativeLines;
+        std::vector<std::wstring> LogisticsLines;
         std::vector<std::wstring> UpgradeHints;
         std::vector<std::wstring> OperationModes;
         std::vector<std::wstring> WarehouseSlotLines;
+        std::vector<std::wstring> HarborPolicyLines;
+        std::vector<std::wstring> HarborPriorityLines;
+        std::wstring WarehousePolicySelectionText;
+        std::wstring WarehousePrioritySelectionText;
+        std::wstring HarborDomesticReserveSelectionText;
+        std::wstring HarborExportSelectionText;
+        std::wstring HarborImportCapSelectionText;
+        std::wstring HarborImportBudgetSelectionText;
+        std::wstring HarborImportSelectionText;
         std::vector<std::string> Residents;
         std::vector<std::string> AssignedEmployees;
         std::vector<std::string> WorkingEmployees;
@@ -52,14 +77,32 @@ namespace
         int JobCap = 100;
         int FoodCap = 100;
         int FunCap = 100;
+        int HealthCap = 100;
+        int FaithCap = 100;
+        int PollutionOutput = 0;
+        int PollutionMitigation = 0;
+        int LocalPollutionExposure = 0;
         int ResourceStock = 0;
         int ExportableStock = 0;
         int MaxResourceStock = 0;
+        EResourceType ProducedResourceType = EResourceType::None;
+        int ProducedResourceStock = 0;
+        int ProducedPowerMW = 0;
+        int RequiredPowerMW = 0;
         int ServiceCapacity = 0;
         int TotalProducedPowerMW = 0;
         int TotalRequiredPowerMW = 0;
+        long long LastDailyExportIncome = 0;
+        long long LastDailyImportExpense = 0;
+        int TradeRouteExportFulfilledUnits = 0;
+        int TradeRouteImportFulfilledUnits = 0;
+        int TradeRouteExportContractUnits = 0;
+        int TourismArrivalCount = 0;
+        int ActiveOperationModeIndex = 0;
+        int ActiveRuntimeUpgradeIndex = -1;
         float BudgetScale = 1.f;
         float AccessibilityScore = 0.f;
+        float PowerSupplyRatio = 1.f;
         float HarborShipProgressPercent = 0.f;
         ECitizenEducationLevel RequiredEducationLevel =
             ECitizenEducationLevel::Uneducated;
@@ -67,6 +110,8 @@ namespace
         bool WorkProvider = false;
         bool FoodProvider = false;
         bool EntertainmentProvider = false;
+        bool HealthProvider = false;
+        bool FaithProvider = false;
         bool UsesResourceStock = false;
         bool Harbor = false;
         bool Warehouse = false;
@@ -232,6 +277,28 @@ namespace
         return Buffer;
     }
 
+    std::wstring FormatSignedPercentValue(int Value)
+    {
+        return std::wstring(Value > 0 ? L"+" : L"") +
+            std::to_wstring(Value) +
+            L"%";
+    }
+
+    std::wstring BuildMarketPriceSummary(EResourceType Type)
+    {
+        if (!IsExportableResourceType(Type))
+            return std::wstring();
+
+        const int BaseShiftPercent =
+            ResourceTradePricing::GetExportPriceIndexPercent(Type) - 100;
+        const int DailyShiftPercent =
+            ResourceTradePricing::GetExportPriceDeltaPercent(Type);
+        return L"기준 " +
+            FormatSignedPercentValue(BaseShiftPercent) +
+            L" / 전일 " +
+            FormatSignedPercentValue(DailyShiftPercent);
+    }
+
     std::wstring FormatMegawattValue(int Value)
     {
         return std::to_wstring(Value) +
@@ -242,6 +309,12 @@ namespace
     {
         return std::wstring(Value > 0 ? L"+" : L"") +
             FormatMegawattValue(Value);
+    }
+
+    std::wstring FormatPowerCoverageValue(float Ratio)
+    {
+        return std::to_wstring(static_cast<int>(roundf(
+            Clamp<float>(Ratio, 0.f, 1.f) * 100.f))) + L"%";
     }
 
     std::wstring FormatDayCount(int Value)
@@ -354,6 +427,89 @@ namespace
         return Snapshot.DisplayName == L"레스토랑";
     }
 
+    bool UseCustomsOfficeOverview(const FBuildingUiSnapshot& Snapshot)
+    {
+        return Snapshot.DisplayName == L"세관";
+    }
+
+    int ComputeAverageCustomsDiplomacyExportBiasPercent()
+    {
+        int TotalBias = 0;
+        int SampleCount = 0;
+
+        for (int ResourceIndex = 1;
+            ResourceIndex < static_cast<int>(EResourceType::Count);
+            ++ResourceIndex)
+        {
+            const EResourceType ResourceType =
+                static_cast<EResourceType>(ResourceIndex);
+
+            if (!IsExportableResourceType(ResourceType))
+                continue;
+
+            TotalBias +=
+                ResourceTradePricing::GetDiplomacyExportBiasPercent(
+                    ResourceType);
+            ++SampleCount;
+        }
+
+        if (SampleCount <= 0)
+            return 7;
+
+        return static_cast<int>(std::lround(
+            static_cast<double>(TotalBias) /
+            static_cast<double>(SampleCount)));
+    }
+
+    int ResolveCustomsBudgetModifierPercent(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        return static_cast<int>(std::lround(
+            (Snapshot.BudgetScale - 1.f) * 100.f));
+    }
+
+    int ResolveCustomsEfficiencyPercent(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        const int BudgetModifier =
+            ResolveCustomsBudgetModifierPercent(Snapshot);
+        const int DiplomacyModifier =
+            ComputeAverageCustomsDiplomacyExportBiasPercent();
+        return (std::max)(0, 100 + BudgetModifier + DiplomacyModifier);
+    }
+
+    std::wstring ResolveCustomsPerWorkerWage(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        const int WorkerCount = (std::max)(
+            1,
+            static_cast<int>(Snapshot.AssignedEmployees.size()));
+        const long long WagePerWorker =
+            Snapshot.MonthlyWageCost > 0 ?
+                static_cast<long long>(std::llround(
+                    static_cast<double>(Snapshot.MonthlyWageCost) /
+                    static_cast<double>(WorkerCount))) :
+                21ll;
+        return FormatMoney(WagePerWorker);
+    }
+
+    std::wstring ResolveCustomsModeDescription(
+        const FBuildingUiSnapshot& Snapshot,
+        int ModeIndex)
+    {
+        if (!Snapshot.CatalogEntry ||
+            ModeIndex < 0 ||
+            ModeIndex >=
+                static_cast<int>(
+                    Snapshot.CatalogEntry->OperationModeDefs.size()))
+        {
+            return std::wstring();
+        }
+
+        return Snapshot.CatalogEntry->OperationModeDefs[
+            static_cast<size_t>(ModeIndex)].EffectSummary;
+    }
+
     int ResolveOverviewHousingQuality(const FBuildingUiSnapshot& Snapshot)
     {
         if (UseModernApartmentOverview(Snapshot))
@@ -374,12 +530,305 @@ namespace
 
     int ResolveOverviewRequiredPower(const FBuildingUiSnapshot& Snapshot)
     {
-        if (UseModernApartmentOverview(Snapshot))
-            return 20;
+        return (std::max)(0, Snapshot.RequiredPowerMW);
+    }
 
-        return (std::max)(
-            0,
-            ParseLeadingInteger(Snapshot.RequiredPowerText, 0));
+    bool UseGenericBuildingWorkOverview(const FBuildingUiSnapshot& Snapshot)
+    {
+        return !Snapshot.Residential &&
+            Snapshot.WorkProvider &&
+            !Snapshot.IsRoad;
+    }
+
+    struct FOverviewMetricWriter
+    {
+        CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot;
+        int WriteIndex = 0;
+
+        void Add(
+            const std::wstring& Label,
+            const std::wstring& Value,
+            bool Accent = false)
+        {
+            if (WriteIndex < 0 ||
+                WriteIndex >=
+                    static_cast<int>(Snapshot.OverviewMetricLabels.size()) ||
+                Label.empty())
+            {
+                return;
+            }
+
+            Snapshot.OverviewMetricLabels[static_cast<size_t>(WriteIndex)] =
+                Label;
+            Snapshot.OverviewMetricValues[static_cast<size_t>(WriteIndex)] =
+                Value;
+            Snapshot.OverviewMetricAccentValues[
+                static_cast<size_t>(WriteIndex)] = Accent;
+            ++WriteIndex;
+        }
+
+        void AddHeader(const std::wstring& Label)
+        {
+            Add(Label, std::wstring(), false);
+        }
+    };
+
+    std::wstring ResolveOverviewBudgetValue(const FBuildingUiSnapshot& Snapshot)
+    {
+        return FormatMoney(Snapshot.MonthlyUpkeepCost);
+    }
+
+    std::wstring ResolveWorkerOverviewEfficiency(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        const int EfficiencyPercent = static_cast<int>(roundf(
+            Snapshot.BudgetScale *
+            (Snapshot.RequiredPowerMW > 0 ?
+                Snapshot.PowerSupplyRatio :
+                1.f) *
+            100.f));
+        return std::to_wstring((std::max)(0, EfficiencyPercent)) + L"%";
+    }
+
+    std::wstring ResolveWorkerOverviewJobQuality(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        if (!Snapshot.JobQualityText.empty())
+            return Snapshot.JobQualityText;
+
+        if (Snapshot.JobCap > 0)
+            return std::to_wstring(Snapshot.JobCap);
+
+        return L"-";
+    }
+
+    std::wstring ResolveWorkerOverviewVisitorValue(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        if (Snapshot.ServiceCapacity > 0)
+        {
+            return std::to_wstring(Snapshot.AssignedVisitors.size()) +
+                L" / " +
+                std::to_wstring((std::max)(0, Snapshot.ServiceCapacity));
+        }
+
+        if (!Snapshot.AssignedVisitors.empty())
+            return std::to_wstring(Snapshot.AssignedVisitors.size());
+
+        return std::wstring();
+    }
+
+    std::wstring ResolveWorkerOverviewPreferredType(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        if (!Snapshot.TouristPreferenceText.empty())
+            return Snapshot.TouristPreferenceText;
+
+        if (Snapshot.CatalogEntry &&
+            Snapshot.CatalogEntry->PrimaryTouristPreference !=
+                ETouristPreference::None)
+        {
+            return GetTouristPreferenceDisplayName(
+                Snapshot.CatalogEntry->PrimaryTouristPreference);
+        }
+
+        return std::wstring();
+    }
+
+    std::wstring ResolveWorkerOverviewPowerValue(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        const int RequiredPowerMW = (std::max)(0, Snapshot.RequiredPowerMW);
+
+        if (RequiredPowerMW > 0)
+        {
+            std::wstring Value = FormatMegawattValue(-RequiredPowerMW);
+            Value += L" (";
+            Value += FormatPowerCoverageValue(Snapshot.PowerSupplyRatio);
+            Value += L")";
+            return Value;
+        }
+
+        if (!Snapshot.RequiredPowerText.empty())
+            return L"-" + Snapshot.RequiredPowerText;
+
+        const int ProducedPowerMW = (std::max)(0, Snapshot.ProducedPowerMW);
+
+        if (ProducedPowerMW > 0)
+            return L"+" + FormatMegawattValue(ProducedPowerMW);
+
+        if (!Snapshot.ProducedPowerText.empty())
+            return L"+" + Snapshot.ProducedPowerText;
+
+        return std::wstring();
+    }
+
+    std::wstring ResolveWorkerOverviewStorageValue(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        if (!Snapshot.Harbor &&
+            !Snapshot.Warehouse &&
+            !Snapshot.CanGenerateWorkOutput &&
+            Snapshot.ResourceStock <= 0)
+        {
+            return std::wstring();
+        }
+
+        return FormatInteger(Snapshot.ResourceStock) +
+            L" / " +
+            FormatInteger(Snapshot.MaxResourceStock);
+    }
+
+    void PopulateGenericWorkOverview(
+        const FBuildingUiSnapshot& Snapshot,
+        CitizenInfoDataProvider::FCitizenInfoSnapshot& Result)
+    {
+        Result.OverviewWorkModeLabel =
+            Ui(L"citizen_info.label.work_mode");
+        Result.OverviewWorkModeValue =
+            !Snapshot.ActiveOperationModeText.empty() ?
+                Snapshot.ActiveOperationModeText :
+                (!Snapshot.OperationModes.empty() ?
+                    Snapshot.OperationModes.front() :
+                    Ui(L"citizen_info.work_mode.general_control"));
+        Result.OverviewBudgetLabel = Ui(L"citizen_info.label.budget");
+        Result.OverviewBudgetValue = ResolveOverviewBudgetValue(Snapshot);
+        Result.OverviewOccupancyLabel = Ui(L"citizen_info.label.workers");
+        Result.OverviewOccupancyValue =
+            std::to_wstring(Snapshot.AssignedEmployees.size()) +
+            L" / " +
+            std::to_wstring((std::max)(0, Snapshot.Capacity));
+        Result.OverviewResidentCount =
+            static_cast<int>(Snapshot.AssignedEmployees.size());
+        Result.OverviewResidentCapacity =
+            (std::max)(0, Snapshot.Capacity);
+
+        const bool HasServiceBlock =
+            Snapshot.ServiceCapacity > 0 ||
+            !Snapshot.ServiceQualityText.empty() ||
+            !Snapshot.WealthRequirementText.empty() ||
+            !ResolveWorkerOverviewPreferredType(Snapshot).empty();
+
+        if (HasServiceBlock)
+        {
+            Result.ShowBuildingVisitorIcons = Snapshot.ServiceCapacity > 0;
+            Result.OverviewVisitorCount =
+                static_cast<int>(Snapshot.AssignedVisitors.size());
+            Result.OverviewVisitorCapacity =
+                (std::max)(
+                    static_cast<int>(Snapshot.AssignedVisitors.size()),
+                    (std::max)(0, Snapshot.ServiceCapacity));
+        }
+
+        FOverviewMetricWriter Writer{ Result };
+        Writer.Add(
+            Ui(L"citizen_info.label.job_quality"),
+            ResolveWorkerOverviewJobQuality(Snapshot));
+        Writer.Add(
+            Ui(L"citizen_info.label.required_education"),
+            GetCitizenEducationDisplayName(
+                Snapshot.RequiredEducationLevel));
+        Writer.Add(
+            Ui(L"citizen_info.label.monthly_wage_cost"),
+            FormatMoney(Snapshot.MonthlyWageCost));
+        Writer.Add(
+            Ui(L"citizen_info.label.efficiency"),
+            ResolveWorkerOverviewEfficiency(Snapshot));
+
+        const std::wstring PowerValue =
+            ResolveWorkerOverviewPowerValue(Snapshot);
+
+        if (!PowerValue.empty() || !Snapshot.ProducedPowerText.empty())
+        {
+            Writer.Add(Ui(L"citizen_info.label.electricity"), PowerValue);
+            Writer.Add(Ui(L"citizen_info.label.power_network"), L"#1");
+
+            const int PowerSurplusMW =
+                Snapshot.TotalProducedPowerMW -
+                Snapshot.TotalRequiredPowerMW;
+            Writer.Add(
+                Ui(L"citizen_info.label.power_grid_status"),
+                FormatSignedMegawattValue(PowerSurplusMW),
+                PowerSurplusMW >= 0);
+        }
+        else
+        {
+            Writer.Add(
+                Ui(L"citizen_info.label.road_accessibility"),
+                std::to_wstring(static_cast<int>(roundf(
+                    Snapshot.AccessibilityScore * 100.f))) +
+                    L"%");
+        }
+
+        if (HasServiceBlock)
+        {
+            const std::wstring VisitorValue =
+                ResolveWorkerOverviewVisitorValue(Snapshot);
+
+            if (!VisitorValue.empty())
+            {
+                Writer.Add(
+                    Ui(L"citizen_info.label.visitors"),
+                    VisitorValue);
+            }
+
+            if (!Snapshot.ServiceQualityText.empty())
+            {
+                Writer.Add(
+                    Ui(L"citizen_info.label.service_quality"),
+                    Snapshot.ServiceQualityText);
+            }
+
+            if (!Snapshot.WealthRequirementText.empty())
+            {
+                Writer.Add(
+                    Ui(L"citizen_info.label.required_wealth"),
+                    NormalizeWealthRequirementText(
+                        Snapshot.WealthRequirementText));
+            }
+
+            const std::wstring PreferredType =
+                ResolveWorkerOverviewPreferredType(Snapshot);
+
+            if (!PreferredType.empty())
+            {
+                Writer.Add(
+                    Ui(L"citizen_info.label.preferred_type"),
+                    PreferredType);
+            }
+        }
+
+        const std::wstring StorageValue =
+            ResolveWorkerOverviewStorageValue(Snapshot);
+
+        if (!StorageValue.empty())
+        {
+            Writer.AddHeader(Ui(L"citizen_info.label.storage"));
+            Writer.Add(Ui(L"citizen_info.label.stock"), StorageValue);
+
+            if (Snapshot.Harbor)
+            {
+                Writer.Add(
+                    Ui(L"citizen_info.label.next_arrival_time"),
+                    FormatDayCount((std::max)(
+                        0,
+                        static_cast<int>(roundf(
+                            (1.f - Snapshot.HarborShipProgressPercent) *
+                            3.f *
+                            static_cast<float>((std::max)(
+                                1,
+                                Snapshot.DaysInMonth)))))));
+                Writer.Add(
+                    Ui(L"citizen_info.label.exportable_stock"),
+                    FormatInteger(Snapshot.ExportableStock));
+            }
+        }
+        else if (Snapshot.CanGenerateWorkOutput)
+        {
+            Writer.Add(
+                Ui(L"citizen_info.label.current_stock"),
+                FormatInteger(Snapshot.ResourceStock));
+        }
     }
 
     std::vector<std::wstring> ExtractBulletSection(
@@ -632,6 +1081,122 @@ namespace
             UIStrings::Get(LabelKey) + L": " + Value);
     }
 
+    bool HasTradeUnitPrice(EResourceType Type)
+    {
+        return IsExportableResourceType(Type);
+    }
+
+    std::wstring FormatTradeUnitPriceInline(EResourceType Type)
+    {
+        if (!HasTradeUnitPrice(Type))
+            return std::wstring();
+
+        return Ui(L"citizen_info.label.export_short") +
+            L" " +
+            FormatMoneyDollarFirst(
+                ResourceTradePricing::GetExportPricePerStockUnit(Type)) +
+            L" / " +
+            Ui(L"citizen_info.label.import_short") +
+            L" " +
+            FormatMoneyDollarFirst(
+                ResourceTradePricing::GetImportPricePerStockUnit(Type));
+    }
+
+    void AppendProducedResourceTradeLines(
+        std::wstring& Body,
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        if (!HasTradeUnitPrice(Snapshot.ProducedResourceType))
+            return;
+
+        const std::wstring ProducedResourceDisplayName =
+            Snapshot.CatalogEntry ?
+                GetBuildingProducedResourceDisplayName(
+                    *Snapshot.CatalogEntry) :
+                std::wstring(GetResourceTypeDisplayName(
+                    Snapshot.ProducedResourceType));
+
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.produced_resource",
+            ProducedResourceDisplayName);
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.export_unit_price",
+            FormatMoneyDollarFirst(
+                ResourceTradePricing::GetExportPricePerStockUnit(
+                    Snapshot.ProducedResourceType)));
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.import_unit_price",
+            FormatMoneyDollarFirst(
+                ResourceTradePricing::GetImportPricePerStockUnit(
+                    Snapshot.ProducedResourceType)));
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.market_price",
+            BuildMarketPriceSummary(Snapshot.ProducedResourceType));
+        AppendKeyValueByKey(
+            Body,
+            L"citizen_info.label.instant_export_value",
+            FormatMoney(
+                ResourceTradePricing::ComputeExportValue(
+                    Snapshot.ProducedResourceType,
+                    Snapshot.ProducedResourceStock)));
+    }
+
+    void AppendHarborTradePriceReference(std::wstring& Body)
+    {
+        AppendLine(Body, Ui(L"citizen_info.section.trade_prices"));
+
+        for (int ResourceIndex = 1;
+            ResourceIndex < static_cast<int>(EResourceType::Count);
+            ++ResourceIndex)
+        {
+            const EResourceType ResourceType =
+                static_cast<EResourceType>(ResourceIndex);
+
+            if (!IsExportableResourceType(ResourceType))
+                continue;
+
+            AppendLine(
+                Body,
+                std::wstring(GetResourceTypeDisplayName(ResourceType)) +
+                    L": " +
+                    FormatTradeUnitPriceInline(ResourceType));
+        }
+    }
+
+    void AppendHarborPolicyReference(
+        std::wstring& Body,
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        if (Snapshot.HarborPolicyLines.empty())
+            return;
+
+        AppendLine(Body, Ui(L"citizen_info.section.export_policy"));
+
+        for (size_t Index = 0; Index < Snapshot.HarborPolicyLines.size(); ++Index)
+            AppendLine(Body, Snapshot.HarborPolicyLines[Index]);
+    }
+
+    void AppendHarborPriorityReference(
+        std::wstring& Body,
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        if (Snapshot.HarborPriorityLines.empty())
+            return;
+
+        AppendLine(Body, Ui(L"citizen_info.section.export_priority"));
+
+        for (size_t Index = 0;
+            Index < Snapshot.HarborPriorityLines.size();
+            ++Index)
+        {
+            AppendLine(Body, Snapshot.HarborPriorityLines[Index]);
+        }
+    }
+
     bool BuildBuildingUiSnapshot(
         const std::shared_ptr<CitizenInfoDataProvider::ICitizenInfoQuerySource>&
             QuerySource,
@@ -665,6 +1230,8 @@ namespace
         OutSnapshot.FoodProvider = BuildingRecord.FoodProvider;
         OutSnapshot.EntertainmentProvider =
             BuildingRecord.EntertainmentProvider;
+        OutSnapshot.HealthProvider = BuildingRecord.HealthProvider;
+        OutSnapshot.FaithProvider = BuildingRecord.FaithProvider;
         OutSnapshot.UsesResourceStock = BuildingRecord.UsesResourceStock;
         OutSnapshot.Harbor = BuildingRecord.Harbor;
         OutSnapshot.Warehouse = BuildingRecord.Warehouse;
@@ -682,24 +1249,82 @@ namespace
         OutSnapshot.JobCap = BuildingRecord.JobCap;
         OutSnapshot.FoodCap = BuildingRecord.FoodCap;
         OutSnapshot.FunCap = BuildingRecord.FunCap;
+        OutSnapshot.HealthCap = BuildingRecord.HealthCap;
+        OutSnapshot.FaithCap = BuildingRecord.FaithCap;
+        OutSnapshot.PollutionOutput = BuildingRecord.PollutionOutput;
+        OutSnapshot.PollutionMitigation = BuildingRecord.PollutionMitigation;
+        OutSnapshot.LocalPollutionExposure =
+            BuildingRecord.LocalPollutionExposure;
         OutSnapshot.ResourceStock = BuildingRecord.ResourceStock;
         OutSnapshot.ExportableStock = BuildingRecord.ExportableStock;
         OutSnapshot.MaxResourceStock = BuildingRecord.MaxResourceStock;
+        OutSnapshot.ProducedResourceType =
+            BuildingRecord.ProducedResourceType != EResourceType::None ?
+                BuildingRecord.ProducedResourceType :
+                (OutSnapshot.CatalogEntry ?
+                    OutSnapshot.CatalogEntry->ProducedResourceType :
+                    EResourceType::None);
+        OutSnapshot.ProducedResourceStock =
+            BuildingRecord.ProducedResourceStock;
+        OutSnapshot.ProducedPowerMW = BuildingRecord.ProducedPowerMW;
+        OutSnapshot.RequiredPowerMW = BuildingRecord.RequiredPowerMW;
         OutSnapshot.TotalProducedPowerMW =
             BuildingRecord.TotalProducedPowerMW;
         OutSnapshot.TotalRequiredPowerMW =
             BuildingRecord.TotalRequiredPowerMW;
+        OutSnapshot.LastDailyExportIncome =
+            BuildingRecord.LastDailyExportIncome;
+        OutSnapshot.LastDailyImportExpense =
+            BuildingRecord.LastDailyImportExpense;
+        OutSnapshot.TradeRouteExportFulfilledUnits =
+            BuildingRecord.TradeRouteExportFulfilledUnits;
+        OutSnapshot.TradeRouteImportFulfilledUnits =
+            BuildingRecord.TradeRouteImportFulfilledUnits;
+        OutSnapshot.TradeRouteExportContractUnits =
+            BuildingRecord.TradeRouteExportContractUnits;
+        OutSnapshot.TourismArrivalCount =
+            BuildingRecord.TourismArrivalCount;
         OutSnapshot.BudgetScale = BuildingRecord.BudgetScale;
         OutSnapshot.AccessibilityScore =
             BuildingRecord.AccessibilityScore;
+        OutSnapshot.PowerSupplyRatio = BuildingRecord.PowerSupplyRatio;
         OutSnapshot.HarborShipProgressPercent =
             BuildingRecord.HarborShipProgressPercent;
+        OutSnapshot.ActiveOperationModeIndex =
+            BuildingRecord.ActiveOperationModeIndex;
+        OutSnapshot.ActiveRuntimeUpgradeIndex =
+            BuildingRecord.ActiveRuntimeUpgradeIndex;
+        OutSnapshot.ActiveOperationModeText =
+            BuildingRecord.ActiveOperationModeText;
+        OutSnapshot.ActiveOperationModeEffectSummary =
+            BuildingRecord.ActiveOperationModeEffectSummary;
+        OutSnapshot.ActiveRuntimeUpgradeText =
+            BuildingRecord.ActiveRuntimeUpgradeText;
+        OutSnapshot.ActiveRuntimeUpgradeEffectSummary =
+            BuildingRecord.ActiveRuntimeUpgradeEffectSummary;
+        OutSnapshot.LogisticsLines = BuildingRecord.LogisticsLines;
         OutSnapshot.Residents = BuildingRecord.Residents;
         OutSnapshot.AssignedEmployees = BuildingRecord.AssignedEmployees;
         OutSnapshot.WorkingEmployees = BuildingRecord.WorkingEmployees;
         OutSnapshot.AssignedVisitors = BuildingRecord.AssignedVisitors;
         OutSnapshot.ArrivedVisitors = BuildingRecord.ArrivedVisitors;
         OutSnapshot.IncomingVisitors = BuildingRecord.IncomingVisitors;
+        OutSnapshot.HarborPolicyLines = BuildingRecord.HarborPolicyLines;
+        OutSnapshot.HarborPriorityLines = BuildingRecord.HarborPriorityLines;
+        OutSnapshot.WarehousePolicySelectionText =
+            BuildingRecord.WarehousePolicySelectionText;
+        OutSnapshot.WarehousePrioritySelectionText =
+            BuildingRecord.WarehousePrioritySelectionText;
+        OutSnapshot.HarborDomesticReserveSelectionText =
+            BuildingRecord.HarborDomesticReserveSelectionText;
+        OutSnapshot.HarborExportSelectionText =
+            BuildingRecord.HarborExportSelectionText;
+        OutSnapshot.HarborImportCapSelectionText =
+            BuildingRecord.HarborImportCapSelectionText;
+        OutSnapshot.HarborImportBudgetSelectionText =
+            BuildingRecord.HarborImportBudgetSelectionText;
+        OutSnapshot.HarborImportSelectionText =
+            BuildingRecord.HarborImportSelectionText;
 
         if (OutSnapshot.Warehouse)
         {
@@ -714,7 +1339,9 @@ namespace
                 if (SlotRecord.Type == EResourceType::None)
                 {
                     SlotValue =
-                        UIStrings::Get(L"citizen_info.building.warehouse.empty");
+                        UIStrings::Get(L"citizen_info.building.warehouse.empty") +
+                        L" / " +
+                        FormatInteger(SlotRecord.Capacity);
                 }
                 else
                 {
@@ -725,6 +1352,16 @@ namespace
                         FormatInteger(SlotRecord.Stock) +
                         L" / " +
                         FormatInteger(SlotRecord.Capacity);
+
+                    const std::wstring TradePriceText =
+                        FormatTradeUnitPriceInline(SlotRecord.Type);
+
+                    if (!TradePriceText.empty())
+                    {
+                        SlotValue += L" (";
+                        SlotValue += TradePriceText;
+                        SlotValue += L")";
+                    }
                 }
 
                 std::wstring SlotLine = UIStrings::Format(
@@ -738,9 +1375,24 @@ namespace
         }
 
         OutSnapshot.RequiredPowerText =
-            ExtractDetailValue(OutSnapshot.DetailText, L"필요 전력:");
+            OutSnapshot.RequiredPowerMW > 0 ?
+                FormatMegawattValue(OutSnapshot.RequiredPowerMW) :
+                ExtractDetailValue(OutSnapshot.DetailText, L"필요 전력:");
         OutSnapshot.ProducedPowerText =
-            ExtractDetailValue(OutSnapshot.DetailText, L"생산 전력:");
+            OutSnapshot.ProducedPowerMW > 0 ?
+                FormatMegawattValue(OutSnapshot.ProducedPowerMW) :
+                ExtractDetailValue(OutSnapshot.DetailText, L"생산 전력:");
+
+        if (OutSnapshot.ProducedPowerText.empty() &&
+            OutSnapshot.ProducedPowerMW <= 0)
+        {
+            const int FallbackProducedPowerMW =
+                ExtractPowerValueMW(OutSnapshot.DetailText, L"발전량:");
+
+            if (FallbackProducedPowerMW > 0)
+                OutSnapshot.ProducedPowerText =
+                    FormatMegawattValue(FallbackProducedPowerMW);
+        }
         OutSnapshot.JobQualityText =
             ExtractDetailValue(OutSnapshot.DetailText, L"직업 품질:");
         OutSnapshot.ServiceQualityText =
@@ -778,10 +1430,71 @@ namespace
         }
 
         OutSnapshot.ServiceCapacity = (std::max)(
-            0,
+            BuildingRecord.ServiceCapacity,
             ParseLeadingInteger(OutSnapshot.ServiceCapacityText, 0));
-        OutSnapshot.OperationModes =
-            ExtractBulletSection(OutSnapshot.DetailText, L"운영 모드");
+        OutSnapshot.OperationModes.clear();
+
+        if (OutSnapshot.CatalogEntry)
+        {
+            for (size_t ModeIndex = 0;
+                ModeIndex < OutSnapshot.CatalogEntry->OperationModeDefs.size();
+                ++ModeIndex)
+            {
+                OutSnapshot.OperationModes.push_back(
+                    OutSnapshot.CatalogEntry->OperationModeDefs[ModeIndex].
+                        DisplayName);
+            }
+        }
+
+        if (OutSnapshot.ActiveOperationModeText.empty() &&
+            !OutSnapshot.OperationModes.empty())
+        {
+            const int SafeModeIndex = (std::max)(
+                0,
+                (std::min)(
+                    static_cast<int>(OutSnapshot.OperationModes.size()) - 1,
+                    OutSnapshot.ActiveOperationModeIndex));
+            OutSnapshot.ActiveOperationModeText =
+                OutSnapshot.OperationModes[static_cast<size_t>(SafeModeIndex)];
+        }
+
+        if (OutSnapshot.Residential)
+            OutSnapshot.HousingQualityText = std::to_wstring(OutSnapshot.HousingCap);
+
+        if (OutSnapshot.WorkProvider)
+            OutSnapshot.JobQualityText = std::to_wstring(OutSnapshot.JobCap);
+
+        if (OutSnapshot.FoodProvider ||
+            OutSnapshot.EntertainmentProvider ||
+            OutSnapshot.HealthProvider ||
+            OutSnapshot.FaithProvider)
+        {
+            int EffectiveServiceCap = 0;
+
+            if (OutSnapshot.FoodProvider)
+                EffectiveServiceCap = (std::max)(
+                    EffectiveServiceCap,
+                    OutSnapshot.FoodCap);
+
+            if (OutSnapshot.EntertainmentProvider)
+                EffectiveServiceCap = (std::max)(
+                    EffectiveServiceCap,
+                    OutSnapshot.FunCap);
+
+            if (OutSnapshot.HealthProvider)
+                EffectiveServiceCap = (std::max)(
+                    EffectiveServiceCap,
+                    OutSnapshot.HealthCap);
+
+            if (OutSnapshot.FaithProvider)
+                EffectiveServiceCap = (std::max)(
+                    EffectiveServiceCap,
+                    OutSnapshot.FaithCap);
+
+            OutSnapshot.ServiceQualityText =
+                std::to_wstring(EffectiveServiceCap);
+        }
+
         OutSnapshot.UpgradeHints = OutSnapshot.CatalogEntry ?
             OutSnapshot.CatalogEntry->UpgradeHints :
             ExtractBulletSection(OutSnapshot.DetailText, L"업그레이드");
@@ -797,7 +1510,19 @@ namespace
         if (!Snapshot.OperationModes.empty())
         {
             AppendLine(Body, Ui(L"citizen_info.section.operation_modes"));
-            AppendLine(Body, L"  " + Snapshot.OperationModes.front());
+            AppendLine(
+                Body,
+                L"  " +
+                (Snapshot.ActiveOperationModeText.empty() ?
+                    Snapshot.OperationModes.front() :
+                    Snapshot.ActiveOperationModeText));
+
+            if (!Snapshot.ActiveOperationModeEffectSummary.empty())
+            {
+                AppendLine(
+                    Body,
+                    L"  (" + Snapshot.ActiveOperationModeEffectSummary + L")");
+            }
         }
 
         if (Snapshot.Residential)
@@ -828,6 +1553,26 @@ namespace
                 Body,
                 L"citizen_info.label.job_quality",
                 Snapshot.JobQualityText);
+        }
+
+        if (Snapshot.CatalogEntry)
+        {
+            const wchar_t* const ProductionStageText =
+                GetProductionChainStageDisplayName(
+                    Snapshot.CatalogEntry->ProductionChainStage);
+
+            if (ProductionStageText && *ProductionStageText)
+            {
+                AppendKeyValueByKey(
+                    Body,
+                    L"citizen_info.label.production_stage",
+                    ProductionStageText);
+            }
+
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.production",
+                BuildProductionChainSummary(*Snapshot.CatalogEntry));
         }
 
         if (Snapshot.Residential && Snapshot.CatalogEntry)
@@ -884,6 +1629,34 @@ namespace
                 Body,
                 L"citizen_info.label.produced_power",
                 Snapshot.ProducedPowerText);
+            if (Snapshot.RequiredPowerMW > 0)
+            {
+                AppendKeyValueByKey(
+                    Body,
+                    L"citizen_info.label.power_coverage",
+                    FormatPowerCoverageValue(
+                        Snapshot.PowerSupplyRatio));
+            }
+        }
+
+        if (Snapshot.PollutionOutput > 0 ||
+            Snapshot.PollutionMitigation > 0 ||
+            Snapshot.LocalPollutionExposure > 0)
+        {
+            AppendLine(Body, L"");
+            AppendLine(Body, Ui(L"citizen_info.section.environment"));
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.pollution_output",
+                std::to_wstring(Snapshot.PollutionOutput));
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.pollution_mitigation",
+                std::to_wstring(Snapshot.PollutionMitigation));
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.local_pollution",
+                std::to_wstring(Snapshot.LocalPollutionExposure));
         }
 
         if (Snapshot.UsesResourceStock || Snapshot.Harbor)
@@ -899,6 +1672,7 @@ namespace
                     FormatInteger(Snapshot.ResourceStock) +
                     L" / " +
                     FormatInteger(Snapshot.MaxResourceStock));
+                AppendProducedResourceTradeLines(Body, Snapshot);
             }
 
             if (Snapshot.Warehouse)
@@ -909,6 +1683,13 @@ namespace
                 {
                     AppendLine(Body, Snapshot.WarehouseSlotLines[SlotIndex]);
                 }
+            }
+
+            for (size_t LineIndex = 0;
+                LineIndex < Snapshot.LogisticsLines.size();
+                ++LineIndex)
+            {
+                AppendLine(Body, Snapshot.LogisticsLines[LineIndex]);
             }
 
             if (Snapshot.Harbor)
@@ -923,6 +1704,9 @@ namespace
                     std::to_wstring(static_cast<int>(roundf(
                         Snapshot.HarborShipProgressPercent * 100.f))) +
                     L"%");
+                AppendHarborPolicyReference(Body, Snapshot);
+                AppendHarborPriorityReference(Body, Snapshot);
+                AppendHarborTradePriceReference(Body);
             }
         }
 
@@ -975,12 +1759,35 @@ namespace
         if (Snapshot.UsesResourceStock)
         {
             AppendLine(Body, L"");
+            if (Snapshot.CatalogEntry)
+            {
+                const wchar_t* const ProductionStageText =
+                    GetProductionChainStageDisplayName(
+                        Snapshot.CatalogEntry->ProductionChainStage);
+
+                if (ProductionStageText && *ProductionStageText)
+                {
+                    AppendLine(
+                        Body,
+                        Ui(L"citizen_info.label.production_stage") +
+                            L": " +
+                            ProductionStageText);
+                    AppendLine(
+                        Body,
+                        Ui(L"citizen_info.label.production") +
+                            L": " +
+                            BuildProductionChainSummary(
+                                *Snapshot.CatalogEntry));
+                }
+            }
+
             AppendLine(
                 Body,
                 Ui(L"citizen_info.label.current_stock") + L": " +
                 FormatInteger(Snapshot.ResourceStock) +
                 L" / " +
                 FormatInteger(Snapshot.MaxResourceStock));
+            AppendProducedResourceTradeLines(Body, Snapshot);
         }
 
         if (Snapshot.Warehouse && !Snapshot.WarehouseSlotLines.empty())
@@ -996,6 +1803,18 @@ namespace
             }
         }
 
+        if (!Snapshot.LogisticsLines.empty())
+        {
+            AppendLine(Body, L"");
+
+            for (size_t LineIndex = 0;
+                LineIndex < Snapshot.LogisticsLines.size();
+                ++LineIndex)
+            {
+                AppendLine(Body, Snapshot.LogisticsLines[LineIndex]);
+            }
+        }
+
         if (Snapshot.Harbor)
         {
             AppendLine(
@@ -1008,6 +1827,10 @@ namespace
                 Body,
                 Ui(L"citizen_info.label.exportable_total") + L": " +
                 FormatInteger(Snapshot.ExportableStock));
+            AppendLine(Body, L"");
+            AppendHarborPolicyReference(Body, Snapshot);
+            AppendHarborPriorityReference(Body, Snapshot);
+            AppendHarborTradePriceReference(Body);
         }
 
         if (Snapshot.Residential)
@@ -1072,6 +1895,59 @@ namespace
     {
         std::wstring Body;
 
+        if (Snapshot.CatalogEntry &&
+            !Snapshot.CatalogEntry->RuntimeUpgradeDefs.empty())
+        {
+            AppendLine(Body, Ui(L"citizen_info.section.active_upgrades"));
+
+            if (Snapshot.ActiveRuntimeUpgradeText.empty())
+            {
+                AppendLine(Body, L"-");
+            }
+            else
+            {
+                std::wstring ActiveLine =
+                    L"* " + Snapshot.ActiveRuntimeUpgradeText;
+
+                if (!Snapshot.ActiveRuntimeUpgradeEffectSummary.empty())
+                {
+                    ActiveLine += L" (";
+                    ActiveLine += Snapshot.ActiveRuntimeUpgradeEffectSummary;
+                    ActiveLine += L")";
+                }
+
+                AppendLine(Body, ActiveLine);
+            }
+
+            AppendLine(Body, L"");
+            AppendLine(Body, Ui(L"citizen_info.section.runtime_upgrades"));
+
+            for (size_t Index = 0;
+                Index < Snapshot.CatalogEntry->RuntimeUpgradeDefs.size();
+                ++Index)
+            {
+                const bool IsActiveUpgrade =
+                    static_cast<int>(Index) ==
+                    Snapshot.ActiveRuntimeUpgradeIndex;
+                std::wstring Line =
+                    (IsActiveUpgrade ? L"* " : L"- ") +
+                    Snapshot.CatalogEntry->RuntimeUpgradeDefs[Index].
+                        DisplayName;
+
+                if (IsActiveUpgrade &&
+                    !Snapshot.ActiveRuntimeUpgradeEffectSummary.empty())
+                {
+                    Line += L" (";
+                    Line += Snapshot.ActiveRuntimeUpgradeEffectSummary;
+                    Line += L")";
+                }
+
+                AppendLine(Body, Line);
+            }
+
+            AppendLine(Body, L"");
+        }
+
         if (!Snapshot.UpgradeHints.empty())
         {
             AppendLine(Body, Ui(L"citizen_info.section.registered_upgrades"));
@@ -1092,7 +1968,29 @@ namespace
                 Ui(L"citizen_info.section.operation_mode_candidates"));
 
             for (size_t Index = 0; Index < Snapshot.OperationModes.size(); ++Index)
-                AppendLine(Body, L"- " + Snapshot.OperationModes[Index]);
+            {
+                const bool IsActiveMode =
+                    static_cast<int>(Index) == Snapshot.ActiveOperationModeIndex;
+                std::wstring Line =
+                    (IsActiveMode ? L"* " : L"- ") +
+                    Snapshot.OperationModes[Index];
+
+                if (IsActiveMode &&
+                    !Snapshot.ActiveOperationModeEffectSummary.empty())
+                {
+                    Line += L" (";
+                    Line += Snapshot.ActiveOperationModeEffectSummary;
+                    Line += L")";
+                }
+
+                AppendLine(Body, Line);
+            }
+        }
+
+        if (Snapshot.Harbor)
+        {
+            AppendLine(Body, L"");
+            AppendHarborPolicyReference(Body, Snapshot);
         }
 
         return Body;
@@ -1195,6 +2093,30 @@ namespace
                 L"citizen_info.label.power_demand",
                 Snapshot.RequiredPowerText);
 
+        if (Snapshot.PollutionOutput > 0 ||
+            Snapshot.PollutionMitigation > 0 ||
+            Snapshot.LocalPollutionExposure > 0)
+        {
+            AppendLine(
+                Body,
+                Ui(L"citizen_info.label.pollution_output") + L": " +
+                std::to_wstring(Snapshot.PollutionOutput));
+            AppendLine(
+                Body,
+                Ui(L"citizen_info.label.pollution_mitigation") + L": " +
+                std::to_wstring(Snapshot.PollutionMitigation));
+            AppendLine(
+                Body,
+                Ui(L"citizen_info.label.local_pollution") + L": " +
+                std::to_wstring(Snapshot.LocalPollutionExposure));
+        }
+
+        if (Snapshot.Harbor)
+        {
+            AppendLine(Body, L"");
+            AppendHarborPolicyReference(Body, Snapshot);
+        }
+
         return Body;
     }
 
@@ -1214,6 +2136,22 @@ namespace
                 Body,
                 L"citizen_info.label.unlock_era",
                 GetBuildingEraDisplayName(Snapshot.CatalogEntry->UnlockEra));
+
+            const wchar_t* const ProductionStageText =
+                GetProductionChainStageDisplayName(
+                    Snapshot.CatalogEntry->ProductionChainStage);
+
+            if (ProductionStageText && *ProductionStageText)
+            {
+                AppendKeyValueByKey(
+                    Body,
+                    L"citizen_info.label.production_stage",
+                    ProductionStageText);
+                AppendKeyValueByKey(
+                    Body,
+                    L"citizen_info.label.production",
+                    BuildProductionChainSummary(*Snapshot.CatalogEntry));
+            }
 
             if (Snapshot.CatalogEntry->HousingClass !=
                 EBuildingHousingClass::None)
@@ -1246,6 +2184,24 @@ namespace
             }
         }
 
+        if (Snapshot.PollutionOutput > 0 ||
+            Snapshot.PollutionMitigation > 0 ||
+            Snapshot.LocalPollutionExposure > 0)
+        {
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.pollution_output",
+                std::to_wstring(Snapshot.PollutionOutput));
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.pollution_mitigation",
+                std::to_wstring(Snapshot.PollutionMitigation));
+            AppendKeyValueByKey(
+                Body,
+                L"citizen_info.label.local_pollution",
+                std::to_wstring(Snapshot.LocalPollutionExposure));
+        }
+
         AppendKeyValueByKey(
             Body,
             L"citizen_info.label.required_education",
@@ -1261,6 +2217,51 @@ namespace
         {
             AppendLine(Body, L"");
             AppendLine(Body, Snapshot.DetailText);
+        }
+
+        return Body;
+    }
+
+    std::wstring BuildCustomsModeSelectionBody(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        std::wstring Body =
+            L"해당 건물의 근무 형태를 선택하십시오.";
+        const std::wstring Description =
+            ResolveCustomsModeDescription(
+                Snapshot,
+                Snapshot.ActiveOperationModeIndex);
+
+        if (!Description.empty())
+        {
+            AppendLine(Body, L"");
+            AppendLine(Body, Description);
+        }
+
+        return Body;
+    }
+
+    std::wstring BuildCustomsUpgradesBody(
+        const FBuildingUiSnapshot& Snapshot)
+    {
+        std::wstring Body;
+        AppendLine(Body, L"탈세");
+        AppendLine(
+            Body,
+            L"기본 효율을 기준으로 수입 가격이 10%만큼 증가합니다.");
+        AppendLine(Body, L"");
+        AppendLine(Body, L"관광객 요금  ($7,500)");
+        AppendLine(
+            Body,
+            L"기본 효율을 기준으로 트로피코에 도착하는 모든 관광객이 $10만큼의 금액을 냅니다.");
+
+        if (Snapshot.CatalogEntry &&
+            !Snapshot.ActiveRuntimeUpgradeText.empty())
+        {
+            AppendLine(Body, L"");
+            AppendLine(
+                Body,
+                L"현재 적용: " + Snapshot.ActiveRuntimeUpgradeText);
         }
 
         return Body;
@@ -1295,6 +2296,10 @@ namespace
         case ECitizenState::GoingToFood:
         case ECitizenState::AtFood:
             return UiText(L"citizen_info.activity.food");
+        case ECitizenState::GoingToHealth:
+        case ECitizenState::AtHealth:
+        case ECitizenState::GoingToFaith:
+        case ECitizenState::AtFaith:
         case ECitizenState::GoingHome:
         case ECitizenState::AtHome:
         case ECitizenState::GoingToFun:
@@ -1355,10 +2360,28 @@ namespace
             return MakeInteriorText(Citizen.WorkBuildingName);
         case ECitizenState::AtFood:
         case ECitizenState::GoingToFood:
-            return MakeInteriorText(Citizen.FoodBuildingName);
+            return MakeInteriorText(
+                Citizen.FoodVisitBuildingName.empty() ?
+                    Citizen.FoodBuildingName :
+                    Citizen.FoodVisitBuildingName);
         case ECitizenState::AtFun:
         case ECitizenState::GoingToFun:
-            return MakeInteriorText(Citizen.FunBuildingName);
+            return MakeInteriorText(
+                Citizen.FunVisitBuildingName.empty() ?
+                    Citizen.FunBuildingName :
+                    Citizen.FunVisitBuildingName);
+        case ECitizenState::AtHealth:
+        case ECitizenState::GoingToHealth:
+            return MakeInteriorText(
+                Citizen.HealthVisitBuildingName.empty() ?
+                    Citizen.HealthBuildingName :
+                    Citizen.HealthVisitBuildingName);
+        case ECitizenState::AtFaith:
+        case ECitizenState::GoingToFaith:
+            return MakeInteriorText(
+                Citizen.FaithVisitBuildingName.empty() ?
+                    Citizen.FaithBuildingName :
+                    Citizen.FaithVisitBuildingName);
         default:
             return UIStrings::Get(L"citizen_info.location.outside_tropico");
         }
@@ -1783,7 +2806,8 @@ namespace CitizenInfoDataProvider
     FCitizenInfoSnapshot BuildTrackedBuildingSnapshot(
         const std::shared_ptr<ICitizenInfoQuerySource>& QuerySource,
         const std::string& BuildingName,
-        int SelectedBuildingTabIndex)
+        int SelectedBuildingTabIndex,
+        bool ShowCustomsModeSelection)
     {
         FBuildingUiSnapshot BuildingSnapshot;
 
@@ -1808,10 +2832,17 @@ namespace CitizenInfoDataProvider
         Result.Title = BuildingSnapshot.DisplayName.empty() ?
             BuildingSnapshot.ObjectName :
             BuildingSnapshot.DisplayName;
+        const bool IsCustomsOffice =
+            UseCustomsOfficeOverview(BuildingSnapshot);
+        const bool ShowCustomsModePage =
+            IsCustomsOffice &&
+            Result.SelectedTabIndex == 0 &&
+            ShowCustomsModeSelection;
 
         if (UseHydroponicFarmWorkOverview(BuildingSnapshot) ||
             UseAquaParkWorkOverview(BuildingSnapshot) ||
-            UseRestaurantWorkOverview(BuildingSnapshot))
+            UseRestaurantWorkOverview(BuildingSnapshot) ||
+            IsCustomsOffice)
         {
             Result.Title = L"II " + Result.Title;
         }
@@ -1835,37 +2866,230 @@ namespace CitizenInfoDataProvider
         Result.ShowTabButtons = true;
         Result.ShowSectionRibbon = Result.SelectedTabIndex != 0;
         Result.ShowBudgetControls = Result.SelectedTabIndex == 0;
-        Result.ShowActionButtons = Result.SelectedTabIndex == 0;
+        Result.ShowActionButtons =
+            Result.SelectedTabIndex == 0 &&
+            !ShowCustomsModePage;
+        Result.ShowDemolishButton = Result.ShowActionButtons;
+        Result.ShowMoveButton =
+            Result.ShowActionButtons &&
+            !IsCustomsOffice;
+        Result.ShowCloneButton =
+            Result.ShowActionButtons &&
+            !IsCustomsOffice;
         Result.ShowBuildingOverview =
             Result.SelectedTabIndex == 0 &&
             BuildingSnapshot.Residential;
         Result.ShowBuildingWorkOverview =
             Result.SelectedTabIndex == 0 &&
-            (UseHarborWorkOverview(BuildingSnapshot) ||
-                UseHydroponicFarmWorkOverview(BuildingSnapshot) ||
-                UseAquaParkWorkOverview(BuildingSnapshot) ||
-                UseRestaurantWorkOverview(BuildingSnapshot));
+            !ShowCustomsModePage &&
+            (IsCustomsOffice ||
+                UseGenericBuildingWorkOverview(BuildingSnapshot));
         Result.ShowBuildingMetricRows =
             (Result.SelectedTabIndex == 1 ||
                 (Result.SelectedTabIndex == 3 &&
                     UseModernApartmentOverview(BuildingSnapshot))) &&
             BuildingSnapshot.Residential;
+        if (IsCustomsOffice &&
+            (Result.SelectedTabIndex == 1 ||
+                Result.SelectedTabIndex == 3))
+        {
+            Result.ShowBuildingMetricRows = true;
+        }
         Result.ShowBuildingUpgradeCard =
             Result.SelectedTabIndex == 2 &&
             UseModernApartmentUpgradeCard(BuildingSnapshot);
         Result.ShowBuildingInformationParagraphs =
             Result.SelectedTabIndex == 4 &&
             UseModernApartmentOverview(BuildingSnapshot);
+        if (IsCustomsOffice && Result.SelectedTabIndex == 4)
+            Result.ShowBuildingInformationParagraphs = true;
         Result.ShowSectionRibbon =
             Result.SelectedTabIndex != 0 &&
             !Result.ShowBuildingInformationParagraphs;
-        Result.ShowOverviewCommandButton =
+        if (ShowCustomsModePage)
+            Result.ShowSectionRibbon = false;
+        const bool ShowHydroponicCommand =
             Result.SelectedTabIndex == 0 &&
             UseHydroponicFarmWorkOverview(BuildingSnapshot);
-        Result.OverviewCommandButtonText =
-            Result.ShowOverviewCommandButton ?
-                Ui(L"citizen_info.action.change_resource") :
-                std::wstring();
+        const bool ShowOperationModeCommand =
+            Result.SelectedTabIndex == 0 &&
+            !BuildingSnapshot.Harbor &&
+            !IsCustomsOffice &&
+            !BuildingSnapshot.OperationModes.empty();
+        const bool ShowWarehousePolicyCommand =
+            Result.SelectedTabIndex == 0 &&
+            BuildingSnapshot.Warehouse &&
+            BuildingSnapshot.OperationModes.empty();
+        const bool ShowRuntimeUpgradeCommand =
+            Result.SelectedTabIndex == 2 &&
+            !BuildingSnapshot.Harbor &&
+            !IsCustomsOffice &&
+            BuildingSnapshot.CatalogEntry &&
+            !BuildingSnapshot.CatalogEntry->RuntimeUpgradeDefs.empty();
+        const bool ShowWarehousePriorityCommand =
+            Result.SelectedTabIndex == 4 &&
+            BuildingSnapshot.Warehouse;
+        const bool ShowHarborImportCommand =
+            Result.SelectedTabIndex == 0 &&
+            BuildingSnapshot.Harbor;
+        const bool ShowHarborReserveCommand =
+            Result.SelectedTabIndex == 1 &&
+            BuildingSnapshot.Harbor;
+        const bool ShowHarborImportCapCommand =
+            Result.SelectedTabIndex == 2 &&
+            BuildingSnapshot.Harbor;
+        const bool ShowHarborImportBudgetCommand =
+            Result.SelectedTabIndex == 3 &&
+            BuildingSnapshot.Harbor;
+        const bool ShowHarborExportCommand =
+            Result.SelectedTabIndex == 4 &&
+            BuildingSnapshot.Harbor;
+        const bool ShowCustomsTradeCommand =
+            IsCustomsOffice &&
+            Result.SelectedTabIndex == 0 &&
+            !ShowCustomsModePage;
+        const bool ShowCustomsBackCommand =
+            ShowCustomsModePage;
+        Result.ShowOverviewCommandButton =
+            ShowCustomsTradeCommand ||
+            ShowCustomsBackCommand ||
+            ShowOperationModeCommand ||
+            ShowWarehousePolicyCommand ||
+            ShowRuntimeUpgradeCommand ||
+            ShowWarehousePriorityCommand ||
+            ShowHydroponicCommand ||
+            ShowHarborImportCommand ||
+            ShowHarborReserveCommand ||
+            ShowHarborImportCapCommand ||
+            ShowHarborImportBudgetCommand ||
+            ShowHarborExportCommand;
+        Result.OverviewCommandButtonText.clear();
+        Result.ShowBudgetText = !ShowCustomsModePage;
+
+        for (size_t Index = 0; Index < Result.BudgetButtonLabels.size(); ++Index)
+        {
+            Result.BudgetButtonLabels[Index] =
+                std::to_wstring(static_cast<int>(Index) + 1);
+            Result.BudgetButtonEnabled[Index] = Result.ShowBudgetControls;
+        }
+
+        if (ShowCustomsTradeCommand)
+        {
+            Result.OverviewCommandButtonText = L"무역 화면 열기";
+        }
+        else if (ShowCustomsBackCommand)
+        {
+            Result.OverviewCommandButtonText = L"뒤로";
+        }
+        else if (ShowOperationModeCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.operation_mode_cycle") +
+                L": " +
+                (BuildingSnapshot.ActiveOperationModeText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.ActiveOperationModeText);
+        }
+        else if (ShowWarehousePolicyCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.warehouse_policy_cycle") +
+                L": " +
+                (BuildingSnapshot.WarehousePolicySelectionText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.WarehousePolicySelectionText);
+        }
+        else if (ShowRuntimeUpgradeCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.runtime_upgrade_cycle") +
+                L": " +
+                (BuildingSnapshot.ActiveRuntimeUpgradeText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.ActiveRuntimeUpgradeText);
+        }
+        else if (ShowWarehousePriorityCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.warehouse_priority_cycle") +
+                L": " +
+                (BuildingSnapshot.WarehousePrioritySelectionText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.WarehousePrioritySelectionText);
+        }
+        else if (ShowHarborImportCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.auto_import_cycle") +
+                L": " +
+                (BuildingSnapshot.HarborImportSelectionText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.HarborImportSelectionText);
+        }
+        else if (ShowHarborReserveCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.domestic_reserve_cycle") +
+                L": " +
+                (BuildingSnapshot.HarborDomesticReserveSelectionText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.HarborDomesticReserveSelectionText);
+        }
+        else if (ShowHarborImportCapCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.import_cap_cycle") +
+                L": " +
+                (BuildingSnapshot.HarborImportCapSelectionText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.HarborImportCapSelectionText);
+        }
+        else if (ShowHarborImportBudgetCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.import_budget_cycle") +
+                L": " +
+                (BuildingSnapshot.HarborImportBudgetSelectionText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.HarborImportBudgetSelectionText);
+        }
+        else if (ShowHarborExportCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.export_block_cycle") +
+                L": " +
+                (BuildingSnapshot.HarborExportSelectionText.empty() ?
+                    L"-" :
+                    BuildingSnapshot.HarborExportSelectionText);
+        }
+        else if (ShowHydroponicCommand)
+        {
+            Result.OverviewCommandButtonText =
+                Ui(L"citizen_info.action.change_resource");
+        }
+
+        if (ShowCustomsModePage)
+        {
+            Result.BudgetLevel =
+                (std::max)(1, BuildingSnapshot.ActiveOperationModeIndex + 1);
+
+            for (size_t Index = 0;
+                Index < Result.BudgetButtonLabels.size();
+                ++Index)
+            {
+                if (Index < BuildingSnapshot.OperationModes.size())
+                {
+                    Result.BudgetButtonLabels[Index] =
+                        BuildingSnapshot.OperationModes[Index];
+                    Result.BudgetButtonEnabled[Index] = true;
+                }
+                else
+                {
+                    Result.BudgetButtonLabels[Index].clear();
+                    Result.BudgetButtonEnabled[Index] = false;
+                }
+            }
+        }
 
         if (UseHydroponicFarmWorkOverview(BuildingSnapshot))
         {
@@ -1888,16 +3112,25 @@ namespace CitizenInfoDataProvider
         if (BuildingSnapshot.CatalogEntry)
         {
             Result.TitleIconPath = GetCatalogEntryIconPath(
-                BuildingSnapshot.CatalogEntry->Category,
-                BuildingSnapshot.CatalogEntry->CategoryLocalIndex);
+                *BuildingSnapshot.CatalogEntry);
 
             if (Result.TitleIconPath)
             {
                 Result.ShowTitleIcon = true;
                 Result.TitleIconTextureKey =
-                    "CitizenInfoTitleIcon_" +
-                    BuildingSnapshot.CatalogEntry->Id;
+                    BuildCatalogIconTextureKey(
+                        *BuildingSnapshot.CatalogEntry);
             }
+        }
+
+        if (IsCustomsOffice)
+        {
+            Result.ShowTitleIcon = true;
+            Result.TitleIconTextureKey =
+                "BuildingCatalogIcon_CustomsOffice_Gen_" +
+                std::to_string(::GetRuntimeConfigGeneration());
+            Result.TitleIconPath = TEXT(
+                "TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_touristOffice.png");
         }
 
         if (Result.ShowBuildingOverview)
@@ -1949,7 +3182,54 @@ namespace CitizenInfoDataProvider
 
         if (Result.ShowBuildingWorkOverview)
         {
-            if (UseHydroponicFarmWorkOverview(BuildingSnapshot))
+            if (IsCustomsOffice)
+            {
+                const int WorkerCapacity =
+                    (std::max)(1, BuildingSnapshot.Capacity);
+                const int WorkerCount = (std::min)(
+                    WorkerCapacity,
+                    static_cast<int>(BuildingSnapshot.AssignedEmployees.size()));
+                Result.OverviewWorkModeLabel =
+                    Ui(L"citizen_info.label.work_mode");
+                Result.OverviewWorkModeValue =
+                    !BuildingSnapshot.ActiveOperationModeText.empty() ?
+                        BuildingSnapshot.ActiveOperationModeText :
+                        L"수입세 감소";
+                Result.OverviewBudgetLabel =
+                    Ui(L"citizen_info.label.budget");
+                Result.OverviewBudgetValue =
+                    BuildingSnapshot.MonthlyUpkeepCost > 0 ?
+                        FormatMoney(BuildingSnapshot.MonthlyUpkeepCost) :
+                        L"$118";
+                Result.OverviewOccupancyLabel =
+                    Ui(L"citizen_info.label.workers");
+                Result.OverviewOccupancyValue =
+                    std::to_wstring(WorkerCount) +
+                    L" / " +
+                    std::to_wstring(WorkerCapacity);
+                Result.OverviewResidentCount = WorkerCount;
+                Result.OverviewResidentCapacity = WorkerCapacity;
+                Result.OverviewMetricLabels =
+                {
+                    Ui(L"citizen_info.label.job_quality"),
+                    Ui(L"citizen_info.label.required_education"),
+                    Ui(L"citizen_info.label.wage"),
+                    Ui(L"citizen_info.label.efficiency")
+                };
+                Result.OverviewMetricValues =
+                {
+                    !BuildingSnapshot.JobQualityText.empty() ?
+                        BuildingSnapshot.JobQualityText :
+                        L"70",
+                    GetCitizenEducationDisplayName(
+                        BuildingSnapshot.RequiredEducationLevel),
+                    ResolveCustomsPerWorkerWage(BuildingSnapshot),
+                    std::to_wstring(
+                        ResolveCustomsEfficiencyPercent(BuildingSnapshot)) +
+                        L"%"
+                };
+            }
+            else if (UseHydroponicFarmWorkOverview(BuildingSnapshot))
             {
                 Result.OverviewWorkModeLabel =
                     Ui(L"citizen_info.label.work_mode");
@@ -2102,14 +3382,16 @@ namespace CitizenInfoDataProvider
                     L""
                 };
             }
-            else
+            else if (UseHarborWorkOverview(BuildingSnapshot))
             {
                 Result.OverviewWorkModeLabel =
                     Ui(L"citizen_info.label.work_mode");
                 Result.OverviewWorkModeValue =
-                    !BuildingSnapshot.OperationModes.empty() ?
-                        BuildingSnapshot.OperationModes.front() :
-                        Ui(L"citizen_info.work_mode.general_control");
+                    !BuildingSnapshot.ActiveOperationModeText.empty() ?
+                        BuildingSnapshot.ActiveOperationModeText :
+                        (!BuildingSnapshot.OperationModes.empty() ?
+                            BuildingSnapshot.OperationModes.front() :
+                            Ui(L"citizen_info.work_mode.general_control"));
                 Result.OverviewBudgetLabel =
                     Ui(L"citizen_info.label.budget");
                 Result.OverviewBudgetValue = L"$120";
@@ -2155,11 +3437,45 @@ namespace CitizenInfoDataProvider
                     L""
                 };
             }
+            else
+            {
+                PopulateGenericWorkOverview(BuildingSnapshot, Result);
+            }
         }
 
         if (Result.ShowBuildingMetricRows && Result.SelectedTabIndex == 1)
         {
-            if (UseModernApartmentOverview(BuildingSnapshot))
+            if (IsCustomsOffice)
+            {
+                const long long BuildingExpense =
+                    static_cast<long long>(
+                        (std::max)(
+                            118,
+                            BuildingSnapshot.MonthlyUpkeepCost));
+                Result.OverviewMetricLabels =
+                {
+                    L"수입 (전체)",
+                    L"수입 (건물)",
+                    L"수출량",
+                    L"수입량",
+                    L"전체 수출량 (무역로)",
+                    L"관광객 도착"
+                };
+                Result.OverviewMetricValues =
+                {
+                    FormatMoneyDollarFirst(
+                        -BuildingSnapshot.LastDailyImportExpense),
+                    FormatMoneyDollarFirst(-BuildingExpense),
+                    FormatInteger(
+                        BuildingSnapshot.TradeRouteExportFulfilledUnits),
+                    FormatInteger(
+                        BuildingSnapshot.TradeRouteImportFulfilledUnits),
+                    FormatInteger(
+                        BuildingSnapshot.TradeRouteExportContractUnits),
+                    FormatInteger(BuildingSnapshot.TourismArrivalCount)
+                };
+            }
+            else if (UseModernApartmentOverview(BuildingSnapshot))
             {
                 Result.OverviewMetricLabels =
                 {
@@ -2210,28 +3526,64 @@ namespace CitizenInfoDataProvider
 
         if (Result.ShowBuildingMetricRows && Result.SelectedTabIndex == 3)
         {
-            Result.ShowHeaderNote = true;
-            Result.ShowSectionDivider = true;
-            Result.HeaderNoteText =
-                Ui(L"citizen_info.note.housing_quality_efficiency");
-            Result.OverviewMetricLabels =
+            if (IsCustomsOffice)
             {
-                Ui(L"citizen_info.label.efficiency"),
-                L"",
-                L"",
-                L"",
-                L"",
-                L""
-            };
-            Result.OverviewMetricValues =
+                const int DiplomacyModifier =
+                    ComputeAverageCustomsDiplomacyExportBiasPercent();
+                const int BudgetModifier =
+                    ResolveCustomsBudgetModifierPercent(BuildingSnapshot);
+                Result.ShowHeaderNote = true;
+                Result.ShowSectionDivider = true;
+                Result.HeaderNoteText =
+                    L"수출 가격 보너스는 효율에 따라 변합니다.";
+                Result.OverviewMetricLabels =
+                {
+                    Ui(L"citizen_info.label.efficiency"),
+                    L"경제부 장관",
+                    L"예산 수정치"
+                };
+                Result.OverviewMetricValues =
+                {
+                    std::to_wstring(
+                        ResolveCustomsEfficiencyPercent(BuildingSnapshot)) +
+                        L"%",
+                    std::wstring(
+                        DiplomacyModifier > 0 ? L"+" : L"") +
+                        std::to_wstring(DiplomacyModifier) +
+                        L"%",
+                    std::wstring(
+                        BudgetModifier > 0 ? L"+" : L"") +
+                        std::to_wstring(BudgetModifier) +
+                        L"%"
+                };
+                Result.OverviewMetricAccentValues[1] = true;
+                Result.OverviewMetricAccentValues[2] = true;
+            }
+            else
             {
-                L"100%",
-                L"",
-                L"",
-                L"",
-                L"",
-                L""
-            };
+                Result.ShowHeaderNote = true;
+                Result.ShowSectionDivider = true;
+                Result.HeaderNoteText =
+                    Ui(L"citizen_info.note.housing_quality_efficiency");
+                Result.OverviewMetricLabels =
+                {
+                    Ui(L"citizen_info.label.efficiency"),
+                    L"",
+                    L"",
+                    L"",
+                    L"",
+                    L""
+                };
+                Result.OverviewMetricValues =
+                {
+                    L"100%",
+                    L"",
+                    L"",
+                    L"",
+                    L"",
+                    L""
+                };
+            }
         }
 
         if (Result.ShowBuildingUpgradeCard)
@@ -2248,17 +3600,28 @@ namespace CitizenInfoDataProvider
 
         if (Result.ShowBuildingInformationParagraphs)
         {
-            Result.ShowSectionDivider = true;
-            Result.InformationAccentText =
-                std::to_wstring((std::max)(0, BuildingSnapshot.Capacity));
-            Result.InformationTopText = UIStrings::Format(
-                L"citizen_info.information.modern_apartment.top",
-                {
-                    NormalizeWealthRequirementText(
-                        BuildingSnapshot.WealthRequirementText)
-                });
-            Result.InformationBottomText =
-                Ui(L"citizen_info.information.modern_apartment.bottom");
+            if (IsCustomsOffice)
+            {
+                Result.ShowSectionDivider = true;
+                Result.InformationTopText = L"수출 가격이 증가합니다.";
+                Result.InformationBottomText =
+                    L"트로피코에서도 의외로 많은 사람들이 수입품과 수출의 가격에 큰 관심을 두고 있습니다. "
+                    L"그중에서도 뇌물을 탐닉할 생각하는 세관원이 대표적이죠.";
+            }
+            else
+            {
+                Result.ShowSectionDivider = true;
+                Result.InformationAccentText =
+                    std::to_wstring((std::max)(0, BuildingSnapshot.Capacity));
+                Result.InformationTopText = UIStrings::Format(
+                    L"citizen_info.information.modern_apartment.top",
+                    {
+                        NormalizeWealthRequirementText(
+                            BuildingSnapshot.WealthRequirementText)
+                    });
+                Result.InformationBottomText =
+                    Ui(L"citizen_info.information.modern_apartment.bottom");
+            }
         }
 
         switch (Result.SelectedTabIndex)
@@ -2271,7 +3634,9 @@ namespace CitizenInfoDataProvider
         case 2:
             Result.BodyText = Result.ShowBuildingUpgradeCard ?
                 std::wstring() :
-                BuildUpgradesBody(BuildingSnapshot);
+                (IsCustomsOffice ?
+                    BuildCustomsUpgradesBody(BuildingSnapshot) :
+                    BuildUpgradesBody(BuildingSnapshot));
             break;
         case 3:
             Result.BodyText = Result.ShowBuildingMetricRows ?
@@ -2285,7 +3650,10 @@ namespace CitizenInfoDataProvider
             break;
         case 0:
         default:
-            Result.BodyText = Result.ShowBuildingOverview ?
+            Result.BodyText =
+                ShowCustomsModePage ?
+                    BuildCustomsModeSelectionBody(BuildingSnapshot) :
+                Result.ShowBuildingOverview ?
                 std::wstring() :
                 BuildOverviewBody(BuildingSnapshot);
             break;
@@ -2297,11 +3665,13 @@ namespace CitizenInfoDataProvider
     FCitizenInfoSnapshot BuildTrackedBuildingSnapshot(
         const std::shared_ptr<CWorld>& World,
         const std::string& BuildingName,
-        int SelectedBuildingTabIndex)
+        int SelectedBuildingTabIndex,
+        bool ShowCustomsModeSelection)
     {
         return BuildTrackedBuildingSnapshot(
             CitizenInfoQueryService::CreateWorldQuerySource(World),
             BuildingName,
-            SelectedBuildingTabIndex);
+            SelectedBuildingTabIndex,
+            ShowCustomsModeSelection);
     }
 }

@@ -25,6 +25,7 @@ bool CAlmanacWidget::Init()
     mSelectedPopulationIndex = 0;
     mSelectedEconomyIndex = 0;
     mSelectedResourceIndex = 0;
+    mVisibleResourceRowOffset = 0;
     mSelectedPoliticsFactionIndex = 0;
     mSelectedForeignPowerIndex = 0;
     mSelectedBuildingCategoryIndex = 0;
@@ -158,10 +159,12 @@ void CAlmanacWidget::SelectEconomyRow(int Index)
 
 void CAlmanacWidget::SelectResourceRow(int Index)
 {
-    const int MaxIndex = static_cast<int>(mResourceRows.size()) - 1;
+    const int MaxIndex = static_cast<int>(EResourceType::Count) - 2;
 
     if (MaxIndex < 0)
         return;
+
+    Index += mVisibleResourceRowOffset;
 
     if (Index < 0)
         Index = 0;

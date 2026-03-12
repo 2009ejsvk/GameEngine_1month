@@ -144,6 +144,7 @@ void FCitizenInfoRenderer::ApplySnapshot(
         BudgetText->SetText(Snapshot.BudgetText.c_str());
         BudgetText->SetEnable(
             Snapshot.ShowBudgetControls &&
+            Snapshot.ShowBudgetText &&
             !ShowOverviewLayout);
     }
 
@@ -269,9 +270,15 @@ void FCitizenInfoRenderer::ApplySnapshot(
                     GBigTextButtonDisabledTexture);
                 ConfigureDefaultButtonStyle(Button);
             }
-            Button->SetEnable(Snapshot.ShowBudgetControls);
-            Button->ButtonEnable(Snapshot.ShowBudgetControls);
+            Button->SetEnable(
+                Snapshot.ShowBudgetControls &&
+                Snapshot.BudgetButtonEnabled[static_cast<size_t>(Index)]);
+            Button->ButtonEnable(
+                Snapshot.ShowBudgetControls &&
+                Snapshot.BudgetButtonEnabled[static_cast<size_t>(Index)]);
             Button->SetOpacityAll(
+                !Snapshot.BudgetButtonEnabled[static_cast<size_t>(Index)] ?
+                    0.f :
                 ShowOverviewLayout && !Selected ?
                     0.45f :
                     1.f);
@@ -279,11 +286,16 @@ void FCitizenInfoRenderer::ApplySnapshot(
 
         if (Label)
         {
+            Label->SetText(
+                Snapshot.BudgetButtonLabels[static_cast<size_t>(Index)].c_str());
             Label->SetTextColor(
                 Selected ?
                     FVector4(0.36f, 0.22f, 0.08f, 1.f) :
                     FVector4(0.30f, 0.22f, 0.12f, 1.f));
-            Label->SetEnable(!ShowOverviewLayout);
+            Label->SetEnable(
+                !ShowOverviewLayout &&
+                Snapshot.BudgetButtonEnabled[static_cast<size_t>(Index)] &&
+                !Snapshot.BudgetButtonLabels[static_cast<size_t>(Index)].empty());
         }
     }
 
@@ -665,13 +677,19 @@ void FCitizenInfoRenderer::ApplySnapshot(
         Divider->SetEnable(Snapshot.ShowSectionDivider);
 
     if (auto DemolishButton = Widget.mDemolishButton.lock())
-        DemolishButton->SetEnable(Snapshot.ShowActionButtons);
+        DemolishButton->SetEnable(
+            Snapshot.ShowActionButtons &&
+            Snapshot.ShowDemolishButton);
 
     if (auto MoveButton = Widget.mMoveButton.lock())
-        MoveButton->SetEnable(Snapshot.ShowActionButtons);
+        MoveButton->SetEnable(
+            Snapshot.ShowActionButtons &&
+            Snapshot.ShowMoveButton);
 
     if (auto CloneButton = Widget.mCloneButton.lock())
-        CloneButton->SetEnable(Snapshot.ShowActionButtons);
+        CloneButton->SetEnable(
+            Snapshot.ShowActionButtons &&
+            Snapshot.ShowCloneButton);
 
     if (auto Button = Widget.mOverviewCommandButton.lock())
         Button->SetEnable(Snapshot.ShowOverviewCommandButton);

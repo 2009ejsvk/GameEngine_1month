@@ -13,10 +13,18 @@ namespace
 {
     constexpr int GSlotsPerPage = 15;
 
+    std::string BuildCatalogIconTextureKey(
+        const FBuildingCatalogEntry& Entry)
+    {
+        return
+            "BuildingCatalogIcon_" +
+            Entry.Id +
+            "_Gen_" +
+            std::to_string(::GetRuntimeConfigGeneration());
+    }
+
     struct FParsedDetailInfo
     {
-        std::wstring BlueprintCost;
-        std::wstring ConstructionCost;
         std::vector<std::wstring> Highlights;
         std::wstring Description;
     };
@@ -35,6 +43,81 @@ namespace
             L"치안: -\n"
             L"무주택자 수: 0명\n"
             L"실업자 수: 0명";
+    }
+
+    std::wstring FormatEraProgressText(
+        const FEraProgressState& EraProgress)
+    {
+        if (!EraProgress.HasNextEra)
+            return L"시대 진행: 최종 시대 도달";
+
+        const FEraUnlockRequirement& Requirement =
+            EraProgress.NextRequirement;
+
+        switch (EraProgress.NextEra)
+        {
+        case EBuildingEra::WorldWars:
+            return
+                L"시대 진행: 인구 " +
+                std::to_wstring(EraProgress.Population) +
+                L"/" +
+                std::to_wstring(Requirement.MinPopulation) +
+                L" | 건물 " +
+                std::to_wstring(EraProgress.TotalBuildings) +
+                L"/" +
+                std::to_wstring(Requirement.MinTotalBuildings) +
+                L" | 식량 " +
+                std::to_wstring(EraProgress.FoodProviders) +
+                L"/" +
+                std::to_wstring(Requirement.MinFoodProviders);
+        case EBuildingEra::ColdWar:
+            return
+                L"시대 진행: 인구 " +
+                std::to_wstring(EraProgress.Population) +
+                L"/" +
+                std::to_wstring(Requirement.MinPopulation) +
+                L" | 건물 " +
+                std::to_wstring(EraProgress.TotalBuildings) +
+                L"/" +
+                std::to_wstring(Requirement.MinTotalBuildings) +
+                L" | 산업 " +
+                std::to_wstring(EraProgress.IndustryBuildings) +
+                L"/" +
+                std::to_wstring(Requirement.MinIndustryBuildings) +
+                L" | 전력 " +
+                std::to_wstring(EraProgress.PowerMW) +
+                L"/" +
+                std::to_wstring(Requirement.MinPowerMW) +
+                L"MW";
+        case EBuildingEra::Modern:
+            return
+                L"시대 진행: 인구 " +
+                std::to_wstring(EraProgress.Population) +
+                L"/" +
+                std::to_wstring(Requirement.MinPopulation) +
+                L" | 건물 " +
+                std::to_wstring(EraProgress.TotalBuildings) +
+                L"/" +
+                std::to_wstring(Requirement.MinTotalBuildings) +
+                L" | 공공 " +
+                std::to_wstring(EraProgress.PublicServiceBuildings) +
+                L"/" +
+                std::to_wstring(Requirement.MinPublicServiceBuildings) +
+                L" | 오락 " +
+                std::to_wstring(EraProgress.EntertainmentBuildings) +
+                L"/" +
+                std::to_wstring(Requirement.MinEntertainmentBuildings) +
+                L" | 전력 " +
+                std::to_wstring(EraProgress.PowerMW) +
+                L"/" +
+                std::to_wstring(Requirement.MinPowerMW) +
+                L"MW";
+        case EBuildingEra::Colonial:
+        default:
+            break;
+        }
+
+        return L"시대 진행: -";
     }
 
     bool StartsWith(
@@ -144,13 +227,28 @@ namespace
                     Entry.RequiredEducationLevel)));
         }
 
-        if (Highlights.size() < 3 &&
-            Entry.ProducedResourceType != EResourceType::None)
+        if (Highlights.size() < 3)
         {
-            Highlights.push_back(
-                L"생산 자원: " +
-                std::wstring(GetResourceTypeDisplayName(
-                    Entry.ProducedResourceType)));
+            const wchar_t* const ProductionStageText =
+                GetProductionChainStageDisplayName(
+                    Entry.ProductionChainStage);
+            const std::wstring ProductionSummary =
+                BuildProductionChainSummary(Entry);
+
+            if (ProductionStageText && *ProductionStageText &&
+                !ProductionSummary.empty())
+            {
+                Highlights.push_back(
+                    L"생산 단계: " +
+                    std::wstring(ProductionStageText) +
+                    L" | " +
+                    ProductionSummary);
+            }
+            else if (!ProductionSummary.empty())
+            {
+                Highlights.push_back(
+                    L"생산 체인: " + ProductionSummary);
+            }
         }
 
         if (Entry.Residential &&
@@ -227,19 +325,9 @@ namespace
             if (Line.empty())
                 continue;
 
-            if (StartsWith(Line, L"설계도 비용:"))
-            {
-                Result.BlueprintCost =
-                    TrimCopy(Line.substr(wcslen(L"설계도 비용:")));
+            if (StartsWith(Line, L"설계도 비용:") ||
+                StartsWith(Line, L"건설 비용:"))
                 continue;
-            }
-
-            if (StartsWith(Line, L"건설 비용:"))
-            {
-                Result.ConstructionCost =
-                    TrimCopy(Line.substr(wcslen(L"건설 비용:")));
-                continue;
-            }
 
             bool HighlightLine = false;
 
@@ -271,6 +359,27 @@ namespace
         return Result;
     }
 
+    std::wstring FormatCatalogCostValue(
+        EBuildingCostState State,
+        int Cost,
+        const wchar_t* ZeroLabel)
+    {
+        switch (State)
+        {
+        case EBuildingCostState::Known:
+            return Cost <= 0 ?
+                (ZeroLabel ? std::wstring(ZeroLabel) : std::wstring(L"0")) :
+                std::to_wstring(Cost);
+        case EBuildingCostState::Unknown:
+            return L"미기재";
+        case EBuildingCostState::None:
+        default:
+            break;
+        }
+
+        return L"-";
+    }
+
     std::wstring FormatCurrency(long long Value)
     {
         bool Negative = false;
@@ -300,14 +409,104 @@ namespace
     }
 
     std::vector<int> CollectCategoryEntryIndices(
-        EBuildingCategory SelectedCategory)
+        EBuildingCategory SelectedCategory,
+        EBuildingEra CurrentEra)
     {
+        (void)CurrentEra;
+
         std::vector<int> Result;
         const auto& Catalog = GetBuildingCatalog();
 
+        auto IsLuxuryEntertainmentEntry =
+            [](const FBuildingCatalogEntry& Entry)
+            {
+                return Entry.Category == EBuildingCategory::Entertainment &&
+                    Entry.CategoryLocalIndex >= 12;
+            };
+
+        auto IsGovernmentFinanceProxyEntry =
+            [](const FBuildingCatalogEntry& Entry)
+            {
+                return Entry.Category == EBuildingCategory::PublicService &&
+                    Entry.DisplayName == L"세관";
+            };
+
+        auto ShouldIncludeEntry =
+            [&](const FBuildingCatalogEntry& Entry)
+            {
+                switch (SelectedCategory)
+                {
+                case EBuildingCategory::Entertainment:
+                    return Entry.Category ==
+                            EBuildingCategory::Entertainment &&
+                        !IsLuxuryEntertainmentEntry(Entry);
+                case EBuildingCategory::LuxuryEntertainment:
+                    return IsLuxuryEntertainmentEntry(Entry);
+                case EBuildingCategory::PublicService:
+                    return Entry.Category ==
+                            EBuildingCategory::PublicService &&
+                        !IsGovernmentFinanceProxyEntry(Entry);
+                case EBuildingCategory::GovernmentFinance:
+                    return Entry.Category ==
+                        EBuildingCategory::GovernmentFinance;
+                default:
+                    return Entry.Category == SelectedCategory;
+                }
+            };
+
+        if (SelectedCategory == EBuildingCategory::GovernmentFinance)
+        {
+            int CustomsEntryIndex = -1;
+
+            for (int i = 0; i < static_cast<int>(Catalog.size()); ++i)
+            {
+                if (Catalog[i].IsHiddenFromBuildMenu)
+                    continue;
+
+                if (IsGovernmentFinanceProxyEntry(Catalog[i]))
+                {
+                    CustomsEntryIndex = i;
+                    break;
+                }
+            }
+
+            for (int i = 0; i < static_cast<int>(Catalog.size()); ++i)
+            {
+                const FBuildingCatalogEntry& Entry = Catalog[i];
+
+                if (Entry.IsHiddenFromBuildMenu ||
+                    Entry.Category != EBuildingCategory::GovernmentFinance)
+                {
+                    continue;
+                }
+
+                if (Entry.CategoryLocalIndex < 5)
+                    Result.push_back(i);
+            }
+
+            if (CustomsEntryIndex >= 0)
+                Result.push_back(CustomsEntryIndex);
+
+            for (int i = 0; i < static_cast<int>(Catalog.size()); ++i)
+            {
+                const FBuildingCatalogEntry& Entry = Catalog[i];
+
+                if (Entry.IsHiddenFromBuildMenu ||
+                    Entry.Category != EBuildingCategory::GovernmentFinance)
+                {
+                    continue;
+                }
+
+                if (Entry.CategoryLocalIndex >= 5)
+                    Result.push_back(i);
+            }
+
+            return Result;
+        }
+
         for (int i = 0; i < static_cast<int>(Catalog.size()); ++i)
         {
-            if (Catalog[i].Category != SelectedCategory)
+            if (!ShouldIncludeEntry(Catalog[i]))
                 continue;
 
             if (Catalog[i].IsHiddenFromBuildMenu)
@@ -320,16 +519,10 @@ namespace
     }
 
     BuildMenuDataProvider::FBuildMenuStatusSnapshot BuildStatusSnapshot(
-        const std::shared_ptr<BuildMenuDataProvider::IBuildMenuQuerySource>& QuerySource)
+        const BuildMenuDataProvider::FBuildMenuStatusRecord& StatusRecord)
     {
         BuildMenuDataProvider::FBuildMenuStatusSnapshot Result;
         Result.YearbookBodyText = BuildDefaultYearbookBodyText();
-
-        if (!QuerySource)
-            return Result;
-
-        const BuildMenuDataProvider::FBuildMenuStatusRecord StatusRecord =
-            QuerySource->QueryStatus();
         Result.NpcCountText =
             L"NPC: " + std::to_wstring(StatusRecord.AliveNpcCount);
 
@@ -360,8 +553,22 @@ namespace
             Result.MonthProgressText = ProgressBuffer;
         }
 
+        const std::wstring EraHeader =
+            L"현재 시대: " +
+            std::wstring(GetBuildingEraDisplayName(StatusRecord.CurrentEra)) +
+            L"\n" +
+            (StatusRecord.EraProgress.HasNextEra ?
+                L"다음 시대: " +
+                    std::wstring(GetBuildingEraDisplayName(
+                        StatusRecord.EraProgress.NextEra)) :
+                L"다음 시대: 없음") +
+            L"\n" +
+            FormatEraProgressText(StatusRecord.EraProgress);
+
         if (!StatusRecord.YearbookBodyText.empty())
-            Result.YearbookBodyText = StatusRecord.YearbookBodyText;
+            Result.YearbookBodyText = EraHeader + L"\n" + StatusRecord.YearbookBodyText;
+        else
+            Result.YearbookBodyText = EraHeader + L"\n" + Result.YearbookBodyText;
 
         return Result;
     }
@@ -369,7 +576,8 @@ namespace
     BuildMenuDataProvider::FBuildMenuCatalogSnapshot BuildCatalogSnapshot(
         EBuildingCategory SelectedCategory,
         int RequestedPage,
-        int PreviewEntryIndex)
+        int PreviewEntryIndex,
+        EBuildingEra CurrentEra)
     {
         BuildMenuDataProvider::FBuildMenuCatalogSnapshot Result;
         Result.SelectedCategory = SelectedCategory;
@@ -379,7 +587,9 @@ namespace
         Result.Slots.resize(GSlotsPerPage);
 
         const std::vector<int> CategoryEntries =
-            CollectCategoryEntryIndices(SelectedCategory);
+            CollectCategoryEntryIndices(
+                SelectedCategory,
+                CurrentEra);
         const int EntryCount = static_cast<int>(CategoryEntries.size());
         const int PageCount = (std::max)(
             1,
@@ -416,9 +626,8 @@ namespace
             Slot.Enabled = true;
             Slot.EntryIndex = EntryIndex;
             Slot.DisplayName = Entry.DisplayName;
-            Slot.IconPath = GetCatalogEntryIconPath(
-                Entry.Category,
-                Entry.CategoryLocalIndex);
+            Slot.IconPath = GetCatalogEntryIconPath(Entry);
+            Slot.IconTextureKey = BuildCatalogIconTextureKey(Entry);
         }
 
         bool HasPreviewOnPage = false;
@@ -462,14 +671,14 @@ namespace
 
         Result.HasSelection = true;
         Result.Title = Entry.DisplayName;
-        Result.BlueprintCost =
-            ParsedDetail.BlueprintCost.empty() ?
-            L"-" :
-            ParsedDetail.BlueprintCost;
-        Result.ConstructionCost =
-            ParsedDetail.ConstructionCost.empty() ?
-            L"-" :
-            ParsedDetail.ConstructionCost;
+        Result.BlueprintCost = FormatCatalogCostValue(
+            Entry.BlueprintCostState,
+            Entry.BlueprintCost,
+            L"없음");
+        Result.ConstructionCost = FormatCatalogCostValue(
+            Entry.ConstructionCostState,
+            Entry.ConstructionCost,
+            L"무료");
         Result.InfoText = BuildHighlightsBlockText(ParsedDetail.Highlights);
         Result.BodyText = ParsedDetail.Description;
         return Result;
@@ -485,11 +694,17 @@ namespace BuildMenuDataProvider
         int PreviewEntryIndex)
     {
         FBuildMenuSnapshot Result;
-        Result.Status = BuildStatusSnapshot(QuerySource);
+        FBuildMenuStatusRecord StatusRecord;
+
+        if (QuerySource)
+            StatusRecord = QuerySource->QueryStatus();
+
+        Result.Status = BuildStatusSnapshot(StatusRecord);
         Result.Catalog = BuildCatalogSnapshot(
             SelectedCategory,
             RequestedPage,
-            PreviewEntryIndex);
+            PreviewEntryIndex,
+            StatusRecord.CurrentEra);
         Result.Detail = BuildDetailSnapshot(Result.Catalog.PreviewEntryIndex);
         return Result;
     }

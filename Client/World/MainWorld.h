@@ -18,7 +18,9 @@ class CMainWorld :
     public IGovernmentCommandService,
     public IMainWorldCitizenPolicyAccess,
     public IMainWorldRoadNetworkAccess,
-    public IMainWorldTransitAccess
+    public IMainWorldTransitAccess,
+    public IMainWorldRuntimeRefreshAccess,
+    public IMainWorldTradeAccess
 {
 public:
 	CMainWorld();
@@ -46,6 +48,23 @@ public:
 	int GetSimulationMonthDayCount() const;
 	float GetSimulationDayProgress() const;
 	float GetSimulationMonthProgress() const;
+    bool IsSimulationPaused() const
+    {
+        return mSimulationPaused;
+    }
+    int GetSimulationSpeedMultiplier() const
+    {
+        return mSimulationSpeedMultiplier;
+    }
+    virtual void CycleSimulationSpeedState() override;
+    EBuildingEra GetCurrentEra() const
+    {
+        return mEraProgress.CurrentEra;
+    }
+    const FEraProgressState& GetEraProgress() const
+    {
+        return mEraProgress;
+    }
 	bool TryApplyEdict(
 		EGovernmentEdictType Type,
 		std::wstring& OutMessage);
@@ -53,6 +72,26 @@ public:
 		ETaxPolicyType Type,
 		int DeltaPercent,
 		std::wstring& OutMessage);
+	bool CycleDomesticReservePolicy(
+		std::wstring& OutMessage);
+	bool CycleImportPerResourceCap(
+		std::wstring& OutMessage);
+	bool CycleImportBudgetPolicy(
+		std::wstring& OutMessage);
+	bool CycleExportBlockedResource(
+		std::wstring& OutMessage);
+	bool CycleAutoImportResource(
+		std::wstring& OutMessage);
+    bool ExecuteTradeProposal(
+        bool ImportRoute,
+        EResourceType ResourceType,
+        int ForeignPowerIndex,
+        int PricePerThousandUnits,
+        int Amount,
+        std::wstring& OutMessage);
+    bool CancelTradeRoute(
+        int RouteId,
+        std::wstring& OutMessage);
 	const FGovernmentProfile& GetGovernmentProfile() const
 	{
 		return mGovernmentProfile;
@@ -121,6 +160,10 @@ public:
 	{
 		return mTaxEventStatus;
 	}
+    const FWorldCrisisStatus& GetWorldCrisisStatus() const
+    {
+        return mWorldCrisisStatus;
+    }
     virtual void RebuildRoadNetwork() override;
     virtual const CRoadNetwork* GetRoadNetwork() const override
     {
@@ -129,6 +172,21 @@ public:
     virtual const CBusRouteSystem* GetBusRouteSystem() const override
     {
         return mBusRouteSystem.get();
+    }
+    virtual void RefreshRuntimeBuildingState() override;
+    virtual const std::vector<FTradeRouteRuntimeState>&
+        GetActiveTradeRoutes() const override
+    {
+        return mActiveTradeRoutes;
+    }
+    virtual const std::vector<FTradeRouteCompletionRecord>&
+        GetCompletedTradeRoutes() const override
+    {
+        return mCompletedTradeRoutes;
+    }
+    virtual int GetTradeRouteCompletionNotificationVersion() const override
+    {
+        return mTradeRouteCompletionNotificationVersion;
     }
 
 private:
@@ -152,18 +210,33 @@ private:
 	int mSimulationDay = 1;
 	float mDayProgressAccum = 0.f;
 	float mSecondsPerSimulationDay = 2.f;
+    bool mSimulationPaused = false;
+    int mSimulationSpeedMultiplier = 1;
 	float mPoliticalSnapshotAccum = 0.f;
+    unsigned long long mLastGameConstantsGeneration = 0;
+    unsigned long long mLastEdictConfigGeneration = 0;
 	int mWorkerTaxPressureDays = 0;
 	int mPropertyTaxPressureDays = 0;
 	int mBudgetCrisisPressureDays = 0;
+    int mRaidPressureDays = 0;
+    int mLaborStrikePressureDays = 0;
+    int mCrimeWavePressureDays = 0;
+    int mFiscalEmergencyPressureDays = 0;
 	FGovernmentProfile mGovernmentProfile;
 	FPoliticalWorldSnapshot mPoliticalSnapshot;
 	FElectionStatus mElectionStatus;
 	FTaxPolicyEventStatus mTaxEventStatus;
+    FWorldCrisisStatus mWorldCrisisStatus;
+    FEraProgressState mEraProgress;
 	std::vector<FGovernmentEdictState> mGovernmentEdicts;
 	FGovernmentEdictModifiers mEdictModifiers;
     std::shared_ptr<CRoadNetwork> mRoadNetwork;
     std::shared_ptr<CBusRouteSystem> mBusRouteSystem;
+    std::vector<FTradeRouteRuntimeState> mActiveTradeRoutes;
+    std::vector<FTradeRouteCompletionRecord> mCompletedTradeRoutes;
+    int mNextTradeRouteId = 1;
+    int mNextTradeRouteCompletionRecordId = 1;
+    int mTradeRouteCompletionNotificationVersion = 0;
 
 private:
 	void ResetWorldState();
@@ -179,6 +252,13 @@ private:
 	void AdvanceSimulationDay();
 	int GetDaysInMonth(int Year, int Month) const;
 	void ApplyDailyEconomySettlement();
+    void ProcessActiveTradeRoutes();
+    void RecordFinishedTradeRoute(
+        const FTradeRouteRuntimeState& Route,
+        ETradeRouteEndReason EndReason);
+    void RefreshPowerGridCoverage();
+    void RefreshWorldMarketPrices();
+    void RefreshBuildingPollutionExposure();
 	void InitializeElectionSchedule();
 	void ResolveScheduledElection();
 	void TickGovernmentEdicts();
@@ -186,6 +266,9 @@ private:
 	void ApplyDailyEdictCitizenEffects();
 	void ApplyDailyTaxPolicyEventEffects();
 	void TickTaxPolicyEvents();
+    void ApplyDailyWorldCrisisEffects();
+    void TickWorldCrises();
+    void RefreshEraProgress();
 	void RefreshPoliticalSnapshot();
     void RebuildBusRoutes();
 };

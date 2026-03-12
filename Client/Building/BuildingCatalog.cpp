@@ -1,12 +1,18 @@
 #include "BuildingCatalog.h"
 #include "BuildingCategoryInfo.h"
+#include "../RuntimeConfigRegistry.h"
 #include "Asset/PathManager.h"
 #include <Windows.h>
 #include <algorithm>
+#include <cctype>
+#include <cwchar>
+#include <cwctype>
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
+#include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace
@@ -52,7 +58,7 @@ namespace
     EPlacementTemplateType ResolveTemplateTypeByBuildingId(
         const std::string& BuildingId)
     {
-        // 기본값은 기존 동작과 동일한 3x3 단일 마커 템플릿이다.
+        // 구 TSV와의 호환을 위해 기존 예외 규칙을 fallback으로 유지한다.
         struct FTemplateRule
         {
             const char* BuildingId;
@@ -61,12 +67,8 @@ namespace
 
         static const std::vector<FTemplateRule> GRules =
         {
-            // 필요 시 건물별 템플릿 규칙을 여기에 추가한다.
             { "build_1_1", EPlacementTemplateType::SingleTileMarker },
             { "build_1_12", EPlacementTemplateType::SingleTileMarker },
-            // { "build_1_3", EPlacementTemplateType::Diamond5x5TwoMarker },
-            // { "build_4_3", EPlacementTemplateType::Diamond5x5FourMarker },
-            // { "build_7_5", EPlacementTemplateType::Diamond7x7ThreeMarker },
         };
 
         for (const FTemplateRule& Rule : GRules)
@@ -78,13 +80,154 @@ namespace
         return EPlacementTemplateType::Diamond3x3SingleMarker;
     }
 
+    std::string TrimAsciiWhitespace(
+        const std::string& Text)
+    {
+        size_t Begin = 0;
+        size_t End = Text.size();
+
+        while (Begin < End &&
+            (Text[Begin] == ' ' || Text[Begin] == '\t' ||
+                Text[Begin] == '\r' || Text[Begin] == '\n'))
+        {
+            ++Begin;
+        }
+
+        while (End > Begin &&
+            (Text[End - 1] == ' ' || Text[End - 1] == '\t' ||
+                Text[End - 1] == '\r' || Text[End - 1] == '\n'))
+        {
+            --End;
+        }
+
+        return Text.substr(Begin, End - Begin);
+    }
+
+    bool EqualsIgnoreCaseAscii(
+        const std::string& A,
+        const char* B)
+    {
+        const size_t Length = A.size();
+
+        for (size_t Index = 0; Index < Length; ++Index)
+        {
+            const char Left = static_cast<char>(
+                std::tolower(static_cast<unsigned char>(A[Index])));
+            const char Right = static_cast<char>(
+                std::tolower(static_cast<unsigned char>(B[Index])));
+
+            if (Right == 0 || Left != Right)
+                return false;
+        }
+
+        return B[Length] == 0;
+    }
+
+    bool TryParsePlacementTemplateTypeKey(
+        const std::string& Key,
+        EPlacementTemplateType& OutTemplateType)
+    {
+        const std::string Normalized = TrimAsciiWhitespace(Key);
+
+        if (Normalized.empty())
+            return false;
+
+        if (EqualsIgnoreCaseAscii(Normalized, "SingleTileMarker") ||
+            EqualsIgnoreCaseAscii(Normalized, "1x1"))
+        {
+            OutTemplateType = EPlacementTemplateType::SingleTileMarker;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(
+                Normalized,
+                "Diamond3x3SingleMarker") ||
+            EqualsIgnoreCaseAscii(Normalized, "3x3"))
+        {
+            OutTemplateType =
+                EPlacementTemplateType::Diamond3x3SingleMarker;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(
+                Normalized,
+                "Diamond5x5TwoMarker") ||
+            EqualsIgnoreCaseAscii(Normalized, "5x5TwoMarker"))
+        {
+            OutTemplateType =
+                EPlacementTemplateType::Diamond5x5TwoMarker;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(
+                Normalized,
+                "Diamond5x5FourMarker") ||
+            EqualsIgnoreCaseAscii(Normalized, "5x5FourMarker"))
+        {
+            OutTemplateType =
+                EPlacementTemplateType::Diamond5x5FourMarker;
+        }
+        else if (
+            EqualsIgnoreCaseAscii(
+                Normalized,
+                "Diamond7x7ThreeMarker") ||
+            EqualsIgnoreCaseAscii(Normalized, "7x7ThreeMarker"))
+        {
+            OutTemplateType =
+                EPlacementTemplateType::Diamond7x7ThreeMarker;
+        }
+        else
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     struct FExternalCatalogRecord
     {
         EBuildingCategory Category = EBuildingCategory::Infrastructure;
         int LocalIndex = 0;
         std::wstring DisplayName;
+        EBuildingCostState BlueprintCostState =
+            EBuildingCostState::None;
+        int BlueprintCost = 0;
+        EBuildingCostState ConstructionCostState =
+            EBuildingCostState::None;
+        int ConstructionCost = 0;
+        bool HasTemplateType = false;
+        EPlacementTemplateType TemplateType =
+            EPlacementTemplateType::Diamond3x3SingleMarker;
+        std::wstring IconPath;
+        std::wstring SpriteTexturePath;
         std::wstring DetailText;
     };
+
+    struct FProductionRecipeRecord
+    {
+        std::string BuildingId;
+        EResourceType ProducedResourceType = EResourceType::None;
+        std::wstring ProducedResourceLabel;
+        EResourceType VisitConsumptionResourceType = EResourceType::None;
+        std::array<EResourceType, GProductionInputSlotCount>
+            ProductionInputTypes =
+            {
+                EResourceType::None,
+                EResourceType::None
+            };
+        std::array<int, GProductionInputSlotCount>
+            ProductionInputAmounts = {};
+        std::array<std::wstring, GProductionInputSlotCount>
+            ProductionInputLabels = {};
+    };
+
+    bool TryParseCatalogCostText(
+        const std::wstring& Text,
+        EBuildingCostState& OutState,
+        int& OutCost);
+
+    bool TryExtractDetailCost(
+        const std::wstring& DetailText,
+        const wchar_t* Prefix,
+        EBuildingCostState& OutState,
+        int& OutCost);
 
     std::wstring Utf8ToWide(const std::string& Text)
     {
@@ -169,6 +312,33 @@ namespace
             Paths.push_back(JoinPath(
                 AssetPath,
                 L"Data\\BuildingCatalog.tsv"));
+        }
+
+        return Paths;
+    }
+
+    std::vector<std::wstring> BuildProductionRecipeDataCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\BuildingProductionRecipes.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\BuildingProductionRecipes.tsv"));
         }
 
         return Paths;
@@ -310,6 +480,86 @@ namespace
             OutCategory = EBuildingCategory::Tourism;
         else if (Key == "PublicService")
             OutCategory = EBuildingCategory::PublicService;
+        else if (Key == "LuxuryEntertainment")
+            OutCategory = EBuildingCategory::LuxuryEntertainment;
+        else if (Key == "Military")
+            OutCategory = EBuildingCategory::Military;
+        else if (Key == "GovernmentFinance")
+            OutCategory = EBuildingCategory::GovernmentFinance;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool TryParseResourceTypeKey(
+        const std::string& Key,
+        EResourceType& OutType)
+    {
+        if (Key.empty() || Key == "-" || Key == "None")
+        {
+            OutType = EResourceType::None;
+            return true;
+        }
+
+        if (Key == "Coconuts")
+            OutType = EResourceType::Coconuts;
+        else if (Key == "Logs")
+            OutType = EResourceType::Logs;
+        else if (Key == "Fish")
+            OutType = EResourceType::Fish;
+        else if (Key == "Crops")
+            OutType = EResourceType::Crops;
+        else if (Key == "AnimalProducts")
+            OutType = EResourceType::AnimalProducts;
+        else if (Key == "Ore")
+            OutType = EResourceType::Ore;
+        else if (Key == "Oil")
+            OutType = EResourceType::Oil;
+        else if (Key == "FarmedFish")
+            OutType = EResourceType::FarmedFish;
+        else if (Key == "HydroponicProduce")
+            OutType = EResourceType::HydroponicProduce;
+        else if (Key == "FactoryLivestock")
+            OutType = EResourceType::FactoryLivestock;
+        else if (Key == "Planks")
+            OutType = EResourceType::Planks;
+        else if (Key == "Rum")
+            OutType = EResourceType::Rum;
+        else if (Key == "Leather")
+            OutType = EResourceType::Leather;
+        else if (Key == "CannedGoods")
+            OutType = EResourceType::CannedGoods;
+        else if (Key == "Cheese")
+            OutType = EResourceType::Cheese;
+        else if (Key == "Cigars")
+            OutType = EResourceType::Cigars;
+        else if (Key == "Boats")
+            OutType = EResourceType::Boats;
+        else if (Key == "Steel")
+            OutType = EResourceType::Steel;
+        else if (Key == "Textiles")
+            OutType = EResourceType::Textiles;
+        else if (Key == "Weapons")
+            OutType = EResourceType::Weapons;
+        else if (Key == "Chocolate")
+            OutType = EResourceType::Chocolate;
+        else if (Key == "Furniture")
+            OutType = EResourceType::Furniture;
+        else if (Key == "Jewelry")
+            OutType = EResourceType::Jewelry;
+        else if (Key == "Plastic")
+            OutType = EResourceType::Plastic;
+        else if (Key == "Cars")
+            OutType = EResourceType::Cars;
+        else if (Key == "Electronics")
+            OutType = EResourceType::Electronics;
+        else if (Key == "Apparel")
+            OutType = EResourceType::Apparel;
+        else if (Key == "Pharmaceuticals")
+            OutType = EResourceType::Pharmaceuticals;
+        else if (Key == "Juice")
+            OutType = EResourceType::Juice;
         else
             return false;
 
@@ -331,10 +581,8 @@ namespace
         case EBuildingCategory::Housing:
             OutResidential = true;
             break;
-        case EBuildingCategory::FoodResource:
-            OutFoodProvider = true;
-            break;
         case EBuildingCategory::Entertainment:
+        case EBuildingCategory::LuxuryEntertainment:
             OutEntertainmentProvider = true;
             break;
         default:
@@ -391,8 +639,129 @@ namespace
                                 static_cast<int>(ParsedIndex);
                             Record.DisplayName = Utf8ToWide(
                                 UnescapeCatalogField(Fields[2]));
-                            Record.DetailText = Utf8ToWide(
-                                UnescapeCatalogField(Fields[3]));
+
+                            if (Fields.size() >= 9)
+                            {
+                                TryParseCatalogCostText(
+                                    Utf8ToWide(UnescapeCatalogField(Fields[3])),
+                                    Record.BlueprintCostState,
+                                    Record.BlueprintCost);
+                                TryParseCatalogCostText(
+                                    Utf8ToWide(UnescapeCatalogField(Fields[4])),
+                                    Record.ConstructionCostState,
+                                    Record.ConstructionCost);
+
+                                EPlacementTemplateType ParsedTemplateType =
+                                    EPlacementTemplateType::
+                                        Diamond3x3SingleMarker;
+
+                                if (TryParsePlacementTemplateTypeKey(
+                                        UnescapeCatalogField(Fields[5]),
+                                        ParsedTemplateType))
+                                {
+                                    Record.HasTemplateType = true;
+                                    Record.TemplateType = ParsedTemplateType;
+                                }
+
+                                Record.IconPath = Utf8ToWide(
+                                    UnescapeCatalogField(Fields[6]));
+                                Record.SpriteTexturePath = Utf8ToWide(
+                                    UnescapeCatalogField(Fields[7]));
+                                Record.DetailText = Utf8ToWide(
+                                    UnescapeCatalogField(Fields[8]));
+                            }
+                            else if (Fields.size() >= 8)
+                            {
+                                TryParseCatalogCostText(
+                                    Utf8ToWide(UnescapeCatalogField(Fields[3])),
+                                    Record.BlueprintCostState,
+                                    Record.BlueprintCost);
+                                TryParseCatalogCostText(
+                                    Utf8ToWide(UnescapeCatalogField(Fields[4])),
+                                    Record.ConstructionCostState,
+                                    Record.ConstructionCost);
+
+                                EPlacementTemplateType ParsedTemplateType =
+                                    EPlacementTemplateType::
+                                        Diamond3x3SingleMarker;
+
+                                if (TryParsePlacementTemplateTypeKey(
+                                        UnescapeCatalogField(Fields[5]),
+                                        ParsedTemplateType))
+                                {
+                                    Record.HasTemplateType = true;
+                                    Record.TemplateType = ParsedTemplateType;
+                                }
+
+                                Record.IconPath = Utf8ToWide(
+                                    UnescapeCatalogField(Fields[6]));
+                                Record.DetailText = Utf8ToWide(
+                                    UnescapeCatalogField(Fields[7]));
+                            }
+                            else if (Fields.size() >= 7)
+                            {
+                                TryParseCatalogCostText(
+                                    Utf8ToWide(UnescapeCatalogField(Fields[3])),
+                                    Record.BlueprintCostState,
+                                    Record.BlueprintCost);
+                                TryParseCatalogCostText(
+                                    Utf8ToWide(UnescapeCatalogField(Fields[4])),
+                                    Record.ConstructionCostState,
+                                    Record.ConstructionCost);
+
+                                EPlacementTemplateType ParsedTemplateType =
+                                    EPlacementTemplateType::
+                                        Diamond3x3SingleMarker;
+
+                                if (TryParsePlacementTemplateTypeKey(
+                                        UnescapeCatalogField(Fields[5]),
+                                        ParsedTemplateType))
+                                {
+                                    Record.HasTemplateType = true;
+                                    Record.TemplateType = ParsedTemplateType;
+                                }
+
+                                Record.DetailText = Utf8ToWide(
+                                    UnescapeCatalogField(Fields[6]));
+                            }
+                            else if (Fields.size() >= 6)
+                            {
+                                TryParseCatalogCostText(
+                                    Utf8ToWide(UnescapeCatalogField(Fields[3])),
+                                    Record.BlueprintCostState,
+                                    Record.BlueprintCost);
+                                TryParseCatalogCostText(
+                                    Utf8ToWide(UnescapeCatalogField(Fields[4])),
+                                    Record.ConstructionCostState,
+                                    Record.ConstructionCost);
+                                Record.DetailText = Utf8ToWide(
+                                    UnescapeCatalogField(Fields[5]));
+                            }
+                            else
+                            {
+                                Record.DetailText = Utf8ToWide(
+                                    UnescapeCatalogField(Fields[3]));
+                            }
+
+                            if (Record.BlueprintCostState ==
+                                EBuildingCostState::None)
+                            {
+                                TryExtractDetailCost(
+                                    Record.DetailText,
+                                    L"설계도 비용:",
+                                    Record.BlueprintCostState,
+                                    Record.BlueprintCost);
+                            }
+
+                            if (Record.ConstructionCostState ==
+                                EBuildingCostState::None)
+                            {
+                                TryExtractDetailCost(
+                                    Record.DetailText,
+                                    L"건설 비용:",
+                                    Record.ConstructionCostState,
+                                    Record.ConstructionCost);
+                            }
                             OutRecords.push_back(Record);
                         }
                     }
@@ -427,6 +796,497 @@ namespace
         OutputDebugStringW(
             L"[BuildingCatalog] Failed to load BuildingCatalog.tsv\n");
         return false;
+    }
+
+    bool LoadProductionRecipeRecords(
+        std::vector<FProductionRecipeRecord>& OutRecords)
+    {
+        OutRecords.clear();
+        const std::vector<std::wstring> CandidatePaths =
+            BuildProductionRecipeDataCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (Fields.size() >= 3 && !Fields[0].empty())
+                    {
+                        FProductionRecipeRecord Record;
+                        Record.BuildingId = Fields[0];
+                        if (!TryParseResourceTypeKey(
+                                Fields[1],
+                                Record.ProducedResourceType))
+                        {
+                            continue;
+                        }
+
+                        Record.ProducedResourceLabel = Utf8ToWide(
+                            UnescapeCatalogField(Fields[2]));
+
+                        for (int SlotIndex = 0;
+                            SlotIndex < GProductionInputSlotCount;
+                            ++SlotIndex)
+                        {
+                            const size_t BaseFieldIndex =
+                                3 + static_cast<size_t>(SlotIndex) * 3;
+
+                            if (BaseFieldIndex >= Fields.size())
+                                break;
+
+                            EResourceType InputType =
+                                EResourceType::None;
+
+                            if (!TryParseResourceTypeKey(
+                                    Fields[BaseFieldIndex],
+                                    InputType))
+                            {
+                                continue;
+                            }
+
+                            int InputAmount = 0;
+
+                            if (BaseFieldIndex + 1 < Fields.size() &&
+                                !Fields[BaseFieldIndex + 1].empty())
+                            {
+                                char* EndPtr = nullptr;
+                                const long ParsedAmount = strtol(
+                                    Fields[BaseFieldIndex + 1].c_str(),
+                                    &EndPtr,
+                                    10);
+
+                                if (EndPtr && *EndPtr == 0 &&
+                                    ParsedAmount > 0)
+                                {
+                                    InputAmount =
+                                        static_cast<int>(ParsedAmount);
+                                }
+                            }
+
+                            if (InputType == EResourceType::None ||
+                                InputAmount <= 0)
+                            {
+                                continue;
+                            }
+
+                            Record.ProductionInputTypes[SlotIndex] =
+                                InputType;
+                            Record.ProductionInputAmounts[SlotIndex] =
+                                InputAmount;
+
+                            if (BaseFieldIndex + 2 < Fields.size())
+                            {
+                                Record.ProductionInputLabels[SlotIndex] =
+                                    Utf8ToWide(
+                                        UnescapeCatalogField(
+                                            Fields[BaseFieldIndex + 2]));
+                            }
+                        }
+
+                        if (Fields.size() >= 10)
+                        {
+                            TryParseResourceTypeKey(
+                                Fields[9],
+                                Record.VisitConsumptionResourceType);
+                        }
+
+                        const bool HasRecipeData =
+                            Record.ProducedResourceType !=
+                                EResourceType::None ||
+                            Record.VisitConsumptionResourceType !=
+                                EResourceType::None ||
+                            Record.ProductionInputTypes[0] !=
+                                EResourceType::None ||
+                            Record.ProductionInputTypes[1] !=
+                                EResourceType::None;
+
+                        if (HasRecipeData)
+                            OutRecords.push_back(std::move(Record));
+                    }
+                }
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            if (!OutRecords.empty())
+            {
+                std::stable_sort(
+                    OutRecords.begin(),
+                    OutRecords.end(),
+                    [](const FProductionRecipeRecord& A,
+                        const FProductionRecipeRecord& B)
+                    {
+                        return A.BuildingId < B.BuildingId;
+                    });
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool IsAbsolutePath(const std::wstring& Path)
+    {
+        if (Path.size() >= 2 && Path[1] == L':')
+            return true;
+
+        if (Path.size() >= 2 &&
+            ((Path[0] == L'\\' && Path[1] == L'\\') ||
+                (Path[0] == L'/' && Path[1] == L'/')))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    std::wstring ResolveTextureFullPath(const std::wstring& Path)
+    {
+        if (Path.empty())
+            return std::wstring();
+
+        if (IsAbsolutePath(Path))
+            return Path;
+
+        if (const TCHAR* TexturePath = CPathManager::FindPath("Texture"))
+            return JoinPath(TexturePath, Path.c_str());
+
+        return Path;
+    }
+
+    bool DoesFileExist(const std::wstring& FullPath)
+    {
+        if (FullPath.empty())
+            return false;
+
+        const DWORD Attributes = GetFileAttributesW(FullPath.c_str());
+        return Attributes != INVALID_FILE_ATTRIBUTES &&
+            (Attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+    }
+
+    void LogCatalogValidationMessage(const std::wstring& Message);
+
+    const wchar_t* GetPlacementTemplateTypeKey(
+        EPlacementTemplateType Type)
+    {
+        switch (Type)
+        {
+        case EPlacementTemplateType::SingleTileMarker:
+            return L"SingleTileMarker";
+        case EPlacementTemplateType::Diamond3x3SingleMarker:
+            return L"Diamond3x3SingleMarker";
+        case EPlacementTemplateType::Diamond5x5TwoMarker:
+            return L"Diamond5x5TwoMarker";
+        case EPlacementTemplateType::Diamond5x5FourMarker:
+            return L"Diamond5x5FourMarker";
+        case EPlacementTemplateType::Diamond7x7ThreeMarker:
+            return L"Diamond7x7ThreeMarker";
+        default:
+            return L"Unknown";
+        }
+    }
+
+    const wchar_t* GetPlacementBuildingKindKey(
+        EPlacementBuildingKind Kind)
+    {
+        switch (Kind)
+        {
+        case EPlacementBuildingKind::Structure:
+            return L"Structure";
+        case EPlacementBuildingKind::Road:
+            return L"Road";
+        case EPlacementBuildingKind::TransportOffice:
+            return L"TransportOffice";
+        case EPlacementBuildingKind::Harbor:
+            return L"Harbor";
+        default:
+            return L"Unknown";
+        }
+    }
+
+    std::wstring SanitizeAuditTsvField(const std::wstring& Text)
+    {
+        std::wstring Result = Text;
+
+        for (size_t Index = 0; Index < Result.size(); ++Index)
+        {
+            wchar_t& Ch = Result[Index];
+
+            if (Ch == L'\t' || Ch == L'\r' || Ch == L'\n')
+                Ch = L' ';
+        }
+
+        return Result;
+    }
+
+    std::wstring SanitizeAuditTsvField(const std::string& Text)
+    {
+        return SanitizeAuditTsvField(Utf8ToWide(Text));
+    }
+
+    std::wstring ResolveBuildingCatalogVisualAuditDumpPath()
+    {
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring DebugDirectory =
+                JoinPath(RootPath, L"Debug");
+            return JoinPath(
+                DebugDirectory,
+                L"BuildingCatalogVisualAudit.tsv");
+        }
+
+        return std::wstring();
+    }
+
+    bool EnsureDirectoryExists(const std::wstring& DirectoryPath)
+    {
+        if (DirectoryPath.empty())
+            return false;
+
+        const DWORD Attributes = GetFileAttributesW(DirectoryPath.c_str());
+        if (Attributes != INVALID_FILE_ATTRIBUTES)
+            return (Attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+        return CreateDirectoryW(DirectoryPath.c_str(), nullptr) != 0;
+    }
+
+    void WriteBuildingCatalogVisualAuditDump(
+        const std::vector<FBuildingCatalogEntry>& Entries)
+    {
+        const std::wstring DumpPath =
+            ResolveBuildingCatalogVisualAuditDumpPath();
+        if (DumpPath.empty())
+        {
+            LogCatalogValidationMessage(
+                L"검수 덤프 경로를 찾지 못해 BuildingCatalogVisualAudit.tsv 생성 생략");
+            return;
+        }
+
+        const std::wstring DumpDirectory =
+            GetParentDirectoryPath(DumpPath);
+        if (!EnsureDirectoryExists(DumpDirectory))
+        {
+            LogCatalogValidationMessage(
+                L"검수 덤프 디렉터리 생성 실패: " + DumpDirectory);
+            return;
+        }
+
+        std::string Buffer;
+        Buffer.reserve(Entries.size() * 160);
+        Buffer +=
+            "DisplayName\tbuildingId\tIconPath\tSpritePath\tTemplateType\t"
+            "BuildingKind\tIconExists\tSpriteExists\r\n";
+
+        for (const FBuildingCatalogEntry& Entry : Entries)
+        {
+            const std::wstring FullIconPath =
+                ResolveTextureFullPath(Entry.IconPath);
+            const std::wstring FullSpritePath =
+                ResolveTextureFullPath(Entry.SpriteTexturePath);
+
+            Buffer += WideToUtf8(SanitizeAuditTsvField(Entry.DisplayName));
+            Buffer += "\t";
+            Buffer += WideToUtf8(SanitizeAuditTsvField(Entry.Id));
+            Buffer += "\t";
+            Buffer += WideToUtf8(SanitizeAuditTsvField(Entry.IconPath));
+            Buffer += "\t";
+            Buffer += WideToUtf8(
+                SanitizeAuditTsvField(Entry.SpriteTexturePath));
+            Buffer += "\t";
+            Buffer += WideToUtf8(
+                GetPlacementTemplateTypeKey(Entry.TemplateType));
+            Buffer += "\t";
+            Buffer += WideToUtf8(
+                GetPlacementBuildingKindKey(Entry.BuildingKind));
+            Buffer += "\t";
+            Buffer += DoesFileExist(FullIconPath) ? "true" : "false";
+            Buffer += "\t";
+            Buffer += DoesFileExist(FullSpritePath) ? "true" : "false";
+            Buffer += "\r\n";
+        }
+
+        FILE* File = nullptr;
+        if (_wfopen_s(&File, DumpPath.c_str(), L"wb") != 0 || !File)
+        {
+            LogCatalogValidationMessage(
+                L"검수 덤프 파일 생성 실패: " + DumpPath);
+            return;
+        }
+
+        static const unsigned char Bom[] = { 0xEF, 0xBB, 0xBF };
+        fwrite(Bom, 1, sizeof(Bom), File);
+        fwrite(Buffer.data(), 1, Buffer.size(), File);
+        fclose(File);
+
+        LogCatalogValidationMessage(
+            L"검수 덤프 생성: " + DumpPath +
+            L" (rows=" + std::to_wstring(Entries.size()) + L")");
+    }
+
+    void LogCatalogValidationMessage(const std::wstring& Message)
+    {
+        std::wstring Output = L"[BuildingCatalog] ";
+        Output += Message;
+        Output += L"\n";
+        OutputDebugStringW(Output.c_str());
+    }
+
+    void ValidateBuildingCatalogEntries(
+        const std::vector<FBuildingCatalogEntry>& Entries)
+    {
+        std::unordered_set<std::string> UniqueIds;
+        UniqueIds.reserve(Entries.size());
+
+        int NonEmptyIconPathCount = 0;
+        int NonEmptySpritePathCount = 0;
+        int DuplicateIdCount = 0;
+        int EmptyIconPathCount = 0;
+        int EmptySpritePathCount = 0;
+        int MissingIconFileCount = 0;
+        int MissingSpriteFileCount = 0;
+
+        for (const FBuildingCatalogEntry& Entry : Entries)
+        {
+            const auto InsertResult = UniqueIds.insert(Entry.Id);
+            if (!InsertResult.second)
+            {
+                ++DuplicateIdCount;
+                LogCatalogValidationMessage(
+                    L"중복 건물 ID: " + Utf8ToWide(Entry.Id));
+            }
+
+            if (Entry.IconPath.empty())
+            {
+                ++EmptyIconPathCount;
+                LogCatalogValidationMessage(
+                    L"빈 IconPath: " + Utf8ToWide(Entry.Id));
+            }
+            else
+            {
+                ++NonEmptyIconPathCount;
+
+                const std::wstring FullIconPath =
+                    ResolveTextureFullPath(Entry.IconPath);
+                if (!DoesFileExist(FullIconPath))
+                {
+                    ++MissingIconFileCount;
+                    LogCatalogValidationMessage(
+                        L"IconPath 파일 없음: " + Utf8ToWide(Entry.Id) +
+                        L" -> " + Entry.IconPath);
+                }
+            }
+
+            if (Entry.SpriteTexturePath.empty())
+            {
+                ++EmptySpritePathCount;
+                LogCatalogValidationMessage(
+                    L"빈 SpriteTexturePath: " + Utf8ToWide(Entry.Id));
+            }
+            else
+            {
+                ++NonEmptySpritePathCount;
+
+                const std::wstring FullSpritePath =
+                    ResolveTextureFullPath(Entry.SpriteTexturePath);
+                if (!DoesFileExist(FullSpritePath))
+                {
+                    ++MissingSpriteFileCount;
+                    LogCatalogValidationMessage(
+                        L"SpriteTexturePath 파일 없음: " +
+                        Utf8ToWide(Entry.Id) + L" -> " +
+                        Entry.SpriteTexturePath);
+                }
+            }
+        }
+
+        if (NonEmptyIconPathCount != static_cast<int>(Entries.size()))
+        {
+            LogCatalogValidationMessage(
+                L"건물 수와 IconPath 수 불일치: buildings=" +
+                std::to_wstring(Entries.size()) +
+                L", iconPaths=" + std::to_wstring(NonEmptyIconPathCount));
+        }
+
+        if (NonEmptySpritePathCount != static_cast<int>(Entries.size()))
+        {
+            LogCatalogValidationMessage(
+                L"건물 수와 SpriteTexturePath 수 불일치: buildings=" +
+                std::to_wstring(Entries.size()) +
+                L", spritePaths=" +
+                std::to_wstring(NonEmptySpritePathCount));
+        }
+
+        LogCatalogValidationMessage(
+            L"검증 요약: buildings=" + std::to_wstring(Entries.size()) +
+            L", duplicateIds=" + std::to_wstring(DuplicateIdCount) +
+            L", emptyIconPath=" + std::to_wstring(EmptyIconPathCount) +
+            L", emptySpriteTexturePath=" +
+            std::to_wstring(EmptySpritePathCount) +
+            L", missingIconFiles=" + std::to_wstring(MissingIconFileCount) +
+            L", missingSpriteFiles=" +
+            std::to_wstring(MissingSpriteFileCount));
+    }
+
+    const FProductionRecipeRecord* FindProductionRecipeRecord(
+        const std::vector<FProductionRecipeRecord>& Records,
+        const std::string& BuildingId)
+    {
+        const auto It = std::find_if(
+            Records.begin(),
+            Records.end(),
+            [&](const FProductionRecipeRecord& Record)
+            {
+                return Record.BuildingId == BuildingId;
+            });
+
+        return It != Records.end() ? &(*It) : nullptr;
+    }
+
+    bool ShouldUseRecipeTable(
+        const FBuildingCatalogEntry& Entry)
+    {
+        if (Entry.Residential ||
+            Entry.BuildingKind == EPlacementBuildingKind::Road ||
+            Entry.BuildingKind == EPlacementBuildingKind::Harbor ||
+            Entry.BuildingKind == EPlacementBuildingKind::TransportOffice ||
+            Entry.Id == "build_1_7" ||
+            Entry.Id == "build_1_8" ||
+            Entry.Id == "build_1_12")
+        {
+            return false;
+        }
+
+        if (Entry.Category == EBuildingCategory::Industry)
+            return true;
+
+        if (Entry.Category == EBuildingCategory::FoodResource)
+            return Entry.Id != "build_2_5";
+
+        return Entry.FoodProvider;
     }
 
     bool NameContains(
@@ -480,6 +1340,631 @@ namespace
             Lines.push_back(CurrentLine);
 
         return Lines;
+    }
+
+    std::wstring Trim(const std::wstring& Text)
+    {
+        size_t Start = 0;
+
+        while (Start < Text.size() && iswspace(Text[Start]))
+            ++Start;
+
+        size_t End = Text.size();
+
+        while (End > Start && iswspace(Text[End - 1]))
+            --End;
+
+        return Text.substr(Start, End - Start);
+    }
+
+    bool TryParseSignedInteger(
+        const std::wstring& Text,
+        int& OutValue)
+    {
+        for (size_t Index = 0; Index < Text.size(); ++Index)
+        {
+            const wchar_t Ch = Text[Index];
+
+            if ((Ch == L'+' || Ch == L'-') &&
+                Index + 1 < Text.size() &&
+                iswdigit(Text[Index + 1]))
+            {
+                wchar_t* EndPtr = nullptr;
+                const long Value = wcstol(Text.c_str() + Index, &EndPtr, 10);
+
+                if (EndPtr != Text.c_str() + Index)
+                {
+                    OutValue = static_cast<int>(Value);
+                    return true;
+                }
+            }
+
+            if (!iswdigit(Ch))
+                continue;
+
+            wchar_t* EndPtr = nullptr;
+            const long Value = wcstol(Text.c_str() + Index, &EndPtr, 10);
+
+            if (EndPtr != Text.c_str() + Index)
+            {
+                OutValue = static_cast<int>(Value);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool TryParseCatalogCostText(
+        const std::wstring& Text,
+        EBuildingCostState& OutState,
+        int& OutCost)
+    {
+        const std::wstring Trimmed = Trim(Text);
+
+        if (Trimmed.empty())
+        {
+            OutState = EBuildingCostState::None;
+            OutCost = 0;
+            return false;
+        }
+
+        if (Trimmed.find(L"미기재") != std::wstring::npos)
+        {
+            OutState = EBuildingCostState::Unknown;
+            OutCost = 0;
+            return true;
+        }
+
+        if (Trimmed.find(L"없음") != std::wstring::npos ||
+            Trimmed.find(L"무료") != std::wstring::npos)
+        {
+            OutState = EBuildingCostState::Known;
+            OutCost = 0;
+            return true;
+        }
+
+        int ParsedCost = 0;
+
+        if (TryParseSignedInteger(Trimmed, ParsedCost))
+        {
+            OutState = EBuildingCostState::Known;
+            OutCost = ParsedCost;
+            return true;
+        }
+
+        OutState = EBuildingCostState::Unknown;
+        OutCost = 0;
+        return true;
+    }
+
+    bool TryExtractDetailCost(
+        const std::wstring& DetailText,
+        const wchar_t* Prefix,
+        EBuildingCostState& OutState,
+        int& OutCost)
+    {
+        if (!Prefix)
+            return false;
+
+        const std::vector<std::wstring> Lines = SplitDetailLines(DetailText);
+
+        for (size_t Index = 0; Index < Lines.size(); ++Index)
+        {
+            const std::wstring Line = Trim(Lines[Index]);
+
+            if (Line.size() < wcslen(Prefix) ||
+                Line.compare(0, wcslen(Prefix), Prefix) != 0)
+            {
+                continue;
+            }
+
+            return TryParseCatalogCostText(
+                Line.substr(wcslen(Prefix)),
+                OutState,
+                OutCost);
+        }
+
+        return false;
+    }
+
+    bool TryParseFirstFloat(
+        const std::wstring& Text,
+        double& OutValue)
+    {
+        for (size_t Index = 0; Index < Text.size(); ++Index)
+        {
+            const wchar_t Ch = Text[Index];
+            const bool StartsNumber =
+                iswdigit(Ch) ||
+                ((Ch == L'+' || Ch == L'-') &&
+                    Index + 1 < Text.size() &&
+                    iswdigit(Text[Index + 1]));
+
+            if (!StartsNumber)
+                continue;
+
+            wchar_t* EndPtr = nullptr;
+            const double Value = wcstod(Text.c_str() + Index, &EndPtr);
+
+            if (EndPtr != Text.c_str() + Index)
+            {
+                OutValue = Value;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    std::vector<std::wstring> SplitCommaClauses(const std::wstring& Text)
+    {
+        std::vector<std::wstring> Clauses;
+        std::wstring CurrentClause;
+        int ParenthesesDepth = 0;
+
+        for (size_t Index = 0; Index < Text.size(); ++Index)
+        {
+            const wchar_t Ch = Text[Index];
+
+            if (Ch == L'(')
+                ++ParenthesesDepth;
+            else if (Ch == L')' && ParenthesesDepth > 0)
+                --ParenthesesDepth;
+
+            if (Ch == L',' && ParenthesesDepth == 0)
+            {
+                const std::wstring TrimmedClause = Trim(CurrentClause);
+
+                if (!TrimmedClause.empty())
+                    Clauses.push_back(TrimmedClause);
+
+                CurrentClause.clear();
+                continue;
+            }
+
+            CurrentClause.push_back(Ch);
+        }
+
+        const std::wstring TrimmedClause = Trim(CurrentClause);
+
+        if (!TrimmedClause.empty())
+            Clauses.push_back(TrimmedClause);
+
+        return Clauses;
+    }
+
+    void ApplyPercentMultiplier(float& TargetMultiplier, int Percent)
+    {
+        const float RelativeMultiplier = (std::max)(
+            0.f,
+            1.f + static_cast<float>(Percent) / 100.f);
+        TargetMultiplier *= RelativeMultiplier;
+    }
+
+    bool ProvidesRuntimeService(const FBuildingCatalogEntry& Entry)
+    {
+        return Entry.FoodProvider ||
+            Entry.EntertainmentProvider ||
+            Entry.HealthProvider ||
+            Entry.FaithProvider;
+    }
+
+    void ApplyQualityEffect(
+        const std::wstring& Clause,
+        int ParsedInteger,
+        bool HasInteger,
+        int& OutDelta,
+        float& OutMultiplier)
+    {
+        if (!HasInteger)
+            return;
+
+        if (Clause.find(L"%") != std::wstring::npos)
+            ApplyPercentMultiplier(OutMultiplier, ParsedInteger);
+        else
+            OutDelta += ParsedInteger;
+    }
+
+    std::vector<std::wstring> ExtractUpgradeHints(
+        const std::wstring& DetailText);
+
+    void ApplyOperationModeClause(
+        const FBuildingCatalogEntry& Entry,
+        const std::wstring& RawClause,
+        FBuildingOperationModeEffect& OutEffect)
+    {
+        const std::wstring Clause = Trim(RawClause);
+
+        if (Clause.empty())
+            return;
+
+        int ParsedInteger = 0;
+        const bool HasInteger = TryParseSignedInteger(Clause, ParsedInteger);
+        double ParsedFloat = 0.0;
+        const bool HasFloat = TryParseFirstFloat(Clause, ParsedFloat);
+
+        if (Clause.find(L"화물선 속도") != std::wstring::npos &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            ApplyPercentMultiplier(
+                OutEffect.HarborProgressMultiplier,
+                ParsedInteger);
+            return;
+        }
+
+        if ((Clause.find(L"생산 전력") != std::wstring::npos ||
+                Clause.find(L"발전량") != std::wstring::npos) &&
+            HasInteger)
+        {
+            if (Clause.find(L"%") != std::wstring::npos)
+            {
+                ApplyPercentMultiplier(
+                    OutEffect.ProducedPowerMultiplier,
+                    ParsedInteger);
+            }
+            else
+            {
+                OutEffect.ProducedPowerDeltaMW += ParsedInteger;
+            }
+
+            return;
+        }
+
+        if ((Clause.find(L"전력") != std::wstring::npos ||
+                Clause.find(L"MW") != std::wstring::npos) &&
+            HasInteger)
+        {
+            if (Clause.find(L"%") != std::wstring::npos)
+            {
+                ApplyPercentMultiplier(
+                    OutEffect.RequiredPowerMultiplier,
+                    ParsedInteger);
+            }
+            else
+            {
+                OutEffect.RequiredPowerDeltaMW += ParsedInteger;
+            }
+
+            return;
+        }
+
+        if ((Clause.find(L"슬롯당 보관량") != std::wstring::npos ||
+                Clause.find(L"슬롯 보관량") != std::wstring::npos ||
+                Clause.find(L"보관량") != std::wstring::npos ||
+                Clause.find(L"저장량") != std::wstring::npos) &&
+            HasInteger)
+        {
+            if (Clause.find(L"%") != std::wstring::npos)
+            {
+                ApplyPercentMultiplier(
+                    OutEffect.WarehouseSlotCapacityMultiplier,
+                    ParsedInteger);
+            }
+            else
+            {
+                OutEffect.WarehouseSlotCapacityDelta += ParsedInteger;
+            }
+
+            return;
+        }
+
+        if ((Clause.find(L"보관 손실") != std::wstring::npos ||
+                Clause.find(L"보관 중 손실") != std::wstring::npos ||
+                Clause.find(L"장기 보관") != std::wstring::npos ||
+                Clause.find(L"부패") != std::wstring::npos) &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            ApplyPercentMultiplier(
+                OutEffect.StorageLossMultiplier,
+                ParsedInteger);
+            return;
+        }
+
+        if (Clause.find(L"공해") != std::wstring::npos)
+        {
+            if (HasInteger && Clause.find(L"%") != std::wstring::npos)
+                ApplyPercentMultiplier(OutEffect.PollutionMultiplier, ParsedInteger);
+            else if (HasInteger)
+                OutEffect.PollutionFlatDelta += ParsedInteger;
+
+            return;
+        }
+
+        if (Clause.find(L"유지비") != std::wstring::npos)
+        {
+            if (HasInteger && Clause.find(L"%") != std::wstring::npos)
+                ApplyPercentMultiplier(OutEffect.UpkeepMultiplier, ParsedInteger);
+            else if (HasInteger)
+                OutEffect.UpkeepFlatDelta += ParsedInteger;
+
+            return;
+        }
+
+        if (Clause.find(L"임금") != std::wstring::npos ||
+            Clause.find(L"급여") != std::wstring::npos)
+        {
+            if (HasInteger && Clause.find(L"%") != std::wstring::npos)
+                ApplyPercentMultiplier(OutEffect.WageMultiplier, ParsedInteger);
+            else if (HasInteger)
+                OutEffect.WageFlatDelta += ParsedInteger;
+
+            return;
+        }
+
+        if (Clause.find(L"직업 품질") != std::wstring::npos)
+        {
+            ApplyQualityEffect(
+                Clause,
+                ParsedInteger,
+                HasInteger,
+                OutEffect.JobQualityDelta,
+                OutEffect.JobQualityMultiplier);
+            return;
+        }
+
+        if (Clause.find(L"주거 품질") != std::wstring::npos)
+        {
+            ApplyQualityEffect(
+                Clause,
+                ParsedInteger,
+                HasInteger,
+                OutEffect.HousingQualityDelta,
+                OutEffect.HousingQualityMultiplier);
+            return;
+        }
+
+        if (Clause.find(L"서비스 품질") != std::wstring::npos)
+        {
+            ApplyQualityEffect(
+                Clause,
+                ParsedInteger,
+                HasInteger,
+                OutEffect.GenericServiceQualityDelta,
+                OutEffect.GenericServiceQualityMultiplier);
+            return;
+        }
+
+        if (Clause.find(L"노동자당 방문객 슬롯") != std::wstring::npos)
+        {
+            if (HasInteger)
+                OutEffect.PerWorkerServiceCapacityDelta += ParsedInteger;
+
+            return;
+        }
+
+        if (Clause.find(L"방문객 슬롯") != std::wstring::npos ||
+            Clause.find(L"서비스 슬롯") != std::wstring::npos)
+        {
+            if (HasInteger)
+                OutEffect.ServiceCapacityDelta += ParsedInteger;
+
+            return;
+        }
+
+        if (Clause.find(L"가구수") != std::wstring::npos ||
+            Clause.find(L"숙박 슬롯") != std::wstring::npos ||
+            Clause.find(L"일자리") != std::wstring::npos ||
+            (Clause.find(L"방 슬롯") != std::wstring::npos &&
+                Clause.find(L"방문객") == std::wstring::npos))
+        {
+            if (HasInteger)
+                OutEffect.CapacityDelta += ParsedInteger;
+
+            return;
+        }
+
+        if ((Clause.find(L"소모") != std::wstring::npos ||
+                Clause.find(L"투입량") != std::wstring::npos) &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            ApplyPercentMultiplier(
+                OutEffect.InputConsumptionMultiplier,
+                ParsedInteger);
+            return;
+        }
+
+        if (Clause.find(L"효율") != std::wstring::npos &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            if (Entry.BuildingKind == EPlacementBuildingKind::Harbor)
+            {
+                ApplyPercentMultiplier(
+                    OutEffect.HarborProgressMultiplier,
+                    ParsedInteger);
+            }
+
+            if (Entry.ProducedResourceType != EResourceType::None)
+                ApplyPercentMultiplier(OutEffect.ProductionMultiplier, ParsedInteger);
+
+            if (ProvidesRuntimeService(Entry))
+            {
+                ApplyPercentMultiplier(
+                    OutEffect.ServiceThroughputMultiplier,
+                    ParsedInteger);
+            }
+
+            return;
+        }
+
+        if ((Clause.find(L"산출량") != std::wstring::npos ||
+                Clause.find(L"생산량") != std::wstring::npos) &&
+            HasInteger &&
+            Clause.find(L"%") != std::wstring::npos)
+        {
+            ApplyPercentMultiplier(
+                OutEffect.ProductionMultiplier,
+                ParsedInteger);
+            return;
+        }
+
+        if (Entry.ProducedResourceType != EResourceType::None &&
+            Clause.find(L"생산") != std::wstring::npos &&
+            HasFloat &&
+            Clause.find(L"%") == std::wstring::npos &&
+            ParsedFloat > 0.0)
+        {
+            OutEffect.ProductionMultiplier *= static_cast<float>(ParsedFloat);
+        }
+    }
+
+    std::vector<FBuildingOperationModeDef> ExtractOperationModeDefs(
+        const FBuildingCatalogEntry& Entry)
+    {
+        std::vector<FBuildingOperationModeDef> Result;
+        const std::vector<std::wstring> Lines =
+            SplitDetailLines(Entry.DetailText);
+        bool Capture = false;
+
+        for (size_t Index = 0; Index < Lines.size(); ++Index)
+        {
+            const std::wstring Line = Trim(Lines[Index]);
+
+            if (Line.find(L"운영 모드:") == 0)
+            {
+                Capture = true;
+                continue;
+            }
+
+            if (!Capture)
+                continue;
+
+            if (Line.empty())
+                break;
+
+            if (Line[0] != L'-')
+                break;
+
+            FBuildingOperationModeDef ModeDef;
+            const std::wstring RawModeText = Trim(Line.substr(1));
+            const size_t OpenParen = RawModeText.find(L'(');
+            const size_t CloseParen = RawModeText.find_last_of(L')');
+
+            if (OpenParen != std::wstring::npos &&
+                CloseParen != std::wstring::npos &&
+                CloseParen > OpenParen)
+            {
+                ModeDef.DisplayName = Trim(
+                    RawModeText.substr(0, OpenParen));
+                ModeDef.EffectSummary = Trim(
+                    RawModeText.substr(
+                        OpenParen + 1,
+                        CloseParen - OpenParen - 1));
+            }
+            else
+            {
+                ModeDef.DisplayName = RawModeText;
+            }
+
+            if (ModeDef.DisplayName.empty())
+                ModeDef.DisplayName = RawModeText;
+
+            const std::vector<std::wstring> Clauses =
+                SplitCommaClauses(ModeDef.EffectSummary);
+
+            for (size_t ClauseIndex = 0;
+                ClauseIndex < Clauses.size();
+                ++ClauseIndex)
+            {
+                ApplyOperationModeClause(
+                    Entry,
+                    Clauses[ClauseIndex],
+                    ModeDef.Effect);
+            }
+
+            Result.push_back(std::move(ModeDef));
+        }
+
+        return Result;
+    }
+
+    bool TryBuildRuntimeUpgradeDef(
+        const FBuildingCatalogEntry& Entry,
+        const std::wstring& RawUpgradeText,
+        FBuildingRuntimeUpgradeDef& OutDef)
+    {
+        const std::wstring UpgradeText = Trim(RawUpgradeText);
+
+        if (UpgradeText.empty())
+            return false;
+
+        const size_t OpenParen = UpgradeText.find(L'(');
+        const size_t CloseParen = UpgradeText.find_last_of(L')');
+
+        if (OpenParen == std::wstring::npos ||
+            CloseParen == std::wstring::npos ||
+            CloseParen <= OpenParen)
+        {
+            return false;
+        }
+
+        std::wstring DisplayName = Trim(UpgradeText.substr(0, OpenParen));
+        const size_t ScopeSep = DisplayName.find_last_of(L':');
+
+        if (ScopeSep != std::wstring::npos)
+            DisplayName = Trim(DisplayName.substr(ScopeSep + 1));
+
+        if (DisplayName.empty())
+            return false;
+
+        FBuildingRuntimeUpgradeDef Def;
+        Def.DisplayName = DisplayName;
+        Def.EffectSummary = Trim(
+            UpgradeText.substr(OpenParen + 1, CloseParen - OpenParen - 1));
+
+        const std::vector<std::wstring> Clauses =
+            SplitCommaClauses(Def.EffectSummary);
+
+        for (size_t ClauseIndex = 0;
+            ClauseIndex < Clauses.size();
+            ++ClauseIndex)
+        {
+            ApplyOperationModeClause(
+                Entry,
+                Clauses[ClauseIndex],
+                Def.Effect);
+        }
+
+        if (!Def.Effect.HasRuntimeEffect())
+            return false;
+
+        OutDef = std::move(Def);
+        return true;
+    }
+
+    std::vector<FBuildingRuntimeUpgradeDef> ExtractRuntimeUpgradeDefs(
+        const FBuildingCatalogEntry& Entry)
+    {
+        std::vector<FBuildingRuntimeUpgradeDef> Result;
+        const std::vector<std::wstring> UpgradeLines =
+            ExtractUpgradeHints(Entry.DetailText);
+
+        for (size_t LineIndex = 0; LineIndex < UpgradeLines.size(); ++LineIndex)
+        {
+            const std::vector<std::wstring> Candidates =
+                SplitCommaClauses(UpgradeLines[LineIndex]);
+
+            for (size_t CandidateIndex = 0;
+                CandidateIndex < Candidates.size();
+                ++CandidateIndex)
+            {
+                FBuildingRuntimeUpgradeDef Def;
+
+                if (TryBuildRuntimeUpgradeDef(
+                        Entry,
+                        Candidates[CandidateIndex],
+                        Def))
+                {
+                    Result.push_back(std::move(Def));
+                }
+            }
+        }
+
+        return Result;
     }
 
     bool IsCatalogIdOneOf(
@@ -609,6 +2094,145 @@ namespace
         return ETouristPreference::None;
     }
 
+    bool ResolveHealthProvider(const FBuildingCatalogEntry& Entry)
+    {
+        if (Entry.DetailText.find(L"보건 제공") != std::wstring::npos)
+            return true;
+
+        return IsCatalogIdOneOf(
+            Entry.Id,
+            { "build_8_12" });
+    }
+
+    bool ResolveFaithProvider(const FBuildingCatalogEntry& Entry)
+    {
+        if (Entry.DetailText.find(L"신앙 제공") != std::wstring::npos)
+            return true;
+
+        return false;
+    }
+
+    int ResolveHealthSatisfactionCap(const FBuildingCatalogEntry& Entry)
+    {
+        if (IsCatalogIdOneOf(Entry.Id, { "build_8_4" }))
+            return 62;
+        if (IsCatalogIdOneOf(Entry.Id, { "build_8_7" }))
+            return 80;
+        if (IsCatalogIdOneOf(Entry.Id, { "build_8_12" }))
+            return 72;
+
+        return Entry.HealthProvider ? 60 : 100;
+    }
+
+    int ResolveFaithSatisfactionCap(const FBuildingCatalogEntry& Entry)
+    {
+        if (IsCatalogIdOneOf(Entry.Id, { "build_8_1" }))
+            return 56;
+        if (IsCatalogIdOneOf(Entry.Id, { "build_8_3" }))
+            return 68;
+        if (IsCatalogIdOneOf(Entry.Id, { "build_8_6" }))
+            return 82;
+        return Entry.FaithProvider ? 60 : 100;
+    }
+
+    int ResolveServiceCapacity(const FBuildingCatalogEntry& Entry)
+    {
+        const bool ProvidesAnyService =
+            Entry.FoodProvider ||
+            Entry.EntertainmentProvider ||
+            Entry.HealthProvider ||
+            Entry.FaithProvider;
+
+        if (!ProvidesAnyService)
+            return 0;
+
+        int DerivedCapacity = (std::max)(4, Entry.Capacity / 2);
+
+        if (Entry.Category == EBuildingCategory::Entertainment)
+            DerivedCapacity = (std::max)(DerivedCapacity, 8);
+        else if (Entry.Category == EBuildingCategory::PublicService)
+            DerivedCapacity = (std::max)(DerivedCapacity, 6);
+        else if (Entry.Category == EBuildingCategory::FoodResource)
+            DerivedCapacity = (std::max)(DerivedCapacity, 5);
+
+        if (Entry.FoodProvider && Entry.EntertainmentProvider)
+            DerivedCapacity += 2;
+
+        return DerivedCapacity;
+    }
+
+    int ExtractDetailPowerValueMW(
+        const std::wstring& DetailText,
+        const wchar_t* Prefix)
+    {
+        if (!Prefix)
+            return 0;
+
+        const std::vector<std::wstring> Lines =
+            SplitDetailLines(DetailText);
+
+        for (size_t Index = 0; Index < Lines.size(); ++Index)
+        {
+            const std::wstring Line = Trim(Lines[Index]);
+
+            if (Line.find(Prefix) != 0)
+                continue;
+
+            int ParsedValue = 0;
+            return TryParseSignedInteger(Line.substr(wcslen(Prefix)), ParsedValue) ?
+                (std::max)(0, ParsedValue) :
+                0;
+        }
+
+        return 0;
+    }
+
+    int ResolveBaseProducedPowerMW(const FBuildingCatalogEntry& Entry)
+    {
+        return (std::max)(
+            ExtractDetailPowerValueMW(Entry.DetailText, L"생산 전력:"),
+            ExtractDetailPowerValueMW(Entry.DetailText, L"발전량:"));
+    }
+
+    int ResolveBaseRequiredPowerMW(const FBuildingCatalogEntry& Entry)
+    {
+        return ExtractDetailPowerValueMW(Entry.DetailText, L"필요 전력:");
+    }
+
+    int ResolveBasePollutionOutput(const FBuildingCatalogEntry& Entry)
+    {
+        const std::wstring& Text = Entry.DetailText;
+
+        if (Text.find(L"많은 공해 배출") != std::wstring::npos)
+            return 32;
+
+        if (Text.find(L"건물 자체는 공해 배출") != std::wstring::npos)
+            return 18;
+
+        if (Text.find(L"공해 배출") != std::wstring::npos)
+        {
+            if (Text.find(L"적은 공해 배출") != std::wstring::npos)
+                return 8;
+
+            return 18;
+        }
+
+        return 0;
+    }
+
+    int ResolveBasePollutionMitigation(const FBuildingCatalogEntry& Entry)
+    {
+        const std::wstring& Text = Entry.DetailText;
+
+        if (Text.find(L"범위 내 다른 건물 공해 감소") != std::wstring::npos)
+            return 20;
+
+        if (Text.find(L"공해 감소") != std::wstring::npos)
+            return 12;
+
+        return 0;
+    }
+
     std::vector<std::wstring> ExtractUpgradeHints(
         const std::wstring& DetailText)
     {
@@ -642,34 +2266,32 @@ namespace
         return Result;
     }
 
-    EResourceType ResolveProducedResourceType(
-        const FBuildingCatalogEntry& Entry)
-    {
-        if (Entry.Residential ||
-            Entry.BuildingKind == EPlacementBuildingKind::Harbor ||
-            Entry.BuildingKind == EPlacementBuildingKind::TransportOffice)
-        {
-            return EResourceType::None;
-        }
-
-        if (Entry.FoodProvider)
-            return EResourceType::Food;
-
-        if (Entry.Category == EBuildingCategory::FoodResource)
-            return EResourceType::RawGoods;
-
-        if (Entry.Category == EBuildingCategory::Industry)
-            return EResourceType::ManufacturedGoods;
-
-        return EResourceType::None;
-    }
-
     EResourceType ResolveVisitConsumptionResourceType(
         const FBuildingCatalogEntry& Entry)
     {
-        return Entry.FoodProvider ?
-            EResourceType::Food :
-            EResourceType::None;
+        if (Entry.FoodProvider)
+        {
+            if (Entry.ProducedResourceType != EResourceType::None &&
+                IsFoodResourceType(Entry.ProducedResourceType))
+            {
+                return Entry.ProducedResourceType;
+            }
+
+            for (int SlotIndex = 0;
+                SlotIndex < GProductionInputSlotCount;
+                ++SlotIndex)
+            {
+                const EResourceType InputType =
+                    Entry.ProductionInputTypes[static_cast<size_t>(SlotIndex)];
+
+                if (IsFoodResourceType(InputType))
+                    return InputType;
+            }
+
+            return EResourceType::Crops;
+        }
+
+        return Entry.ProductionInputTypes[0];
     }
 
     void AssignPoliticalSignals(FBuildingCatalogEntry& Entry)
@@ -871,248 +2493,396 @@ namespace
         }
     }
 
-    const TCHAR* const GInfrastructureIcons[] =
+    bool HasProductionInputs(const FBuildingCatalogEntry& Entry)
     {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\T_ICO_Road.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\T_ICO_Demolish.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_dock.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_constructionOffice.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_teamstersOffice.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_landing.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_storageQuay.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_DLC_warehouse.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_electricSubstation.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_powerPlant.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_parkDeck.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_busGarage.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_busStop.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\T_ICO_Tunnel.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_NuclearPowerPlant.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_metroStation.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_telefericStation.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_windFarm.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\ICO_OffshoreWindTurbine.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_solarPowerPlant.png")
-    };
+        for (int SlotIndex = 0;
+            SlotIndex < GProductionInputSlotCount;
+            ++SlotIndex)
+        {
+            const size_t Index = static_cast<size_t>(SlotIndex);
 
-    const TCHAR* const GFoodResourceIcons[] =
-    {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_CoconutHarvester.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_loggingCamp.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_wharf.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_plantation.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_ranch.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_ranch.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_mine.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_oilWell.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_fishFarm.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_oilRig.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_hydrophobicPlantation.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_factoryRanch.png")
-    };
+            if (Entry.ProductionInputTypes[Index] != EResourceType::None &&
+                Entry.ProductionInputAmounts[Index] > 0)
+            {
+                return true;
+            }
+        }
 
-    const TCHAR* const GIndustryIcons[] =
-    {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_automatedMine.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_lumberMill.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_rumDistillery.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_tannery.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_cannery.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_creamery.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_cigarFactory.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_shipyard.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_steelMill.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_textileMill.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_weaponsFactory.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_chocolateFactory.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_furnitureFactory.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_jewelryFactory.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_plasticPlant.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_vehicleFactory.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_electronicsFactory.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_fashionCompany.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_pharmaceuticalCompany.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_juicer.png")
-    };
-
-    const TCHAR* const GHousingIcons[] =
-    {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\ICO_Flophouse.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_countryHouse.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_bunkhouse.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_mansion.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_house.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\ICO_Flophouse.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_apartment.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_tenment.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_Conventillo.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_modernApartment.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_modernMansion.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\ICO_ColdWarMansion.png")
-    };
-
-    const TCHAR* const GEntertainmentIcons[] =
-    {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_tavern.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_circus.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_theatre.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_botanicalGarden.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_funFairPier.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_restaurant.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_arcade.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_fastFoodJoint.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_movieTheatre.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_aquaPark.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_rollerCoaster.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_stadium.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_theatre.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_operaHouse.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_cabaret.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_casino.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_cocktailBar.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_golfcourse.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_gourmetRestaurant.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_nightClub.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_snorkelBay.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_beachResort.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_hangGlider.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_museumOfModernArt.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_yachtClub.png")
-    };
-
-    const TCHAR* const GMediaEducationIcons[] =
-    {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_newspaper.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_library.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_highschool.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_college.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_radiostation.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_childhoodMuseum.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_mausoleum.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_TVStation.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\T_ICO_billboard.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\T_ICO_inspiringStatue.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_researchLab.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_spaceProgram.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_nuclearProgram.png")
-    };
-
-    const TCHAR* const GTourismIcons[] =
-    {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_turistDock.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_cabin.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_beachVilla.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_cabanaVillage.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_motel.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_hotel.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_scenicOutlook.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_souvenirShop.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_touristOffice.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_ancientRuins.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_ethnicEnclave.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_airport.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_economyHotel.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_familyResort.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_luxuryHotel.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_skyscraperHotel.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_cruiseShip.png")
-    };
-
-    const TCHAR* const GPublicServiceIcons[] =
-    {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_chapel.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_grocery.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_church.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_clinic.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_fireStation.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_cathedral.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_hospital.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_asylum.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_garbageDump.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_shoppingMall.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsModernTimes\\T_ICO_ModernTimes_wasteTreatmentFacility.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsDLC\\T_ICO_DLC_rehabCenter.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsDLC\\T_ICO_DLC_beautyFarm.png")
-    };
-
-    const TCHAR* PickIcon(const TCHAR* const* Icons, int Count, int LocalIndex)
-    {
-        if (!Icons || Count <= 0)
-            return nullptr;
-
-        int Index = LocalIndex % Count;
-
-        if (Index < 0)
-            Index += Count;
-
-        return Icons[Index];
+        return false;
     }
 
-    const wchar_t* GetCatalogEntryIconPathInternal(
-        int CategoryIndex,
+    std::vector<std::wstring> BuildProductionInputDisplayLabels(
+        const FBuildingCatalogEntry& Entry)
+    {
+        std::vector<std::wstring> InputLabels;
+
+        for (int SlotIndex = 0;
+            SlotIndex < GProductionInputSlotCount;
+            ++SlotIndex)
+        {
+            const std::wstring InputLabel =
+                GetBuildingProductionInputDisplayName(Entry, SlotIndex);
+
+            if (InputLabel.empty())
+                continue;
+
+            std::wstring DisplayLabel = InputLabel;
+            const size_t Index = static_cast<size_t>(SlotIndex);
+
+            if (Entry.ProductionInputLabels[Index].empty() &&
+                Entry.ProductionInputAmounts[Index] > 1)
+            {
+                DisplayLabel += L" x";
+                DisplayLabel +=
+                    std::to_wstring(Entry.ProductionInputAmounts[Index]);
+            }
+
+            InputLabels.push_back(std::move(DisplayLabel));
+        }
+
+        return InputLabels;
+    }
+
+    void AppendUniqueLabel(
+        std::vector<std::wstring>& Labels,
+        const std::wstring& Label)
+    {
+        if (Label.empty())
+            return;
+
+        const auto ExistingIt = std::find(
+            Labels.begin(), Labels.end(), Label);
+
+        if (ExistingIt == Labels.end())
+            Labels.push_back(Label);
+    }
+
+    std::wstring JoinLabels(
+        const std::vector<std::wstring>& Labels,
+        const wchar_t* Separator)
+    {
+        std::wstring Result;
+
+        for (size_t Index = 0; Index < Labels.size(); ++Index)
+        {
+            if (Labels[Index].empty())
+                continue;
+
+            if (!Result.empty() && Separator)
+                Result += Separator;
+
+            Result += Labels[Index];
+        }
+
+        return Result;
+    }
+
+    void PopulateProductionChainMetadata(
+        std::vector<FBuildingCatalogEntry>& Entries)
+    {
+        std::vector<std::vector<std::wstring>> DownstreamResourceLabels(
+            static_cast<size_t>(EResourceType::Count));
+
+        for (const FBuildingCatalogEntry& ConsumerEntry : Entries)
+        {
+            if (ConsumerEntry.ProducedResourceType == EResourceType::None)
+                continue;
+
+            const std::wstring ConsumerOutputLabel =
+                GetBuildingProducedResourceDisplayName(ConsumerEntry);
+
+            if (ConsumerOutputLabel.empty())
+                continue;
+
+            for (int SlotIndex = 0;
+                SlotIndex < GProductionInputSlotCount;
+                ++SlotIndex)
+            {
+                const EResourceType InputType =
+                    ConsumerEntry.ProductionInputTypes[
+                        static_cast<size_t>(SlotIndex)];
+
+                if (InputType == EResourceType::None)
+                    continue;
+
+                AppendUniqueLabel(
+                    DownstreamResourceLabels[static_cast<size_t>(InputType)],
+                    ConsumerOutputLabel);
+            }
+        }
+
+        for (FBuildingCatalogEntry& Entry : Entries)
+        {
+            Entry.ProductionChainStage =
+                FBuildingCatalogEntry::EProductionChainStage::None;
+            Entry.SupplyChainSummary.clear();
+
+            const std::wstring OutputLabel =
+                GetBuildingProducedResourceDisplayName(Entry);
+
+            if (Entry.ProducedResourceType == EResourceType::None ||
+                OutputLabel.empty())
+            {
+                continue;
+            }
+
+            const bool EntryHasInputs = HasProductionInputs(Entry);
+            const std::vector<std::wstring>& DownstreamLabels =
+                DownstreamResourceLabels[
+                    static_cast<size_t>(Entry.ProducedResourceType)];
+
+            if (!EntryHasInputs)
+            {
+                Entry.ProductionChainStage =
+                    FBuildingCatalogEntry::EProductionChainStage::Primary;
+            }
+            else if (!DownstreamLabels.empty())
+            {
+                Entry.ProductionChainStage =
+                    FBuildingCatalogEntry::EProductionChainStage::Intermediate;
+            }
+            else
+            {
+                Entry.ProductionChainStage =
+                    FBuildingCatalogEntry::EProductionChainStage::Final;
+            }
+
+            const std::vector<std::wstring> InputLabels =
+                BuildProductionInputDisplayLabels(Entry);
+            std::wstring Summary;
+
+            if (!InputLabels.empty())
+            {
+                Summary += JoinLabels(InputLabels, L" + ");
+                Summary += L" -> ";
+            }
+
+            Summary += OutputLabel;
+
+            if (!DownstreamLabels.empty())
+            {
+                Summary += L" -> ";
+                Summary += JoinLabels(DownstreamLabels, L", ");
+            }
+            else if (!EntryHasInputs)
+            {
+                Summary += L" 생산";
+            }
+
+            Entry.SupplyChainSummary = std::move(Summary);
+        }
+    }
+
+    std::string BuildCatalogEntryId(
+        EBuildingCategory Category,
         int CategoryLocalIndex)
     {
-        switch (CategoryIndex)
+        const int CategoryIndex = static_cast<int>(Category);
+
+        if (CategoryIndex < 0 || CategoryLocalIndex < 0)
+            return std::string();
+
+        return "build_" + std::to_string(CategoryIndex + 1) +
+            "_" + std::to_string(CategoryLocalIndex + 1);
+    }
+
+    void LogMissingCatalogVisualPathOnce(
+        const std::string& EntryId,
+        const wchar_t* FieldName)
+    {
+        static std::vector<std::wstring> GLoggedWarnings;
+
+        std::wstring WarningKey = Utf8ToWide(EntryId);
+        WarningKey += L":";
+        WarningKey += FieldName ? FieldName : L"Unknown";
+
+        if (std::find(
+                GLoggedWarnings.begin(),
+                GLoggedWarnings.end(),
+                WarningKey) != GLoggedWarnings.end())
         {
-        case 0:
-            return PickIcon(
-                GInfrastructureIcons,
-                _countof(GInfrastructureIcons),
-                CategoryLocalIndex);
-        case 1:
-            return PickIcon(
-                GFoodResourceIcons,
-                _countof(GFoodResourceIcons),
-                CategoryLocalIndex);
-        case 2:
-            return PickIcon(
-                GIndustryIcons,
-                _countof(GIndustryIcons),
-                CategoryLocalIndex);
-        case 3:
-            return PickIcon(
-                GHousingIcons,
-                _countof(GHousingIcons),
-                CategoryLocalIndex);
-        case 4:
-            return PickIcon(
-                GEntertainmentIcons,
-                _countof(GEntertainmentIcons),
-                CategoryLocalIndex);
-        case 5:
-            return PickIcon(
-                GMediaEducationIcons,
-                _countof(GMediaEducationIcons),
-                CategoryLocalIndex);
-        case 6:
-            return PickIcon(
-                GTourismIcons,
-                _countof(GTourismIcons),
-                CategoryLocalIndex);
-        case 7:
-            return PickIcon(
-                GPublicServiceIcons,
-                _countof(GPublicServiceIcons),
-                CategoryLocalIndex);
-        default:
-            break;
+            return;
         }
+
+        GLoggedWarnings.push_back(WarningKey);
+
+        std::wstring Message =
+            L"[BuildingCatalog] Missing visual path data: id=";
+        Message += Utf8ToWide(EntryId);
+        Message += L" field=";
+        Message += FieldName ? FieldName : L"Unknown";
+        Message += L"\n";
+        OutputDebugStringW(Message.c_str());
+    }
+
+    const wchar_t* GetCatalogEntryIconPathInternal(const std::string& EntryId)
+    {
+        if (!EntryId.empty())
+            LogMissingCatalogVisualPathOnce(EntryId, L"IconPath");
+
+        return nullptr;
+    }
+
+    const wchar_t* GetCatalogEntrySpriteTexturePathInternal(
+        const std::string& EntryId)
+    {
+        if (!EntryId.empty())
+            LogMissingCatalogVisualPathOnce(EntryId, L"SpriteTexturePath");
 
         return nullptr;
     }
 } // namespace
 
+namespace
+{
+    constexpr const wchar_t* GCatalogConfigId =
+        L"Game.BuildingCatalog";
+    constexpr const wchar_t* GProductionRecipeConfigId =
+        L"Game.BuildingProductionRecipes";
+    constexpr size_t GRetiredCatalogSnapshotLimit = 4;
+
+    std::shared_ptr<const std::vector<FBuildingCatalogEntry>>
+        GCurrentBuildingCatalog;
+    std::vector<std::shared_ptr<const std::vector<FBuildingCatalogEntry>>>
+        GRetiredBuildingCatalogs;
+    unsigned long long GBuildingCatalogGeneration = 0;
+
+    std::vector<FBuildingCatalogEntry> BuildBuildingCatalogEntries();
+
+    bool DoesCatalogSourceFileExist(const std::wstring& Path)
+    {
+        if (Path.empty())
+            return false;
+
+        const DWORD Attributes = GetFileAttributesW(Path.c_str());
+        return Attributes != INVALID_FILE_ATTRIBUTES &&
+            (Attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+    }
+
+    std::wstring ResolveCatalogWatchPath(
+        const std::vector<std::wstring>& CandidatePaths)
+    {
+        for (size_t Index = 0; Index < CandidatePaths.size(); ++Index)
+        {
+            if (DoesCatalogSourceFileExist(CandidatePaths[Index]))
+                return CandidatePaths[Index];
+        }
+
+        return CandidatePaths.empty() ? std::wstring() : CandidatePaths.front();
+    }
+
+    void ResetBuildingCatalogRuntimeDefaults()
+    {
+    }
+
+    void ReplaceBuildingCatalogStore(
+        std::vector<FBuildingCatalogEntry>&& Entries)
+    {
+        if (GCurrentBuildingCatalog)
+        {
+            GRetiredBuildingCatalogs.push_back(GCurrentBuildingCatalog);
+
+            while (GRetiredBuildingCatalogs.size() >
+                GRetiredCatalogSnapshotLimit)
+            {
+                GRetiredBuildingCatalogs.erase(
+                    GRetiredBuildingCatalogs.begin());
+            }
+        }
+
+        GCurrentBuildingCatalog =
+            std::make_shared<const std::vector<FBuildingCatalogEntry>>(
+                std::move(Entries));
+        ++GBuildingCatalogGeneration;
+    }
+
+    void ReloadBuildingCatalogStore()
+    {
+        ReplaceBuildingCatalogStore(BuildBuildingCatalogEntries());
+    }
+
+    const std::vector<FBuildingCatalogEntry>& ResolveCurrentBuildingCatalog()
+    {
+        if (!GCurrentBuildingCatalog)
+            ReloadBuildingCatalogStore();
+
+        return *GCurrentBuildingCatalog;
+    }
+
+    const FBuildingCatalogEntry* FindCatalogEntryByCategoryLocalIndex(
+        EBuildingCategory Category,
+        int CategoryLocalIndex)
+    {
+        const auto& Catalog = ResolveCurrentBuildingCatalog();
+        const auto It = std::find_if(
+            Catalog.begin(),
+            Catalog.end(),
+            [&](const FBuildingCatalogEntry& Entry)
+            {
+                return Entry.Category == Category &&
+                    Entry.CategoryLocalIndex == CategoryLocalIndex;
+            });
+
+        return It != Catalog.end() ? &(*It) : nullptr;
+    }
+}
+
+const wchar_t* GetCatalogEntryIconPath(
+    const FBuildingCatalogEntry& Entry)
+{
+    if (!Entry.IconPath.empty())
+        return Entry.IconPath.c_str();
+
+    return GetCatalogEntryIconPathInternal(Entry.Id);
+}
+
 const wchar_t* GetCatalogEntryIconPath(
     EBuildingCategory Category,
     int CategoryLocalIndex)
 {
+    if (const FBuildingCatalogEntry* Entry =
+            FindCatalogEntryByCategoryLocalIndex(
+                Category,
+                CategoryLocalIndex))
+    {
+        return GetCatalogEntryIconPath(*Entry);
+    }
+
     return GetCatalogEntryIconPathInternal(
-        static_cast<int>(Category), CategoryLocalIndex);
+        BuildCatalogEntryId(Category, CategoryLocalIndex));
 }
 
-const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
+const wchar_t* GetCatalogEntrySpriteTexturePath(
+    const FBuildingCatalogEntry& Entry)
 {
-    static std::vector<FBuildingCatalogEntry> Catalog = []()
+    if (!Entry.SpriteTexturePath.empty())
+        return Entry.SpriteTexturePath.c_str();
+
+    if (!Entry.IconPath.empty())
+        return Entry.IconPath.c_str();
+
+    return GetCatalogEntrySpriteTexturePathInternal(Entry.Id);
+}
+
+const wchar_t* GetCatalogEntrySpriteTexturePath(
+    EBuildingCategory Category,
+    int CategoryLocalIndex)
+{
+    if (const FBuildingCatalogEntry* Entry =
+            FindCatalogEntryByCategoryLocalIndex(
+                Category,
+                CategoryLocalIndex))
+    {
+        return GetCatalogEntrySpriteTexturePath(*Entry);
+    }
+
+    return GetCatalogEntrySpriteTexturePathInternal(
+        BuildCatalogEntryId(Category, CategoryLocalIndex));
+}
+
+namespace
+{
+    std::vector<FBuildingCatalogEntry> BuildBuildingCatalogEntries()
     {
         static const int HousingCaps[] =
         {
@@ -1161,9 +2931,12 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
 
         std::vector<FBuildingCatalogEntry> Entries;
         std::vector<FExternalCatalogRecord> SourceRecords;
+        std::vector<FProductionRecipeRecord> ProductionRecipeRecords;
 
         if (!LoadExternalCatalogRecords(SourceRecords))
             return Entries;
+
+        LoadProductionRecipeRecords(ProductionRecipeRecords);
 
         Entries.reserve(SourceRecords.size());
 
@@ -1200,13 +2973,33 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
                 Record.DetailText.empty() ?
                 L"세부 데이터 준비 중" :
                 Record.DetailText;
+            Entry.BlueprintCostState = Record.BlueprintCostState;
+            Entry.BlueprintCost = Record.BlueprintCost;
+            Entry.ConstructionCostState = Record.ConstructionCostState;
+            Entry.ConstructionCost = Record.ConstructionCost;
             Entry.Residential = Residential;
             Entry.FoodProvider = FoodProvider;
             Entry.EntertainmentProvider = EntertainmentProvider;
             Entry.Category = Record.Category;
             Entry.CategoryLocalIndex = i;
+            Entry.IconPath = Record.IconPath;
+            Entry.SpriteTexturePath = Record.SpriteTexturePath;
             Entry.TemplateType =
+                Record.HasTemplateType ?
+                Record.TemplateType :
                 ResolveTemplateTypeByBuildingId(Entry.Id);
+
+            if (Entry.IconPath.empty())
+            {
+                const wchar_t* LegacyIconPath =
+                    GetCatalogEntryIconPathInternal(Entry.Id);
+
+                if (LegacyIconPath)
+                    Entry.IconPath = LegacyIconPath;
+            }
+
+            if (Entry.SpriteTexturePath.empty())
+                Entry.SpriteTexturePath = Entry.IconPath;
 
             if (Entry.Id == "build_1_1")
                 Entry.BuildingKind = EPlacementBuildingKind::Road;
@@ -1215,10 +3008,7 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
             else if (Entry.Id == "build_1_5")
                 Entry.BuildingKind = EPlacementBuildingKind::TransportOffice;
             else
-                Entry.BuildingKind =
-                    (Residential || (i % 2 == 0)) ?
-                    EPlacementBuildingKind::BuildingA :
-                    EPlacementBuildingKind::BuildingB;
+                Entry.BuildingKind = EPlacementBuildingKind::Structure;
 
             if (Residential)
             {
@@ -1241,10 +3031,15 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
                 Entry.JobSatisfactionCap = 0;
             }
 
+            if (Entry.Id == "build_8_13")
+                Entry.Capacity = 5;
+
             Entry.HousingSatisfactionCap = 100;
             Entry.JobSatisfactionCap = 100;
             Entry.FoodSatisfactionCap = 100;
             Entry.FunSatisfactionCap = 100;
+            Entry.HealthSatisfactionCap = 100;
+            Entry.FaithSatisfactionCap = 100;
 
             if (Record.Category == EBuildingCategory::Infrastructure)
             {
@@ -1320,11 +3115,40 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
             if (Record.Category == EBuildingCategory::PublicService &&
                 IsCatalogIdOneOf(
                     Entry.Id,
-                    { "build_8_12", "build_8_13" }))
+                    { "build_8_12" }))
             {
                 Entry.EntertainmentProvider = true;
                 Entry.FunSatisfactionCap = 68;
             }
+
+            if (Record.Category == EBuildingCategory::FoodResource &&
+                IsCatalogIdOneOf(
+                    Entry.Id,
+                    {
+                        "build_2_1",
+                        "build_2_3",
+                        "build_2_4",
+                        "build_2_6",
+                        "build_2_9",
+                        "build_2_11",
+                        "build_2_12"
+                    }))
+            {
+                Entry.FoodProvider = true;
+            }
+
+            Entry.HealthProvider = ResolveHealthProvider(Entry);
+            Entry.FaithProvider = ResolveFaithProvider(Entry);
+            Entry.HealthSatisfactionCap =
+                ResolveHealthSatisfactionCap(Entry);
+            Entry.FaithSatisfactionCap =
+                ResolveFaithSatisfactionCap(Entry);
+            Entry.ServiceCapacity = ResolveServiceCapacity(Entry);
+            Entry.BaseProducedPowerMW = ResolveBaseProducedPowerMW(Entry);
+            Entry.BaseRequiredPowerMW = ResolveBaseRequiredPowerMW(Entry);
+            Entry.BasePollutionOutput = ResolveBasePollutionOutput(Entry);
+            Entry.BasePollutionMitigation =
+                ResolveBasePollutionMitigation(Entry);
 
             Entry.UnlockEra = ParseUnlockEra(Entry.DetailText);
             Entry.RequiredEducationLevel =
@@ -1334,10 +3158,53 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
                 ResolveLeisureClass(Entry.Category, Entry.Id);
             Entry.PrimaryTouristPreference =
                 ParsePrimaryTouristPreference(Entry.DetailText);
-            Entry.ProducedResourceType =
-                ResolveProducedResourceType(Entry);
-            Entry.VisitConsumptionResourceType =
-                ResolveVisitConsumptionResourceType(Entry);
+            Entry.ProducedResourceType = EResourceType::None;
+            Entry.ProducedResourceLabel.clear();
+            Entry.ProductionInputTypes =
+            {
+                EResourceType::None,
+                EResourceType::None
+            };
+            Entry.ProductionInputAmounts = {};
+            Entry.ProductionInputLabels = {};
+            Entry.VisitConsumptionResourceType = EResourceType::None;
+            const FProductionRecipeRecord* const ProductionRecipe =
+                FindProductionRecipeRecord(
+                    ProductionRecipeRecords,
+                    Entry.Id);
+
+            if (ProductionRecipe)
+            {
+                Entry.ProducedResourceType =
+                    ProductionRecipe->ProducedResourceType;
+                Entry.ProducedResourceLabel =
+                    ProductionRecipe->ProducedResourceLabel;
+                Entry.ProductionInputTypes =
+                    ProductionRecipe->ProductionInputTypes;
+                Entry.ProductionInputAmounts =
+                    ProductionRecipe->ProductionInputAmounts;
+                Entry.ProductionInputLabels =
+                    ProductionRecipe->ProductionInputLabels;
+                Entry.VisitConsumptionResourceType =
+                    ProductionRecipe->VisitConsumptionResourceType;
+            }
+
+            if (Entry.VisitConsumptionResourceType == EResourceType::None)
+            {
+                Entry.VisitConsumptionResourceType =
+                    ResolveVisitConsumptionResourceType(Entry);
+            }
+
+            if (ShouldUseRecipeTable(Entry) &&
+                !ProductionRecipe)
+            {
+                std::wstring Warning =
+                    L"[BuildingCatalog] Missing production recipe: ";
+                Warning += Utf8ToWide(Entry.Id);
+                Warning += L"\n";
+                OutputDebugStringW(Warning.c_str());
+            }
+
             Entry.CanExportStoredResources =
                 Entry.BuildingKind == EPlacementBuildingKind::Harbor;
             Entry.SupportsTeamsterPickup =
@@ -1349,6 +3216,8 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
             Entry.SupportsImmigration =
                 Entry.DetailText.find(L"이민/이주 처리") !=
                 std::wstring::npos;
+            Entry.OperationModeDefs = ExtractOperationModeDefs(Entry);
+            Entry.RuntimeUpgradeDefs = ExtractRuntimeUpgradeDefs(Entry);
             Entry.UpgradeHints = ExtractUpgradeHints(Entry.DetailText);
 
             AssignPoliticalSignals(Entry);
@@ -1367,10 +3236,44 @@ const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
                 Entry.IsHiddenFromBuildMenu = true;
         }
 
-        return Entries;
-    }();
+        PopulateProductionChainMetadata(Entries);
+        ValidateBuildingCatalogEntries(Entries);
+        WriteBuildingCatalogVisualAuditDump(Entries);
 
-    return Catalog;
+        return Entries;
+    }
+}
+
+const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
+{
+    return ResolveCurrentBuildingCatalog();
+}
+
+void RegisterRuntimeConfig()
+{
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GCatalogConfigId,
+            ResolveCatalogWatchPath(BuildCatalogDataCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+    RuntimeConfigRegistry::RegisterSource(
+        {
+            GProductionRecipeConfigId,
+            ResolveCatalogWatchPath(BuildProductionRecipeDataCandidatePaths()),
+            0.5f,
+            &ResetBuildingCatalogRuntimeDefaults,
+            nullptr,
+            &ReloadBuildingCatalogStore
+        });
+}
+
+unsigned long long GetRuntimeConfigGeneration()
+{
+    return GBuildingCatalogGeneration;
 }
 
 const FBuildingCatalogEntry* FindBuildingCatalogEntry(const std::string& EntryId)
@@ -1386,6 +3289,16 @@ const FBuildingCatalogEntry* FindBuildingCatalogEntry(const std::string& EntryId
     return It != Catalog.end() ? &(*It) : nullptr;
 }
 
+std::string GetCatalogEntryIconPathUtf8(const FBuildingCatalogEntry& Entry)
+{
+    const wchar_t* IconPath = GetCatalogEntryIconPath(Entry);
+
+    if (!IconPath)
+        return std::string();
+
+    return WideToUtf8(std::wstring(IconPath));
+}
+
 std::string GetCatalogEntryIconPathUtf8(EBuildingCategory Category, int CategoryLocalIndex)
 {
     const wchar_t* IconPath = GetCatalogEntryIconPath(Category, CategoryLocalIndex);
@@ -1394,4 +3307,167 @@ std::string GetCatalogEntryIconPathUtf8(EBuildingCategory Category, int Category
         return std::string();
 
     return WideToUtf8(std::wstring(IconPath));
+}
+
+std::string GetCatalogEntrySpriteTexturePathUtf8(
+    const FBuildingCatalogEntry& Entry)
+{
+    const wchar_t* SpriteTexturePath =
+        GetCatalogEntrySpriteTexturePath(Entry);
+
+    if (!SpriteTexturePath)
+        return std::string();
+
+    return WideToUtf8(std::wstring(SpriteTexturePath));
+}
+
+std::string GetCatalogEntrySpriteTexturePathUtf8(
+    EBuildingCategory Category,
+    int CategoryLocalIndex)
+{
+    const wchar_t* SpriteTexturePath =
+        GetCatalogEntrySpriteTexturePath(Category, CategoryLocalIndex);
+
+    if (!SpriteTexturePath)
+        return std::string();
+
+    return WideToUtf8(std::wstring(SpriteTexturePath));
+}
+
+std::wstring GetBuildingProducedResourceDisplayName(
+    const FBuildingCatalogEntry& Entry)
+{
+    if (Entry.ProducedResourceType == EResourceType::None)
+        return std::wstring();
+
+    if (!Entry.ProducedResourceLabel.empty())
+        return Entry.ProducedResourceLabel;
+
+    return std::wstring(GetResourceTypeDisplayName(Entry.ProducedResourceType));
+}
+
+std::wstring GetBuildingProductionInputDisplayName(
+    const FBuildingCatalogEntry& Entry,
+    int SlotIndex)
+{
+    if (SlotIndex < 0 || SlotIndex >= GProductionInputSlotCount)
+        return std::wstring();
+
+    const size_t Index = static_cast<size_t>(SlotIndex);
+    const EResourceType InputType = Entry.ProductionInputTypes[Index];
+    const int InputAmount = Entry.ProductionInputAmounts[Index];
+
+    if (InputType == EResourceType::None || InputAmount <= 0)
+        return std::wstring();
+
+    if (!Entry.ProductionInputLabels[Index].empty())
+        return Entry.ProductionInputLabels[Index];
+
+    return std::wstring(GetResourceTypeDisplayName(InputType));
+}
+
+const wchar_t* GetProductionChainStageDisplayName(
+    FBuildingCatalogEntry::EProductionChainStage Stage)
+{
+    switch (Stage)
+    {
+    case FBuildingCatalogEntry::EProductionChainStage::Primary:
+        return L"1차 자원";
+    case FBuildingCatalogEntry::EProductionChainStage::Intermediate:
+        return L"중간재";
+    case FBuildingCatalogEntry::EProductionChainStage::Final:
+        return L"완제품";
+    default:
+        break;
+    }
+
+    return L"";
+}
+
+std::wstring BuildProductionChainSummary(
+    const FBuildingCatalogEntry& Entry)
+{
+    if (!Entry.SupplyChainSummary.empty())
+        return Entry.SupplyChainSummary;
+
+    const std::wstring OutputLabel =
+        GetBuildingProducedResourceDisplayName(Entry);
+
+    if (OutputLabel.empty())
+        return std::wstring();
+
+    const std::vector<std::wstring> InputLabels =
+        BuildProductionInputDisplayLabels(Entry);
+
+    if (InputLabels.empty())
+        return OutputLabel + L" 생산";
+
+    std::wstring Result;
+
+    for (size_t Index = 0; Index < InputLabels.size(); ++Index)
+    {
+        if (Index > 0)
+            Result += L" + ";
+
+        Result += InputLabels[Index];
+    }
+
+    Result += L" -> ";
+    Result += OutputLabel;
+    return Result;
+}
+
+std::wstring GetOperationModeDisplayName(
+    const FBuildingCatalogEntry& Entry,
+    int ModeIndex)
+{
+    if (ModeIndex < 0 ||
+        ModeIndex >= static_cast<int>(Entry.OperationModeDefs.size()))
+    {
+        return std::wstring();
+    }
+
+    return Entry.OperationModeDefs[static_cast<size_t>(ModeIndex)].DisplayName;
+}
+
+std::wstring GetOperationModeEffectSummary(
+    const FBuildingCatalogEntry& Entry,
+    int ModeIndex)
+{
+    if (ModeIndex < 0 ||
+        ModeIndex >= static_cast<int>(Entry.OperationModeDefs.size()))
+    {
+        return std::wstring();
+    }
+
+    return Entry.OperationModeDefs[static_cast<size_t>(ModeIndex)].
+        EffectSummary;
+}
+
+std::wstring GetRuntimeUpgradeDisplayName(
+    const FBuildingCatalogEntry& Entry,
+    int UpgradeIndex)
+{
+    if (UpgradeIndex < 0 ||
+        UpgradeIndex >= static_cast<int>(Entry.RuntimeUpgradeDefs.size()))
+    {
+        return std::wstring();
+    }
+
+    return Entry.RuntimeUpgradeDefs[static_cast<size_t>(UpgradeIndex)].
+        DisplayName;
+}
+
+std::wstring GetRuntimeUpgradeEffectSummary(
+    const FBuildingCatalogEntry& Entry,
+    int UpgradeIndex)
+{
+    if (UpgradeIndex < 0 ||
+        UpgradeIndex >= static_cast<int>(Entry.RuntimeUpgradeDefs.size()))
+    {
+        return std::wstring();
+    }
+
+    return Entry.RuntimeUpgradeDefs[static_cast<size_t>(UpgradeIndex)].
+        EffectSummary;
 }

@@ -1,6 +1,6 @@
 #include "AlmanacPageData.h"
+#include "RuntimeConfigRegistry.h"
 #include <Windows.h>
-#include <sys/stat.h>
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -13,23 +13,7 @@ namespace AlmanacPageData
     {
         FDataSet GCurrentData;
         bool GInitialized = false;
-        __time64_t GLastWriteTime = 0;
-        float GCheckInterval = 0.5f;
-        float GCheckCooldown = 0.f;
-
-        std::wstring GetConfigPath()
-        {
-            wchar_t ExePath[MAX_PATH] = {};
-            GetModuleFileNameW(nullptr, ExePath, MAX_PATH);
-
-            std::wstring Path(ExePath);
-            const size_t Slash = Path.rfind(L'\\');
-
-            if (Slash != std::wstring::npos)
-                Path = Path.substr(0, Slash + 1);
-
-            return Path + L"AlmanacPageData.ini";
-        }
+        constexpr const wchar_t* GConfigId = L"UI.AlmanacPageData";
 
         void TrimString(std::string& Value)
         {
@@ -489,12 +473,18 @@ namespace AlmanacPageData
             return false;
         }
 
-        void LoadFile(const std::wstring& Path)
+        void ResetToDefaults()
+        {
+            SetDefaultData(GCurrentData);
+            GInitialized = true;
+        }
+
+        bool LoadFile(const std::wstring& Path)
         {
             std::ifstream File(Path);
 
             if (!File.is_open())
-                return;
+                return false;
 
             FDataSet Data;
             SetDefaultData(Data);
@@ -524,6 +514,7 @@ namespace AlmanacPageData
 
             GCurrentData = std::move(Data);
             GInitialized = true;
+            return true;
         }
 
         void EnsureLoaded()
@@ -531,18 +522,22 @@ namespace AlmanacPageData
             if (GInitialized)
                 return;
 
-            SetDefaultData(GCurrentData);
-            GInitialized = true;
-
-            const std::wstring Path = GetConfigPath();
-            struct _stat64 Stat = {};
-
-            if (_wstat64(Path.c_str(), &Stat) != 0)
-                return;
-
-            GLastWriteTime = Stat.st_mtime;
-            LoadFile(Path);
+            RegisterRuntimeConfig();
         }
+    }
+
+    void RegisterRuntimeConfig()
+    {
+        RuntimeConfigRegistry::RegisterSource(
+            {
+                GConfigId,
+                RuntimeConfigRegistry::BuildExeRelativePath(
+                    L"AlmanacPageData.ini"),
+                0.5f,
+                &ResetToDefaults,
+                &LoadFile,
+                nullptr
+            });
     }
 
     const FDataSet& Get()
@@ -553,26 +548,7 @@ namespace AlmanacPageData
 
     bool ReloadIfChanged(float DeltaTime)
     {
-        EnsureLoaded();
-
-        GCheckCooldown -= DeltaTime;
-
-        if (GCheckCooldown > 0.f)
-            return false;
-
-        GCheckCooldown = GCheckInterval;
-
-        const std::wstring Path = GetConfigPath();
-        struct _stat64 Stat = {};
-
-        if (_wstat64(Path.c_str(), &Stat) != 0)
-            return false;
-
-        if (Stat.st_mtime == GLastWriteTime)
-            return false;
-
-        GLastWriteTime = Stat.st_mtime;
-        LoadFile(Path);
-        return true;
+        RegisterRuntimeConfig();
+        return RuntimeConfigRegistry::PollSource(GConfigId, DeltaTime);
     }
 }

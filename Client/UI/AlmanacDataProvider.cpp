@@ -117,17 +117,47 @@ namespace
             Resource.Type = WorldResource.Type;
             Resource.TotalStock = WorldResource.TotalStock;
             Resource.AvailableStock = WorldResource.AvailableStock;
+            Resource.ReservedPickup = WorldResource.ReservedPickup;
             Resource.ReservedIncoming = WorldResource.ReservedIncoming;
             Resource.Capacity = WorldResource.Capacity;
+            Resource.AvailableIncomingCapacity =
+                WorldResource.AvailableIncomingCapacity;
+            Resource.ShortagePressure = WorldResource.ShortagePressure;
+            Resource.ProducerAvailableStock =
+                WorldResource.ProducerAvailableStock;
+            Resource.WarehouseBufferedStock =
+                WorldResource.WarehouseBufferedStock;
+            Resource.ConsumerCoveredStock =
+                WorldResource.ConsumerCoveredStock;
+            Resource.HarborExportableStock =
+                WorldResource.HarborExportableStock;
+            Resource.HarborReservedPickup =
+                WorldResource.HarborReservedPickup;
             Resource.ProducerBuildingCount =
                 WorldResource.ProducerBuildingCount;
             Resource.ConsumerBuildingCount =
                 WorldResource.ConsumerBuildingCount;
             Resource.StorageBuildingCount =
                 WorldResource.StorageBuildingCount;
+            Resource.WarehouseBuildingCount =
+                WorldResource.WarehouseBuildingCount;
             Resource.HarborBuildingCount =
                 WorldResource.HarborBuildingCount;
             Resource.TopStockBuildings = WorldResource.TopStockBuildings;
+            Resource.TopProducerBuildings =
+                WorldResource.TopProducerBuildings;
+            Resource.TopWarehouseBuildings =
+                WorldResource.TopWarehouseBuildings;
+            Resource.TopConsumerBuildings =
+                WorldResource.TopConsumerBuildings;
+            Resource.TopHarborBuildings =
+                WorldResource.TopHarborBuildings;
+            Resource.TopShortageBuildings =
+                WorldResource.TopShortageBuildings;
+            Resource.TopReservedBuildings =
+                WorldResource.TopReservedBuildings;
+            Resource.TopOverflowBuildings =
+                WorldResource.TopOverflowBuildings;
         }
         for (int CategoryIndex = 0;
             CategoryIndex < BuildingCategoryInfo::GBuildingCategoryCount;
@@ -209,6 +239,7 @@ namespace
         Snapshot.ElectionWarningScore =
             MainWorldRecord.ElectionWarningScore;
         Snapshot.TaxEventStatus = MainWorldRecord.TaxEventStatus;
+        Snapshot.WorldCrisisStatus = MainWorldRecord.WorldCrisisStatus;
 
         for (size_t i = 0; i < MainWorldRecord.GovernmentEdictStates.size(); ++i)
         {
@@ -312,6 +343,7 @@ namespace AlmanacDataProvider
                 DailyOperatingCost) :
             0.0;
         double TaxEventPressure = 0.0;
+        double WorldCrisisPressure = 0.0;
 
         if (Snapshot.TaxEventStatus.Active)
         {
@@ -335,6 +367,20 @@ namespace AlmanacDataProvider
             }
         }
 
+        if (Snapshot.WorldCrisisStatus.Active)
+        {
+            WorldCrisisPressure =
+                Clamp01(
+                    0.14 +
+                    static_cast<double>(
+                        Snapshot.WorldCrisisStatus.DaysActive + 1) * 0.03);
+        }
+        else if (Snapshot.WorldCrisisStatus.NotificationDays > 0 &&
+            !Snapshot.WorldCrisisStatus.Summary.empty())
+        {
+            WorldCrisisPressure = 0.05;
+        }
+
         const double MaterialPressure =
             Clamp01(
                 FoodPressure * 0.22 +
@@ -351,7 +397,8 @@ namespace AlmanacDataProvider
                 SecurityVulnerability * 0.14 +
                 OppositionRatio * 0.24 +
                 MaterialPressure * 0.28 +
-                TaxEventPressure * 0.10) * 100.0;
+                TaxEventPressure * 0.10 +
+                WorldCrisisPressure * 0.08) * 100.0;
 
         if (Snapshot.MartialLawActive)
         {
@@ -383,6 +430,20 @@ namespace AlmanacDataProvider
 
         if (Snapshot.ActiveCitizenCount > 0)
         {
+            if (Snapshot.WorldCrisisStatus.Active)
+            {
+                AppendLine(
+                    Body,
+                    L"진행 중 위기: " + Snapshot.WorldCrisisStatus.Title);
+            }
+            else if (Snapshot.WorldCrisisStatus.NotificationDays > 0 &&
+                !Snapshot.WorldCrisisStatus.Summary.empty())
+            {
+                AppendLine(
+                    Body,
+                    L"최근 위기: " + Snapshot.WorldCrisisStatus.Summary);
+            }
+
             AppendLine(
                 Body,
                 MakeLabeledValue(

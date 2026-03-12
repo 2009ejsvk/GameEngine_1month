@@ -1,5 +1,6 @@
 #include "WorldStatsSnapshot.h"
 #include "../Building/BuildingCatalog.h"
+#include "../GameConstants.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
 #include "World/World.h"
@@ -246,6 +247,20 @@ namespace WorldStats
             BuildingCountsByCategory;
         std::array<std::map<std::wstring, int>, GResourceTypeCount>
             ResourceCountsByType;
+        std::array<std::map<std::wstring, int>, GResourceTypeCount>
+            ProducerCountsByType;
+        std::array<std::map<std::wstring, int>, GResourceTypeCount>
+            WarehouseCountsByType;
+        std::array<std::map<std::wstring, int>, GResourceTypeCount>
+            ConsumerCountsByType;
+        std::array<std::map<std::wstring, int>, GResourceTypeCount>
+            HarborCountsByType;
+        std::array<std::map<std::wstring, int>, GResourceTypeCount>
+            ResourceShortageByType;
+        std::array<std::map<std::wstring, int>, GResourceTypeCount>
+            ResourceReservedByType;
+        std::array<std::map<std::wstring, int>, GResourceTypeCount>
+            ResourceOverflowByType;
         std::map<std::string, int> ResidentialCapacityByName;
         std::map<std::string, int> ResidentialOccupancyByName;
         std::map<std::string, int> ResidentialWealthTierByName;
@@ -302,14 +317,33 @@ namespace WorldStats
                     const int Stock = Building->GetResourceStock(ResourceType);
                     const int AvailableStock =
                         Building->GetAvailableResourceStock(ResourceType);
+                    const int ReservedPickup =
+                        Building->GetReservedResourcePickupAmount(
+                            ResourceType);
                     const int ReservedIncoming =
                         Building->GetReservedIncomingResourceAmount(
                             ResourceType);
+                    const int IncomingCapacity =
+                        Building->GetAvailableIncomingCapacity(ResourceType);
+                    const int CoveredStock = Stock + ReservedIncoming;
                     const bool Produces =
                         Building->GetProducedResourceType() == ResourceType;
-                    const bool Consumes =
+                    bool Consumes =
                         Building->GetVisitConsumptionResourceType() ==
-                        ResourceType;
+                        ResourceType &&
+                        Building->GetProducedResourceType() != ResourceType;
+
+                    for (int SlotIndex = 0;
+                         SlotIndex < Building->GetProductionInputCount();
+                         ++SlotIndex)
+                    {
+                        if (Building->GetProductionInputType(SlotIndex) ==
+                            ResourceType)
+                        {
+                            Consumes = true;
+                            break;
+                        }
+                    }
                     bool AssignedWarehouseSlot = false;
 
                     if (Building->IsWarehouse())
@@ -330,7 +364,9 @@ namespace WorldStats
                     const bool HasActiveStorage =
                         Produces ||
                         Stock > 0 ||
+                        ReservedPickup > 0 ||
                         ReservedIncoming > 0 ||
+                        IncomingCapacity > 0 ||
                         AssignedWarehouseSlot;
                     const bool TracksResource = HasActiveStorage || Consumes;
 
@@ -343,12 +379,49 @@ namespace WorldStats
 
                     ResourceSnapshot.TotalStock += Stock;
                     ResourceSnapshot.AvailableStock += AvailableStock;
+                    ResourceSnapshot.ReservedPickup += ReservedPickup;
                     ResourceSnapshot.ReservedIncoming += ReservedIncoming;
+                    ResourceSnapshot.AvailableIncomingCapacity +=
+                        IncomingCapacity;
 
                     if (Consumes)
+                    {
                         ++ResourceSnapshot.ConsumerBuildingCount;
+                        const int ShortageAmount = (std::max)(
+                            0,
+                            GameConstants::Orb::
+                                TeamsterConsumerTargetStock -
+                                CoveredStock);
+                        ResourceSnapshot.ShortagePressure += ShortageAmount;
+                        ResourceSnapshot.ConsumerCoveredStock += CoveredStock;
+
+                        if (CoveredStock > 0)
+                        {
+                            ConsumerCountsByType[
+                                static_cast<size_t>(ResourceIndex)][
+                                    BuildingName] += CoveredStock;
+                        }
+
+                        if (ShortageAmount > 0)
+                        {
+                            ResourceShortageByType[
+                                static_cast<size_t>(ResourceIndex)][
+                                    BuildingName] += ShortageAmount;
+                        }
+                    }
                     if (Produces)
+                    {
                         ++ResourceSnapshot.ProducerBuildingCount;
+                        ResourceSnapshot.ProducerAvailableStock +=
+                            AvailableStock;
+
+                        if (AvailableStock > 0)
+                        {
+                            ProducerCountsByType[
+                                static_cast<size_t>(ResourceIndex)][
+                                    BuildingName] += AvailableStock;
+                        }
+                    }
 
                     if (HasActiveStorage)
                     {
@@ -357,7 +430,33 @@ namespace WorldStats
                         ++ResourceSnapshot.StorageBuildingCount;
 
                         if (Building->IsHarbor())
+                        {
                             ++ResourceSnapshot.HarborBuildingCount;
+                            ResourceSnapshot.HarborExportableStock +=
+                                Building->GetAvailableExportableResourceStock();
+                            ResourceSnapshot.HarborReservedPickup +=
+                                Building->GetReservedExportPickupAmount();
+
+                            if (Stock > 0)
+                            {
+                                HarborCountsByType[
+                                    static_cast<size_t>(ResourceIndex)][
+                                        BuildingName] += Stock;
+                            }
+                        }
+                    }
+
+                    if (Building->IsWarehouse())
+                    {
+                        ++ResourceSnapshot.WarehouseBuildingCount;
+                        ResourceSnapshot.WarehouseBufferedStock += Stock;
+
+                        if (Stock > 0)
+                        {
+                            WarehouseCountsByType[
+                                static_cast<size_t>(ResourceIndex)][
+                                    BuildingName] += Stock;
+                        }
                     }
 
                     if (Stock > 0)
@@ -365,6 +464,45 @@ namespace WorldStats
                         ResourceCountsByType[
                             static_cast<size_t>(ResourceIndex)][BuildingName] +=
                             Stock;
+
+                        const int Capacity =
+                            Building->GetResourceTypeCapacity(ResourceType);
+                        const int FillPercent =
+                            Capacity > 0 ?
+                                static_cast<int>(round(
+                                    static_cast<double>(Stock) /
+                                    static_cast<double>(Capacity) *
+                                    100.0)) :
+                                0;
+
+                        if (FillPercent >= 75)
+                        {
+                            auto& OverflowMap =
+                                ResourceOverflowByType[
+                                    static_cast<size_t>(ResourceIndex)];
+                            auto OverflowIter = OverflowMap.find(BuildingName);
+
+                            if (OverflowIter == OverflowMap.end())
+                            {
+                                OverflowMap.emplace(
+                                    BuildingName,
+                                    FillPercent);
+                            }
+                            else
+                            {
+                                OverflowIter->second =
+                                    (std::max)(
+                                        OverflowIter->second,
+                                        FillPercent);
+                            }
+                        }
+                    }
+
+                    if (ReservedPickup > 0)
+                    {
+                        ResourceReservedByType[
+                            static_cast<size_t>(ResourceIndex)][BuildingName] +=
+                                ReservedPickup;
                     }
                 }
 
@@ -390,15 +528,9 @@ namespace WorldStats
                     ++Snapshot.TourismBuildingCount;
 
                 Snapshot.TotalProducedPowerMW +=
-                    (std::max)(
-                        0,
-                        (std::max)(
-                            ExtractPowerValueMW(Entry->DetailText, L"생산 전력:"),
-                            ExtractPowerValueMW(Entry->DetailText, L"발전량:")));
+                    (std::max)(0, Building->GetProducedPowerMW());
                 Snapshot.TotalRequiredPowerMW +=
-                    (std::max)(
-                        0,
-                        ExtractPowerValueMW(Entry->DetailText, L"필요 전력:"));
+                    (std::max)(0, Building->GetRequiredPowerMW());
 
                 const bool AffectsFreedom =
                     std::any_of(
@@ -456,6 +588,48 @@ namespace WorldStats
                         ResourceCountsByType[
                             static_cast<size_t>(ResourceIndex)],
                         8);
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].
+                TopProducerBuildings =
+                    BuildTopList(
+                        ProducerCountsByType[
+                            static_cast<size_t>(ResourceIndex)],
+                        4);
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].
+                TopWarehouseBuildings =
+                    BuildTopList(
+                        WarehouseCountsByType[
+                            static_cast<size_t>(ResourceIndex)],
+                        4);
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].
+                TopConsumerBuildings =
+                    BuildTopList(
+                        ConsumerCountsByType[
+                            static_cast<size_t>(ResourceIndex)],
+                        4);
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].
+                TopHarborBuildings =
+                    BuildTopList(
+                        HarborCountsByType[
+                            static_cast<size_t>(ResourceIndex)],
+                        4);
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].
+                TopShortageBuildings =
+                    BuildTopList(
+                        ResourceShortageByType[
+                            static_cast<size_t>(ResourceIndex)],
+                        6);
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].
+                TopReservedBuildings =
+                    BuildTopList(
+                        ResourceReservedByType[
+                            static_cast<size_t>(ResourceIndex)],
+                        6);
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)].
+                TopOverflowBuildings =
+                    BuildTopList(
+                        ResourceOverflowByType[
+                            static_cast<size_t>(ResourceIndex)],
+                        6);
         }
         for (int CategoryIndex = 0;
             CategoryIndex < GBuildingCategoryCount;

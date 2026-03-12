@@ -5,6 +5,82 @@
 
 namespace
 {
+    std::vector<std::pair<std::wstring, int>> BuildLogisticsWarningEntries(
+        const AlmanacDataProvider::FAlmanacSnapshot& Snapshot,
+        bool Bottleneck)
+    {
+        std::vector<std::pair<std::wstring, int>> Entries;
+
+        for (int ResourceIndex = 1;
+            ResourceIndex < static_cast<int>(EResourceType::Count);
+            ++ResourceIndex)
+        {
+            const auto& Resource =
+                Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)];
+            const auto& SourceEntries =
+                Bottleneck ?
+                    Resource.TopShortageBuildings :
+                    Resource.TopOverflowBuildings;
+
+            for (size_t Index = 0; Index < SourceEntries.size(); ++Index)
+            {
+                if (SourceEntries[Index].second <= 0)
+                    continue;
+
+                Entries.push_back(
+                    {
+                        SourceEntries[Index].first +
+                            L" [" +
+                            GetResourceTypeDisplayName(Resource.Type) +
+                            L"]",
+                        SourceEntries[Index].second
+                    });
+            }
+        }
+
+        std::sort(
+            Entries.begin(),
+            Entries.end(),
+            [](const std::pair<std::wstring, int>& A,
+                const std::pair<std::wstring, int>& B)
+            {
+                if (A.second != B.second)
+                    return A.second > B.second;
+
+                return A.first < B.first;
+            });
+
+        return Entries;
+    }
+
+    std::wstring BuildLogisticsWarningSummary(
+        const std::vector<std::pair<std::wstring, int>>& Entries,
+        size_t MaxCount,
+        const wchar_t* UnitSuffix = nullptr)
+    {
+        std::wstring Result;
+
+        for (size_t Index = 0;
+            Index < Entries.size() && Index < MaxCount;
+            ++Index)
+        {
+            if (Entries[Index].second <= 0)
+                continue;
+
+            if (!Result.empty())
+                Result += L" / ";
+
+            Result += Entries[Index].first;
+            Result += L" ";
+            Result += std::to_wstring(Entries[Index].second);
+
+            if (UnitSuffix && *UnitSuffix)
+                Result += UnitSuffix;
+        }
+
+        return Result;
+    }
+
     struct FPoliticsFactionRuntimeData
     {
         EPoliticalAxis Axis = EPoliticalAxis::Economy;
@@ -1314,6 +1390,14 @@ void FAlmanacRenderer::ApplyBuildingPage(
     const int EducatedCitizenCount =
         Snapshot.EducationCount[1] + Snapshot.EducationCount[2];
     const int ActiveResourceTypeCount = CountActiveResourceTypes(Snapshot);
+    const std::vector<std::pair<std::wstring, int>> BottleneckWarnings =
+        BuildLogisticsWarningEntries(Snapshot, true);
+    const std::vector<std::pair<std::wstring, int>> OverflowWarnings =
+        BuildLogisticsWarningEntries(Snapshot, false);
+    const std::wstring BottleneckWarningSummary =
+        BuildLogisticsWarningSummary(BottleneckWarnings, 2);
+    const std::wstring OverflowWarningSummary =
+        BuildLogisticsWarningSummary(OverflowWarnings, 2, L"%");
 
     if (auto Title = Widget.mBuildingCategoryTitle.lock())
     {
@@ -1334,6 +1418,17 @@ void FAlmanacRenderer::ApplyBuildingPage(
         { L"", L"" },
         { L"", L"" }
     }};
+    std::array<FVector4, GBuildingDetailCount> DetailRowValueColors =
+    {
+        FVector4(0.31f, 0.27f, 0.21f, 1.f),
+        FVector4(0.31f, 0.27f, 0.21f, 1.f),
+        FVector4(0.31f, 0.27f, 0.21f, 1.f),
+        FVector4(0.31f, 0.27f, 0.21f, 1.f),
+        FVector4(0.31f, 0.27f, 0.21f, 1.f),
+        FVector4(0.31f, 0.27f, 0.21f, 1.f),
+        FVector4(0.31f, 0.27f, 0.21f, 1.f),
+        FVector4(0.31f, 0.27f, 0.21f, 1.f)
+    };
 
     switch (SelectedCategory.Category)
     {
@@ -1430,6 +1525,24 @@ void FAlmanacRenderer::ApplyBuildingPage(
         break;
     }
 
+    if (!BottleneckWarningSummary.empty())
+    {
+        DetailRows[6] = {
+            L"물류 병목 경고",
+            BottleneckWarningSummary
+        };
+        DetailRowValueColors[6] = FVector4(0.80f, 0.24f, 0.18f, 1.f);
+    }
+
+    if (!OverflowWarningSummary.empty())
+    {
+        DetailRows[7] = {
+            L"과잉 재고 경고",
+            OverflowWarningSummary
+        };
+        DetailRowValueColors[7] = FVector4(0.82f, 0.52f, 0.16f, 1.f);
+    }
+
     for (int Index = 0;
         Index < static_cast<int>(Widget.mBuildingDetails.size()) &&
             Index < GBuildingDetailCount;
@@ -1446,7 +1559,8 @@ void FAlmanacRenderer::ApplyBuildingPage(
             HasLabel ?
                 DetailRows[static_cast<size_t>(Index)].second :
                 std::wstring(),
-            false);
+            false,
+            DetailRowValueColors[static_cast<size_t>(Index)]);
 
         if (auto Background =
             Widget.mBuildingDetails[static_cast<size_t>(Index)].
