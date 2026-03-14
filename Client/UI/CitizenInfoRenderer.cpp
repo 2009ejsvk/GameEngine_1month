@@ -1,6 +1,7 @@
 #include "CitizenInfoRenderer.h"
 #include "CitizenInfoRendererInternal.h"
 #include "CitizenInfoWidget.h"
+#include "UILayoutConfig.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
@@ -55,9 +56,10 @@ void FCitizenInfoRenderer::ValidateSnapshotForDebug(
 }
 
 void FCitizenInfoRenderer::ApplySnapshot(
-    CCitizenInfoWidget& Widget,
+    CCitizenInfoWidget& Owner,
     const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot)
 {
+    auto Widget = Owner.GetRendererView();
     ValidateSnapshotForDebug(Snapshot);
     const bool IsCitizenMode =
         (Snapshot.Mode == CitizenInfoDataProvider::EPanelMode::Citizen);
@@ -134,9 +136,7 @@ void FCitizenInfoRenderer::ApplySnapshot(
             !ShowCitizenPolitics &&
             !ShowCitizenThoughts &&
             !ShowOverviewLayout &&
-            !Snapshot.ShowBuildingMetricRows &&
-            !Snapshot.ShowBuildingUpgradeCard &&
-            !ShowInformationParagraphs);
+            !Snapshot.BodyText.empty());
     }
 
     if (BudgetText)
@@ -368,7 +368,9 @@ void FCitizenInfoRenderer::ApplySnapshot(
                 Snapshot.OverviewMetricLabels[static_cast<size_t>(Index)].c_str());
             Label->SetFontSize(
                 ShowCitizenProfile ? 18.f :
-                    (SectionHeader ? 18.f : 17.f));
+                    (SectionHeader ?
+                        UIConfig::BuildingOverviewMetricSectionHeaderFontSize :
+                        UIConfig::BuildingOverviewMetricLabelFontSize));
             Label->SetTextColor(
                 ShowCitizenProfile ?
                     FVector4(0.33f, 0.30f, 0.26f, 1.f) :
@@ -382,6 +384,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
         {
             Value->SetText(
                 Snapshot.OverviewMetricValues[static_cast<size_t>(Index)].c_str());
+            if (!ShowCitizenProfile)
+                Value->SetFontSize(UIConfig::BuildingOverviewMetricValueFontSize);
             Value->SetTextColor(
                 Snapshot.OverviewMetricAccentValues[static_cast<size_t>(Index)] ?
                     FVector4(0.33f, 0.62f, 0.88f, 1.f) :
@@ -686,10 +690,10 @@ void FCitizenInfoRenderer::ApplySnapshot(
             Snapshot.ShowActionButtons &&
             Snapshot.ShowMoveButton);
 
-    if (auto CloneButton = Widget.mCloneButton.lock())
-        CloneButton->SetEnable(
+    if (auto FocusButton = Widget.mFocusButton.lock())
+        FocusButton->SetEnable(
             Snapshot.ShowActionButtons &&
-            Snapshot.ShowCloneButton);
+            Snapshot.ShowFocusButton);
 
     if (auto Button = Widget.mOverviewCommandButton.lock())
         Button->SetEnable(Snapshot.ShowOverviewCommandButton);

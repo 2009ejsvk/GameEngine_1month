@@ -29,6 +29,11 @@ public:
 	void Render();
 	std::weak_ptr<CWidgetContainer> GetWidget(const std::string& Name);
 
+    const std::vector<std::shared_ptr<CWidgetContainer>>& GetWidgetList() const
+    {
+        return mWidgetList;
+    }
+
 private:
 	static bool SortRender(const std::shared_ptr<CWidgetContainer>& Src, const std::shared_ptr<CWidgetContainer>& Dest);
 	static bool SortCollision(const std::shared_ptr<CWidgetContainer>& Src, const std::shared_ptr<CWidgetContainer>& Dest);

@@ -11,6 +11,7 @@ public:
 
 public:
 	virtual bool Init();
+    virtual void OnUiManagerUpdated() override;
 
 private:
 	void LoadAnimation2D();

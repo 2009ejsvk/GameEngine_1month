@@ -96,7 +96,16 @@
     <ClCompile Include="World\MainWorld.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
+    <ClCompile Include="World\MainWorldElectionService.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
     <ClCompile Include="World\MainWorldInfrastructureRuntime.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\MainWorldPoliticalDemandService.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\MainWorldWorldCrisisService.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
     <ClCompile Include="World\MainWorldTradeRuntime.cpp">
@@ -129,7 +138,16 @@
     <ClCompile Include="Building\BuildingCatalog.cpp">
       <Filter>12. Building</Filter>
     </ClCompile>
+    <ClCompile Include="Building\BuildingCatalogData.cpp">
+      <Filter>12. Building</Filter>
+    </ClCompile>
     <ClCompile Include="Building\BuildingCatalogDerived.cpp">
+      <Filter>12. Building</Filter>
+    </ClCompile>
+    <ClCompile Include="Building\BuildingCatalogQuery.cpp">
+      <Filter>12. Building</Filter>
+    </ClCompile>
+    <ClCompile Include="Building\BuildingCatalogRegistry.cpp">
       <Filter>12. Building</Filter>
     </ClCompile>
     <ClCompile Include="Citizen\CitizenCommuteCalc.cpp">
@@ -273,6 +291,9 @@
     <ClCompile Include="UI\AlmanacRendererPagesPopulation.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererPopulationPage.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
     <ClCompile Include="UI\AlmanacRendererPagesEconomy.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
@@ -294,8 +315,26 @@
     <ClCompile Include="UI\CitizenInfoDataProvider.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
+    <ClCompile Include="UI\CitizenInfoInteractionService.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CitizenInfoPresentation.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
     <ClCompile Include="UI\CitizenInfoQueryService.cpp">
       <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="World\CitizenInfoWorldInteractionSource.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\BuildMenuWorldQuerySource.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\CitizenInfoWorldQuerySource.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\EconomyWorldAccess.cpp">
+      <Filter>02. World</Filter>
     </ClCompile>
     <ClCompile Include="UI\CitizenInfoRenderer.cpp">
       <Filter>07. UI\01. Main</Filter>
@@ -327,7 +366,16 @@
     <ClCompile Include="UI\EdictWidget.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
-    <ClCompile Include="UI\TradeWidget.cpp">
+    <ClCompile Include="UI\TradeWidgetCreate.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TradeWidgetInteraction.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TradeWidgetLayout.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TradeWidgetRender.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="UI\TradeWidgetRuntime.cpp">
@@ -337,6 +385,9 @@
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
     <ClCompile Include="Politics\EdictSystem.cpp">
+      <Filter>15. Politics</Filter>
+    </ClCompile>
+    <ClCompile Include="Politics\EdictBudgetRuntime.cpp">
       <Filter>15. Politics</Filter>
     </ClCompile>
     <ClCompile Include="Politics\EdictSystemRuntime.cpp">
@@ -356,10 +407,22 @@
     <ClInclude Include="GameConstants.h">
       <Filter>06. Setting</Filter>
     </ClInclude>
+    <ClInclude Include="StringUtils.h">
+      <Filter>06. Setting</Filter>
+    </ClInclude>
     <ClInclude Include="World\MainWorld.h">
       <Filter>02. World</Filter>
     </ClInclude>
+    <ClInclude Include="World\MainWorldElectionService.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
     <ClInclude Include="World\MainWorldInfrastructureRuntime.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\MainWorldPoliticalDemandService.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\MainWorldWorldCrisisService.h">
       <Filter>02. World</Filter>
     </ClInclude>
     <ClInclude Include="World\MainWorldTradeDiplomacyState.h">
@@ -461,7 +524,13 @@
     <ClInclude Include="Building\BuildingCatalog.h">
       <Filter>12. Building</Filter>
     </ClInclude>
+    <ClInclude Include="Building\BuildingCatalogData.h">
+      <Filter>12. Building</Filter>
+    </ClInclude>
     <ClInclude Include="Building\BuildingCatalogDerived.h">
+      <Filter>12. Building</Filter>
+    </ClInclude>
+    <ClInclude Include="Building\BuildingCatalogLoader.h">
       <Filter>12. Building</Filter>
     </ClInclude>
     <ClInclude Include="Building\BuildingTypes.h">
@@ -486,6 +555,18 @@
       <Filter>14. Economy</Filter>
     </ClInclude>
     <ClInclude Include="World\EditorWorld.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\CitizenInfoWorldInteractionSource.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\BuildMenuWorldQuerySource.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\CitizenInfoWorldQuerySource.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\EconomyWorldAccess.h">
       <Filter>02. World</Filter>
     </ClInclude>
     <ClInclude Include="Player\EditorPlayer.h">
@@ -530,6 +611,9 @@
     <ClInclude Include="UI\AlmanacRenderer.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
+    <ClInclude Include="UI\AlmanacRendererPopulationPage.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
     <ClInclude Include="UI\AlmanacRendererInternal.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
@@ -552,6 +636,12 @@
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="UI\CitizenInfoConstants.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CitizenInfoInteractionService.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CitizenInfoPresentation.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="UI\CitizenInfoQueryService.h">
@@ -588,6 +678,9 @@
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="Politics\EdictSystem.h">
+      <Filter>15. Politics</Filter>
+    </ClInclude>
+    <ClInclude Include="Politics\EdictBudgetRuntime.h">
       <Filter>15. Politics</Filter>
     </ClInclude>
     <ClInclude Include="Politics\EdictSystemRuntime.h">

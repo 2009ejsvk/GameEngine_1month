@@ -6,6 +6,8 @@
 
 namespace EdictSystemSerialization
 {
+    const char* GetGovernmentEdictTypeKey(EGovernmentEdictType Type);
+
     bool LoadEdictDefinitionsFromFile(
         const std::wstring& Path,
         std::vector<FGovernmentEdictDefinition>& InOutDefinitions);

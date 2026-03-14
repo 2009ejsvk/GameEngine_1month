@@ -3,41 +3,22 @@
 #include "../GameConstants.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
+#include "../StringUtils.h"
 #include "World/World.h"
-#include <Windows.h>
 #include <algorithm>
 #include <cwctype>
 #include <map>
 
 namespace
 {
+    using StringUtils::Utf8ToWide;
+
     struct FHouseholdSnapshotInfo
     {
         ECitizenWealthLevel WealthLevel = ECitizenWealthLevel::Poor;
         std::string HomeName;
         int MemberCount = 0;
     };
-
-    std::wstring Utf8ToWide(const std::string& Text)
-    {
-        if (Text.empty())
-            return std::wstring();
-
-        const int RequiredCount = MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), -1, nullptr, 0);
-
-        if (RequiredCount <= 1)
-            return std::wstring(Text.begin(), Text.end());
-
-        std::wstring WideText;
-        WideText.resize(RequiredCount - 1);
-
-        MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            &WideText[0], RequiredCount - 1);
-
-        return WideText;
-    }
 
     template <typename TMap>
     std::vector<std::pair<std::wstring, int>> BuildTopList(

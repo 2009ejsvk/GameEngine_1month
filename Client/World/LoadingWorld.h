@@ -17,6 +17,7 @@ private:
 public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
+    virtual void OnUiManagerUpdated() override;
 	void Load(EWorldType WorldType);
 
 private:

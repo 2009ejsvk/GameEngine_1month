@@ -5,15 +5,13 @@
 class CTileMapMain :
     public CTileMapObject
 {
-	friend class CWorld;
 	friend class CObject;
 
-protected:
+public:
 	CTileMapMain();
 	CTileMapMain(const CTileMapMain& ref);
 	CTileMapMain(CTileMapMain&& ref)	noexcept;
 
-public:
 	virtual ~CTileMapMain();
 
 public:

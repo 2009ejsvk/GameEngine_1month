@@ -269,6 +269,9 @@ namespace
 
 CMainWorld::CMainWorld()
 {
+    mElectionService.reset(new CMainWorldElectionService());
+    mPoliticalDemandService.reset(new CMainWorldPoliticalDemandService());
+    mWorldCrisisService.reset(new CMainWorldWorldCrisisService());
 }
 
 CMainWorld::~CMainWorld()
@@ -328,21 +331,12 @@ void CMainWorld::ResetWorldState()
     mWorkerTaxPressureDays = 0;
     mPropertyTaxPressureDays = 0;
     mBudgetCrisisPressureDays = 0;
-    mRaidPressureDays = 0;
-    mLaborStrikePressureDays = 0;
-    mCrimeWavePressureDays = 0;
-    mFiscalEmergencyPressureDays = 0;
-    mActiveWorldCrisisChainDepth = 0;
-    mQueuedWorldCrisisType = EWorldCrisisType::None;
-    mQueuedWorldCrisisRisk = 0.0;
-    mQueuedWorldCrisisDelayDays = 0;
-    mQueuedWorldCrisisChainDepth = 0;
     PoliticsSystem::SetDefaultGovernmentProfile(mGovernmentProfile);
     mPoliticalSnapshot = FPoliticalWorldSnapshot();
-    mElectionStatus = FElectionStatus();
+    if (!mElectionService)
+        mElectionService.reset(new CMainWorldElectionService());
+    mElectionService->Reset();
     mTaxEventStatus = FTaxPolicyEventStatus();
-    mWorldCrisisStatus = FWorldCrisisStatus();
-    mPoliticalDemandNotice = FPoliticalDemandNotice();
     mEraProgress = FEraProgressState();
     EdictSystem::InitializeGovernmentEdictStates(mGovernmentEdicts);
     mEdictModifiers = FGovernmentEdictModifiers();
@@ -350,11 +344,12 @@ void CMainWorld::ResetWorldState()
     mTradeDiplomacyState.CompletedTradeRoutes.clear();
     mTradeDiplomacyState.ForeignPowerStandingStates = {};
     mTradeDiplomacyState.ForeignPowerStates = {};
-    mFactionDemands = {};
-    mFactionDemandCooldownDays = {};
-    mFactionDemandModifierDays = {};
-    mTradeDiplomacyState.ForeignPowerDemands = {};
-    mTradeDiplomacyState.ForeignDemandCooldownDays = {};
+    if (!mPoliticalDemandService)
+        mPoliticalDemandService.reset(new CMainWorldPoliticalDemandService());
+    mPoliticalDemandService->Reset();
+    if (!mWorldCrisisService)
+        mWorldCrisisService.reset(new CMainWorldWorldCrisisService());
+    mWorldCrisisService->Reset();
     mTradeDiplomacyState.NextTradeRouteId = 1;
     mTradeDiplomacyState.NextTradeRouteCompletionRecordId = 1;
     mTradeDiplomacyState.TradeRouteCompletionNotificationVersion = 0;

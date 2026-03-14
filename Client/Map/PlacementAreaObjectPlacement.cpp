@@ -45,7 +45,8 @@ void CPlacementAreaObject::RotatePreviewCCW(
         UpdatePlacementPreviewFromMouse(MouseWorldPos);
 }
 
-void CPlacementAreaObject::ConfirmPlacement()
+void CPlacementAreaObject::ConfirmPlacement(
+    FScopedTopologyBatch* TopologyBatch)
 {
     EnsurePlacementObject();
 
@@ -82,7 +83,7 @@ void CPlacementAreaObject::ConfirmPlacement()
 
     ApplyPlacedAreaColor(TileMap);
     SyncWorldPosFromCenter(TileMap, mPlacedCenterIndex);
-    NotifyPlacementTopologyChanged();
+    NotifyPlacementTopologyChanged(TopologyBatch);
 }
 
 void CPlacementAreaObject::CancelMovePreview()

@@ -14,12 +14,6 @@ struct FMainWorldTradeDiplomacyState
     std::array<
         TradeDiplomacyRuntime::FForeignPowerWorldState,
         TradeDiplomacyRuntime::GForeignPowerCount> ForeignPowerStates = {};
-    std::array<
-        FPoliticalDemandState,
-        TradeDiplomacyRuntime::GForeignPowerCount> ForeignPowerDemands = {};
-    std::array<
-        int,
-        TradeDiplomacyRuntime::GForeignPowerCount> ForeignDemandCooldownDays = {};
     int NextTradeRouteId = 1;
     int NextTradeRouteCompletionRecordId = 1;
     int TradeRouteCompletionNotificationVersion = 0;

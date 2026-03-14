@@ -10,21 +10,45 @@
 #include <string>
 #include <vector>
 
+class CWorld;
+
+namespace PlacementAreaObjectInternal
+{
+    void FlushPlacementTopologyUpdates(const std::shared_ptr<CWorld>& World);
+}
+
 class CPlacementAreaObject :
     public CGameObject
 {
-    friend class CWorld;
     friend class CObject;
+    friend void PlacementAreaObjectInternal::FlushPlacementTopologyUpdates(
+        const std::shared_ptr<CWorld>& World);
 
-protected:
+public:
     CPlacementAreaObject();
     CPlacementAreaObject(const CPlacementAreaObject& ref);
     CPlacementAreaObject(CPlacementAreaObject&& ref) noexcept;
 
-public:
     virtual ~CPlacementAreaObject();
-    static void BeginTopologyBatchUpdate();
-    static void EndTopologyBatchUpdate();
+
+    class FScopedTopologyBatch
+    {
+    public:
+        FScopedTopologyBatch() = default;
+        ~FScopedTopologyBatch();
+
+        FScopedTopologyBatch(const FScopedTopologyBatch&) = delete;
+        FScopedTopologyBatch& operator=(const FScopedTopologyBatch&) = delete;
+
+    private:
+        friend class CPlacementAreaObject;
+
+        void MarkDirty(const std::shared_ptr<class CWorld>& World);
+        void Flush();
+
+        bool mPending = false;
+        std::weak_ptr<class CWorld> mWorld;
+    };
 
 private:
     std::weak_ptr<class CTileMapObject> mTileMapObject;
@@ -1315,6 +1339,7 @@ public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
     virtual void Destroy() override;
+    void Destroy(FScopedTopologyBatch* TopologyBatch);
     virtual bool IsNavigationObstacle() const override;
     virtual void GetNavigationBlockedTiles(
         std::vector<int>& OutIndices) override;
@@ -1323,7 +1348,7 @@ public:
 
 public:
     void StartMovePreview(const FVector2& MouseWorldPos);
-    void ConfirmPlacement();
+    void ConfirmPlacement(FScopedTopologyBatch* TopologyBatch = nullptr);
     void CancelMovePreview();
     void RotatePreviewCW(const FVector2& MouseWorldPos);
     void RotatePreviewCCW(const FVector2& MouseWorldPos);
@@ -1373,7 +1398,8 @@ private:
         const std::vector<int>& Indices,
         bool Apply);
     void RefreshAccessibilityScore();
-    void NotifyPlacementTopologyChanged();
+    void NotifyPlacementTopologyChanged(
+        FScopedTopologyBatch* TopologyBatch = nullptr);
     bool BuildDiamondAreaIndices(
         const std::shared_ptr<class CTileMapComponent>& TileMap,
         int CenterIndex, std::vector<int>& OutIndices) const;

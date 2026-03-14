@@ -1,5 +1,5 @@
 #include "EdictSystemSerialization.h"
-#include <Windows.h>
+#include "../StringUtils.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -9,6 +9,9 @@
 
 namespace
 {
+    using StringUtils::Utf8ToWide;
+    using StringUtils::WideToUtf8;
+
     template<typename T>
     struct TKeyValueMap
     {
@@ -127,60 +130,6 @@ namespace
         { EPoliticalScope::Resident, "Resident" },
         { EPoliticalScope::Visitor, "Visitor" }
     };
-
-    std::wstring Utf8ToWide(const std::string& Text)
-    {
-        if (Text.empty())
-            return std::wstring();
-
-        const int RequiredCount = MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            nullptr, 0);
-
-        if (RequiredCount <= 0)
-            return std::wstring(Text.begin(), Text.end());
-
-        std::wstring WideText;
-        WideText.resize(RequiredCount);
-        MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            &WideText[0], RequiredCount);
-        return WideText;
-    }
-
-    std::string WideToUtf8(const std::wstring& Text)
-    {
-        if (Text.empty())
-            return std::string();
-
-        const int RequiredBytes = WideCharToMultiByte(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            nullptr, 0, nullptr, nullptr);
-
-        if (RequiredBytes <= 0)
-        {
-            std::string Fallback;
-            Fallback.reserve(Text.size());
-
-            for (size_t Index = 0; Index < Text.size(); ++Index)
-            {
-                const wchar_t Character = Text[Index];
-                Fallback.push_back(
-                    Character >= 0 && Character <= 0x7F ?
-                        static_cast<char>(Character) :
-                        '?');
-            }
-
-            return Fallback;
-        }
-
-        std::string Result;
-        Result.resize(RequiredBytes);
-        WideCharToMultiByte(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            &Result[0], RequiredBytes, nullptr, nullptr);
-        return Result;
-    }
 
     void TrimString(std::string& Value)
     {
@@ -322,7 +271,7 @@ namespace
         return false;
     }
 
-    const char* GetGovernmentEdictTypeKey(EGovernmentEdictType Type)
+    const char* GetGovernmentEdictTypeKeyInternal(EGovernmentEdictType Type)
     {
         return GetMappedKey(Type, GEdictTypeKeys, "None");
     }
@@ -836,6 +785,11 @@ namespace
 
 namespace EdictSystemSerialization
 {
+    const char* GetGovernmentEdictTypeKey(EGovernmentEdictType Type)
+    {
+        return GetGovernmentEdictTypeKeyInternal(Type);
+    }
+
     bool LoadEdictDefinitionsFromFile(
         const std::wstring& Path,
         std::vector<FGovernmentEdictDefinition>& InOutDefinitions)
@@ -918,7 +872,7 @@ namespace EdictSystemSerialization
         {
             const FGovernmentEdictDefinition& Definition = Definitions[Index];
             Buffer += '[';
-            Buffer += GetGovernmentEdictTypeKey(Definition.Type);
+            Buffer += GetGovernmentEdictTypeKeyInternal(Definition.Type);
             Buffer += "]\r\n";
             AppendEdictIniLine(
                 Buffer,

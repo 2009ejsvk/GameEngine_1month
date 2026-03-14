@@ -27,6 +27,11 @@ public:
         mChildList.push_back(Widget);
     }
 
+    const std::vector<std::shared_ptr<CWidget>>& GetChildList() const
+    {
+        return mChildList;
+    }
+
 	virtual void SetParentAll();
 	virtual void SetOpacityAll(float Opacity);
 

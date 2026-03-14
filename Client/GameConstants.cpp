@@ -66,6 +66,250 @@ namespace GameConstants
         int TeamsterConsumerTargetStock = 1000;
         float PoliticalShiftIntervalSeconds = 12.f;
     }
+
+    namespace MainWorld
+    {
+        namespace Trade
+        {
+            int MaxActiveTradeRouteCount = 10;
+            int MaxCompletedTradeRouteRecordCount = 12;
+            int MinAmountUnits = 1000;
+            int MaxAmountUnits = 24000;
+            int MinDailyTransferUnits = 150;
+            int MaxDailyTransferUnits = 1200;
+            int DefaultDurationDays = 1500;
+        }
+
+        namespace PoliticalDemand
+        {
+            int MaxActiveFactionDemandCount = 2;
+            int MaxActiveForeignDemandCount = 1;
+            int FactionDurationDays = 90;
+            int ForeignDurationDays = 105;
+            int FactionCooldownDays = 90;
+            int ForeignCooldownDays = 105;
+            int FactionModifierDurationDays = 120;
+            int NoticeDurationDays = 10;
+            int CampaignPromiseLeadDays = 240;
+            int FactionMemberMinCount = 6;
+            float FactionApprovalThreshold = 60.f;
+
+            FHousingDemandTuning Communists =
+            {
+                58, 1, 58, 72, 10, 1200, 18, 9, -12, 1.2f, 1.0f, 1.6f
+            };
+            FTaxCeilingDemandTuning Capitalists =
+            {
+                12, 12, 2000, 8, -10, 1.1f, 1.8f
+            };
+            FScoreDemandTuning Religious =
+            {
+                58, 58, 72, 10, 1500, 8, -11, 1.1f, 1.2f
+            };
+            FScoreDemandTuning Militarists =
+            {
+                60, 60, 76, 10, 1700, 8, -11, 1.1f, 1.3f
+            };
+            FScoreDemandTuning Environmentalists =
+            {
+                60, 60, 74, 9, 1600, 9, -12, 1.1f, 1.2f
+            };
+            FExportIncomeDemandTuning Industrialists =
+            {
+                5200, 5200, 1800, 2200, 8, -10, 1.0f, 700.f
+            };
+            FScoreDemandTuning Intellectuals =
+            {
+                60, 60, 76, 10, 1500, 9, -12, 1.15f, 1.3f
+            };
+            FTaxCeilingDemandTuning Conservatives =
+            {
+                35, 35, 1800, 8, -10, 1.0f, 1.5f
+            };
+
+            FForeignGlobalTuning ForeignGlobal =
+            {
+                72, 10, 0.7f, 0.8f, 2400, 9, 4, -10, -4
+            };
+            FForeignTradeRouteDemandTuning China =
+            {
+                2, 2, 6.0f
+            };
+            FForeignScoreDemandTuning Russia =
+            {
+                60, 60, 1.4f
+            };
+            FForeignScoreDemandTuning UnitedStates =
+            {
+                60, 60, 1.4f
+            };
+            FForeignScoreDemandTuning MiddleEast =
+            {
+                58, 58, 1.3f
+            };
+            FForeignScoreDemandTuning EuropeanUnion =
+            {
+                60, 60, 1.4f
+            };
+        }
+
+        namespace ElectionPromise
+        {
+            FHousingPromiseTuning Housing =
+            {
+                8, 4, 5, 62.f, 1.25f, 2.6f
+            };
+            FScorePromiseTuning Food =
+            {
+                7, 3, 4, 60.f, 1.20f
+            };
+            FScorePromiseTuning Health =
+            {
+                7, 3, 4, 60.f, 1.15f
+            };
+            FJobPromiseTuning Job =
+            {
+                8, 4, 5, 60.f, 1.05f, 55.f
+            };
+            FScorePromiseTuning Freedom =
+            {
+                8, 3, 4, 60.f, 1.10f
+            };
+            FScorePromiseTuning Security =
+            {
+                8, 3, 4, 60.f, 1.10f
+            };
+            FScorePromiseTuning Faith =
+            {
+                7, 3, 4, 58.f, 1.05f
+            };
+            FExportIncomePromiseTuning ExportIncome =
+            {
+                1400, 5, 3, 4, 5600, 240.f
+            };
+        }
+
+        namespace TradeDiplomacy
+        {
+            int StandingIdleDecayIntervalDays = 20;
+            int RelationIdleDecayIntervalDays = 30;
+        }
+
+        namespace WorldCrisis
+        {
+            int RaidDurationDays = 7;
+            int LaborStrikeDurationDays = 8;
+            int CrimeWaveDurationDays = 9;
+            int FiscalEmergencyDurationDays = 8;
+            int SuccessCooldownDays = 20;
+            int FailureCooldownDays = 28;
+            int StartNotificationDays = 6;
+            int ResolvedNotificationDays = 8;
+
+            float SeverityDurationDivisorDays = 6.f;
+            float FollowupSuccessBaseCarryover = 0.06f;
+            float FollowupFailureBaseCarryover = 0.18f;
+            float FollowupSeverityCarryoverWeight = 0.18f;
+            float LightPressureSeverityThreshold = 0.35f;
+            float HeavyPressureSeverityThreshold = 0.72f;
+
+            FPressureRangeTuning SecurityCollapse =
+            {
+                58.f, 30.f
+            };
+            FPressureRangeTuning ResidentialSecurityCollapse =
+            {
+                56.f, 26.f
+            };
+            FPressureRangeTuning FreedomCollapse =
+            {
+                56.f, 28.f
+            };
+            FPressureRangeTuning ResidentialFreedomCollapse =
+            {
+                54.f, 24.f
+            };
+            FPressureRangeTuning JobStress =
+            {
+                56.f, 32.f
+            };
+            FPressureRangeTuning FoodStress =
+            {
+                54.f, 28.f
+            };
+            FPressureRangeTuning HousingStress =
+            {
+                54.f, 28.f
+            };
+            FPressureRangeTuning ResidentialPollutionStress =
+            {
+                28.f, 68.f
+            };
+            FPressureRangeTuning BudgetDeficit =
+            {
+                5000.f, 70000.f
+            };
+            FPressureRangeTuning NetLossPressure =
+            {
+                1200.f, 9000.f
+            };
+            FPressureRangeTuning TaxCollectionBreakdown =
+            {
+                0.82f, 0.48f
+            };
+
+            FImmediateBudgetTuning RaidImmediateBudget =
+            {
+                900, 1600.f
+            };
+            FImmediateBudgetTuning LaborStrikeImmediateBudget =
+            {
+                250, 500.f
+            };
+            FImmediateBudgetTuning CrimeWaveImmediateBudget =
+            {
+                700, 1200.f
+            };
+            FImmediateBudgetTuning FiscalEmergencyImmediateBudget =
+            {
+                1600, 2600.f
+            };
+
+            FRaidRiskTuning RaidRisk =
+            {
+                0.26f, 0.14f, 0.14f, 0.08f, 0.20f, 0.08f, 0.06f, 0.04f, 0.12f
+            };
+            FLaborStrikeRiskTuning LaborStrikeRisk =
+            {
+                0.34f, 0.26f, 0.16f, 0.12f, 0.12f
+            };
+            FCrimeWaveRiskTuning CrimeWaveRisk =
+            {
+                0.28f, 0.18f, 0.14f, 0.12f, 0.10f, 0.10f, 0.08f, 0.10f
+            };
+            FFiscalEmergencyRiskTuning FiscalEmergencyRisk =
+            {
+                0.42f, 0.26f, 0.20f, 0.04f, 0.08f, 0.04f, 80
+            };
+
+            FPressureTransferTuning RaidPressureTransfer =
+            {
+                1, 0
+            };
+            FPressureTransferTuning LaborStrikePressureTransfer =
+            {
+                1, 0
+            };
+            FPressureTransferTuning CrimeWavePressureTransfer =
+            {
+                1, 0
+            };
+            FPressureTransferTuning FiscalEmergencyPressureTransfer =
+            {
+                1, 0
+            };
+        }
+    }
 }
 
 namespace
@@ -196,6 +440,784 @@ namespace
         Orb::TeamsterConsumerTargetStock = 1000;
         Orb::PoliticalShiftIntervalSeconds =
             Politics::CitizenPoliticalShiftIntervalSeconds;
+
+        MainWorld::Trade::MaxActiveTradeRouteCount = 10;
+        MainWorld::Trade::MaxCompletedTradeRouteRecordCount = 12;
+        MainWorld::Trade::MinAmountUnits = 1000;
+        MainWorld::Trade::MaxAmountUnits = 24000;
+        MainWorld::Trade::MinDailyTransferUnits = 150;
+        MainWorld::Trade::MaxDailyTransferUnits = 1200;
+        MainWorld::Trade::DefaultDurationDays = 1500;
+
+        MainWorld::PoliticalDemand::MaxActiveFactionDemandCount = 2;
+        MainWorld::PoliticalDemand::MaxActiveForeignDemandCount = 1;
+        MainWorld::PoliticalDemand::FactionDurationDays = 90;
+        MainWorld::PoliticalDemand::ForeignDurationDays = 105;
+        MainWorld::PoliticalDemand::FactionCooldownDays = 90;
+        MainWorld::PoliticalDemand::ForeignCooldownDays = 105;
+        MainWorld::PoliticalDemand::FactionModifierDurationDays = 120;
+        MainWorld::PoliticalDemand::NoticeDurationDays = 10;
+        MainWorld::PoliticalDemand::CampaignPromiseLeadDays = 240;
+        MainWorld::PoliticalDemand::FactionMemberMinCount = 6;
+        MainWorld::PoliticalDemand::FactionApprovalThreshold = 60.f;
+
+        MainWorld::PoliticalDemand::Communists =
+        {
+            58, 1, 58, 72, 10, 1200, 18, 9, -12, 1.2f, 1.0f, 1.6f
+        };
+        MainWorld::PoliticalDemand::Capitalists =
+        {
+            12, 12, 2000, 8, -10, 1.1f, 1.8f
+        };
+        MainWorld::PoliticalDemand::Religious =
+        {
+            58, 58, 72, 10, 1500, 8, -11, 1.1f, 1.2f
+        };
+        MainWorld::PoliticalDemand::Militarists =
+        {
+            60, 60, 76, 10, 1700, 8, -11, 1.1f, 1.3f
+        };
+        MainWorld::PoliticalDemand::Environmentalists =
+        {
+            60, 60, 74, 9, 1600, 9, -12, 1.1f, 1.2f
+        };
+        MainWorld::PoliticalDemand::Industrialists =
+        {
+            5200, 5200, 1800, 2200, 8, -10, 1.0f, 700.f
+        };
+        MainWorld::PoliticalDemand::Intellectuals =
+        {
+            60, 60, 76, 10, 1500, 9, -12, 1.15f, 1.3f
+        };
+        MainWorld::PoliticalDemand::Conservatives =
+        {
+            35, 35, 1800, 8, -10, 1.0f, 1.5f
+        };
+        MainWorld::PoliticalDemand::ForeignGlobal =
+        {
+            72, 10, 0.7f, 0.8f, 2400, 9, 4, -10, -4
+        };
+        MainWorld::PoliticalDemand::China =
+        {
+            2, 2, 6.0f
+        };
+        MainWorld::PoliticalDemand::Russia =
+        {
+            60, 60, 1.4f
+        };
+        MainWorld::PoliticalDemand::UnitedStates =
+        {
+            60, 60, 1.4f
+        };
+        MainWorld::PoliticalDemand::MiddleEast =
+        {
+            58, 58, 1.3f
+        };
+        MainWorld::PoliticalDemand::EuropeanUnion =
+        {
+            60, 60, 1.4f
+        };
+
+        MainWorld::ElectionPromise::Housing =
+        {
+            8, 4, 5, 62.f, 1.25f, 2.6f
+        };
+        MainWorld::ElectionPromise::Food =
+        {
+            7, 3, 4, 60.f, 1.20f
+        };
+        MainWorld::ElectionPromise::Health =
+        {
+            7, 3, 4, 60.f, 1.15f
+        };
+        MainWorld::ElectionPromise::Job =
+        {
+            8, 4, 5, 60.f, 1.05f, 55.f
+        };
+        MainWorld::ElectionPromise::Freedom =
+        {
+            8, 3, 4, 60.f, 1.10f
+        };
+        MainWorld::ElectionPromise::Security =
+        {
+            8, 3, 4, 60.f, 1.10f
+        };
+        MainWorld::ElectionPromise::Faith =
+        {
+            7, 3, 4, 58.f, 1.05f
+        };
+        MainWorld::ElectionPromise::ExportIncome =
+        {
+            1400, 5, 3, 4, 5600, 240.f
+        };
+
+        MainWorld::TradeDiplomacy::StandingIdleDecayIntervalDays = 20;
+        MainWorld::TradeDiplomacy::RelationIdleDecayIntervalDays = 30;
+
+        MainWorld::WorldCrisis::RaidDurationDays = 7;
+        MainWorld::WorldCrisis::LaborStrikeDurationDays = 8;
+        MainWorld::WorldCrisis::CrimeWaveDurationDays = 9;
+        MainWorld::WorldCrisis::FiscalEmergencyDurationDays = 8;
+        MainWorld::WorldCrisis::SuccessCooldownDays = 20;
+        MainWorld::WorldCrisis::FailureCooldownDays = 28;
+        MainWorld::WorldCrisis::StartNotificationDays = 6;
+        MainWorld::WorldCrisis::ResolvedNotificationDays = 8;
+
+        MainWorld::WorldCrisis::SeverityDurationDivisorDays = 6.f;
+        MainWorld::WorldCrisis::FollowupSuccessBaseCarryover = 0.06f;
+        MainWorld::WorldCrisis::FollowupFailureBaseCarryover = 0.18f;
+        MainWorld::WorldCrisis::FollowupSeverityCarryoverWeight = 0.18f;
+        MainWorld::WorldCrisis::LightPressureSeverityThreshold = 0.35f;
+        MainWorld::WorldCrisis::HeavyPressureSeverityThreshold = 0.72f;
+
+        MainWorld::WorldCrisis::SecurityCollapse =
+        {
+            58.f, 30.f
+        };
+        MainWorld::WorldCrisis::ResidentialSecurityCollapse =
+        {
+            56.f, 26.f
+        };
+        MainWorld::WorldCrisis::FreedomCollapse =
+        {
+            56.f, 28.f
+        };
+        MainWorld::WorldCrisis::ResidentialFreedomCollapse =
+        {
+            54.f, 24.f
+        };
+        MainWorld::WorldCrisis::JobStress =
+        {
+            56.f, 32.f
+        };
+        MainWorld::WorldCrisis::FoodStress =
+        {
+            54.f, 28.f
+        };
+        MainWorld::WorldCrisis::HousingStress =
+        {
+            54.f, 28.f
+        };
+        MainWorld::WorldCrisis::ResidentialPollutionStress =
+        {
+            28.f, 68.f
+        };
+        MainWorld::WorldCrisis::BudgetDeficit =
+        {
+            5000.f, 70000.f
+        };
+        MainWorld::WorldCrisis::NetLossPressure =
+        {
+            1200.f, 9000.f
+        };
+        MainWorld::WorldCrisis::TaxCollectionBreakdown =
+        {
+            0.82f, 0.48f
+        };
+
+        MainWorld::WorldCrisis::RaidImmediateBudget =
+        {
+            900, 1600.f
+        };
+        MainWorld::WorldCrisis::LaborStrikeImmediateBudget =
+        {
+            250, 500.f
+        };
+        MainWorld::WorldCrisis::CrimeWaveImmediateBudget =
+        {
+            700, 1200.f
+        };
+        MainWorld::WorldCrisis::FiscalEmergencyImmediateBudget =
+        {
+            1600, 2600.f
+        };
+
+        MainWorld::WorldCrisis::RaidRisk =
+        {
+            0.26f, 0.14f, 0.14f, 0.08f, 0.20f, 0.08f, 0.06f, 0.04f, 0.12f
+        };
+        MainWorld::WorldCrisis::LaborStrikeRisk =
+        {
+            0.34f, 0.26f, 0.16f, 0.12f, 0.12f
+        };
+        MainWorld::WorldCrisis::CrimeWaveRisk =
+        {
+            0.28f, 0.18f, 0.14f, 0.12f, 0.10f, 0.10f, 0.08f, 0.10f
+        };
+        MainWorld::WorldCrisis::FiscalEmergencyRisk =
+        {
+            0.42f, 0.26f, 0.20f, 0.04f, 0.08f, 0.04f, 80
+        };
+
+        MainWorld::WorldCrisis::RaidPressureTransfer =
+        {
+            1, 0
+        };
+        MainWorld::WorldCrisis::LaborStrikePressureTransfer =
+        {
+            1, 0
+        };
+        MainWorld::WorldCrisis::CrimeWavePressureTransfer =
+        {
+            1, 0
+        };
+        MainWorld::WorldCrisis::FiscalEmergencyPressureTransfer =
+        {
+            1, 0
+        };
+    }
+
+    bool ApplyScoreDemandIntValue(
+        GameConstants::MainWorld::PoliticalDemand::FScoreDemandTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "ignoreatorabovevalue")
+            Tuning.IgnoreAtOrAboveValue = Value;
+        else if (Key == "targetmin")
+            Tuning.TargetMin = Value;
+        else if (Key == "targetmax")
+            Tuning.TargetMax = Value;
+        else if (Key == "targetdelta")
+            Tuning.TargetDelta = Value;
+        else if (Key == "rewardbudgetdelta")
+            Tuning.RewardBudgetDelta = Value;
+        else if (Key == "rewardapprovaldelta")
+            Tuning.RewardApprovalDelta = Value;
+        else if (Key == "penaltyapprovaldelta")
+            Tuning.PenaltyApprovalDelta = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyScoreDemandFloatValue(
+        GameConstants::MainWorld::PoliticalDemand::FScoreDemandTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "approvalpriorityweight")
+            Tuning.ApprovalPriorityWeight = Value;
+        else if (Key == "deficitpriorityweight")
+            Tuning.DeficitPriorityWeight = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyHousingDemandIntValue(
+        GameConstants::MainWorld::PoliticalDemand::FHousingDemandTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "ignoreatorabovehousing")
+            Tuning.IgnoreAtOrAboveHousing = Value;
+        else if (Key == "ignoreatorbelowhomeless")
+            Tuning.IgnoreAtOrBelowHomeless = Value;
+        else if (Key == "targetmin")
+            Tuning.TargetMin = Value;
+        else if (Key == "targetmax")
+            Tuning.TargetMax = Value;
+        else if (Key == "targetdelta")
+            Tuning.TargetDelta = Value;
+        else if (Key == "rewardbudgetbase")
+            Tuning.RewardBudgetBase = Value;
+        else if (Key == "rewardbudgetpermember")
+            Tuning.RewardBudgetPerMember = Value;
+        else if (Key == "rewardapprovaldelta")
+            Tuning.RewardApprovalDelta = Value;
+        else if (Key == "penaltyapprovaldelta")
+            Tuning.PenaltyApprovalDelta = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyHousingDemandFloatValue(
+        GameConstants::MainWorld::PoliticalDemand::FHousingDemandTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "approvalpriorityweight")
+            Tuning.ApprovalPriorityWeight = Value;
+        else if (Key == "housingdeficitpriorityweight")
+            Tuning.HousingDeficitPriorityWeight = Value;
+        else if (Key == "homelesspriorityweight")
+            Tuning.HomelessPriorityWeight = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyTaxCeilingDemandIntValue(
+        GameConstants::MainWorld::PoliticalDemand::FTaxCeilingDemandTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "ignoreatorbelowvalue")
+            Tuning.IgnoreAtOrBelowValue = Value;
+        else if (Key == "targetvalue")
+            Tuning.TargetValue = Value;
+        else if (Key == "rewardbudgetdelta")
+            Tuning.RewardBudgetDelta = Value;
+        else if (Key == "rewardapprovaldelta")
+            Tuning.RewardApprovalDelta = Value;
+        else if (Key == "penaltyapprovaldelta")
+            Tuning.PenaltyApprovalDelta = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyTaxCeilingDemandFloatValue(
+        GameConstants::MainWorld::PoliticalDemand::FTaxCeilingDemandTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "approvalpriorityweight")
+            Tuning.ApprovalPriorityWeight = Value;
+        else if (Key == "excesspriorityweight")
+            Tuning.ExcessPriorityWeight = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyExportIncomeDemandIntValue(
+        GameConstants::MainWorld::PoliticalDemand::FExportIncomeDemandTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "ignoreatorabovevalue")
+            Tuning.IgnoreAtOrAboveValue = Value;
+        else if (Key == "targetmin")
+            Tuning.TargetMin = Value;
+        else if (Key == "targetdelta")
+            Tuning.TargetDelta = Value;
+        else if (Key == "rewardbudgetdelta")
+            Tuning.RewardBudgetDelta = Value;
+        else if (Key == "rewardapprovaldelta")
+            Tuning.RewardApprovalDelta = Value;
+        else if (Key == "penaltyapprovaldelta")
+            Tuning.PenaltyApprovalDelta = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyExportIncomeDemandFloatValue(
+        GameConstants::MainWorld::PoliticalDemand::FExportIncomeDemandTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "approvalpriorityweight")
+            Tuning.ApprovalPriorityWeight = Value;
+        else if (Key == "deficitdivisor")
+            Tuning.DeficitDivisor = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyForeignGlobalIntValue(
+        GameConstants::MainWorld::PoliticalDemand::FForeignGlobalTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "relationpressurestart")
+            Tuning.RelationPressureStart = Value;
+        else if (Key == "standingpressurestart")
+            Tuning.StandingPressureStart = Value;
+        else if (Key == "rewardbudgetdelta")
+            Tuning.RewardBudgetDelta = Value;
+        else if (Key == "rewardrelationdelta")
+            Tuning.RewardRelationDelta = Value;
+        else if (Key == "rewardstandingdelta")
+            Tuning.RewardStandingDelta = Value;
+        else if (Key == "penaltyrelationdelta")
+            Tuning.PenaltyRelationDelta = Value;
+        else if (Key == "penaltystandingdelta")
+            Tuning.PenaltyStandingDelta = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyForeignGlobalFloatValue(
+        GameConstants::MainWorld::PoliticalDemand::FForeignGlobalTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "relationpriorityweight")
+            Tuning.RelationPriorityWeight = Value;
+        else if (Key == "standingpriorityweight")
+            Tuning.StandingPriorityWeight = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyForeignTradeRouteDemandIntValue(
+        GameConstants::MainWorld::PoliticalDemand::FForeignTradeRouteDemandTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "ignoreatoraboveactiveroutes")
+            Tuning.IgnoreAtOrAboveActiveRoutes = Value;
+        else if (Key == "targetvalue")
+            Tuning.TargetValue = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyForeignTradeRouteDemandFloatValue(
+        GameConstants::MainWorld::PoliticalDemand::FForeignTradeRouteDemandTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key != "priorityweight")
+            return false;
+
+        Tuning.PriorityWeight = Value;
+        return true;
+    }
+
+    bool ApplyForeignScoreDemandIntValue(
+        GameConstants::MainWorld::PoliticalDemand::FForeignScoreDemandTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "ignoreatorabovevalue")
+            Tuning.IgnoreAtOrAboveValue = Value;
+        else if (Key == "targetvalue")
+            Tuning.TargetValue = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyForeignScoreDemandFloatValue(
+        GameConstants::MainWorld::PoliticalDemand::FForeignScoreDemandTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key != "priorityweight")
+            return false;
+
+        Tuning.PriorityWeight = Value;
+        return true;
+    }
+
+    bool ApplyScorePromiseIntValue(
+        GameConstants::MainWorld::ElectionPromise::FScorePromiseTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "targetdelta")
+            Tuning.TargetDelta = Value;
+        else if (Key == "successvotemodifierpercent")
+            Tuning.SuccessVoteModifierPercent = Value;
+        else if (Key == "failurevotemodifierpercent")
+            Tuning.FailureVoteModifierPercent = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyScorePromiseFloatValue(
+        GameConstants::MainWorld::ElectionPromise::FScorePromiseTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "prioritythresholdvalue")
+            Tuning.PriorityThresholdValue = Value;
+        else if (Key == "prioritydeficitweight")
+            Tuning.PriorityDeficitWeight = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyHousingPromiseIntValue(
+        GameConstants::MainWorld::ElectionPromise::FHousingPromiseTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "targetdelta")
+            Tuning.TargetDelta = Value;
+        else if (Key == "successvotemodifierpercent")
+            Tuning.SuccessVoteModifierPercent = Value;
+        else if (Key == "failurevotemodifierpercent")
+            Tuning.FailureVoteModifierPercent = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyHousingPromiseFloatValue(
+        GameConstants::MainWorld::ElectionPromise::FHousingPromiseTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "prioritythresholdvalue")
+            Tuning.PriorityThresholdValue = Value;
+        else if (Key == "prioritydeficitweight")
+            Tuning.PriorityDeficitWeight = Value;
+        else if (Key == "homelesshouseholdpriorityweight")
+            Tuning.HomelessHouseholdPriorityWeight = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyJobPromiseIntValue(
+        GameConstants::MainWorld::ElectionPromise::FJobPromiseTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "targetdelta")
+            Tuning.TargetDelta = Value;
+        else if (Key == "successvotemodifierpercent")
+            Tuning.SuccessVoteModifierPercent = Value;
+        else if (Key == "failurevotemodifierpercent")
+            Tuning.FailureVoteModifierPercent = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyJobPromiseFloatValue(
+        GameConstants::MainWorld::ElectionPromise::FJobPromiseTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "prioritythresholdvalue")
+            Tuning.PriorityThresholdValue = Value;
+        else if (Key == "prioritydeficitweight")
+            Tuning.PriorityDeficitWeight = Value;
+        else if (Key == "unemploymentratiopriorityweight")
+            Tuning.UnemploymentRatioPriorityWeight = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyExportIncomePromiseIntValue(
+        GameConstants::MainWorld::ElectionPromise::FExportIncomePromiseTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "targetmindelta")
+            Tuning.TargetMinDelta = Value;
+        else if (Key == "targetscaledivisor")
+            Tuning.TargetScaleDivisor = Value;
+        else if (Key == "successvotemodifierpercent")
+            Tuning.SuccessVoteModifierPercent = Value;
+        else if (Key == "failurevotemodifierpercent")
+            Tuning.FailureVoteModifierPercent = Value;
+        else if (Key == "priorityreferencevalue")
+            Tuning.PriorityReferenceValue = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyExportIncomePromiseFloatValue(
+        GameConstants::MainWorld::ElectionPromise::FExportIncomePromiseTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key != "prioritydivisor")
+            return false;
+
+        Tuning.PriorityDivisor = Value;
+        return true;
+    }
+
+    bool ApplyPressureRangeFloatValue(
+        GameConstants::MainWorld::WorldCrisis::FPressureRangeTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "startvalue")
+            Tuning.StartValue = Value;
+        else if (Key == "fullvalue")
+            Tuning.FullValue = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyImmediateBudgetIntValue(
+        GameConstants::MainWorld::WorldCrisis::FImmediateBudgetTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key != "basepenalty")
+            return false;
+
+        Tuning.BasePenalty = Value;
+        return true;
+    }
+
+    bool ApplyImmediateBudgetFloatValue(
+        GameConstants::MainWorld::WorldCrisis::FImmediateBudgetTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key != "riskpenaltyscale")
+            return false;
+
+        Tuning.RiskPenaltyScale = Value;
+        return true;
+    }
+
+    bool ApplyRaidRiskFloatValue(
+        GameConstants::MainWorld::WorldCrisis::FRaidRiskTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "securitycollapseweight")
+            Tuning.SecurityCollapseWeight = Value;
+        else if (Key == "residentialsecuritycollapseweight")
+            Tuning.ResidentialSecurityCollapseWeight = Value;
+        else if (Key == "freedomcollapseweight")
+            Tuning.FreedomCollapseWeight = Value;
+        else if (Key == "residentialfreedomcollapseweight")
+            Tuning.ResidentialFreedomCollapseWeight = Value;
+        else if (Key == "oppositionratioweight")
+            Tuning.OppositionRatioWeight = Value;
+        else if (Key == "foodstressweight")
+            Tuning.FoodStressWeight = Value;
+        else if (Key == "housingstressweight")
+            Tuning.HousingStressWeight = Value;
+        else if (Key == "residentialpollutionstressweight")
+            Tuning.ResidentialPollutionStressWeight = Value;
+        else if (Key == "martiallawreduction")
+            Tuning.MartialLawReduction = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyLaborStrikeRiskFloatValue(
+        GameConstants::MainWorld::WorldCrisis::FLaborStrikeRiskTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "unemploymentratioweight")
+            Tuning.UnemploymentRatioWeight = Value;
+        else if (Key == "jobstressweight")
+            Tuning.JobStressWeight = Value;
+        else if (Key == "incometaxpressureweight")
+            Tuning.IncomeTaxPressureWeight = Value;
+        else if (Key == "oppositionratioweight")
+            Tuning.OppositionRatioWeight = Value;
+        else if (Key == "workertaxstrikebonus")
+            Tuning.WorkerTaxStrikeBonus = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyCrimeWaveRiskFloatValue(
+        GameConstants::MainWorld::WorldCrisis::FCrimeWaveRiskTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "securitycollapseweight")
+            Tuning.SecurityCollapseWeight = Value;
+        else if (Key == "residentialsecuritycollapseweight")
+            Tuning.ResidentialSecurityCollapseWeight = Value;
+        else if (Key == "homelessratioweight")
+            Tuning.HomelessRatioWeight = Value;
+        else if (Key == "unemploymentratioweight")
+            Tuning.UnemploymentRatioWeight = Value;
+        else if (Key == "housingstressweight")
+            Tuning.HousingStressWeight = Value;
+        else if (Key == "residentialpollutionstressweight")
+            Tuning.ResidentialPollutionStressWeight = Value;
+        else if (Key == "netlosspressureweight")
+            Tuning.NetLossPressureWeight = Value;
+        else if (Key == "martiallawreduction")
+            Tuning.MartialLawReduction = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyFiscalEmergencyRiskIntValue(
+        GameConstants::MainWorld::WorldCrisis::FFiscalEmergencyRiskTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key != "largepopulationthreshold")
+            return false;
+
+        Tuning.LargePopulationThreshold = Value;
+        return true;
+    }
+
+    bool ApplyFiscalEmergencyRiskFloatValue(
+        GameConstants::MainWorld::WorldCrisis::FFiscalEmergencyRiskTuning& Tuning,
+        const std::string& Key,
+        float Value)
+    {
+        if (Key == "budgetdeficitweight")
+            Tuning.BudgetDeficitWeight = Value;
+        else if (Key == "netlosspressureweight")
+            Tuning.NetLossPressureWeight = Value;
+        else if (Key == "taxcollectionbreakdownweight")
+            Tuning.TaxCollectionBreakdownWeight = Value;
+        else if (Key == "residentialpollutionstressweight")
+            Tuning.ResidentialPollutionStressWeight = Value;
+        else if (Key == "budgetcrisisbonus")
+            Tuning.BudgetCrisisBonus = Value;
+        else if (Key == "largepopulationbonus")
+            Tuning.LargePopulationBonus = Value;
+        else
+            return false;
+
+        return true;
+    }
+
+    bool ApplyPressureTransferIntValue(
+        GameConstants::MainWorld::WorldCrisis::FPressureTransferTuning& Tuning,
+        const std::string& Key,
+        int Value)
+    {
+        if (Key == "primarybasedays")
+            Tuning.PrimaryBaseDays = Value;
+        else if (Key == "secondarybasedays")
+            Tuning.SecondaryBaseDays = Value;
+        else
+            return false;
+
+        return true;
     }
 
     bool ApplyFloatValue(
@@ -304,6 +1326,325 @@ namespace
             return true;
         }
 
+        if (Section == "mainworldpoliticaldemand")
+        {
+            if (Key != "factionapprovalthreshold")
+                return false;
+
+            MainWorld::PoliticalDemand::FactionApprovalThreshold = Value;
+            return true;
+        }
+
+        if (Section == "mainworldfactioncommunists")
+        {
+            return ApplyHousingDemandFloatValue(
+                MainWorld::PoliticalDemand::Communists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactioncapitalists")
+        {
+            return ApplyTaxCeilingDemandFloatValue(
+                MainWorld::PoliticalDemand::Capitalists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionreligious")
+        {
+            return ApplyScoreDemandFloatValue(
+                MainWorld::PoliticalDemand::Religious,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionmilitarists")
+        {
+            return ApplyScoreDemandFloatValue(
+                MainWorld::PoliticalDemand::Militarists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionenvironmentalists")
+        {
+            return ApplyScoreDemandFloatValue(
+                MainWorld::PoliticalDemand::Environmentalists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionindustrialists")
+        {
+            return ApplyExportIncomeDemandFloatValue(
+                MainWorld::PoliticalDemand::Industrialists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionintellectuals")
+        {
+            return ApplyScoreDemandFloatValue(
+                MainWorld::PoliticalDemand::Intellectuals,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionconservatives")
+        {
+            return ApplyTaxCeilingDemandFloatValue(
+                MainWorld::PoliticalDemand::Conservatives,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignglobal")
+        {
+            return ApplyForeignGlobalFloatValue(
+                MainWorld::PoliticalDemand::ForeignGlobal,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignchina")
+        {
+            return ApplyForeignTradeRouteDemandFloatValue(
+                MainWorld::PoliticalDemand::China,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignrussia")
+        {
+            return ApplyForeignScoreDemandFloatValue(
+                MainWorld::PoliticalDemand::Russia,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignunitedstates")
+        {
+            return ApplyForeignScoreDemandFloatValue(
+                MainWorld::PoliticalDemand::UnitedStates,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignmiddleeast")
+        {
+            return ApplyForeignScoreDemandFloatValue(
+                MainWorld::PoliticalDemand::MiddleEast,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeigneuropeanunion")
+        {
+            return ApplyForeignScoreDemandFloatValue(
+                MainWorld::PoliticalDemand::EuropeanUnion,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisehousing")
+        {
+            return ApplyHousingPromiseFloatValue(
+                MainWorld::ElectionPromise::Housing,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisefood")
+        {
+            return ApplyScorePromiseFloatValue(
+                MainWorld::ElectionPromise::Food,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisehealth")
+        {
+            return ApplyScorePromiseFloatValue(
+                MainWorld::ElectionPromise::Health,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisejob")
+        {
+            return ApplyJobPromiseFloatValue(
+                MainWorld::ElectionPromise::Job,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisefreedom")
+        {
+            return ApplyScorePromiseFloatValue(
+                MainWorld::ElectionPromise::Freedom,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisesecurity")
+        {
+            return ApplyScorePromiseFloatValue(
+                MainWorld::ElectionPromise::Security,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisefaith")
+        {
+            return ApplyScorePromiseFloatValue(
+                MainWorld::ElectionPromise::Faith,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromiseexportincome")
+        {
+            return ApplyExportIncomePromiseFloatValue(
+                MainWorld::ElectionPromise::ExportIncome,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldworldcrisis")
+        {
+            if (Key == "severitydurationdivisordays")
+                MainWorld::WorldCrisis::SeverityDurationDivisorDays = Value;
+            else if (Key == "followupsuccessbasecarryover")
+                MainWorld::WorldCrisis::FollowupSuccessBaseCarryover = Value;
+            else if (Key == "followupfailurebasecarryover")
+                MainWorld::WorldCrisis::FollowupFailureBaseCarryover = Value;
+            else if (Key == "followupseveritycarryoverweight")
+                MainWorld::WorldCrisis::FollowupSeverityCarryoverWeight = Value;
+            else if (Key == "lightpressureseveritythreshold")
+                MainWorld::WorldCrisis::LightPressureSeverityThreshold = Value;
+            else if (Key == "heavypressureseveritythreshold")
+                MainWorld::WorldCrisis::HeavyPressureSeverityThreshold = Value;
+            else
+                return false;
+
+            return true;
+        }
+
+        if (Section == "mainworldworldcrisissecuritycollapse")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::SecurityCollapse,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisresidentialsecuritycollapse")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::ResidentialSecurityCollapse,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisfreedomcollapse")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::FreedomCollapse,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisresidentialfreedomcollapse")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::ResidentialFreedomCollapse,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisjobstress")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::JobStress,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisfoodstress")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::FoodStress,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisishousingstress")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::HousingStress,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisresidentialpollutionstress")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::ResidentialPollutionStress,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisbudgetdeficit")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::BudgetDeficit,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisnetlosspressure")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::NetLossPressure,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisistaxcollectionbreakdown")
+            return ApplyPressureRangeFloatValue(
+                MainWorld::WorldCrisis::TaxCollectionBreakdown,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisraidimmediatebudget")
+            return ApplyImmediateBudgetFloatValue(
+                MainWorld::WorldCrisis::RaidImmediateBudget,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisislaborstrikeimmediatebudget")
+            return ApplyImmediateBudgetFloatValue(
+                MainWorld::WorldCrisis::LaborStrikeImmediateBudget,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisiscrimewaveimmediatebudget")
+            return ApplyImmediateBudgetFloatValue(
+                MainWorld::WorldCrisis::CrimeWaveImmediateBudget,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisfiscalemergencyimmediatebudget")
+            return ApplyImmediateBudgetFloatValue(
+                MainWorld::WorldCrisis::FiscalEmergencyImmediateBudget,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisraidrisk")
+            return ApplyRaidRiskFloatValue(
+                MainWorld::WorldCrisis::RaidRisk,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisislaborstrikerisk")
+            return ApplyLaborStrikeRiskFloatValue(
+                MainWorld::WorldCrisis::LaborStrikeRisk,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisiscrimewaverisk")
+            return ApplyCrimeWaveRiskFloatValue(
+                MainWorld::WorldCrisis::CrimeWaveRisk,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisfiscalemergencyrisk")
+            return ApplyFiscalEmergencyRiskFloatValue(
+                MainWorld::WorldCrisis::FiscalEmergencyRisk,
+                Key,
+                Value);
+
         return false;
     }
 
@@ -350,6 +1691,322 @@ namespace
 
             return true;
         }
+
+        if (Section == "mainworldtrade")
+        {
+            if (Key == "maxactivetraderoutecount")
+                MainWorld::Trade::MaxActiveTradeRouteCount = Value;
+            else if (Key == "maxcompletedtraderouterecordcount")
+                MainWorld::Trade::MaxCompletedTradeRouteRecordCount = Value;
+            else if (Key == "minamountunits")
+                MainWorld::Trade::MinAmountUnits = Value;
+            else if (Key == "maxamountunits")
+                MainWorld::Trade::MaxAmountUnits = Value;
+            else if (Key == "mindailytransferunits")
+                MainWorld::Trade::MinDailyTransferUnits = Value;
+            else if (Key == "maxdailytransferunits")
+                MainWorld::Trade::MaxDailyTransferUnits = Value;
+            else if (Key == "defaultdurationdays")
+                MainWorld::Trade::DefaultDurationDays = Value;
+            else
+                return false;
+
+            return true;
+        }
+
+        if (Section == "mainworldtradediplomacy")
+        {
+            if (Key == "standingidledecayintervaldays")
+                MainWorld::TradeDiplomacy::StandingIdleDecayIntervalDays = Value;
+            else if (Key == "relationidledecayintervaldays")
+                MainWorld::TradeDiplomacy::RelationIdleDecayIntervalDays = Value;
+            else
+                return false;
+
+            return true;
+        }
+
+        if (Section == "mainworldpoliticaldemand")
+        {
+            if (Key == "maxactivefactiondemandcount")
+                MainWorld::PoliticalDemand::MaxActiveFactionDemandCount = Value;
+            else if (Key == "maxactiveforeigndemandcount")
+                MainWorld::PoliticalDemand::MaxActiveForeignDemandCount = Value;
+            else if (Key == "factiondurationdays")
+                MainWorld::PoliticalDemand::FactionDurationDays = Value;
+            else if (Key == "foreigndurationdays")
+                MainWorld::PoliticalDemand::ForeignDurationDays = Value;
+            else if (Key == "factioncooldowndays")
+                MainWorld::PoliticalDemand::FactionCooldownDays = Value;
+            else if (Key == "foreigncooldowndays")
+                MainWorld::PoliticalDemand::ForeignCooldownDays = Value;
+            else if (Key == "factionmodifierdurationdays")
+                MainWorld::PoliticalDemand::FactionModifierDurationDays = Value;
+            else if (Key == "noticedurationdays")
+                MainWorld::PoliticalDemand::NoticeDurationDays = Value;
+            else if (Key == "campaignpromiseleaddays")
+                MainWorld::PoliticalDemand::CampaignPromiseLeadDays = Value;
+            else if (Key == "factionmembermincount")
+                MainWorld::PoliticalDemand::FactionMemberMinCount = Value;
+            else
+                return false;
+
+            return true;
+        }
+
+        if (Section == "mainworldfactioncommunists")
+        {
+            return ApplyHousingDemandIntValue(
+                MainWorld::PoliticalDemand::Communists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactioncapitalists")
+        {
+            return ApplyTaxCeilingDemandIntValue(
+                MainWorld::PoliticalDemand::Capitalists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionreligious")
+        {
+            return ApplyScoreDemandIntValue(
+                MainWorld::PoliticalDemand::Religious,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionmilitarists")
+        {
+            return ApplyScoreDemandIntValue(
+                MainWorld::PoliticalDemand::Militarists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionenvironmentalists")
+        {
+            return ApplyScoreDemandIntValue(
+                MainWorld::PoliticalDemand::Environmentalists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionindustrialists")
+        {
+            return ApplyExportIncomeDemandIntValue(
+                MainWorld::PoliticalDemand::Industrialists,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionintellectuals")
+        {
+            return ApplyScoreDemandIntValue(
+                MainWorld::PoliticalDemand::Intellectuals,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldfactionconservatives")
+        {
+            return ApplyTaxCeilingDemandIntValue(
+                MainWorld::PoliticalDemand::Conservatives,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignglobal")
+        {
+            return ApplyForeignGlobalIntValue(
+                MainWorld::PoliticalDemand::ForeignGlobal,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignchina")
+        {
+            return ApplyForeignTradeRouteDemandIntValue(
+                MainWorld::PoliticalDemand::China,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignrussia")
+        {
+            return ApplyForeignScoreDemandIntValue(
+                MainWorld::PoliticalDemand::Russia,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignunitedstates")
+        {
+            return ApplyForeignScoreDemandIntValue(
+                MainWorld::PoliticalDemand::UnitedStates,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeignmiddleeast")
+        {
+            return ApplyForeignScoreDemandIntValue(
+                MainWorld::PoliticalDemand::MiddleEast,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldforeigneuropeanunion")
+        {
+            return ApplyForeignScoreDemandIntValue(
+                MainWorld::PoliticalDemand::EuropeanUnion,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisehousing")
+        {
+            return ApplyHousingPromiseIntValue(
+                MainWorld::ElectionPromise::Housing,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisefood")
+        {
+            return ApplyScorePromiseIntValue(
+                MainWorld::ElectionPromise::Food,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisehealth")
+        {
+            return ApplyScorePromiseIntValue(
+                MainWorld::ElectionPromise::Health,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisejob")
+        {
+            return ApplyJobPromiseIntValue(
+                MainWorld::ElectionPromise::Job,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisefreedom")
+        {
+            return ApplyScorePromiseIntValue(
+                MainWorld::ElectionPromise::Freedom,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisesecurity")
+        {
+            return ApplyScorePromiseIntValue(
+                MainWorld::ElectionPromise::Security,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromisefaith")
+        {
+            return ApplyScorePromiseIntValue(
+                MainWorld::ElectionPromise::Faith,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldelectionpromiseexportincome")
+        {
+            return ApplyExportIncomePromiseIntValue(
+                MainWorld::ElectionPromise::ExportIncome,
+                Key,
+                Value);
+        }
+
+        if (Section == "mainworldworldcrisis")
+        {
+            if (Key == "raiddurationdays")
+                MainWorld::WorldCrisis::RaidDurationDays = Value;
+            else if (Key == "laborstrikedurationdays")
+                MainWorld::WorldCrisis::LaborStrikeDurationDays = Value;
+            else if (Key == "crimewavedurationdays")
+                MainWorld::WorldCrisis::CrimeWaveDurationDays = Value;
+            else if (Key == "fiscalemergencydurationdays")
+                MainWorld::WorldCrisis::FiscalEmergencyDurationDays = Value;
+            else if (Key == "successcooldowndays")
+                MainWorld::WorldCrisis::SuccessCooldownDays = Value;
+            else if (Key == "failurecooldowndays")
+                MainWorld::WorldCrisis::FailureCooldownDays = Value;
+            else if (Key == "startnotificationdays")
+                MainWorld::WorldCrisis::StartNotificationDays = Value;
+            else if (Key == "resolvednotificationdays")
+                MainWorld::WorldCrisis::ResolvedNotificationDays = Value;
+            else
+                return false;
+
+            return true;
+        }
+
+        if (Section == "mainworldworldcrisisraidimmediatebudget")
+            return ApplyImmediateBudgetIntValue(
+                MainWorld::WorldCrisis::RaidImmediateBudget,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisislaborstrikeimmediatebudget")
+            return ApplyImmediateBudgetIntValue(
+                MainWorld::WorldCrisis::LaborStrikeImmediateBudget,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisiscrimewaveimmediatebudget")
+            return ApplyImmediateBudgetIntValue(
+                MainWorld::WorldCrisis::CrimeWaveImmediateBudget,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisfiscalemergencyimmediatebudget")
+            return ApplyImmediateBudgetIntValue(
+                MainWorld::WorldCrisis::FiscalEmergencyImmediateBudget,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisfiscalemergencyrisk")
+            return ApplyFiscalEmergencyRiskIntValue(
+                MainWorld::WorldCrisis::FiscalEmergencyRisk,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisraidpressuretransfer")
+            return ApplyPressureTransferIntValue(
+                MainWorld::WorldCrisis::RaidPressureTransfer,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisislaborstrikepressuretransfer")
+            return ApplyPressureTransferIntValue(
+                MainWorld::WorldCrisis::LaborStrikePressureTransfer,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisiscrimewavepressuretransfer")
+            return ApplyPressureTransferIntValue(
+                MainWorld::WorldCrisis::CrimeWavePressureTransfer,
+                Key,
+                Value);
+
+        if (Section == "mainworldworldcrisisfiscalemergencypressuretransfer")
+            return ApplyPressureTransferIntValue(
+                MainWorld::WorldCrisis::FiscalEmergencyPressureTransfer,
+                Key,
+                Value);
 
         return false;
     }

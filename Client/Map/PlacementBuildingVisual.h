@@ -5,15 +5,13 @@
 
 class CBuildingVisual : public CGameObject
 {
-	friend class CWorld;
 	friend class CObject;
 
-protected:
+public:
 	CBuildingVisual();
 	CBuildingVisual(const CBuildingVisual& ref);
 	CBuildingVisual(CBuildingVisual&& ref) noexcept;
 
-public:
 	virtual ~CBuildingVisual();
 
 private:

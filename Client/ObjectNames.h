@@ -16,6 +16,7 @@ constexpr const char* GTileMapRoadPreviewName    = "TileMapRoadPreview";
 constexpr const char* GTileMapExpansionName      = "TileMapExpansion";
 
 // ── 배치 시스템 오브젝트 ─────────────────────────────────────────────────────
+constexpr const char* GMainCameraName          = "MainCamera";
 constexpr const char* GPlacementControllerName  = "PlacementController";
 // 동적 이름: GPlacedBuildingPrefix + std::to_string(N) 형태로 사용
 constexpr const char* GPlacedBuildingPrefix     = "PlacedBuilding_";

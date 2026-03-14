@@ -1,0 +1,54 @@
+EdictTypeKey	BodyText
+FoodForThePeople	시민들이 식사할 때 음식을 두 개 소비합니다. 음식 만족이 개선되고, 자본주의자 지지는 내려가며 공산주의자 지지는 올라갑니다.
+TaxCut	모든 시민의 지지도가 상승합니다. 시행 비용은 시민 수에 비례하며, 5년의 재사용 대기시간이 있습니다.
+MartialLaw	계엄령을 선포해 선거를 중단하고 치안을 끌어올립니다. 대신 자유와 관광 매력이 크게 떨어지고, 다른 세력의 반발이 커집니다.
+FreeHousing	시민들의 임대료 부담을 없애 주거 부담을 줄입니다. 대신 자본주의자 지지는 내려가고 공산주의자 지지는 올라갑니다.
+EmployeeOfTheMonth	광산과 산업 건물 노동자들의 생산성을 끌어올립니다. 대신 월간 추가 운영비가 발생합니다.
+ChurchFee	종교 건물 방문객에게 예배 비용을 징수합니다. 재정이 늘어나지만 자유는 낮아지고 종교 세력은 반발합니다.
+NoFreeLunch	더 이상 음식을 무료로 제공하지 않습니다. 재정은 개선되지만 음식 만족도와 자유가 떨어집니다.
+NothingBeatsSiesta	근무 중 낮잠 시간을 보장해 직업 만족을 높입니다. 대신 생산성은 떨어집니다.
+UrbanDevelopment	도시 중심 개발 기금을 조성해 주거 환경 개선을 우선합니다.
+PenalColony	이민율이 {immigrationmod}만큼 증가합니다. 각 이민자가 범죄자로 변모할 확률이 {criminalchance}만큼 증가합니다. 매달 {fee}만큼의 돈을 받습니다.
+ChildAllowances	가족의 경제적 재산 수준을 결정할 때 자녀를 고려하지 않게 됩니다.\r\n\r\n매달 칙령 비용으로 자녀 한 명당 {cost}만큼 지출해야 합니다.
+AdvancedBoatServices	화물 창고, 여객선 터미널, 항구의 유지 비용이 {upkeepmodpercent}만큼 증가합니다. 보트, 화물선, 관광선, 운송선의 속도가 {speedmodpercent}만큼 증가합니다.
+Audience	우호도가 제일 낮은 세 개의 세력이 제각각 요구를 해 옵니다. 해당 칙령은 {cooldownMonths}개월의 재사용 대기시간이 있습니다.
+AgriculturalSubsidies	농업 건물에 보조금을 지급해 생산성과 식량 공급을 끌어올립니다. 대신 유지비 부담이 늘어납니다.
+BuildingPermit	모든 건축에 허가 수수료를 붙여 세수를 늘립니다. 대신 건설 부담이 커지고 시민 반발이 생깁니다.
+StateLoans	{fee}만큼을 대출받습니다. {loanduration}년 동안 매달 {repaymonthly}만큼의 금액을 갚아 총 {repay}만큼을 상환해야 합니다. {cooldown}년의 재사용 대기시간이 있습니다.
+WealthTax	부유층에 추가 세금을 부과해 세수를 늘립니다. 공산주의자 지지는 오르고 자본주의자 지지는 떨어집니다.
+Industrialization	산업 개발에 집중해 공장 확장을 밀어줍니다. 대신 산업 편중에 대한 반발이 생길 수 있습니다.
+EarlyElections	해당 칙령을 활성화하면 {countdownMonths}개월 후 선거를 치르게 됩니다. 조기선거 연설을 할 수 없습니다. 일반적인 선거 캠페인 기간에는 해당 칙령을 활성화할 수 없습니다.
+LiteracyProgram	문해력 향상 프로그램으로 학교 효율을 높입니다. 대신 교육 인프라 유지비가 늘어납니다.
+Prohibition	음주를 강하게 제한해 치안을 높입니다. 대신 오락 시설 운영과 시민 자유에는 부담이 생깁니다.
+BellsToBullets	모든 종교 건물의 효율이 {effmod} 감소합니다. 군사 분대의 체력과 피해가 {squadpowermod}만큼 증가합니다. 종교인의 우호도가 {factionmod 0}만큼 감소합니다. 군국주의자의 우호도가 {factionmod 1}만큼 증가합니다.
+MilitaryPolice	군 병력을 동원해 치안을 강화합니다. 대신 자유가 떨어지고 월간 유지비가 발생합니다.
+Volkswagen	경제적 재산 수준이 가난함인 시민들도 자동차를 사용할 수 있게 됩니다. 자본주의자의 우호도가 {factionmod 0}만큼 감소합니다. 공산주의자의 우호도가 {factionmod 1}만큼 증가합니다.\r\n\r\n매달 칙령 비용으로 {cost}만큼 지출해야 합니다.
+RightToArms	시민의 총기 소지 권리를 허용합니다. 자유는 오르지만 치안은 악화될 수 있습니다.
+FestivalBoost	트로피코의 파티 기계가 점차 과열되는 중입니다. 다들 파티를 최대한 열심히 즐기고 있군요. 다음 축제의 반경이 20% 증가합니다 (중계탑 제외).
+NuclearTesting	{fee}의 금액을 받습니다. 모든 세력의 우호도가 {factionmod 0}만큼 감소합니다. 시민의 사망을 초래할 수 있는 보건 기준점이 {thresholdmod}만큼 증가합니다.\r\n\r\n해당 칙령은 단 한 번만 선포할 수 있습니다.
+GoodOldDays	시민들이 구식 의복을 입게 됩니다. 관광객 평가가 {touristratingmod}만큼 증가하는데, 여기서 존재하는 각 요새 하나당 {fortbonus}만큼, 각 경비탑 하나당 {guardtowerbonus}만큼 최대 {bonuscap}까지 추가 보너스를 받습니다. 지식인의 우호도가 {factionmod 0}만큼 감소합니다. 보수주의자의 우호도가 {factionmod 1}만큼 증가합니다. 종교인의 우호도가 {factionmod 2}만큼 증가합니다.
+ExperimentalGroundTreatment	활성화 시 스위스 은행 계좌에 산업 건물 하나당 {fee}만큼의 금액이 들어옵니다. 각 산업 건물이 배출하는 공해가 {pollutionmod} 증가합니다. 환경주의자의 우호도가 {factionmod 0}만큼 감소합니다. 실업가의 우호도가 {factionmod 1}만큼 증가합니다. 칙령은 {durationMonths}개월 동안 유지되며, {cooldownYears}년의 재사용 대기시간이 있습니다.
+MandatoryWasteSorting	모든 주거 건물의 공해가 {pollmod}만큼 감소합니다. 모든 주거 건물의 유지 비용이 {upkeepmod}만큼 증가합니다. 보수주의자의 우호도가 {factionmod 1}만큼 감소합니다. 환경주의자의 우호도가 {factionmod 0}만큼 증가합니다.
+DiplomaticSuperParty	열강 외교관을 초청한 대형 외교 행사로 대외 이미지를 끌어올립니다. 대신 재사용 대기시간이 깁니다.
+HappyMeat	모든 목장 및 공장식 목장의 효율이 {effmod} 감소하며, 직업 품질이 {jobmod} 증가합니다. 고기의 표준 수출 가격이 {pricemod 0} 증가합니다. 실업가의 우호도가 {factionmod 1}만큼 감소합니다. 환경주의자의 우호도가 {factionmod 0}만큼 증가합니다.
+AlternativeFoodSource	시민들이 기아로 사망하지 않게 됩니다. 낮은 보건으로 인해 사망을 초래할 수 있는 기준점이 {thresholdmod}만큼 증가합니다. 칙령은 {durationYears}년 동안 유지되며, {cooldownYears}년의 재사용 대기시간이 있습니다.
+SpellingBee	각 고등학교 학생이 졸업할 때 {chance} 확률로 대학교 학위를 바로 얻습니다. 고등학교의 유지 비용이 {upkeepmod}만큼 증가합니다.
+AssemblyBan	활성화 시 모든 시위가 종료됩니다. 시민들의 시위를 금지합니다.\r\n자유가 {libertymod}만큼 감소합니다. 시민들이 반란군으로 변할 확률이 {rebelchancemod}만큼 증가합니다.\r\n\r\n매달 칙령 비용으로 시민 한 명당 ${cost}만큼 지출해야 합니다.
+NationalDay	국경일 축하 분위기로 주점과 칵테일 바가 더 활기를 띱니다. 대신 종교 세력의 반발을 살 수 있습니다.
+MadeInTropico	모든 상품의 수출 가격이 {exportPriceModifierPercent} 증가합니다. 모든 산업 건물의 유지 비용이 {upkeepModifierPercent} 증가합니다.
+SocialSecurity	은퇴자 및 성인 학생이 매달 트로피코의 평균 임금에 기반해 {averagewagemod} 수입을 얻습니다 (현재: {currentwagepaid}). 수령 대상자의 개인적 경험이 {personalXPMod} 증가합니다. 공산주의자의 우호도가 {factionmod 0} 증가하고 자본주의자의 우호도가 {factionmod 1} 감소합니다.
+MoneyLaundering	이 칙령이 효력을 발휘하는 동안, 축제로 발생한 모든 입장료가 스위스 자금으로 전환됩니다. 전환 자금은 축제에서 창출할 잠재적 수입의 {lvl1value}/{lvl2value}/{lvl3value}입니다.
+HearTheCall	트로피코에서 (현재 승객 설정에 따라) 준비된 우주선에 탑승 자격을 갖춘 모든 시민이 즉시 우주선으로 향합니다. 자격이 있지만 탑승권을 얻지 못한 트로피코인의 개인적 감정이 감소합니다. 해당 칙령은 우주선 좌석이 가득 찰 때까지 유효합니다. {numberOfCooldownMonth} {numberOfCooldownMonth}|plural(one=개월,other=개월)의 재사용 대기 시간이 있습니다.
+ContraceptionBan	출산율이 {birthratemod}만큼 증가합니다. 지식인의 우호도가 {factionmod 1}만큼 감소합니다. 종교인의 우호도가 {factionmod 0}만큼 증가합니다.
+LegalizedSubstances	관광객들이 요금을 낼 때마다 {feemod}만큼의 금액을 추가로 지불합니다. 자유가 {libertymod}만큼 증가합니다. 스릴 중독 관광객과 휴양 관광객의 평가가 {touristratingmod}만큼 증가합니다. 종교인의 우호도가 {factionmod 0}만큼 감소합니다. 보수주의자의 우호도가 {factionmod 1}만큼 감소합니다.
+CulturalDiversity	이민율이 {immigrationmod}만큼 증가합니다. 문화 관광객과 배낭여행 관광객의 평가가 {touristratingmod}만큼 증가합니다. 보수주의자의 우호도가 {factionmod 0}만큼 감소합니다.
+TaxHeaven	조세 피난처 정책으로 해외 자본과 수익을 끌어들입니다. 대신 대외 관계에는 부담이 생깁니다.
+KnowledgioSinco	각 고등학교와 대학교의 효율이 {effmod} 증가합니다. 칙령은 {durationMonths}개월 동안 유지되며, {cooldownMonths}개월의 재사용 대기시간이 있습니다.
+Speedway	도로를 이용하는 자동차의 속도가 {speedincrease}만큼 증가합니다. 매달 칙령 비용으로 {cost}만큼 지출해야 합니다.
+CompulsoryVaccination	낮은 보건으로 인해 시민들의 죽음을 초래할 수 있는 기준점이 {thresholdmod}만큼 감소합니다. 종교인의 우호도가 {factionmod 0}만큼 감소합니다.\r\n환경주의자의 우호도가 {factionmod 1}만큼 감소합니다. 칙령은 {durationYears}년 간 유지되며 {cooldownYears}년의 재사용 대기시간이 있습니다.\r\n\r\n칙령 비용으로 매달 시민 한 명당 ${cost}만큼 지출합니다.
+LightBulbBan	주거 건물의 전력 필요량이 {PowSupp}만큼 감소합니다. 각 쓰레기장의 공해가 {pollmod}만큼 증가합니다. 폐기물 처리장의 유지 비용이 {upkeepmod}만큼 증가합니다. 활성화하려면 칙령 비용으로 주거 건물 하나당 {cost}만큼 지출해야 합니다.
+SeaDisposal	화물선이 트로피코를 떠날 때마다 쓰레기장 하나당 {pollmod}만큼의 공해가 감소합니다. {chance}의 확률로 각 열강과의 우호도가 쓰레기장 하나당 {standingmod} 감소합니다.
+PolicyOfDetente	긴장을 완화해 반란 세력을 사회로 복귀시키려 시도합니다. 대신 보수주의자의 반발을 부릅니다.
+CTPA	카리브해 무역 협정에 참여해 수출 기회를 늘리고 자본주의자 지지를 높입니다.
+TourismState	관광객 만족을 시민 복지보다 우선합니다. 관광객 만족도는 높아지지만 오락·관광 시설의 서비스 품질은 떨어집니다.
+SoapOpera	모든 우주 임무를 텔레비전 연속극으로 바꿉니다. 추가 촬영 스태프, 장비, 음식 공급자가 투입되어 우주선의 모든 진행 상황이 어려워집니다. 우주 임무의 위험 등급이 {maintenanceModifierPercentage}% 증가합니다. 대신 우주 임무 진행 시 매달 {moneyGenerationPerMonth}$에 해당하는 지속적인 수익 흐름을 만들어 냅니다.

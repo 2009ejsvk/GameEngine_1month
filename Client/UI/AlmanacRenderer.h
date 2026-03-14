@@ -97,8 +97,6 @@ private:
         CAlmanacWidget& Widget,
         const AlmanacDataProvider::FAlmanacSnapshot& Snapshot,
         const AlmanacRendererCalc::FConflictPageComputedData& ComputedData);
-    static void ValidateSnapshotForDebug(
-        const AlmanacDataProvider::FAlmanacSnapshot& Snapshot);
     static void ValidateLayoutForDebug(
         CAlmanacWidget& Widget,
         const FAlmanacLayoutContext& Layout);

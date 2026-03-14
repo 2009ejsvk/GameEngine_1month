@@ -1,34 +1,38 @@
 #include "MainWorld.h"
 #include "MainWorldConfig.h"
 #include "RuntimeConfigRegistry.h"
+#include "../UI/UILayoutConfig.h"
 #include "../GameConstants.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Politics/EdictSystem.h"
 #include "../Politics/PoliticsSystem.h"
 #include <algorithm>
 
-void CMainWorld::CycleSimulationSpeedState()
+void CMainWorld::ToggleSimulationPaused()
 {
-    if (mSimulationPaused)
+    mSimulationPaused = !mSimulationPaused;
+}
+
+void CMainWorld::CycleSimulationSpeedMultiplier()
+{
+    if (mSimulationSpeedMultiplier >= 4)
     {
-        mSimulationPaused = false;
         mSimulationSpeedMultiplier = 1;
         return;
     }
 
-    if (mSimulationSpeedMultiplier <= 1)
-    {
-        mSimulationSpeedMultiplier = 2;
-        return;
-    }
-
-    if (mSimulationSpeedMultiplier <= 2)
+    if (mSimulationSpeedMultiplier >= 2)
     {
         mSimulationSpeedMultiplier = 4;
         return;
     }
 
-    mSimulationPaused = true;
+    mSimulationSpeedMultiplier = 2;
+}
+
+void CMainWorld::OnUiManagerUpdated()
+{
+    UIConfig::ApplyWidgetOverrides(GetUIManager().lock());
 }
 
 void CMainWorld::Update(float DeltaTime)
@@ -43,6 +47,9 @@ void CMainWorld::Update(float DeltaTime)
         mLastGameConstantsGeneration = GameConstantsGeneration;
         RebuildRoadNetwork();
         RefreshRuntimeBuildingState();
+        RefreshPoliticalSnapshot();
+        RefreshForeignTradeDiplomacy(false);
+        RefreshWorldMarketPrices();
 
         std::vector<std::weak_ptr<CBuildingMarkerOrb>> CitizenList;
 
@@ -87,7 +94,7 @@ void CMainWorld::Update(float DeltaTime)
 
     CWorld::Update(SimulationDeltaTime);
 
-    if (mElectionStatus.GameLost)
+    if (mElectionService->IsGameLost())
         return;
 
     AdvanceSimulationDate(SimulationDeltaTime);

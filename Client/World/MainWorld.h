@@ -2,7 +2,10 @@
 
 #include "GovernmentCommandService.h"
 #include "MainWorldAccess.h"
+#include "MainWorldElectionService.h"
+#include "MainWorldPoliticalDemandService.h"
 #include "MainWorldTradeDiplomacyState.h"
+#include "MainWorldWorldCrisisService.h"
 #include "World/World.h"
 #include <string>
 #include <vector>
@@ -30,6 +33,7 @@ public:
 public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
+    virtual void OnUiManagerUpdated() override;
 	long long GetNationalBudget() const
 	{
 		return mNationalBudget;
@@ -57,7 +61,8 @@ public:
     {
         return mSimulationSpeedMultiplier;
     }
-    virtual void CycleSimulationSpeedState() override;
+    virtual void ToggleSimulationPaused() override;
+    virtual void CycleSimulationSpeedMultiplier() override;
     EBuildingEra GetCurrentEra() const
     {
         return mEraProgress.CurrentEra;
@@ -158,7 +163,7 @@ public:
 	}
 	const FElectionStatus& GetElectionStatus() const
 	{
-		return mElectionStatus;
+		return mElectionService->GetElectionStatus();
 	}
 	int GetDaysUntilNextElection() const;
 	double GetElectionWarningScore() const;
@@ -168,23 +173,23 @@ public:
 	}
     const FWorldCrisisStatus& GetWorldCrisisStatus() const
     {
-        return mWorldCrisisStatus;
+        return mWorldCrisisService->GetStatus();
     }
     const FPoliticalDemandNotice& GetPoliticalDemandNotice() const
     {
-        return mPoliticalDemandNotice;
+        return mPoliticalDemandService->GetPoliticalDemandNotice();
     }
     const std::array<FPoliticalDemandState, GPoliticalFactionCount>&
         GetFactionDemandStates() const
     {
-        return mFactionDemands;
+        return mPoliticalDemandService->GetFactionDemandStates();
     }
     const std::array<
         FPoliticalDemandState,
         TradeDiplomacyRuntime::GForeignPowerCount>&
         GetForeignDemandStates() const
     {
-        return mTradeDiplomacyState.ForeignPowerDemands;
+        return mPoliticalDemandService->GetForeignDemandStates();
     }
     virtual void RebuildRoadNetwork() override;
     virtual const CRoadNetwork* GetRoadNetwork() const override
@@ -249,34 +254,25 @@ private:
 	int mWorkerTaxPressureDays = 0;
 	int mPropertyTaxPressureDays = 0;
     int mBudgetCrisisPressureDays = 0;
-    int mRaidPressureDays = 0;
-    int mLaborStrikePressureDays = 0;
-    int mCrimeWavePressureDays = 0;
-    int mFiscalEmergencyPressureDays = 0;
-    int mActiveWorldCrisisChainDepth = 0;
-    EWorldCrisisType mQueuedWorldCrisisType = EWorldCrisisType::None;
-    double mQueuedWorldCrisisRisk = 0.0;
-    int mQueuedWorldCrisisDelayDays = 0;
-    int mQueuedWorldCrisisChainDepth = 0;
 	FGovernmentProfile mGovernmentProfile;
 	FPoliticalWorldSnapshot mPoliticalSnapshot;
-    FElectionStatus mElectionStatus;
     FTaxPolicyEventStatus mTaxEventStatus;
-    FWorldCrisisStatus mWorldCrisisStatus;
-    FPoliticalDemandNotice mPoliticalDemandNotice;
     FEraProgressState mEraProgress;
 	std::vector<FGovernmentEdictState> mGovernmentEdicts;
 	FGovernmentEdictModifiers mEdictModifiers;
     std::shared_ptr<CRoadNetwork> mRoadNetwork;
     std::shared_ptr<CBusRouteSystem> mBusRouteSystem;
     FMainWorldTradeDiplomacyState mTradeDiplomacyState;
-    std::array<FPoliticalDemandState, GPoliticalFactionCount>
-        mFactionDemands = {};
-    std::array<int, GPoliticalFactionCount> mFactionDemandCooldownDays = {};
-    std::array<int, GPoliticalFactionCount> mFactionDemandModifierDays = {};
+    std::unique_ptr<CMainWorldElectionService> mElectionService;
+    std::unique_ptr<CMainWorldPoliticalDemandService> mPoliticalDemandService;
+    std::unique_ptr<CMainWorldWorldCrisisService> mWorldCrisisService;
 
 private:
 	void ResetWorldState();
+    CMainWorldPoliticalDemandService::FContext BuildPoliticalDemandContext();
+    void ApplyPoliticalDemandRefreshRequests(
+        const CMainWorldPoliticalDemandService::FRefreshRequests&
+            RefreshRequests);
 	void TickPoliticalRefresh(float DeltaTime);
 	void TickCitizenPopulation(float DeltaTime);
 	void SpawnCitizenOrb();

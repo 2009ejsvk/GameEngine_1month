@@ -1,13 +1,8 @@
 #include "CitizenInfoWidget.h"
 #include "CitizenInfoDataProvider.h"
+#include "CitizenInfoInteractionService.h"
+#include "CitizenInfoQueryService.h"
 #include "CitizenInfoRenderer.h"
-#include "TradeWidget.h"
-#include "../Map/BuildingMarkerOrb.h"
-#include "../Map/PlacementAreaObject.h"
-#include "../Map/PlacementController.h"
-#include "../World/GovernmentCommandService.h"
-#include "../ObjectNames.h"
-#include "World/World.h"
 
 CCitizenInfoWidget::CCitizenInfoWidget()
 {
@@ -17,16 +12,28 @@ CCitizenInfoWidget::~CCitizenInfoWidget()
 {
 }
 
+void CCitizenInfoWidget::ResetCitizenModeState()
+{
+    mSelectedCitizenTab = ECitizenInfoTab::Overview;
+    mTrackedCitizenName.clear();
+    mCitizenPoliticsSatisfactionFillRatios.fill(0.f);
+    mCitizenPoliticsSupportRatio = 0.f;
+}
+
+void CCitizenInfoWidget::ResetBuildingModeState()
+{
+    mSelectedBuildingTab = EBuildingInfoTab::Overview;
+    mTrackedBuildingName.clear();
+    mCustomsModeSelectionOpen = false;
+}
+
 bool CCitizenInfoWidget::Init()
 {
     CWidgetContainer::Init();
 
     mPanelMode = EPanelMode::Citizen;
-    mSelectedCitizenTab = ECitizenInfoTab::Overview;
-    mSelectedBuildingTab = EBuildingInfoTab::Overview;
-    mTrackedCitizenName.clear();
-    mTrackedBuildingName.clear();
-    mCustomsModeSelectionOpen = false;
+    ResetCitizenModeState();
+    ResetBuildingModeState();
     mPanelWidth = 360.f;
     mPanelHeight = 720.f;
     mPanelTop = 56.f;
@@ -63,10 +70,9 @@ void CCitizenInfoWidget::OpenCitizen(
 
     mRequestedScreenPos = ScreenPos;
     mPanelMode = EPanelMode::Citizen;
+    ResetCitizenModeState();
+    ResetBuildingModeState();
     mTrackedCitizenName = CitizenName;
-    mTrackedBuildingName.clear();
-    mSelectedCitizenTab = ECitizenInfoTab::Overview;
-    mCustomsModeSelectionOpen = false;
 
     SetEnable(true);
     RefreshFromState();
@@ -87,31 +93,109 @@ void CCitizenInfoWidget::OpenBuilding(
 
     mRequestedScreenPos = ScreenPos;
     mPanelMode = EPanelMode::Building;
-    mTrackedCitizenName.clear();
+    ResetCitizenModeState();
+    ResetBuildingModeState();
     mTrackedBuildingName = BuildingObjectName;
-    mSelectedBuildingTab = EBuildingInfoTab::Overview;
-    mCustomsModeSelectionOpen = false;
 
     SetEnable(true);
     RefreshFromState();
+}
+
+CCitizenInfoWidget::FRendererView CCitizenInfoWidget::GetRendererView()
+{
+    return
+    {
+        *this,
+        mPanelMode,
+        mSelectedCitizenTab,
+        mSelectedBuildingTab,
+        mPanelImage,
+        mInnerFrame,
+        mTitleRibbon,
+        mSectionRibbon,
+        mScrollTrack,
+        mScrollThumb,
+        mTitleIcon,
+        mTitleText,
+        mSubtitleText,
+        mSectionDivider,
+        mPageTitleText,
+        mBodyText,
+        mBudgetText,
+        mCloseButton,
+        mTabButtons,
+        mTabButtonTexts,
+        mTabButtonIcons,
+        mDemolishButton,
+        mMoveButton,
+        mFocusButton,
+        mOverviewCommandButton,
+        mOverviewCommandButtonText,
+        mBudgetButtons,
+        mBudgetButtonTexts,
+        mOverviewWorkModeLabel,
+        mOverviewWorkModeBackground,
+        mOverviewWorkModeText,
+        mOverviewBudgetLabel,
+        mOverviewBudgetValue,
+        mOverviewOccupancyLabel,
+        mOverviewOccupancyValue,
+        mOverviewResidentIcons,
+        mOverviewVisitorIcons,
+        mOverviewMetricLabels,
+        mOverviewMetricValues,
+        mUpgradeCardBackground,
+        mUpgradeCardIcon,
+        mUpgradeCardTitle,
+        mUpgradeDescriptionText,
+        mInformationAccentText,
+        mInformationTopText,
+        mInformationBottomText,
+        mCitizenPoliticsSectionBackgrounds,
+        mCitizenPoliticsSectionTitles,
+        mCitizenPoliticsSatisfactionLabels,
+        mCitizenPoliticsSatisfactionRails,
+        mCitizenPoliticsSatisfactionFills,
+        mCitizenPoliticsOpinionTexts,
+        mCitizenPoliticsSupportIcons,
+        mCitizenPoliticsSupportRail,
+        mCitizenPoliticsSupportThumb,
+        mCitizenThoughtTitleBackground,
+        mCitizenThoughtTitleText,
+        mCitizenThoughtTexts,
+        mCitizenThoughtDividers,
+        mCitizenActionButtons,
+        mCitizenActionButtonTexts,
+        mCitizenActionButtonIcons,
+        mCitizenFooterText,
+        mPanelWidth,
+        mPanelHeight,
+        mPanelTop,
+        mCitizenPoliticsSatisfactionFillRatios,
+        mCitizenPoliticsSupportRatio,
+        mRequestedScreenPos,
+        mWorld
+    };
 }
 
 void CCitizenInfoWidget::RefreshFromState()
 {
     CitizenInfoDataProvider::FCitizenInfoSnapshot Snapshot;
     const int SelectedTabIndex = GetSelectedTabIndexForCurrentMode();
+    const auto QuerySource =
+        CitizenInfoQueryService::CreateWorldQuerySource(mWorld.lock());
 
     if (mPanelMode == EPanelMode::Citizen)
     {
         Snapshot = CitizenInfoDataProvider::BuildTrackedCitizenSnapshot(
-            mWorld.lock(),
+            QuerySource,
             mTrackedCitizenName,
             SelectedTabIndex);
     }
     else
     {
         Snapshot = CitizenInfoDataProvider::BuildTrackedBuildingSnapshot(
-            mWorld.lock(),
+            QuerySource,
             mTrackedBuildingName,
             SelectedTabIndex,
             mCustomsModeSelectionOpen);
@@ -119,8 +203,8 @@ void CCitizenInfoWidget::RefreshFromState()
 
     if (!Snapshot.Valid)
     {
-        mTrackedCitizenName.clear();
-        mTrackedBuildingName.clear();
+        ResetCitizenModeState();
+        ResetBuildingModeState();
         SetEnable(false);
         return;
     }
@@ -188,18 +272,11 @@ bool CCitizenInfoWidget::IsTrackedCustomsOffice() const
     if (mTrackedBuildingName.empty())
         return false;
 
-    auto World = mWorld.lock();
-
-    if (!World)
-        return false;
-
-    auto Building = World->FindObject<CPlacementAreaObject>(
-        mTrackedBuildingName).lock();
-
-    if (!Building || !Building->GetAlive() || !Building->GetEnable())
-        return false;
-
-    return IsCustomsOfficeBuildingId(Building->GetBuildingId());
+    const auto InteractionSource =
+        CitizenInfoInteractionService::CreateWorldInteractionSource(
+            mWorld.lock());
+    return InteractionSource &&
+        InteractionSource->IsCustomsOfficeBuilding(mTrackedBuildingName);
 }
 
 bool CCitizenInfoWidget::TrySelectCustomsOperationMode(int ModeIndex)
@@ -211,21 +288,22 @@ bool CCitizenInfoWidget::TrySelectCustomsOperationMode(int ModeIndex)
         return false;
     }
 
-    auto World = mWorld.lock();
+    const auto InteractionSource =
+        CitizenInfoInteractionService::CreateWorldInteractionSource(
+            mWorld.lock());
 
-    if (!World)
-        return false;
-
-    auto Building = World->FindObject<CPlacementAreaObject>(
-        mTrackedBuildingName).lock();
-
-    if (!Building || !Building->GetAlive() || !Building->GetEnable())
+    if (!InteractionSource)
         return false;
 
     std::wstring FeedbackMessage;
 
-    if (!Building->SetActiveOperationMode(ModeIndex, FeedbackMessage))
+    if (!InteractionSource->SetBuildingOperationMode(
+            mTrackedBuildingName,
+            ModeIndex,
+            FeedbackMessage))
+    {
         return false;
+    }
 
     RefreshFromState();
     return true;
@@ -233,23 +311,13 @@ bool CCitizenInfoWidget::TrySelectCustomsOperationMode(int ModeIndex)
 
 bool CCitizenInfoWidget::OpenTradeWidget()
 {
-    auto World = mWorld.lock();
+    const auto InteractionSource =
+        CitizenInfoInteractionService::CreateWorldInteractionSource(
+            mWorld.lock());
 
-    if (!World)
+    if (!InteractionSource || !InteractionSource->OpenTradeWidget())
         return false;
 
-    auto UIManager = World->GetUIManager().lock();
-
-    if (!UIManager)
-        return false;
-
-    auto TradeWidget =
-        UIManager->FindWidget<CTradeWidget>(GTradeWidgetName).lock();
-
-    if (!TradeWidget)
-        return false;
-
-    TradeWidget->SetOpen(true);
     mCustomsModeSelectionOpen = false;
     SetEnable(false);
     return true;
@@ -260,26 +328,23 @@ void CCitizenInfoWidget::SetBuildingBudgetLevel(int Level)
     if (mTrackedBuildingName.empty())
         return;
 
-    auto World = mWorld.lock();
+    const auto InteractionSource =
+        CitizenInfoInteractionService::CreateWorldInteractionSource(
+            mWorld.lock());
 
-    if (!World)
+    if (!InteractionSource ||
+        !InteractionSource->SetBuildingBudgetLevel(mTrackedBuildingName, Level))
+    {
         return;
+    }
 
-    auto Building = World->FindObject<CPlacementAreaObject>(
-        mTrackedBuildingName).lock();
-
-    if (!Building || !Building->GetAlive() || !Building->GetEnable())
-        return;
-
-    Building->SetBudgetLevel(Level);
     RefreshFromState();
 }
 
 void CCitizenInfoWidget::OnCloseButtonClick()
 {
-    mTrackedCitizenName.clear();
-    mTrackedBuildingName.clear();
-    mCustomsModeSelectionOpen = false;
+    ResetCitizenModeState();
+    ResetBuildingModeState();
     SetEnable(false);
 }
 
@@ -288,23 +353,17 @@ void CCitizenInfoWidget::OnDemolishButtonClick()
     if (mTrackedBuildingName.empty())
         return;
 
-    auto World = mWorld.lock();
+    const auto InteractionSource =
+        CitizenInfoInteractionService::CreateWorldInteractionSource(
+            mWorld.lock());
 
-    if (!World)
+    if (!InteractionSource ||
+        !InteractionSource->DemolishBuilding(mTrackedBuildingName))
+    {
         return;
+    }
 
-    auto PlacementController =
-        World->FindObject<CPlacementController>(
-            GPlacementControllerName).lock();
-
-    if (!PlacementController)
-        return;
-
-    if (!PlacementController->DemolishBuildingByName(mTrackedBuildingName))
-        return;
-
-    mTrackedBuildingName.clear();
-    mCustomsModeSelectionOpen = false;
+    ResetBuildingModeState();
     SetEnable(false);
 }
 
@@ -313,26 +372,32 @@ void CCitizenInfoWidget::OnMoveButtonClick()
     if (mTrackedBuildingName.empty())
         return;
 
-    auto World = mWorld.lock();
+    const auto InteractionSource =
+        CitizenInfoInteractionService::CreateWorldInteractionSource(
+            mWorld.lock());
 
-    if (!World)
+    if (!InteractionSource ||
+        !InteractionSource->BeginMoveBuilding(mTrackedBuildingName))
+    {
         return;
-
-    auto PlacementController =
-        World->FindObject<CPlacementController>(
-            GPlacementControllerName).lock();
-
-    if (!PlacementController)
-        return;
-
-    if (!PlacementController->BeginMoveExistingBuilding(mTrackedBuildingName))
-        return;
+    }
 
     SetEnable(false);
 }
 
-void CCitizenInfoWidget::OnCloneButtonClick()
+void CCitizenInfoWidget::OnFocusButtonClick()
 {
+    if (mTrackedBuildingName.empty())
+        return;
+
+    const auto InteractionSource =
+        CitizenInfoInteractionService::CreateWorldInteractionSource(
+            mWorld.lock());
+
+    if (!InteractionSource)
+        return;
+
+    InteractionSource->FocusBuilding(mTrackedBuildingName);
 }
 
 void CCitizenInfoWidget::OnOverviewCommandButtonClick()
@@ -340,18 +405,14 @@ void CCitizenInfoWidget::OnOverviewCommandButtonClick()
     if (mTrackedBuildingName.empty())
         return;
 
-    auto World = mWorld.lock();
+    const auto InteractionSource =
+        CitizenInfoInteractionService::CreateWorldInteractionSource(
+            mWorld.lock());
 
-    if (!World)
+    if (!InteractionSource)
         return;
 
-    auto Building = World->FindObject<CPlacementAreaObject>(
-        mTrackedBuildingName).lock();
-
-    if (!Building || !Building->GetAlive() || !Building->GetEnable())
-        return;
-
-    if (IsTrackedCustomsOffice() &&
+    if (InteractionSource->IsCustomsOfficeBuilding(mTrackedBuildingName) &&
         mSelectedBuildingTab == EBuildingInfoTab::Overview)
     {
         if (mCustomsModeSelectionOpen)
@@ -365,82 +426,12 @@ void CCitizenInfoWidget::OnOverviewCommandButtonClick()
         return;
     }
 
-    if (!Building->IsHarbor())
-    {
-        std::wstring FeedbackMessage;
-
-        if (mSelectedBuildingTab == EBuildingInfoTab::Overview)
-        {
-            if (Building->HasOperationModes())
-            {
-                if (!Building->CycleOperationMode(FeedbackMessage))
-                    return;
-            }
-            else if (Building->HasWarehouseStorageControls())
-            {
-                if (!Building->CycleWarehouseStoragePolicy(FeedbackMessage))
-                    return;
-            }
-            else
-            {
-                return;
-            }
-        }
-        else if (mSelectedBuildingTab == EBuildingInfoTab::Upgrades)
-        {
-            if (!Building->HasRuntimeUpgrades() ||
-                !Building->CycleRuntimeUpgrade(FeedbackMessage))
-            {
-                return;
-            }
-        }
-        else if (mSelectedBuildingTab == EBuildingInfoTab::Information)
-        {
-            if (!Building->HasWarehouseStorageControls() ||
-                !Building->CycleWarehousePriority(FeedbackMessage))
-            {
-                return;
-            }
-        }
-        else
-        {
-            return;
-        }
-
-        RefreshFromState();
-        return;
-    }
-
-    auto MainWorld =
-        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
-
-    if (!MainWorld)
-        return;
-
     std::wstring FeedbackMessage;
-    const EBuildingInfoTab SelectedTab = mSelectedBuildingTab;
 
-    if (SelectedTab == EBuildingInfoTab::Overview)
-    {
-        MainWorld->CycleAutoImportResource(FeedbackMessage);
-    }
-    else if (SelectedTab == EBuildingInfoTab::Statistics)
-    {
-        MainWorld->CycleDomesticReservePolicy(FeedbackMessage);
-    }
-    else if (SelectedTab == EBuildingInfoTab::Upgrades)
-    {
-        MainWorld->CycleImportPerResourceCap(FeedbackMessage);
-    }
-    else if (SelectedTab == EBuildingInfoTab::Efficiency)
-    {
-        MainWorld->CycleImportBudgetPolicy(FeedbackMessage);
-    }
-    else if (SelectedTab == EBuildingInfoTab::Information)
-    {
-        MainWorld->CycleExportBlockedResource(FeedbackMessage);
-    }
-    else
+    if (!InteractionSource->ExecuteBuildingCommand(
+            mTrackedBuildingName,
+            mSelectedBuildingTab,
+            FeedbackMessage))
     {
         return;
     }

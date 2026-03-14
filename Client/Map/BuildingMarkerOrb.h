@@ -13,15 +13,13 @@
 class CBuildingMarkerOrb :
     public CGameObject
 {
-    friend class CWorld;
     friend class CObject;
 
-protected:
+public:
     CBuildingMarkerOrb();
     CBuildingMarkerOrb(const CBuildingMarkerOrb& ref);
     CBuildingMarkerOrb(CBuildingMarkerOrb&& ref) noexcept;
 
-public:
     virtual ~CBuildingMarkerOrb();
 
 private:

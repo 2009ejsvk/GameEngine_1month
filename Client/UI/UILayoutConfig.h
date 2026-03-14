@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 // ============================================================
 //  UI 레이아웃 런타임 설정
 //
@@ -9,6 +11,8 @@
 //
 //  각 항목의 설명은 UILayout.ini 파일 안의 주석을 참고하세요.
 // ============================================================
+
+class CWorldUIManager;
 
 namespace UIConfig
 {
@@ -54,10 +58,14 @@ namespace UIConfig
     extern float DateFontSize;
 
     // ── 게임 속도 버튼 ───────────────────────────────────────
-    extern float SpeedButtonSize;
-    extern float SpeedButtonStep;
-    extern float SpeedButtonOffsetX;
-    extern float SpeedButtonBottomMargin;
+    extern float PlayPauseButtonSize;
+    extern float PlayPauseButtonOffsetX;
+    extern float PlayPauseButtonOffsetY;
+    extern float PlayPauseButtonBottomMargin;
+    extern float SpeedMultiplierButtonSize;
+    extern float SpeedMultiplierButtonOffsetX;
+    extern float SpeedMultiplierButtonOffsetY;
+    extern float SpeedMultiplierButtonBottomMargin;
 
     // ── 하단 메뉴 아이콘 버튼 ────────────────────────────────
     extern float MenuButtonSize;
@@ -102,6 +110,48 @@ namespace UIConfig
     extern float EdictDetailTitleFontSize;
     extern float EdictDetailBodyFontSize;
     extern float EdictDetailCostFontSize;
+    extern float EdictTitleTextOffsetX;
+    extern float EdictTitleTextOffsetY;
+    extern float EdictSlotTextOffsetX;
+    extern float EdictSlotTextOffsetY;
+    extern float EdictDetailTitleOffsetX;
+    extern float EdictDetailTitleOffsetY;
+    extern float EdictDetailCostRowWidth;
+    extern float EdictDetailCostRowOffsetX;
+    extern float EdictDetailCostRowOffsetY;
+    extern float EdictDetailCostIconSize;
+    extern float EdictDetailCostIconOffsetX;
+    extern float EdictDetailCostIconOffsetY;
+    extern float EdictDetailCostOffsetX;
+    extern float EdictDetailCostOffsetY;
+    extern float EdictDetailCostTextWidth;
+    extern float EdictDetailCostTextHeight;
+    extern bool EdictDetailInfoInlineWithCost;
+    extern float EdictDetailInfoInlineGapX;
+    extern float EdictDetailInfoPanelOffsetX;
+    extern float EdictDetailInfoPanelOffsetY;
+    extern float EdictDetailInfoPanelWidthAdjust;
+    extern float EdictDetailInfoPanelHeightAdjust;
+    extern float EdictDetailInfoTextWidth;
+    extern float EdictDetailInfoTextHeight;
+    extern float EdictDetailInfoOffsetX;
+    extern float EdictDetailInfoOffsetY;
+    extern float EdictFeedbackOffsetX;
+    extern float EdictFeedbackOffsetY;
+    extern float EdictDetailBodyOffsetX;
+    extern float EdictDetailBodyOffsetY;
+    extern float EdictRequirementOffsetX;
+    extern float EdictRequirementOffsetY;
+    extern float EdictApplyButtonOffsetX;
+    extern float EdictApplyButtonOffsetY;
+    extern float EdictApplyButtonTextOffsetX;
+    extern float EdictApplyButtonTextOffsetY;
+    extern float EdictTaxPolicyTitleOffsetX;
+    extern float EdictTaxPolicyTitleOffsetY;
+    extern float EdictTaxPolicyRowTextOffsetX;
+    extern float EdictTaxPolicyRowTextOffsetY;
+    extern float EdictTaxPolicySummaryOffsetX;
+    extern float EdictTaxPolicySummaryOffsetY;
     extern float EdictApplyButtonWidth;
     extern float EdictApplyButtonHeight;
     extern float EdictScrollTrackWidth;
@@ -162,24 +212,104 @@ namespace UIConfig
     extern float BuildingPanelMinWidth;
     extern float BuildingPanelMaxWidth;
     extern float BuildingPanelTopOffset;
+    extern float BuildingPanelBottomMargin;
+    extern float BuildingPanelRightInset;
+    extern float BuildingPanelMinHeight;
     extern float BuildingPanelInnerMarginX;
     extern float BuildingPanelInnerMarginTop;
+    extern float BuildingPanelInnerBottomInset;
     extern float BuildingTabWidth;
     extern float BuildingTabHeight;
     extern float BuildingTabGap;
+    extern float BuildingTabLabelFontSize;
+    extern float BuildingTabLabelOffsetX;
+    extern float BuildingTabLabelOffsetY;
     extern float BuildingTitleFontSize;
     extern float BuildingSubtitleFontSize;
     extern float BuildingBodyFontSize;
+    extern float BuildingPageTitleFontSize;
+    extern float BuildingBudgetTextFontSize;
+    extern float BuildingOverviewWorkModeLabelFontSize;
+    extern float BuildingOverviewWorkModeValueFontSize;
+    extern float BuildingOverviewBudgetLabelFontSize;
+    extern float BuildingOverviewBudgetValueFontSize;
+    extern float BuildingOverviewOccupancyLabelFontSize;
+    extern float BuildingOverviewOccupancyValueFontSize;
+    extern float BuildingOverviewMetricLabelFontSize;
+    extern float BuildingOverviewMetricSectionHeaderFontSize;
+    extern float BuildingOverviewMetricValueFontSize;
+    extern float BuildingUpgradeTitleFontSize;
+    extern float BuildingUpgradeDescriptionFontSize;
+    extern float BuildingInformationAccentFontSize;
+    extern float BuildingInformationBodyFontSize;
+    extern float BuildingBudgetButtonFontSize;
+    extern float BuildingActionButtonFontSize;
+    extern float BuildingOverviewCommandButtonFontSize;
+    extern float BuildingTitleIconInsetX;
+    extern float BuildingTitleIconOffsetY;
+    extern float BuildingTitleTextInsetX;
+    extern float BuildingTitleIconGap;
+    extern float BuildingTitleTextOffsetX;
+    extern float BuildingTitleTextOffsetY;
+    extern float BuildingTitleTextWidthAdjust;
+    extern float BuildingTitleTextHeightAdjust;
+    extern float BuildingSubtitleOffsetY;
     extern float BuildingTitleRibbonOffsetX;
     extern float BuildingTitleRibbonOffsetY;
     extern float BuildingTitleRibbonHeight;
+    extern float BuildingSectionRibbonHeight;
+    extern float BuildingSectionRibbonOffsetY;
+    extern float BuildingCollapsedSectionGap;
     extern float BuildingCloseButtonOffsetX;
+    extern float BuildingCloseButtonOffsetY;
     extern float BuildingCloseButtonSize;
+    extern float BuildingCompactControlHeight;
+    extern float BuildingCompactBudgetButtonWidth;
+    extern float BuildingSectionDividerWidth;
+    extern float BuildingSectionDividerHeight;
+    extern float BuildingBudgetBaseOffsetY;
+    extern float BuildingBudgetLabelOffsetY;
+    extern float BuildingOverviewWorkModeLabelOffsetX;
+    extern float BuildingOverviewWorkModeLabelOffsetY;
+    extern float BuildingOverviewWorkModeLabelWidthAdjust;
+    extern float BuildingOverviewWorkModeBackgroundOffsetX;
+    extern float BuildingOverviewWorkModeBackgroundOffsetY;
+    extern float BuildingOverviewWorkModeBackgroundWidthAdjust;
+    extern float BuildingOverviewWorkModeBackgroundHeightAdjust;
+    extern float BuildingOverviewWorkModeTextOffsetX;
+    extern float BuildingOverviewWorkModeTextOffsetY;
+    extern float BuildingOverviewWorkModeTextWidthAdjust;
+    extern float BuildingOverviewWorkModeTextHeightAdjust;
+    extern float BuildingOverviewBudgetLabelOffsetX;
+    extern float BuildingOverviewBudgetLabelOffsetY;
+    extern float BuildingOverviewBudgetLabelWidthAdjust;
+    extern float BuildingOverviewBudgetValueOffsetX;
+    extern float BuildingOverviewBudgetValueOffsetY;
+    extern float BuildingOverviewBudgetValueWidthAdjust;
+    extern float BuildingBudgetCustomButtonsOffsetY;
+    extern float BuildingBudgetWorkButtonsOffsetY;
+    extern float BuildingBudgetDefaultButtonsOffsetY;
+    extern float BuildingBudgetCompactGap;
+    extern float BuildingBudgetDefaultGap;
+    extern float BuildingOccupancyGapY;
     extern float BuildingActionButtonHeight;
     extern float BuildingActionButtonWidth;
     extern float BuildingActionButtonBottomMargin;
+    extern float BuildingActionCompactIconSize;
+    extern float BuildingActionCompactIconOffsetY;
+    extern float BuildingMoveCompactRightOffset;
+    extern float BuildingFocusCompactRightOffset;
+    extern float BuildingOverviewCommandGap;
     extern float BuildingBudgetButtonHeight;
     extern float BuildingScrollTrackWidth;
+    extern float BuildingScrollBottomInset;
+    extern float BuildingScrollThumbHeight;
+    extern float BuildingScrollThumbTopOffset;
+    extern float BuildingBodyGapAfterSection;
+    extern float BuildingBodyGapAfterActions;
+    extern float BuildingBodyGapBeforeActions;
+    extern float BuildingBodyFallbackOffset;
+    extern float BuildingBodyBottomInset;
     extern float BuildingIconSize;
 
     // ── NPC 선택 UI ──────────────────────────────────────────
@@ -196,6 +326,7 @@ namespace UIConfig
     extern float CitizenTitleFontSize;
     extern float CitizenSubtitleFontSize;
     extern float CitizenBodyFontSize;
+    extern float CitizenPageTitleFontSize;
     extern float CitizenTitleRibbonHeight;
     extern float CitizenSectionRibbonHeight;
     extern float CitizenSectionRibbonOffsetY;
@@ -211,6 +342,7 @@ namespace UIConfig
     extern float CitizenBodyBottomInset;
 
     void RegisterRuntimeConfig();
+    void ApplyWidgetOverrides(const std::shared_ptr<CWorldUIManager>& UIManager);
 
     // ── 런타임 리로드 ────────────────────────────────────────
     // 공용 RuntimeConfigRegistry를 쓰지 않을 때만 수동 호출하세요.

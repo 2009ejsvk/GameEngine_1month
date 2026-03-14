@@ -1,121 +1,85 @@
 #include "PlacementAreaObject.h"
 #include "PlacementBuildingRoleResolver.h"
 #include "../Building/BuildingCatalog.h"
+#include "../StringUtils.h"
 #include "../World/MainWorldAccess.h"
 #include "Component/SceneComponent.h"
 #include "Object/TileMapObject.h"
 #include "World/Input.h"
 #include "World/World.h"
-#include <Windows.h>
 
-namespace
+namespace PlacementAreaObjectInternal
 {
-    int GTopologyBatchDepth = 0;
-    bool GTopologyBatchPending = false;
-    std::weak_ptr<CWorld> GTopologyBatchWorld;
+    using StringUtils::Utf8ToWide;
+    using StringUtils::WideToUtf8;
 
-    std::string WideToUtf8(const std::wstring& Text)
+    void FlushPlacementTopologyUpdates(const std::shared_ptr<CWorld>& World)
     {
-        if (Text.empty())
-            return std::string();
+        if (!World)
+            return;
 
-        const int RequiredBytes = WideCharToMultiByte(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            nullptr, 0, nullptr, nullptr);
+        std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
 
-        if (RequiredBytes <= 0)
+        if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+            return;
+
+        for (size_t i = 0; i < BuildingList.size(); ++i)
         {
-            std::string Fallback;
-            Fallback.reserve(Text.size());
+            auto Building = BuildingList[i].lock();
 
-            for (wchar_t Ch : Text)
-            {
-                Fallback.push_back(Ch >= 0 && Ch <= 0x7f ?
-                    static_cast<char>(Ch) :
-                    '?');
-            }
+            if (!Building || !Building->GetAlive() || !Building->GetEnable())
+                continue;
 
-            return Fallback;
+            Building->RefreshAccessibilityScore();
         }
 
-        std::string Utf8;
-        Utf8.resize(RequiredBytes);
-        WideCharToMultiByte(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            &Utf8[0], RequiredBytes, nullptr, nullptr);
-        return Utf8;
+        if (auto RoadNetworkAccess =
+                dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()))
+        {
+            RoadNetworkAccess->RebuildRoadNetwork();
+        }
+
+        if (auto RefreshAccess =
+                dynamic_cast<IMainWorldRuntimeRefreshAccess*>(World.get()))
+        {
+            RefreshAccess->RefreshRuntimeBuildingState();
+        }
     }
+} // namespace PlacementAreaObjectInternal
 
-    std::wstring Utf8ToWide(const std::string& Text)
-    {
-        if (Text.empty())
-            return std::wstring();
+using StringUtils::Utf8ToWide;
+using StringUtils::WideToUtf8;
 
-        const int RequiredCount = MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            nullptr, 0);
-
-        if (RequiredCount <= 0)
-            return std::wstring(Text.begin(), Text.end());
-
-        std::wstring WideText;
-        WideText.resize(RequiredCount);
-        MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            &WideText[0], RequiredCount);
-        return WideText;
-    }
-
+CPlacementAreaObject::FScopedTopologyBatch::~FScopedTopologyBatch()
+{
+    Flush();
 }
 
-void CPlacementAreaObject::BeginTopologyBatchUpdate()
+void CPlacementAreaObject::FScopedTopologyBatch::MarkDirty(
+    const std::shared_ptr<CWorld>& World)
 {
-    ++GTopologyBatchDepth;
-}
-
-void CPlacementAreaObject::EndTopologyBatchUpdate()
-{
-    if (GTopologyBatchDepth <= 0)
-        return;
-
-    --GTopologyBatchDepth;
-
-    if (GTopologyBatchDepth > 0 || !GTopologyBatchPending)
-        return;
-
-    GTopologyBatchPending = false;
-    auto World = GTopologyBatchWorld.lock();
-    GTopologyBatchWorld.reset();
-
     if (!World)
         return;
 
-    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+    auto CurrentWorld = mWorld.lock();
 
-    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+    if (CurrentWorld && CurrentWorld != World)
+        PlacementAreaObjectInternal::FlushPlacementTopologyUpdates(CurrentWorld);
+
+    mPending = true;
+    mWorld = World;
+}
+
+void CPlacementAreaObject::FScopedTopologyBatch::Flush()
+{
+    if (!mPending)
         return;
 
-    for (size_t i = 0; i < BuildingList.size(); ++i)
-    {
-        auto Building = BuildingList[i].lock();
+    mPending = false;
+    auto World = mWorld.lock();
+    mWorld.reset();
 
-        if (!Building || !Building->GetAlive() || !Building->GetEnable())
-            continue;
-
-        Building->RefreshAccessibilityScore();
-    }
-
-    if (auto RoadNetworkAccess =
-            dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()))
-    {
-        RoadNetworkAccess->RebuildRoadNetwork();
-    }
-
-    if (auto RefreshAccess =
-            dynamic_cast<IMainWorldRuntimeRefreshAccess*>(World.get()))
-    {
-        RefreshAccess->RefreshRuntimeBuildingState();
-    }
+    PlacementAreaObjectInternal::FlushPlacementTopologyUpdates(World);
 }
 
 CPlacementAreaObject::CPlacementAreaObject()
@@ -490,6 +454,11 @@ bool CPlacementAreaObject::CycleWarehousePriority(std::wstring& OutMessage)
 
 void CPlacementAreaObject::Destroy()
 {
+    Destroy(nullptr);
+}
+
+void CPlacementAreaObject::Destroy(FScopedTopologyBatch* TopologyBatch)
+{
     const bool HadPlacedArea = HasPlacedArea();
     std::shared_ptr<CTileMapComponent> TileMap;
 
@@ -517,7 +486,7 @@ void CPlacementAreaObject::Destroy()
     UpdateMarkerOverlayTiles(std::vector<int>());
 
     if (HadPlacedArea)
-        NotifyPlacementTopologyChanged();
+        NotifyPlacementTopologyChanged(TopologyBatch);
 
     CGameObject::Destroy();
 }
@@ -553,44 +522,19 @@ void CPlacementAreaObject::ApplyPlacementStateToTileMap(
     }
 }
 
-void CPlacementAreaObject::NotifyPlacementTopologyChanged()
+void CPlacementAreaObject::NotifyPlacementTopologyChanged(
+    FScopedTopologyBatch* TopologyBatch)
 {
     auto World = mWorld.lock();
 
     if (!World)
         return;
 
-    if (GTopologyBatchDepth > 0)
+    if (TopologyBatch)
     {
-        GTopologyBatchPending = true;
-        GTopologyBatchWorld = World;
+        TopologyBatch->MarkDirty(World);
         return;
     }
 
-    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
-
-    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
-        return;
-
-    for (size_t i = 0; i < BuildingList.size(); ++i)
-    {
-        auto Building = BuildingList[i].lock();
-
-        if (!Building || !Building->GetAlive() || !Building->GetEnable())
-            continue;
-
-        Building->RefreshAccessibilityScore();
-    }
-
-    if (auto RoadNetworkAccess =
-            dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()))
-    {
-        RoadNetworkAccess->RebuildRoadNetwork();
-    }
-
-    if (auto RefreshAccess =
-            dynamic_cast<IMainWorldRuntimeRefreshAccess*>(World.get()))
-    {
-        RefreshAccess->RefreshRuntimeBuildingState();
-    }
+    PlacementAreaObjectInternal::FlushPlacementTopologyUpdates(World);
 }

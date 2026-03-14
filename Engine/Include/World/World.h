@@ -77,6 +77,7 @@ public:
 	virtual void PostRender();
 	virtual void RenderUI();
 	void ClearWorld();
+	virtual void OnUiManagerUpdated();
 	bool BuildNavigationSnapshot(
 		const std::shared_ptr<class CTileMapComponent>& TileMap,
 		int EndTileIndex,

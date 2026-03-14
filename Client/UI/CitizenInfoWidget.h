@@ -16,7 +16,6 @@ class CCitizenInfoWidget :
     public CWidgetContainer
 {
     friend class CWorldUIManager;
-    friend class FCitizenInfoRenderer;
 
 protected:
     CCitizenInfoWidget();
@@ -24,7 +23,7 @@ protected:
 public:
     virtual ~CCitizenInfoWidget();
 
-private:
+public:
     enum class EPanelMode
     {
         Citizen,
@@ -77,7 +76,7 @@ private:
     {
         WButton DemolishButton;
         WButton MoveButton;
-        WButton CloneButton;
+        WButton FocusButton;
         WButton OverviewCommandButton;
         WText OverviewCommandButtonText;
         std::array<WButton, GBudgetLevelCount> BudgetButtons;
@@ -130,21 +129,197 @@ private:
         WText FooterText;
     };
 
+    struct FCitizenModeState
+    {
+        ECitizenInfoTab SelectedTab = ECitizenInfoTab::Overview;
+        std::string TrackedCitizenName;
+        std::array<float, GCitizenPoliticsSatisfactionCount>
+            PoliticsSatisfactionFillRatios = {};
+        float PoliticsSupportRatio = 0.f;
+    };
+
+    struct FBuildingModeState
+    {
+        EBuildingInfoTab SelectedTab = EBuildingInfoTab::Overview;
+        std::string TrackedBuildingName;
+        bool CustomsModeSelectionOpen = false;
+    };
+
     struct FPanelState
     {
         EPanelMode PanelMode = EPanelMode::Citizen;
-        ECitizenInfoTab SelectedCitizenTab = ECitizenInfoTab::Overview;
-        EBuildingInfoTab SelectedBuildingTab = EBuildingInfoTab::Overview;
-        std::string TrackedCitizenName;
-        std::string TrackedBuildingName;
+        FCitizenModeState Citizen;
+        FBuildingModeState Building;
         float PanelWidth = 360.f;
         float PanelHeight = 720.f;
         float PanelTop = 56.f;
-        std::array<float, GCitizenPoliticsSatisfactionCount>
-            CitizenPoliticsSatisfactionFillRatios = {};
-        float CitizenPoliticsSupportRatio = 0.f;
         FVector2 RequestedScreenPos = FVector2(0.f, 0.f);
     };
+
+    struct FRendererView
+    {
+        CCitizenInfoWidget& Owner;
+        EPanelMode& mPanelMode;
+        ECitizenInfoTab& mSelectedCitizenTab;
+        EBuildingInfoTab& mSelectedBuildingTab;
+        WImage& mPanelImage;
+        WImage& mInnerFrame;
+        WImage& mTitleRibbon;
+        WImage& mSectionRibbon;
+        WImage& mScrollTrack;
+        WImage& mScrollThumb;
+        WImage& mTitleIcon;
+        WText& mTitleText;
+        WText& mSubtitleText;
+        WImage& mSectionDivider;
+        WText& mPageTitleText;
+        WText& mBodyText;
+        WText& mBudgetText;
+        WButton& mCloseButton;
+        std::array<WButton, GTabButtonCount>& mTabButtons;
+        std::array<WText, GTabButtonCount>& mTabButtonTexts;
+        std::array<WImage, GTabButtonCount>& mTabButtonIcons;
+        WButton& mDemolishButton;
+        WButton& mMoveButton;
+        WButton& mFocusButton;
+        WButton& mOverviewCommandButton;
+        WText& mOverviewCommandButtonText;
+        std::array<WButton, GBudgetLevelCount>& mBudgetButtons;
+        std::array<WText, GBudgetLevelCount>& mBudgetButtonTexts;
+        WText& mOverviewWorkModeLabel;
+        WImage& mOverviewWorkModeBackground;
+        WText& mOverviewWorkModeText;
+        WText& mOverviewBudgetLabel;
+        WText& mOverviewBudgetValue;
+        WText& mOverviewOccupancyLabel;
+        WText& mOverviewOccupancyValue;
+        std::array<WImage, GOverviewResidentSlotCount>& mOverviewResidentIcons;
+        std::array<WImage, GOverviewVisitorSlotCount>& mOverviewVisitorIcons;
+        std::array<WText, GOverviewMetricRowCount>& mOverviewMetricLabels;
+        std::array<WText, GOverviewMetricRowCount>& mOverviewMetricValues;
+        WImage& mUpgradeCardBackground;
+        WImage& mUpgradeCardIcon;
+        WText& mUpgradeCardTitle;
+        WText& mUpgradeDescriptionText;
+        WText& mInformationAccentText;
+        WText& mInformationTopText;
+        WText& mInformationBottomText;
+        std::array<WImage, GCitizenPoliticsSectionCount>&
+            mCitizenPoliticsSectionBackgrounds;
+        std::array<WText, GCitizenPoliticsSectionCount>&
+            mCitizenPoliticsSectionTitles;
+        std::array<WText, GCitizenPoliticsSatisfactionCount>&
+            mCitizenPoliticsSatisfactionLabels;
+        std::array<WImage, GCitizenPoliticsSatisfactionCount>&
+            mCitizenPoliticsSatisfactionRails;
+        std::array<WImage, GCitizenPoliticsSatisfactionCount>&
+            mCitizenPoliticsSatisfactionFills;
+        std::array<WText, GCitizenPoliticsOpinionCount>&
+            mCitizenPoliticsOpinionTexts;
+        std::array<WImage, GCitizenPoliticsSupportIconCount>&
+            mCitizenPoliticsSupportIcons;
+        WImage& mCitizenPoliticsSupportRail;
+        WImage& mCitizenPoliticsSupportThumb;
+        WImage& mCitizenThoughtTitleBackground;
+        WText& mCitizenThoughtTitleText;
+        std::array<WText, GCitizenThoughtCount>& mCitizenThoughtTexts;
+        std::array<WImage, GCitizenThoughtDividerCount>& mCitizenThoughtDividers;
+        std::array<WButton, GCitizenActionButtonCount>& mCitizenActionButtons;
+        std::array<WText, GCitizenActionButtonCount>& mCitizenActionButtonTexts;
+        std::array<WImage, GCitizenActionButtonCount>& mCitizenActionButtonIcons;
+        WText& mCitizenFooterText;
+        float& mPanelWidth;
+        float& mPanelHeight;
+        float& mPanelTop;
+        std::array<float, GCitizenPoliticsSatisfactionCount>&
+            mCitizenPoliticsSatisfactionFillRatios;
+        float& mCitizenPoliticsSupportRatio;
+        FVector2& mRequestedScreenPos;
+        std::weak_ptr<class CWorld>& mWorld;
+
+        template <typename T>
+        std::weak_ptr<T> CreateWidget(const std::string& Name, int ZOrder = 0)
+        {
+            return Owner.CreateWidget<T>(Name, ZOrder);
+        }
+
+        void SetPos(float X, float Y)
+        {
+            Owner.SetPos(X, Y);
+        }
+
+        void SetSize(float X, float Y)
+        {
+            Owner.SetSize(X, Y);
+        }
+
+        int GetSelectedTabIndexForCurrentMode() const
+        {
+            return Owner.GetSelectedTabIndexForCurrentMode();
+        }
+
+        bool SelectCurrentModeTab(int TabIndex)
+        {
+            return Owner.SelectCurrentModeTab(TabIndex);
+        }
+
+        void RefreshFromState()
+        {
+            Owner.RefreshFromState();
+        }
+
+        void OnCloseButtonClick()
+        {
+            Owner.OnCloseButtonClick();
+        }
+
+        void OnDemolishButtonClick()
+        {
+            Owner.OnDemolishButtonClick();
+        }
+
+        void OnMoveButtonClick()
+        {
+            Owner.OnMoveButtonClick();
+        }
+
+        void OnFocusButtonClick()
+        {
+            Owner.OnFocusButtonClick();
+        }
+
+        void OnOverviewCommandButtonClick()
+        {
+            Owner.OnOverviewCommandButtonClick();
+        }
+
+        void OnBudgetLevel1Click()
+        {
+            Owner.OnBudgetLevel1Click();
+        }
+
+        void OnBudgetLevel2Click()
+        {
+            Owner.OnBudgetLevel2Click();
+        }
+
+        void OnBudgetLevel3Click()
+        {
+            Owner.OnBudgetLevel3Click();
+        }
+
+        void OnBudgetLevel4Click()
+        {
+            Owner.OnBudgetLevel4Click();
+        }
+
+        void OnBudgetLevel5Click()
+        {
+            Owner.OnBudgetLevel5Click();
+        }
+    };
+
+private:
 
     // Primary ownership is grouped by mode/concern; aliases below keep
     // existing renderer code working while callers migrate gradually.
@@ -155,8 +330,8 @@ private:
 
     // Compatibility aliases for existing renderer/data-provider code.
     EPanelMode& mPanelMode = mState.PanelMode;
-    ECitizenInfoTab& mSelectedCitizenTab = mState.SelectedCitizenTab;
-    EBuildingInfoTab& mSelectedBuildingTab = mState.SelectedBuildingTab;
+    ECitizenInfoTab& mSelectedCitizenTab = mState.Citizen.SelectedTab;
+    EBuildingInfoTab& mSelectedBuildingTab = mState.Building.SelectedTab;
 
     WImage& mPanelImage = mChrome.PanelImage;
     WImage& mInnerFrame = mChrome.InnerFrame;
@@ -178,7 +353,7 @@ private:
 
     WButton& mDemolishButton = mBuildingPanel.DemolishButton;
     WButton& mMoveButton = mBuildingPanel.MoveButton;
-    WButton& mCloneButton = mBuildingPanel.CloneButton;
+    WButton& mFocusButton = mBuildingPanel.FocusButton;
     WButton& mOverviewCommandButton = mBuildingPanel.OverviewCommandButton;
     WText& mOverviewCommandButtonText = mBuildingPanel.OverviewCommandButtonText;
     std::array<WButton, GBudgetLevelCount>& mBudgetButtons = mBuildingPanel.BudgetButtons;
@@ -236,16 +411,17 @@ private:
         mCitizenPanel.ActionButtonIcons;
     WText& mCitizenFooterText = mCitizenPanel.FooterText;
 
-    std::string& mTrackedCitizenName = mState.TrackedCitizenName;
-    std::string& mTrackedBuildingName = mState.TrackedBuildingName;
+    std::string& mTrackedCitizenName = mState.Citizen.TrackedCitizenName;
+    std::string& mTrackedBuildingName = mState.Building.TrackedBuildingName;
     float& mPanelWidth = mState.PanelWidth;
     float& mPanelHeight = mState.PanelHeight;
     float& mPanelTop = mState.PanelTop;
     std::array<float, GCitizenPoliticsSatisfactionCount>&
         mCitizenPoliticsSatisfactionFillRatios =
-            mState.CitizenPoliticsSatisfactionFillRatios;
-    float& mCitizenPoliticsSupportRatio = mState.CitizenPoliticsSupportRatio;
+            mState.Citizen.PoliticsSatisfactionFillRatios;
+    float& mCitizenPoliticsSupportRatio = mState.Citizen.PoliticsSupportRatio;
     FVector2& mRequestedScreenPos = mState.RequestedScreenPos;
+    bool& mCustomsModeSelectionOpen = mState.Building.CustomsModeSelectionOpen;
 
 public:
     virtual bool Init();
@@ -264,24 +440,30 @@ public:
         bool IsResidential,
         int Capacity,
         const FVector2& ScreenPos);
+    FRendererView GetRendererView();
 
 private:
-    bool mCustomsModeSelectionOpen = false;
+    void ResetCitizenModeState();
+    void ResetBuildingModeState();
 
-private:
+public:
     void RefreshFromState();
     int GetSelectedTabIndexForCurrentMode() const;
     bool SelectCurrentModeTab(int TabIndex);
+
+private:
     bool SelectCitizenTab(ECitizenInfoTab Tab);
     bool SelectBuildingTab(EBuildingInfoTab Tab);
     bool IsTrackedCustomsOffice() const;
     bool TrySelectCustomsOperationMode(int ModeIndex);
     bool OpenTradeWidget();
     void SetBuildingBudgetLevel(int Level);
+
+public:
     void OnCloseButtonClick();
     void OnDemolishButtonClick();
     void OnMoveButtonClick();
-    void OnCloneButtonClick();
+    void OnFocusButtonClick();
     void OnOverviewCommandButtonClick();
     void OnBudgetLevel1Click();
     void OnBudgetLevel2Click();

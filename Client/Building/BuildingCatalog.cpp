@@ -1,7 +1,9 @@
 #include "BuildingCatalog.h"
+#include "BuildingCatalogData.h"
 #include "BuildingCatalogDerived.h"
+#include "BuildingCatalogLoader.h"
 #include "BuildingCategoryInfo.h"
-#include "../RuntimeConfigRegistry.h"
+#include "../StringUtils.h"
 #include "Asset/PathManager.h"
 #include <Windows.h>
 #include <algorithm>
@@ -18,40 +20,8 @@
 
 namespace
 {
-    std::string WideToUtf8(const std::wstring& Text)
-    {
-        if (Text.empty())
-            return std::string();
-
-        const int RequiredBytes = WideCharToMultiByte(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            nullptr, 0, nullptr, nullptr);
-
-        if (RequiredBytes <= 0)
-        {
-            std::string Fallback;
-            Fallback.reserve(Text.size());
-
-            for (size_t i = 0; i < Text.size(); ++i)
-            {
-                const wchar_t Ch = Text[i];
-
-                if (Ch >= 0 && Ch <= 0x7f)
-                    Fallback.push_back(static_cast<char>(Ch));
-                else
-                    Fallback.push_back('?');
-            }
-
-            return Fallback;
-        }
-
-        std::string Utf8;
-        Utf8.resize(RequiredBytes);
-        WideCharToMultiByte(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            &Utf8[0], RequiredBytes, nullptr, nullptr);
-        return Utf8;
-    }
+    using StringUtils::Utf8ToWide;
+    using StringUtils::WideToUtf8;
 } // namespace
 
 namespace
@@ -383,24 +353,186 @@ namespace
         const std::wstring& Text,
         double& OutValue);
 
-    std::wstring Utf8ToWide(const std::string& Text)
+    bool TryParseCatalogCostText(
+        const std::wstring& Text,
+        EBuildingCostState& OutState,
+        int& OutCost)
     {
-        if (Text.empty())
-            return std::wstring();
+        const auto Trim = [](const std::wstring& Value)
+        {
+            size_t Start = 0;
 
-        const int RequiredCount = MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            nullptr, 0);
+            while (Start < Value.size() && iswspace(Value[Start]))
+                ++Start;
 
-        if (RequiredCount <= 0)
-            return std::wstring(Text.begin(), Text.end());
+            size_t End = Value.size();
 
-        std::wstring WideText;
-        WideText.resize(RequiredCount);
-        MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()),
-            &WideText[0], RequiredCount);
-        return WideText;
+            while (End > Start && iswspace(Value[End - 1]))
+                --End;
+
+            return Value.substr(Start, End - Start);
+        };
+
+        const std::wstring Trimmed = Trim(Text);
+
+        if (Trimmed.empty())
+        {
+            OutState = EBuildingCostState::None;
+            OutCost = 0;
+            return false;
+        }
+
+        if (Trimmed.find(L"미기재") != std::wstring::npos)
+        {
+            OutState = EBuildingCostState::Unknown;
+            OutCost = 0;
+            return true;
+        }
+
+        if (Trimmed.find(L"없음") != std::wstring::npos ||
+            Trimmed.find(L"무료") != std::wstring::npos)
+        {
+            OutState = EBuildingCostState::Known;
+            OutCost = 0;
+            return true;
+        }
+
+        int ParsedCost = 0;
+
+        if (TryParseSignedInteger(Trimmed, ParsedCost))
+        {
+            OutState = EBuildingCostState::Known;
+            OutCost = ParsedCost;
+            return true;
+        }
+
+        OutState = EBuildingCostState::Unknown;
+        OutCost = 0;
+        return true;
+    }
+
+    bool TryExtractDetailCost(
+        const std::wstring& DetailText,
+        const wchar_t* Prefix,
+        EBuildingCostState& OutState,
+        int& OutCost)
+    {
+        if (!Prefix || !*Prefix)
+            return false;
+
+        const auto Trim = [](const std::wstring& Value)
+        {
+            size_t Start = 0;
+
+            while (Start < Value.size() && iswspace(Value[Start]))
+                ++Start;
+
+            size_t End = Value.size();
+
+            while (End > Start && iswspace(Value[End - 1]))
+                --End;
+
+            return Value.substr(Start, End - Start);
+        };
+
+        const size_t PrefixLength = wcslen(Prefix);
+        size_t Cursor = 0;
+
+        while (Cursor <= DetailText.size())
+        {
+            const size_t LineEnd = DetailText.find(L'\n', Cursor);
+            const size_t SliceEnd =
+                LineEnd == std::wstring::npos ? DetailText.size() : LineEnd;
+            std::wstring Line = DetailText.substr(Cursor, SliceEnd - Cursor);
+
+            if (!Line.empty() && Line.back() == L'\r')
+                Line.pop_back();
+
+            Line = Trim(Line);
+
+            if (Line.size() >= PrefixLength &&
+                Line.compare(0, PrefixLength, Prefix) == 0)
+            {
+                return TryParseCatalogCostText(
+                    Line.substr(PrefixLength),
+                    OutState,
+                    OutCost);
+            }
+
+            if (LineEnd == std::wstring::npos)
+                break;
+
+            Cursor = LineEnd + 1;
+        }
+
+        return false;
+    }
+
+    bool TryParseSignedInteger(
+        const std::wstring& Text,
+        int& OutValue)
+    {
+        for (size_t Index = 0; Index < Text.size(); ++Index)
+        {
+            const wchar_t Ch = Text[Index];
+
+            if ((Ch == L'+' || Ch == L'-') &&
+                Index + 1 < Text.size() &&
+                iswdigit(Text[Index + 1]))
+            {
+                wchar_t* EndPtr = nullptr;
+                const long Value = wcstol(Text.c_str() + Index, &EndPtr, 10);
+
+                if (EndPtr != Text.c_str() + Index)
+                {
+                    OutValue = static_cast<int>(Value);
+                    return true;
+                }
+            }
+
+            if (!iswdigit(Ch))
+                continue;
+
+            wchar_t* EndPtr = nullptr;
+            const long Value = wcstol(Text.c_str() + Index, &EndPtr, 10);
+
+            if (EndPtr != Text.c_str() + Index)
+            {
+                OutValue = static_cast<int>(Value);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool TryParseFirstFloat(
+        const std::wstring& Text,
+        double& OutValue)
+    {
+        for (size_t Index = 0; Index < Text.size(); ++Index)
+        {
+            const wchar_t Ch = Text[Index];
+            const bool StartsNumber =
+                iswdigit(Ch) ||
+                ((Ch == L'+' || Ch == L'-') &&
+                    Index + 1 < Text.size() &&
+                    iswdigit(Text[Index + 1]));
+
+            if (!StartsNumber)
+                continue;
+
+            wchar_t* EndPtr = nullptr;
+            const double Value = wcstod(Text.c_str() + Index, &EndPtr);
+
+            if (EndPtr != Text.c_str() + Index)
+            {
+                OutValue = Value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     std::wstring TrimTrailingSeparators(const std::wstring& Path)
@@ -994,8 +1126,7 @@ namespace
         if ((RawMask & 4) != 0)
             Normalized |= GBuildingWealthMaskRich;
 
-        // 현재 엔진은 부/중산층/서민 3단계만 사용하므로
-        // "더럽게 부유"는 최고 티어인 Rich 로 접어서 반영한다.
+        // ?�재 ?�진?� 부/중산�??��? 3?�계�??�용?��?�?        // "?�럽�?부????최고 ?�어??Rich �??�어??반영?�다.
         if ((RawMask & 8) != 0)
             Normalized |= GBuildingWealthMaskRich;
 
@@ -1023,32 +1154,32 @@ namespace
         }
         else if (
             EqualsIgnoreCaseAscii(Normalized, "Family") ||
-            Normalized == "아동")
+            Normalized == "?�동")
         {
             OutPreference = ETouristPreference::Family;
         }
         else if (
             EqualsIgnoreCaseAscii(Normalized, "Backpacker") ||
-            Normalized == "배낭여행")
+            Normalized == "배낭?�행")
         {
             OutPreference = ETouristPreference::Backpacker;
         }
         else if (
             EqualsIgnoreCaseAscii(Normalized, "Relaxation") ||
-            Normalized == "휴양")
+            Normalized == "?�양")
         {
             OutPreference = ETouristPreference::Relaxation;
         }
         else if (
             EqualsIgnoreCaseAscii(Normalized, "ThrillSeeker") ||
             EqualsIgnoreCaseAscii(Normalized, "Thrill Seeker") ||
-            Normalized == "스릴중독")
+            Normalized == "?�릴중독")
         {
             OutPreference = ETouristPreference::ThrillSeeker;
         }
         else if (
             EqualsIgnoreCaseAscii(Normalized, "Celebrity") ||
-            Normalized == "유명인")
+            false)
         {
             OutPreference = ETouristPreference::Celebrity;
         }
@@ -3610,1444 +3741,6 @@ namespace
         }
     }
 
-    void AddPoliticalSignal(
-        FBuildingCatalogEntry& Entry,
-        EPoliticalAxis Axis,
-        EPoliticalStance FavoredStance,
-        float Strength,
-        EPoliticalScope Scope = EPoliticalScope::Global)
-    {
-        if (Strength <= 0.f)
-            return;
-
-        FPoliticalSignalDef Signal;
-        Signal.Axis = Axis;
-        Signal.FavoredStance = FavoredStance;
-        Signal.Strength = Strength;
-        Signal.Scope = Scope;
-        Entry.PoliticalSignals.push_back(Signal);
-    }
-
-    std::vector<std::wstring> SplitDetailLines(const std::wstring& Text)
-    {
-        std::vector<std::wstring> Lines;
-        std::wstring CurrentLine;
-
-        for (size_t Index = 0; Index < Text.size(); ++Index)
-        {
-            const wchar_t Ch = Text[Index];
-
-            if (Ch == L'\r')
-                continue;
-
-            if (Ch == L'\n')
-            {
-                Lines.push_back(CurrentLine);
-                CurrentLine.clear();
-                continue;
-            }
-
-            CurrentLine.push_back(Ch);
-        }
-
-        if (!CurrentLine.empty() || Text.empty())
-            Lines.push_back(CurrentLine);
-
-        return Lines;
-    }
-
-    std::wstring Trim(const std::wstring& Text)
-    {
-        size_t Start = 0;
-
-        while (Start < Text.size() && iswspace(Text[Start]))
-            ++Start;
-
-        size_t End = Text.size();
-
-        while (End > Start && iswspace(Text[End - 1]))
-            --End;
-
-        return Text.substr(Start, End - Start);
-    }
-
-    bool TryExtractDetailLineValue(
-        const std::wstring& DetailText,
-        const wchar_t* Prefix,
-        std::wstring& OutValue)
-    {
-        OutValue.clear();
-
-        if (!Prefix || !*Prefix)
-            return false;
-
-        const std::vector<std::wstring> Lines =
-            SplitDetailLines(DetailText);
-
-        for (size_t Index = 0; Index < Lines.size(); ++Index)
-        {
-            const std::wstring Line = Trim(Lines[Index]);
-
-            if (Line.find(Prefix) != 0)
-                continue;
-
-            OutValue = Trim(Line.substr(wcslen(Prefix)));
-            return true;
-        }
-
-        return false;
-    }
-
-    bool TryParseSignedInteger(
-        const std::wstring& Text,
-        int& OutValue)
-    {
-        for (size_t Index = 0; Index < Text.size(); ++Index)
-        {
-            const wchar_t Ch = Text[Index];
-
-            if ((Ch == L'+' || Ch == L'-') &&
-                Index + 1 < Text.size() &&
-                iswdigit(Text[Index + 1]))
-            {
-                wchar_t* EndPtr = nullptr;
-                const long Value = wcstol(Text.c_str() + Index, &EndPtr, 10);
-
-                if (EndPtr != Text.c_str() + Index)
-                {
-                    OutValue = static_cast<int>(Value);
-                    return true;
-                }
-            }
-
-            if (!iswdigit(Ch))
-                continue;
-
-            wchar_t* EndPtr = nullptr;
-            const long Value = wcstol(Text.c_str() + Index, &EndPtr, 10);
-
-            if (EndPtr != Text.c_str() + Index)
-            {
-                OutValue = static_cast<int>(Value);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    bool TryParseWorkerCapacity(
-        const std::wstring& DetailText,
-        int& OutCapacity)
-    {
-        std::wstring WorkerLine;
-        if (!TryExtractDetailLineValue(
-                DetailText,
-                L"필요 인력:",
-                WorkerLine))
-        {
-            return false;
-        }
-
-        if (WorkerLine.find(L"업그레이드") != std::wstring::npos)
-        {
-            OutCapacity = 0;
-            return true;
-        }
-
-        if (WorkerLine.find(L"미기재") != std::wstring::npos)
-            return false;
-
-        if (WorkerLine.find(L"없음") != std::wstring::npos)
-        {
-            OutCapacity = 0;
-            return true;
-        }
-
-        int ParsedValue = 0;
-        if (!TryParseSignedInteger(WorkerLine, ParsedValue))
-            return false;
-
-        OutCapacity = (std::max)(0, ParsedValue);
-        return true;
-    }
-
-    bool TryParseDetailCapacityValue(
-        const std::wstring& DetailText,
-        const wchar_t* Prefix,
-        int& OutCapacity)
-    {
-        std::wstring CapacityLine;
-        if (!TryExtractDetailLineValue(DetailText, Prefix, CapacityLine))
-            return false;
-
-        if (CapacityLine.find(L"미기재") != std::wstring::npos)
-            return false;
-
-        if (CapacityLine.find(L"없음") != std::wstring::npos)
-        {
-            OutCapacity = 0;
-            return true;
-        }
-
-        int ParsedValue = 0;
-        if (!TryParseSignedInteger(CapacityLine, ParsedValue))
-            return false;
-
-        OutCapacity = (std::max)(0, ParsedValue);
-        return true;
-    }
-
-    bool TryParseHouseholdCapacity(
-        const std::wstring& DetailText,
-        int& OutCapacity)
-    {
-        return TryParseDetailCapacityValue(
-            DetailText,
-            L"수용 가구:",
-            OutCapacity);
-    }
-
-    bool TryParseServiceCapacity(
-        const std::wstring& DetailText,
-        int& OutCapacity,
-        bool& OutUsesHouseholds)
-    {
-        OutUsesHouseholds = false;
-
-        if (TryParseDetailCapacityValue(
-                DetailText,
-                L"수용 인원:",
-                OutCapacity))
-        {
-            return true;
-        }
-
-        if (TryParseDetailCapacityValue(
-                DetailText,
-                L"수용 가구:",
-                OutCapacity))
-        {
-            OutUsesHouseholds = true;
-            return true;
-        }
-
-        return false;
-    }
-
-    bool TryParseDetailQualityValue(
-        const std::wstring& DetailText,
-        const wchar_t* Prefix,
-        int& OutValue)
-    {
-        std::wstring QualityLine;
-        if (!TryExtractDetailLineValue(DetailText, Prefix, QualityLine))
-            return false;
-
-        if (QualityLine.find(L"미기재") != std::wstring::npos)
-            return false;
-
-        int ParsedValue = 0;
-        if (!TryParseSignedInteger(QualityLine, ParsedValue))
-            return false;
-
-        OutValue = (std::max)(0, (std::min)(100, ParsedValue));
-        return true;
-    }
-
-    bool TryParseBuildingSize(
-        const std::wstring& DetailText,
-        int& OutSizeX,
-        int& OutSizeY)
-    {
-        std::wstring SizeLine;
-        if (!TryExtractDetailLineValue(DetailText, L"크기:", SizeLine))
-            return false;
-
-        if (SizeLine.find(L"미기재") != std::wstring::npos)
-            return false;
-
-        for (size_t Index = 0; Index < SizeLine.size(); ++Index)
-        {
-            if (!iswdigit(SizeLine[Index]))
-                continue;
-
-            wchar_t* EndPtr = nullptr;
-            const long ParsedX = wcstol(SizeLine.c_str() + Index, &EndPtr, 10);
-            if (EndPtr == SizeLine.c_str() + Index)
-                continue;
-
-            size_t Cursor = static_cast<size_t>(EndPtr - SizeLine.c_str());
-            while (Cursor < SizeLine.size() && iswspace(SizeLine[Cursor]))
-                ++Cursor;
-
-            if (Cursor >= SizeLine.size() ||
-                (SizeLine[Cursor] != L'x' &&
-                    SizeLine[Cursor] != L'X' &&
-                    SizeLine[Cursor] != L'×'))
-            {
-                continue;
-            }
-
-            ++Cursor;
-            while (Cursor < SizeLine.size() && iswspace(SizeLine[Cursor]))
-                ++Cursor;
-
-            if (Cursor >= SizeLine.size() || !iswdigit(SizeLine[Cursor]))
-                continue;
-
-            wchar_t* EndPtrY = nullptr;
-            const long ParsedY = wcstol(SizeLine.c_str() + Cursor, &EndPtrY, 10);
-            if (EndPtrY == SizeLine.c_str() + Cursor)
-                continue;
-
-            OutSizeX = (std::max)(1, static_cast<int>(ParsedX));
-            OutSizeY = (std::max)(1, static_cast<int>(ParsedY));
-            return true;
-        }
-
-        return false;
-    }
-
-    bool TryExtractWealthRequirementValue(
-        const std::wstring& DetailText,
-        std::wstring& OutValue)
-    {
-        static const wchar_t* Prefixes[] =
-        {
-            L"재산 요구치:",
-            L"필요 재산:",
-            L"관광객 재산:",
-            L"요구 재산:"
-        };
-
-        for (size_t Index = 0;
-            Index < sizeof(Prefixes) / sizeof(Prefixes[0]);
-            ++Index)
-        {
-            if (TryExtractDetailLineValue(
-                    DetailText,
-                    Prefixes[Index],
-                    OutValue))
-            {
-                return true;
-            }
-        }
-
-        OutValue.clear();
-        return false;
-    }
-
-    unsigned int ParseAllowedWealthMaskFromValue(const std::wstring& Value)
-    {
-        const std::wstring TrimmedValue = Trim(Value);
-        if (TrimmedValue.empty() ||
-            TrimmedValue.find(L"미기재") != std::wstring::npos)
-        {
-            return GBuildingWealthMaskAll;
-        }
-
-        unsigned int Mask = GBuildingWealthMaskNone;
-
-        if (TrimmedValue.find(L"파산") != std::wstring::npos ||
-            TrimmedValue.find(L"가난") != std::wstring::npos)
-        {
-            Mask |= GBuildingWealthMaskPoor;
-        }
-
-        if (TrimmedValue.find(L"유복") != std::wstring::npos)
-            Mask |= GBuildingWealthMaskWellOff;
-
-        if (TrimmedValue.find(L"부유") != std::wstring::npos ||
-            TrimmedValue.find(L"더럽게 부유") != std::wstring::npos)
-        {
-            Mask |= GBuildingWealthMaskRich;
-        }
-
-        if (TrimmedValue.find(L"이상") != std::wstring::npos)
-        {
-            if (Mask & GBuildingWealthMaskPoor)
-                Mask |= GBuildingWealthMaskWellOff | GBuildingWealthMaskRich;
-            else if (Mask & GBuildingWealthMaskWellOff)
-                Mask |= GBuildingWealthMaskRich;
-        }
-
-        return Mask == GBuildingWealthMaskNone ?
-            GBuildingWealthMaskAll :
-            Mask;
-    }
-
-    unsigned int ParseAllowedWealthMask(const std::wstring& DetailText)
-    {
-        std::wstring WealthRequirementValue;
-        if (!TryExtractWealthRequirementValue(
-                DetailText,
-                WealthRequirementValue))
-        {
-            return GBuildingWealthMaskAll;
-        }
-
-        return ParseAllowedWealthMaskFromValue(WealthRequirementValue);
-    }
-
-    bool TryParseCatalogCostText(
-        const std::wstring& Text,
-        EBuildingCostState& OutState,
-        int& OutCost)
-    {
-        const std::wstring Trimmed = Trim(Text);
-
-        if (Trimmed.empty())
-        {
-            OutState = EBuildingCostState::None;
-            OutCost = 0;
-            return false;
-        }
-
-        if (Trimmed.find(L"미기재") != std::wstring::npos)
-        {
-            OutState = EBuildingCostState::Unknown;
-            OutCost = 0;
-            return true;
-        }
-
-        if (Trimmed.find(L"없음") != std::wstring::npos ||
-            Trimmed.find(L"무료") != std::wstring::npos)
-        {
-            OutState = EBuildingCostState::Known;
-            OutCost = 0;
-            return true;
-        }
-
-        int ParsedCost = 0;
-
-        if (TryParseSignedInteger(Trimmed, ParsedCost))
-        {
-            OutState = EBuildingCostState::Known;
-            OutCost = ParsedCost;
-            return true;
-        }
-
-        OutState = EBuildingCostState::Unknown;
-        OutCost = 0;
-        return true;
-    }
-
-    bool TryExtractDetailCost(
-        const std::wstring& DetailText,
-        const wchar_t* Prefix,
-        EBuildingCostState& OutState,
-        int& OutCost)
-    {
-        if (!Prefix)
-            return false;
-
-        const std::vector<std::wstring> Lines = SplitDetailLines(DetailText);
-
-        for (size_t Index = 0; Index < Lines.size(); ++Index)
-        {
-            const std::wstring Line = Trim(Lines[Index]);
-
-            if (Line.size() < wcslen(Prefix) ||
-                Line.compare(0, wcslen(Prefix), Prefix) != 0)
-            {
-                continue;
-            }
-
-            return TryParseCatalogCostText(
-                Line.substr(wcslen(Prefix)),
-                OutState,
-                OutCost);
-        }
-
-        return false;
-    }
-
-    bool TryParseFirstFloat(
-        const std::wstring& Text,
-        double& OutValue)
-    {
-        for (size_t Index = 0; Index < Text.size(); ++Index)
-        {
-            const wchar_t Ch = Text[Index];
-            const bool StartsNumber =
-                iswdigit(Ch) ||
-                ((Ch == L'+' || Ch == L'-') &&
-                    Index + 1 < Text.size() &&
-                    iswdigit(Text[Index + 1]));
-
-            if (!StartsNumber)
-                continue;
-
-            wchar_t* EndPtr = nullptr;
-            const double Value = wcstod(Text.c_str() + Index, &EndPtr);
-
-            if (EndPtr != Text.c_str() + Index)
-            {
-                OutValue = Value;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    std::vector<std::wstring> SplitCommaClauses(const std::wstring& Text)
-    {
-        std::vector<std::wstring> Clauses;
-        std::wstring CurrentClause;
-        int ParenthesesDepth = 0;
-
-        for (size_t Index = 0; Index < Text.size(); ++Index)
-        {
-            const wchar_t Ch = Text[Index];
-
-            if (Ch == L'(')
-                ++ParenthesesDepth;
-            else if (Ch == L')' && ParenthesesDepth > 0)
-                --ParenthesesDepth;
-
-            if (Ch == L',' && ParenthesesDepth == 0)
-            {
-                const std::wstring TrimmedClause = Trim(CurrentClause);
-
-                if (!TrimmedClause.empty())
-                    Clauses.push_back(TrimmedClause);
-
-                CurrentClause.clear();
-                continue;
-            }
-
-            CurrentClause.push_back(Ch);
-        }
-
-        const std::wstring TrimmedClause = Trim(CurrentClause);
-
-        if (!TrimmedClause.empty())
-            Clauses.push_back(TrimmedClause);
-
-        return Clauses;
-    }
-
-    bool TryParseUpgradeUnlockEraClause(
-        const std::wstring& Clause,
-        EBuildingEra& OutEra)
-    {
-        std::wstring CanonicalClause;
-
-        for (const wchar_t Ch : Trim(Clause))
-        {
-            if (!iswspace(Ch))
-                CanonicalClause.push_back(Ch);
-        }
-
-        if (CanonicalClause == L"식민지" ||
-            CanonicalClause == L"식민지시대")
-        {
-            OutEra = EBuildingEra::Colonial;
-            return true;
-        }
-
-        if (CanonicalClause == L"세계대전" ||
-            CanonicalClause == L"세계대전시대")
-        {
-            OutEra = EBuildingEra::WorldWars;
-            return true;
-        }
-
-        if (CanonicalClause == L"냉전" ||
-            CanonicalClause == L"냉전시대")
-        {
-            OutEra = EBuildingEra::ColdWar;
-            return true;
-        }
-
-        if (CanonicalClause == L"현대" ||
-            CanonicalClause == L"현대시대")
-        {
-            OutEra = EBuildingEra::Modern;
-            return true;
-        }
-
-        return false;
-    }
-
-    bool TryParseUpgradeCostClause(
-        const std::wstring& Clause,
-        EBuildingCostState& OutState,
-        int& OutCost)
-    {
-        const std::wstring TrimmedClause = Trim(Clause);
-
-        if (TrimmedClause.empty())
-            return false;
-
-        if (TrimmedClause.find(L'+') != std::wstring::npos ||
-            TrimmedClause.find(L'-') != std::wstring::npos ||
-            TrimmedClause.find(L'%') != std::wstring::npos ||
-            TrimmedClause.find(L':') != std::wstring::npos)
-        {
-            return false;
-        }
-
-        std::wstring CanonicalClause;
-
-        for (const wchar_t Ch : TrimmedClause)
-        {
-            if (iswspace(Ch) || Ch == L'$' || Ch == L',')
-                continue;
-
-            CanonicalClause.push_back(Ch);
-        }
-
-        if (CanonicalClause.empty())
-            return false;
-
-        if (CanonicalClause == L"미기재")
-        {
-            OutState = EBuildingCostState::Unknown;
-            OutCost = 0;
-            return true;
-        }
-
-        if (CanonicalClause == L"없음" ||
-            CanonicalClause == L"무료")
-        {
-            OutState = EBuildingCostState::Known;
-            OutCost = 0;
-            return true;
-        }
-
-        if (!std::all_of(
-                CanonicalClause.begin(),
-                CanonicalClause.end(),
-                [](const wchar_t Ch)
-                {
-                    return iswdigit(Ch) != 0;
-                }))
-        {
-            return false;
-        }
-
-        return TryParseCatalogCostText(
-            CanonicalClause,
-            OutState,
-            OutCost);
-    }
-
-    std::wstring JoinCommaClauses(const std::vector<std::wstring>& Clauses)
-    {
-        std::wstring Result;
-
-        for (size_t Index = 0; Index < Clauses.size(); ++Index)
-        {
-            const std::wstring Clause = Trim(Clauses[Index]);
-
-            if (Clause.empty())
-                continue;
-
-            if (!Result.empty())
-                Result += L", ";
-
-            Result += Clause;
-        }
-
-        return Result;
-    }
-
-    void ApplyPercentMultiplier(float& TargetMultiplier, int Percent)
-    {
-        const float RelativeMultiplier = (std::max)(
-            0.f,
-            1.f + static_cast<float>(Percent) / 100.f);
-        TargetMultiplier *= RelativeMultiplier;
-    }
-
-    int ResolveContextualSignedPercent(
-        const std::wstring& Clause,
-        int ParsedInteger)
-    {
-        if (ParsedInteger == 0)
-            return 0;
-
-        if (Clause.find(L"감소") != std::wstring::npos ||
-            Clause.find(L"인하") != std::wstring::npos ||
-            Clause.find(L"하락") != std::wstring::npos ||
-            Clause.find(L"절감") != std::wstring::npos)
-        {
-            return -std::abs(ParsedInteger);
-        }
-
-        if (Clause.find(L"증가") != std::wstring::npos ||
-            Clause.find(L"상승") != std::wstring::npos ||
-            Clause.find(L"인상") != std::wstring::npos ||
-            Clause.find(L"추가") != std::wstring::npos)
-        {
-            return std::abs(ParsedInteger);
-        }
-
-        return ParsedInteger;
-    }
-
-    bool ProvidesRuntimeService(const FBuildingCatalogEntry& Entry)
-    {
-        return Entry.FoodProvider ||
-            Entry.EntertainmentProvider ||
-            Entry.HealthProvider ||
-            Entry.FaithProvider;
-    }
-
-    void ApplyQualityEffect(
-        const std::wstring& Clause,
-        int ParsedInteger,
-        bool HasInteger,
-        int& OutDelta,
-        float& OutMultiplier)
-    {
-        if (!HasInteger)
-            return;
-
-        if (Clause.find(L"%") != std::wstring::npos)
-            ApplyPercentMultiplier(OutMultiplier, ParsedInteger);
-        else
-            OutDelta += ParsedInteger;
-    }
-
-    void ApplyOperationModeClause(
-        const FBuildingCatalogEntry& Entry,
-        const std::wstring& RawClause,
-        FBuildingOperationModeEffect& OutEffect)
-    {
-        const std::wstring Clause = Trim(RawClause);
-
-        if (Clause.empty())
-            return;
-
-        int ParsedInteger = 0;
-        const bool HasInteger = TryParseSignedInteger(Clause, ParsedInteger);
-        double ParsedFloat = 0.0;
-        const bool HasFloat = TryParseFirstFloat(Clause, ParsedFloat);
-
-        if (Clause.find(L"화물선 속도") != std::wstring::npos &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            ApplyPercentMultiplier(
-                OutEffect.HarborProgressMultiplier,
-                ParsedInteger);
-            return;
-        }
-
-        if (Clause.find(L"적하량") != std::wstring::npos &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            ApplyPercentMultiplier(
-                OutEffect.TeamsterTransferMultiplier,
-                ParsedInteger);
-            return;
-        }
-
-        if (Clause.find(L"화물 손실") != std::wstring::npos &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            OutEffect.TeamsterCargoLossPercent = (std::max)(
-                OutEffect.TeamsterCargoLossPercent,
-                std::abs(ParsedInteger));
-            return;
-        }
-
-        if ((Clause.find(L"수출 가격") != std::wstring::npos ||
-                Clause.find(L"수출 시세") != std::wstring::npos) &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            OutEffect.ExportTradeRoutePriceDeltaPercent +=
-                ResolveContextualSignedPercent(Clause, ParsedInteger);
-            return;
-        }
-
-        if ((Clause.find(L"수입 무역로") != std::wstring::npos ||
-                Clause.find(L"수입 가격") != std::wstring::npos) &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            OutEffect.ImportTradeRoutePriceDeltaPercent +=
-                ResolveContextualSignedPercent(Clause, ParsedInteger);
-            return;
-        }
-
-        if ((Clause.find(L"생산 전력") != std::wstring::npos ||
-                Clause.find(L"발전량") != std::wstring::npos) &&
-            HasInteger)
-        {
-            if (Clause.find(L"%") != std::wstring::npos)
-            {
-                ApplyPercentMultiplier(
-                    OutEffect.ProducedPowerMultiplier,
-                    ParsedInteger);
-            }
-            else
-            {
-                OutEffect.ProducedPowerDeltaMW += ParsedInteger;
-            }
-
-            return;
-        }
-
-        if ((Clause.find(L"전력") != std::wstring::npos ||
-                Clause.find(L"MW") != std::wstring::npos) &&
-            HasInteger)
-        {
-            if (Clause.find(L"%") != std::wstring::npos)
-            {
-                ApplyPercentMultiplier(
-                    OutEffect.RequiredPowerMultiplier,
-                    ParsedInteger);
-            }
-            else
-            {
-                OutEffect.RequiredPowerDeltaMW += ParsedInteger;
-            }
-
-            return;
-        }
-
-        if ((Clause.find(L"슬롯당 보관량") != std::wstring::npos ||
-                Clause.find(L"슬롯 보관량") != std::wstring::npos ||
-                Clause.find(L"보관량") != std::wstring::npos ||
-                Clause.find(L"저장량") != std::wstring::npos) &&
-            HasInteger)
-        {
-            if (Clause.find(L"%") != std::wstring::npos)
-            {
-                ApplyPercentMultiplier(
-                    OutEffect.WarehouseSlotCapacityMultiplier,
-                    ParsedInteger);
-            }
-            else
-            {
-                OutEffect.WarehouseSlotCapacityDelta += ParsedInteger;
-            }
-
-            return;
-        }
-
-        if ((Clause.find(L"보관 손실") != std::wstring::npos ||
-                Clause.find(L"보관 중 손실") != std::wstring::npos ||
-                Clause.find(L"장기 보관") != std::wstring::npos ||
-                Clause.find(L"부패") != std::wstring::npos) &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            ApplyPercentMultiplier(
-                OutEffect.StorageLossMultiplier,
-                ParsedInteger);
-            return;
-        }
-
-        if (Clause.find(L"공해") != std::wstring::npos)
-        {
-            if (HasInteger && Clause.find(L"%") != std::wstring::npos)
-                ApplyPercentMultiplier(OutEffect.PollutionMultiplier, ParsedInteger);
-            else if (HasInteger)
-                OutEffect.PollutionFlatDelta += ParsedInteger;
-
-            return;
-        }
-
-        if (Clause.find(L"유지비") != std::wstring::npos)
-        {
-            if (HasInteger && Clause.find(L"%") != std::wstring::npos)
-                ApplyPercentMultiplier(OutEffect.UpkeepMultiplier, ParsedInteger);
-            else if (HasInteger)
-                OutEffect.UpkeepFlatDelta += ParsedInteger;
-
-            return;
-        }
-
-        if (Clause.find(L"임금") != std::wstring::npos ||
-            Clause.find(L"급여") != std::wstring::npos)
-        {
-            if (HasInteger && Clause.find(L"%") != std::wstring::npos)
-                ApplyPercentMultiplier(OutEffect.WageMultiplier, ParsedInteger);
-            else if (HasInteger)
-                OutEffect.WageFlatDelta += ParsedInteger;
-
-            return;
-        }
-
-        if (Clause.find(L"직업 품질") != std::wstring::npos)
-        {
-            ApplyQualityEffect(
-                Clause,
-                ParsedInteger,
-                HasInteger,
-                OutEffect.JobQualityDelta,
-                OutEffect.JobQualityMultiplier);
-            return;
-        }
-
-        if (Clause.find(L"주거 품질") != std::wstring::npos)
-        {
-            ApplyQualityEffect(
-                Clause,
-                ParsedInteger,
-                HasInteger,
-                OutEffect.HousingQualityDelta,
-                OutEffect.HousingQualityMultiplier);
-            return;
-        }
-
-        if (Clause.find(L"서비스 품질") != std::wstring::npos)
-        {
-            ApplyQualityEffect(
-                Clause,
-                ParsedInteger,
-                HasInteger,
-                OutEffect.GenericServiceQualityDelta,
-                OutEffect.GenericServiceQualityMultiplier);
-            return;
-        }
-
-        if (Clause.find(L"노동자당 방문객 슬롯") != std::wstring::npos)
-        {
-            if (HasInteger)
-                OutEffect.PerWorkerServiceCapacityDelta += ParsedInteger;
-
-            return;
-        }
-
-        if (Clause.find(L"방문객 슬롯") != std::wstring::npos ||
-            Clause.find(L"서비스 슬롯") != std::wstring::npos)
-        {
-            if (HasInteger)
-                OutEffect.ServiceCapacityDelta += ParsedInteger;
-
-            return;
-        }
-
-        if (Clause.find(L"숙박 슬롯") != std::wstring::npos ||
-            (Clause.find(L"방 슬롯") != std::wstring::npos &&
-                Clause.find(L"방문객") == std::wstring::npos))
-        {
-            if (HasInteger)
-                OutEffect.ServiceCapacityDelta += ParsedInteger;
-
-            return;
-        }
-
-        if (Clause.find(L"가구수") != std::wstring::npos ||
-            Clause.find(L"일자리") != std::wstring::npos)
-        {
-            if (HasInteger)
-                OutEffect.CapacityDelta += ParsedInteger;
-
-            return;
-        }
-
-        if ((Clause.find(L"소모") != std::wstring::npos ||
-                Clause.find(L"투입량") != std::wstring::npos) &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            ApplyPercentMultiplier(
-                OutEffect.InputConsumptionMultiplier,
-                ParsedInteger);
-            return;
-        }
-
-        if (Clause.find(L"효율") != std::wstring::npos &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            if (Entry.BuildingKind == EPlacementBuildingKind::Harbor)
-            {
-                ApplyPercentMultiplier(
-                    OutEffect.HarborProgressMultiplier,
-                    ParsedInteger);
-            }
-
-            if (Entry.ProducedResourceType != EResourceType::None)
-                ApplyPercentMultiplier(OutEffect.ProductionMultiplier, ParsedInteger);
-
-            if (ProvidesRuntimeService(Entry))
-            {
-                ApplyPercentMultiplier(
-                    OutEffect.ServiceThroughputMultiplier,
-                    ParsedInteger);
-            }
-
-            return;
-        }
-
-        if ((Clause.find(L"산출량") != std::wstring::npos ||
-                Clause.find(L"생산량") != std::wstring::npos) &&
-            HasInteger &&
-            Clause.find(L"%") != std::wstring::npos)
-        {
-            ApplyPercentMultiplier(
-                OutEffect.ProductionMultiplier,
-                ParsedInteger);
-            return;
-        }
-
-        if (Entry.ProducedResourceType != EResourceType::None &&
-            Clause.find(L"생산") != std::wstring::npos &&
-            HasFloat &&
-            Clause.find(L"%") == std::wstring::npos &&
-            ParsedFloat > 0.0)
-        {
-            OutEffect.ProductionMultiplier *= static_cast<float>(ParsedFloat);
-        }
-    }
-
-    std::vector<FBuildingOperationModeDef> ExtractOperationModeDefs(
-        const FBuildingCatalogEntry& Entry)
-    {
-        std::vector<FBuildingOperationModeDef> Result;
-        const std::vector<std::wstring> Lines =
-            SplitDetailLines(Entry.DetailText);
-        bool Capture = false;
-
-        for (size_t Index = 0; Index < Lines.size(); ++Index)
-        {
-            const std::wstring Line = Trim(Lines[Index]);
-
-            if (Line.find(L"운영 모드:") == 0)
-            {
-                Capture = true;
-                continue;
-            }
-
-            if (!Capture)
-                continue;
-
-            if (Line.empty())
-                break;
-
-            if (Line[0] != L'-')
-                break;
-
-            FBuildingOperationModeDef ModeDef;
-            const std::wstring RawModeText = Trim(Line.substr(1));
-            const size_t OpenParen = RawModeText.find(L'(');
-            const size_t CloseParen = RawModeText.find_last_of(L')');
-
-            if (OpenParen != std::wstring::npos &&
-                CloseParen != std::wstring::npos &&
-                CloseParen > OpenParen)
-            {
-                ModeDef.DisplayName = Trim(
-                    RawModeText.substr(0, OpenParen));
-                ModeDef.EffectSummary = Trim(
-                    RawModeText.substr(
-                        OpenParen + 1,
-                        CloseParen - OpenParen - 1));
-            }
-            else
-            {
-                ModeDef.DisplayName = RawModeText;
-            }
-
-            if (ModeDef.DisplayName.empty())
-                ModeDef.DisplayName = RawModeText;
-
-            const std::vector<std::wstring> Clauses =
-                SplitCommaClauses(ModeDef.EffectSummary);
-
-            for (size_t ClauseIndex = 0;
-                ClauseIndex < Clauses.size();
-                ++ClauseIndex)
-            {
-                ApplyOperationModeClause(
-                    Entry,
-                    Clauses[ClauseIndex],
-                    ModeDef.Effect);
-            }
-
-            Result.push_back(std::move(ModeDef));
-        }
-
-        return Result;
-    }
-
-    bool TryBuildRuntimeUpgradeDef(
-        const FBuildingCatalogEntry& Entry,
-        const std::wstring& RawUpgradeText,
-        FBuildingRuntimeUpgradeDef& OutDef)
-    {
-        const std::wstring UpgradeText = Trim(RawUpgradeText);
-
-        if (UpgradeText.empty())
-            return false;
-
-        const size_t OpenParen = UpgradeText.find(L'(');
-        const size_t CloseParen = UpgradeText.find_last_of(L')');
-
-        if (OpenParen == std::wstring::npos ||
-            CloseParen == std::wstring::npos ||
-            CloseParen <= OpenParen)
-        {
-            return false;
-        }
-
-        std::wstring DisplayName = Trim(UpgradeText.substr(0, OpenParen));
-        const size_t ScopeSep = DisplayName.find_last_of(L':');
-
-        if (ScopeSep != std::wstring::npos)
-            DisplayName = Trim(DisplayName.substr(ScopeSep + 1));
-
-        if (DisplayName.empty())
-            return false;
-
-        FBuildingRuntimeUpgradeDef Def;
-        Def.DisplayName = DisplayName;
-        const std::wstring EffectText = Trim(
-            UpgradeText.substr(OpenParen + 1, CloseParen - OpenParen - 1));
-        const std::vector<std::wstring> Clauses =
-            SplitCommaClauses(EffectText);
-        std::vector<std::wstring> EffectClauses;
-
-        for (size_t ClauseIndex = 0;
-            ClauseIndex < Clauses.size();
-            ++ClauseIndex)
-        {
-            const std::wstring Clause = Trim(Clauses[ClauseIndex]);
-
-            if (Clause.empty())
-                continue;
-
-            EBuildingEra ParsedEra = EBuildingEra::Colonial;
-
-            if (!Def.HasUnlockEra &&
-                TryParseUpgradeUnlockEraClause(Clause, ParsedEra))
-            {
-                Def.HasUnlockEra = true;
-                Def.UnlockEra = ParsedEra;
-                continue;
-            }
-
-            if (Def.CostState == EBuildingCostState::None)
-            {
-                EBuildingCostState ParsedCostState =
-                    EBuildingCostState::None;
-                int ParsedCost = 0;
-
-                if (TryParseUpgradeCostClause(
-                        Clause,
-                        ParsedCostState,
-                        ParsedCost))
-                {
-                    Def.CostState = ParsedCostState;
-                    Def.Cost = ParsedCost;
-                    continue;
-                }
-            }
-
-            EffectClauses.push_back(Clause);
-        }
-
-        Def.EffectSummary = JoinCommaClauses(EffectClauses);
-
-        for (size_t ClauseIndex = 0;
-            ClauseIndex < EffectClauses.size();
-            ++ClauseIndex)
-        {
-            ApplyOperationModeClause(
-                Entry,
-                EffectClauses[ClauseIndex],
-                Def.Effect);
-        }
-
-        if (!Def.Effect.HasRuntimeEffect())
-            return false;
-
-        OutDef = std::move(Def);
-        return true;
-    }
-
-    std::vector<FBuildingRuntimeUpgradeDef> ExtractRuntimeUpgradeDefs(
-        const FBuildingCatalogEntry& Entry)
-    {
-        std::vector<FBuildingRuntimeUpgradeDef> Result;
-        const std::vector<std::wstring> UpgradeLines =
-            ExtractUpgradeHintsFromDetail(Entry.DetailText);
-
-        for (size_t LineIndex = 0; LineIndex < UpgradeLines.size(); ++LineIndex)
-        {
-            const std::vector<std::wstring> Candidates =
-                SplitCommaClauses(UpgradeLines[LineIndex]);
-
-            for (size_t CandidateIndex = 0;
-                CandidateIndex < Candidates.size();
-                ++CandidateIndex)
-            {
-                FBuildingRuntimeUpgradeDef Def;
-
-                if (TryBuildRuntimeUpgradeDef(
-                        Entry,
-                        Candidates[CandidateIndex],
-                        Def))
-                {
-                    Result.push_back(std::move(Def));
-                }
-            }
-        }
-
-        return Result;
-    }
-
-    bool HasProductionInputs(const FBuildingCatalogEntry& Entry)
-    {
-        for (int SlotIndex = 0;
-            SlotIndex < GProductionInputSlotCount;
-            ++SlotIndex)
-        {
-            const size_t Index = static_cast<size_t>(SlotIndex);
-
-            if (Entry.ProductionInputTypes[Index] != EResourceType::None &&
-                Entry.ProductionInputAmounts[Index] > 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    std::vector<std::wstring> BuildProductionInputDisplayLabels(
-        const FBuildingCatalogEntry& Entry)
-    {
-        std::vector<std::wstring> InputLabels;
-
-        for (int SlotIndex = 0;
-            SlotIndex < GProductionInputSlotCount;
-            ++SlotIndex)
-        {
-            const std::wstring InputLabel =
-                GetBuildingProductionInputDisplayName(Entry, SlotIndex);
-
-            if (InputLabel.empty())
-                continue;
-
-            std::wstring DisplayLabel = InputLabel;
-            const size_t Index = static_cast<size_t>(SlotIndex);
-
-            if (Entry.ProductionInputLabels[Index].empty() &&
-                Entry.ProductionInputAmounts[Index] > 1)
-            {
-                DisplayLabel += L" x";
-                DisplayLabel +=
-                    std::to_wstring(Entry.ProductionInputAmounts[Index]);
-            }
-
-            InputLabels.push_back(std::move(DisplayLabel));
-        }
-
-        return InputLabels;
-    }
-
-    std::vector<std::wstring> BuildProductionDemandDisplayLabels(
-        const FBuildingCatalogEntry& Entry)
-    {
-        std::vector<std::wstring> DemandLabels =
-            BuildProductionInputDisplayLabels(Entry);
-
-        if (Entry.ProducedResourceType == EResourceType::None &&
-            Entry.VisitConsumptionResourceType != EResourceType::None)
-        {
-            const std::wstring VisitLabel =
-                GetResourceTypeDisplayName(
-                    Entry.VisitConsumptionResourceType);
-
-            if (!VisitLabel.empty() &&
-                std::find(
-                    DemandLabels.begin(),
-                    DemandLabels.end(),
-                    VisitLabel) == DemandLabels.end())
-            {
-                DemandLabels.insert(DemandLabels.begin(), VisitLabel);
-            }
-        }
-
-        return DemandLabels;
-    }
-
-    std::wstring BuildProductionConsumerDisplayLabel(
-        const FBuildingCatalogEntry& Entry)
-    {
-        const std::wstring OutputLabel =
-            GetBuildingProducedResourceDisplayName(Entry);
-
-        if (!OutputLabel.empty())
-            return OutputLabel;
-
-        return Entry.DisplayName;
-    }
-
-    void AppendUniqueLabel(
-        std::vector<std::wstring>& Labels,
-        const std::wstring& Label)
-    {
-        if (Label.empty())
-            return;
-
-        const auto ExistingIt = std::find(
-            Labels.begin(), Labels.end(), Label);
-
-        if (ExistingIt == Labels.end())
-            Labels.push_back(Label);
-    }
-
-    std::wstring JoinLabels(
-        const std::vector<std::wstring>& Labels,
-        const wchar_t* Separator)
-    {
-        std::wstring Result;
-
-        for (size_t Index = 0; Index < Labels.size(); ++Index)
-        {
-            if (Labels[Index].empty())
-                continue;
-
-            if (!Result.empty() && Separator)
-                Result += Separator;
-
-            Result += Labels[Index];
-        }
-
-        return Result;
-    }
-
-    void PopulateProductionChainMetadata(
-        std::vector<FBuildingCatalogEntry>& Entries)
-    {
-        std::vector<std::vector<std::wstring>> DownstreamResourceLabels(
-            static_cast<size_t>(EResourceType::Count));
-
-        for (const FBuildingCatalogEntry& ConsumerEntry : Entries)
-        {
-            const std::wstring ConsumerLabel =
-                BuildProductionConsumerDisplayLabel(ConsumerEntry);
-
-            if (ConsumerLabel.empty())
-                continue;
-
-            auto AppendDownstreamDemand = [&](EResourceType ResourceType)
-            {
-                if (ResourceType == EResourceType::None)
-                    return;
-
-                const size_t ResourceIndex =
-                    static_cast<size_t>(ResourceType);
-
-                if (ResourceIndex >= DownstreamResourceLabels.size())
-                    return;
-
-                AppendUniqueLabel(
-                    DownstreamResourceLabels[ResourceIndex],
-                    ConsumerLabel);
-            };
-
-            if (ConsumerEntry.VisitConsumptionResourceType !=
-                    EResourceType::None &&
-                ConsumerEntry.VisitConsumptionResourceType !=
-                    ConsumerEntry.ProducedResourceType)
-            {
-                AppendDownstreamDemand(
-                    ConsumerEntry.VisitConsumptionResourceType);
-            }
-
-            for (int SlotIndex = 0;
-                SlotIndex < GProductionInputSlotCount;
-                ++SlotIndex)
-            {
-                const size_t Index = static_cast<size_t>(SlotIndex);
-                const EResourceType InputType =
-                    ConsumerEntry.ProductionInputTypes[Index];
-
-                if (InputType == EResourceType::None ||
-                    ConsumerEntry.ProductionInputAmounts[Index] <= 0 ||
-                    InputType == ConsumerEntry.VisitConsumptionResourceType)
-                {
-                    continue;
-                }
-
-                AppendDownstreamDemand(InputType);
-            }
-        }
-
-        for (FBuildingCatalogEntry& Entry : Entries)
-        {
-            Entry.ProductionChainStage =
-                FBuildingCatalogEntry::EProductionChainStage::None;
-            Entry.SupplyChainSummary.clear();
-
-            const std::wstring OutputLabel =
-                GetBuildingProducedResourceDisplayName(Entry);
-            const std::vector<std::wstring> DemandLabels =
-                BuildProductionDemandDisplayLabels(Entry);
-
-            if (Entry.ProducedResourceType == EResourceType::None ||
-                OutputLabel.empty())
-            {
-                if (!DemandLabels.empty() && !Entry.DisplayName.empty())
-                {
-                    Entry.SupplyChainSummary =
-                        JoinLabels(DemandLabels, L" + ") +
-                        L" -> " +
-                        Entry.DisplayName;
-                }
-                continue;
-            }
-
-            const bool EntryHasInputs = HasProductionInputs(Entry);
-            const std::vector<std::wstring>& DownstreamLabels =
-                DownstreamResourceLabels[
-                    static_cast<size_t>(Entry.ProducedResourceType)];
-
-            if (!EntryHasInputs)
-            {
-                Entry.ProductionChainStage =
-                    FBuildingCatalogEntry::EProductionChainStage::Primary;
-            }
-            else if (!DownstreamLabels.empty())
-            {
-                Entry.ProductionChainStage =
-                    FBuildingCatalogEntry::EProductionChainStage::Intermediate;
-            }
-            else
-            {
-                Entry.ProductionChainStage =
-                    FBuildingCatalogEntry::EProductionChainStage::Final;
-            }
-
-            std::wstring Summary;
-
-            if (!DemandLabels.empty())
-            {
-                Summary += JoinLabels(DemandLabels, L" + ");
-                Summary += L" -> ";
-            }
-
-            Summary += OutputLabel;
-
-            if (!DownstreamLabels.empty())
-            {
-                Summary += L" -> ";
-                Summary += JoinLabels(DownstreamLabels, L", ");
-            }
-            else if (!EntryHasInputs)
-            {
-                Summary += L" 생산";
-            }
-
-            Entry.SupplyChainSummary = std::move(Summary);
-        }
-    }
-
     std::string BuildCatalogEntryId(
         EBuildingCategory Category,
         int CategoryLocalIndex)
@@ -5108,118 +3801,6 @@ namespace
     }
 } // namespace
 
-namespace
-{
-    constexpr const wchar_t* GCatalogConfigId =
-        L"Game.BuildingCatalog";
-    constexpr const wchar_t* GProductionRecipeConfigId =
-        L"Game.BuildingProductionRecipes";
-    constexpr const wchar_t* GCostOverrideConfigId =
-        L"Game.BuildingCostOverrides";
-    constexpr const wchar_t* GSourceMetadataOverrideConfigId =
-        L"Game.BuildingSourceMetadataOverrides";
-    constexpr const wchar_t* GWorkforceOverrideConfigId =
-        L"Game.BuildingWorkforceOverrides";
-    constexpr const wchar_t* GPowerOverrideConfigId =
-        L"Game.BuildingPowerOverrides";
-    constexpr const wchar_t* GPollutionOverrideConfigId =
-        L"Game.BuildingPollutionOverrides";
-    constexpr const wchar_t* GServiceStatsOverrideConfigId =
-        L"Game.BuildingServiceStatsOverrides";
-    constexpr const wchar_t* GSizeOverrideConfigId =
-        L"Game.BuildingSizeOverrides";
-    constexpr const wchar_t* GOperationModeOverrideConfigId =
-        L"Game.BuildingOperationModes";
-    constexpr const wchar_t* GRuntimeUpgradeOverrideConfigId =
-        L"Game.BuildingUpgrades";
-    constexpr size_t GRetiredCatalogSnapshotLimit = 4;
-
-    std::shared_ptr<const std::vector<FBuildingCatalogEntry>>
-        GCurrentBuildingCatalog;
-    std::vector<std::shared_ptr<const std::vector<FBuildingCatalogEntry>>>
-        GRetiredBuildingCatalogs;
-    unsigned long long GBuildingCatalogGeneration = 0;
-
-    std::vector<FBuildingCatalogEntry> BuildBuildingCatalogEntries();
-
-    bool DoesCatalogSourceFileExist(const std::wstring& Path)
-    {
-        if (Path.empty())
-            return false;
-
-        const DWORD Attributes = GetFileAttributesW(Path.c_str());
-        return Attributes != INVALID_FILE_ATTRIBUTES &&
-            (Attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
-    }
-
-    std::wstring ResolveCatalogWatchPath(
-        const std::vector<std::wstring>& CandidatePaths)
-    {
-        for (size_t Index = 0; Index < CandidatePaths.size(); ++Index)
-        {
-            if (DoesCatalogSourceFileExist(CandidatePaths[Index]))
-                return CandidatePaths[Index];
-        }
-
-        return CandidatePaths.empty() ? std::wstring() : CandidatePaths.front();
-    }
-
-    void ResetBuildingCatalogRuntimeDefaults()
-    {
-    }
-
-    void ReplaceBuildingCatalogStore(
-        std::vector<FBuildingCatalogEntry>&& Entries)
-    {
-        if (GCurrentBuildingCatalog)
-        {
-            GRetiredBuildingCatalogs.push_back(GCurrentBuildingCatalog);
-
-            while (GRetiredBuildingCatalogs.size() >
-                GRetiredCatalogSnapshotLimit)
-            {
-                GRetiredBuildingCatalogs.erase(
-                    GRetiredBuildingCatalogs.begin());
-            }
-        }
-
-        GCurrentBuildingCatalog =
-            std::make_shared<const std::vector<FBuildingCatalogEntry>>(
-                std::move(Entries));
-        ++GBuildingCatalogGeneration;
-    }
-
-    void ReloadBuildingCatalogStore()
-    {
-        ReplaceBuildingCatalogStore(BuildBuildingCatalogEntries());
-    }
-
-    const std::vector<FBuildingCatalogEntry>& ResolveCurrentBuildingCatalog()
-    {
-        if (!GCurrentBuildingCatalog)
-            ReloadBuildingCatalogStore();
-
-        return *GCurrentBuildingCatalog;
-    }
-
-    const FBuildingCatalogEntry* FindCatalogEntryByCategoryLocalIndex(
-        EBuildingCategory Category,
-        int CategoryLocalIndex)
-    {
-        const auto& Catalog = ResolveCurrentBuildingCatalog();
-        const auto It = std::find_if(
-            Catalog.begin(),
-            Catalog.end(),
-            [&](const FBuildingCatalogEntry& Entry)
-            {
-                return Entry.Category == Category &&
-                    Entry.CategoryLocalIndex == CategoryLocalIndex;
-            });
-
-        return It != Catalog.end() ? &(*It) : nullptr;
-    }
-}
-
 const wchar_t* GetCatalogEntryIconPath(
     const FBuildingCatalogEntry& Entry)
 {
@@ -5234,7 +3815,7 @@ const wchar_t* GetCatalogEntryIconPath(
     int CategoryLocalIndex)
 {
     if (const FBuildingCatalogEntry* Entry =
-            FindCatalogEntryByCategoryLocalIndex(
+            BuildingCatalogData::FindBuildingCatalogEntryByCategoryLocalIndex(
                 Category,
                 CategoryLocalIndex))
     {
@@ -5262,7 +3843,7 @@ const wchar_t* GetCatalogEntrySpriteTexturePath(
     int CategoryLocalIndex)
 {
     if (const FBuildingCatalogEntry* Entry =
-            FindCatalogEntryByCategoryLocalIndex(
+            BuildingCatalogData::FindBuildingCatalogEntryByCategoryLocalIndex(
                 Category,
                 CategoryLocalIndex))
     {
@@ -5334,7 +3915,7 @@ namespace
                 BuildingCategoryInfo::GetDisplayName(CategoryIndex);
             Entry.DetailText =
                 Record.DetailText.empty() ?
-                L"세부 데이터 준비 중" :
+                L"Details pending" :
                 Record.DetailText;
             Entry.BlueprintCostState = Record.BlueprintCostState;
             Entry.BlueprintCost = Record.BlueprintCost;
@@ -5530,384 +4111,65 @@ namespace
     }
 }
 
-const std::vector<FBuildingCatalogEntry>& GetBuildingCatalog()
+namespace BuildingCatalogLoader
 {
-    return ResolveCurrentBuildingCatalog();
-}
-
-void RegisterRuntimeConfig()
-{
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GCatalogConfigId,
-            ResolveCatalogWatchPath(BuildCatalogDataCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GProductionRecipeConfigId,
-            ResolveCatalogWatchPath(BuildProductionRecipeDataCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GCostOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogCostOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GSourceMetadataOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogSourceMetadataOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GWorkforceOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogWorkforceOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GPowerOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogPowerOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GPollutionOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogPollutionOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GServiceStatsOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogServiceStatsOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GSizeOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogSizeOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GOperationModeOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogOperationModeOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-    RuntimeConfigRegistry::RegisterSource(
-        {
-            GRuntimeUpgradeOverrideConfigId,
-            ResolveCatalogWatchPath(
-                BuildCatalogRuntimeUpgradeOverrideCandidatePaths()),
-            0.5f,
-            &ResetBuildingCatalogRuntimeDefaults,
-            nullptr,
-            &ReloadBuildingCatalogStore
-        });
-}
-
-unsigned long long GetRuntimeConfigGeneration()
-{
-    return GBuildingCatalogGeneration;
-}
-
-const FBuildingCatalogEntry* FindBuildingCatalogEntry(const std::string& EntryId)
-{
-    const auto& Catalog = GetBuildingCatalog();
-    const auto It = std::find_if(
-        Catalog.begin(), Catalog.end(),
-        [&](const FBuildingCatalogEntry& Entry)
-        {
-            return Entry.Id == EntryId;
-        });
-
-    return It != Catalog.end() ? &(*It) : nullptr;
-}
-
-bool IsCustomsOfficeCatalogEntry(const FBuildingCatalogEntry& Entry)
-{
-    return Entry.IsCustomsOffice;
-}
-
-bool IsCustomsOfficeBuildingId(const std::string& EntryId)
-{
-    const FBuildingCatalogEntry* const Entry =
-        FindBuildingCatalogEntry(EntryId);
-    return Entry && IsCustomsOfficeCatalogEntry(*Entry);
-}
-
-EBuildingCategory GetEffectiveBuildMenuCategory(
-    const FBuildingCatalogEntry& Entry)
-{
-    if (Entry.HasBuildMenuCategoryOverride)
-        return Entry.BuildMenuCategoryOverride;
-
-    if (Entry.Category == EBuildingCategory::Entertainment &&
-        Entry.CategoryLocalIndex >= 12)
+    std::vector<std::wstring> BuildCatalogDataCandidatePaths()
     {
-        return EBuildingCategory::LuxuryEntertainment;
+        return ::BuildCatalogDataCandidatePaths();
     }
 
-    if (Entry.Category == EBuildingCategory::PublicService &&
-        Entry.IsCustomsOffice)
+    std::vector<std::wstring> BuildProductionRecipeDataCandidatePaths()
     {
-        return EBuildingCategory::GovernmentFinance;
+        return ::BuildProductionRecipeDataCandidatePaths();
     }
 
-    return Entry.Category;
-}
-
-std::string GetCatalogEntryIconPathUtf8(const FBuildingCatalogEntry& Entry)
-{
-    const wchar_t* IconPath = GetCatalogEntryIconPath(Entry);
-
-    if (!IconPath)
-        return std::string();
-
-    return WideToUtf8(std::wstring(IconPath));
-}
-
-std::string GetCatalogEntryIconPathUtf8(EBuildingCategory Category, int CategoryLocalIndex)
-{
-    const wchar_t* IconPath = GetCatalogEntryIconPath(Category, CategoryLocalIndex);
-
-    if (!IconPath)
-        return std::string();
-
-    return WideToUtf8(std::wstring(IconPath));
-}
-
-std::string GetCatalogEntrySpriteTexturePathUtf8(
-    const FBuildingCatalogEntry& Entry)
-{
-    const wchar_t* SpriteTexturePath =
-        GetCatalogEntrySpriteTexturePath(Entry);
-
-    if (!SpriteTexturePath)
-        return std::string();
-
-    return WideToUtf8(std::wstring(SpriteTexturePath));
-}
-
-std::string GetCatalogEntrySpriteTexturePathUtf8(
-    EBuildingCategory Category,
-    int CategoryLocalIndex)
-{
-    const wchar_t* SpriteTexturePath =
-        GetCatalogEntrySpriteTexturePath(Category, CategoryLocalIndex);
-
-    if (!SpriteTexturePath)
-        return std::string();
-
-    return WideToUtf8(std::wstring(SpriteTexturePath));
-}
-
-std::wstring GetBuildingProducedResourceDisplayName(
-    const FBuildingCatalogEntry& Entry)
-{
-    if (Entry.ProducedResourceType == EResourceType::None)
-        return std::wstring();
-
-    if (!Entry.ProducedResourceLabel.empty())
-        return Entry.ProducedResourceLabel;
-
-    return std::wstring(GetResourceTypeDisplayName(Entry.ProducedResourceType));
-}
-
-std::wstring GetBuildingProductionInputDisplayName(
-    const FBuildingCatalogEntry& Entry,
-    int SlotIndex)
-{
-    if (SlotIndex < 0 || SlotIndex >= GProductionInputSlotCount)
-        return std::wstring();
-
-    const size_t Index = static_cast<size_t>(SlotIndex);
-    const EResourceType InputType = Entry.ProductionInputTypes[Index];
-    const int InputAmount = Entry.ProductionInputAmounts[Index];
-
-    if (InputType == EResourceType::None || InputAmount <= 0)
-        return std::wstring();
-
-    if (!Entry.ProductionInputLabels[Index].empty())
-        return Entry.ProductionInputLabels[Index];
-
-    return std::wstring(GetResourceTypeDisplayName(InputType));
-}
-
-const wchar_t* GetProductionChainStageDisplayName(
-    FBuildingCatalogEntry::EProductionChainStage Stage)
-{
-    switch (Stage)
+    std::vector<std::wstring> BuildCatalogCostOverrideCandidatePaths()
     {
-    case FBuildingCatalogEntry::EProductionChainStage::Primary:
-        return L"1차 자원";
-    case FBuildingCatalogEntry::EProductionChainStage::Intermediate:
-        return L"중간재";
-    case FBuildingCatalogEntry::EProductionChainStage::Final:
-        return L"완제품";
-    default:
-        break;
+        return ::BuildCatalogCostOverrideCandidatePaths();
     }
 
-    return L"";
-}
-
-std::wstring BuildProductionChainSummary(
-    const FBuildingCatalogEntry& Entry)
-{
-    if (!Entry.SupplyChainSummary.empty())
-        return Entry.SupplyChainSummary;
-
-    const std::wstring OutputLabel =
-        GetBuildingProducedResourceDisplayName(Entry);
-    const std::vector<std::wstring> DemandLabels =
-        BuildProductionDemandDisplayLabels(Entry);
-
-    if (OutputLabel.empty())
+    std::vector<std::wstring> BuildCatalogSourceMetadataOverrideCandidatePaths()
     {
-        if (DemandLabels.empty() || Entry.DisplayName.empty())
-            return std::wstring();
-
-        return JoinLabels(DemandLabels, L" + ") +
-            L" -> " +
-            Entry.DisplayName;
+        return ::BuildCatalogSourceMetadataOverrideCandidatePaths();
     }
 
-    if (DemandLabels.empty())
-        return OutputLabel + L" 생산";
-
-    return JoinLabels(DemandLabels, L" + ") +
-        L" -> " +
-        OutputLabel;
-}
-
-std::wstring GetOperationModeDisplayName(
-    const FBuildingCatalogEntry& Entry,
-    int ModeIndex)
-{
-    if (ModeIndex < 0 ||
-        ModeIndex >= static_cast<int>(Entry.OperationModeDefs.size()))
+    std::vector<std::wstring> BuildCatalogWorkforceOverrideCandidatePaths()
     {
-        return std::wstring();
+        return ::BuildCatalogWorkforceOverrideCandidatePaths();
     }
 
-    return Entry.OperationModeDefs[static_cast<size_t>(ModeIndex)].DisplayName;
-}
-
-namespace
-{
-    std::wstring BuildOperationModeSummary(
-        const FBuildingOperationModeDef& ModeDef)
+    std::vector<std::wstring> BuildCatalogPowerOverrideCandidatePaths()
     {
-        std::vector<std::wstring> Segments;
-
-        if (ModeDef.HasUnlockEra)
-        {
-            Segments.push_back(
-                std::wstring(GetBuildingEraDisplayName(ModeDef.UnlockEra)));
-        }
-
-        if (!ModeDef.RequiredResearch.empty())
-            Segments.push_back(ModeDef.RequiredResearch);
-
-        if (!ModeDef.EffectSummary.empty())
-            Segments.push_back(ModeDef.EffectSummary);
-
-        std::wstring Result;
-        for (size_t Index = 0; Index < Segments.size(); ++Index)
-        {
-            if (Segments[Index].empty())
-                continue;
-
-            if (!Result.empty())
-                Result += L" / ";
-
-            Result += Segments[Index];
-        }
-
-        return Result;
-    }
-}
-
-std::wstring GetOperationModeEffectSummary(
-    const FBuildingCatalogEntry& Entry,
-    int ModeIndex)
-{
-    if (ModeIndex < 0 ||
-        ModeIndex >= static_cast<int>(Entry.OperationModeDefs.size()))
-    {
-        return std::wstring();
+        return ::BuildCatalogPowerOverrideCandidatePaths();
     }
 
-    return BuildOperationModeSummary(
-        Entry.OperationModeDefs[static_cast<size_t>(ModeIndex)]);
-}
-
-std::wstring GetRuntimeUpgradeDisplayName(
-    const FBuildingCatalogEntry& Entry,
-    int UpgradeIndex)
-{
-    if (UpgradeIndex < 0 ||
-        UpgradeIndex >= static_cast<int>(Entry.RuntimeUpgradeDefs.size()))
+    std::vector<std::wstring> BuildCatalogPollutionOverrideCandidatePaths()
     {
-        return std::wstring();
+        return ::BuildCatalogPollutionOverrideCandidatePaths();
     }
 
-    return Entry.RuntimeUpgradeDefs[static_cast<size_t>(UpgradeIndex)].
-        DisplayName;
-}
-
-std::wstring GetRuntimeUpgradeEffectSummary(
-    const FBuildingCatalogEntry& Entry,
-    int UpgradeIndex)
-{
-    if (UpgradeIndex < 0 ||
-        UpgradeIndex >= static_cast<int>(Entry.RuntimeUpgradeDefs.size()))
+    std::vector<std::wstring> BuildCatalogServiceStatsOverrideCandidatePaths()
     {
-        return std::wstring();
+        return ::BuildCatalogServiceStatsOverrideCandidatePaths();
     }
 
-    return Entry.RuntimeUpgradeDefs[static_cast<size_t>(UpgradeIndex)].
-        EffectSummary;
+    std::vector<std::wstring> BuildCatalogSizeOverrideCandidatePaths()
+    {
+        return ::BuildCatalogSizeOverrideCandidatePaths();
+    }
+
+    std::vector<std::wstring> BuildCatalogOperationModeOverrideCandidatePaths()
+    {
+        return ::BuildCatalogOperationModeOverrideCandidatePaths();
+    }
+
+    std::vector<std::wstring> BuildCatalogRuntimeUpgradeOverrideCandidatePaths()
+    {
+        return ::BuildCatalogRuntimeUpgradeOverrideCandidatePaths();
+    }
+
+    std::vector<FBuildingCatalogEntry> BuildBuildingCatalogEntries()
+    {
+        return ::BuildBuildingCatalogEntries();
+    }
 }

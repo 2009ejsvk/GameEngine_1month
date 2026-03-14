@@ -248,6 +248,7 @@ void CWorld::Update(float DeltaTime)
 	mWorldAssetManager->Update(DeltaTime); // 리소스 로딩 상태 확인
 	mNavigation->Update(DeltaTime);        // 길찾기 스레드 결과 수신/처리
 	mUIManager->Update(DeltaTime);         // UI 위젯 상태 갱신
+	OnUiManagerUpdated();                  // 클라이언트별 UI 오버라이드 훅
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -414,6 +415,10 @@ void CWorld::PostRender()
 void CWorld::RenderUI()
 {
 	mUIManager->Render();
+}
+
+void CWorld::OnUiManagerUpdated()
+{
 }
 
 /*

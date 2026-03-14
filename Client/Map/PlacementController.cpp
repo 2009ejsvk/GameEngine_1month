@@ -1162,7 +1162,9 @@ bool CPlacementController::EnsureRoadPlacementObject()
     return RestartRoadBrushPlacement();
 }
 
-bool CPlacementController::TryPlaceRoadAtTile(int TileIndex)
+bool CPlacementController::TryPlaceRoadAtTile(
+    int TileIndex,
+    CPlacementAreaObject::FScopedTopologyBatch* TopologyBatch)
 {
     if (TileIndex < 0 || !EnsureRoadPlacementObject())
         return false;
@@ -1178,7 +1180,7 @@ bool CPlacementController::TryPlaceRoadAtTile(int TileIndex)
         return false;
 
     ActivePlacementObject->StartMovePreview(TileWorldPos);
-    ActivePlacementObject->ConfirmPlacement();
+    ActivePlacementObject->ConfirmPlacement(TopologyBatch);
 
     const bool IsPlaced = ActivePlacementObject->HasPlacedArea();
 
@@ -1215,17 +1217,15 @@ bool CPlacementController::CommitRoadPathToTile(int EndTileIndex)
             BuildIndices.push_back(PathIndices[i]);
     }
 
-    CPlacementAreaObject::BeginTopologyBatchUpdate();
+    CPlacementAreaObject::FScopedTopologyBatch TopologyBatch;
 
     bool PlacedAny = false;
 
     for (size_t i = 0; i < BuildIndices.size(); ++i)
     {
-        if (TryPlaceRoadAtTile(BuildIndices[i]))
+        if (TryPlaceRoadAtTile(BuildIndices[i], &TopologyBatch))
             PlacedAny = true;
     }
-
-    CPlacementAreaObject::EndTopologyBatchUpdate();
 
     if (!PlacedAny && BuildIndices.empty())
         return true;

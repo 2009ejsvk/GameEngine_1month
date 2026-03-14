@@ -49,7 +49,8 @@ public:
     virtual const FPoliticalDemandNotice& GetPoliticalDemandNotice() const = 0;
     virtual bool IsSimulationPaused() const = 0;
     virtual int GetSimulationSpeedMultiplier() const = 0;
-    virtual void CycleSimulationSpeedState() = 0;
+    virtual void ToggleSimulationPaused() = 0;
+    virtual void CycleSimulationSpeedMultiplier() = 0;
 };
 
 class IMainWorldAlmanacAccess

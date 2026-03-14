@@ -16,6 +16,7 @@ private:
 public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
+    virtual void OnUiManagerUpdated() override;
 
 private:
 	void LoadAnimation2D();

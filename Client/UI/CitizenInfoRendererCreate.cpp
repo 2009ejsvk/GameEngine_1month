@@ -6,9 +6,11 @@
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
 #include <cwchar>
+#include <functional>
 using namespace CitizenInfoRendererInternal;
-void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
+void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
 {
+    auto Widget = Owner.GetRendererView();
     auto PanelImage = Widget.CreateWidget<CImage>("CitizenInfo_Panel", 6).lock();
 
     if (PanelImage)
@@ -723,10 +725,12 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
             GRoundButtonSelectedTexture,
             GRoundButtonTexture);
         ConfigureIconSlotButtonStyle(CloseButton);
-        CloseButton->SetEventCallback<CCitizenInfoWidget>(
+        CloseButton->SetEventCallback(
             EButtonEventState::Click,
-            &Widget,
-            &CCitizenInfoWidget::OnCloseButtonClick);
+            [Widget]() mutable
+            {
+                Widget.OnCloseButtonClick();
+            });
 
         auto CloseText = CWidget::CreateStaticWidget<CTextBlock>(
             "CitizenInfo_CloseText",
@@ -767,7 +771,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
         ConfigureCategoryTabButtonStyle(Button, false);
         Button->SetEventCallback(
             EButtonEventState::Click,
-            [&Widget, Index]()
+            [Widget, Index]() mutable
             {
                 if (Widget.SelectCurrentModeTab(Index))
                     Widget.RefreshFromState();
@@ -807,15 +811,6 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
         Widget.mTabButtons[static_cast<size_t>(Index)] = Button;
     }
 
-    void (CCitizenInfoWidget::*BudgetCallbacks[GBudgetLevelCount])() =
-    {
-        &CCitizenInfoWidget::OnBudgetLevel1Click,
-        &CCitizenInfoWidget::OnBudgetLevel2Click,
-        &CCitizenInfoWidget::OnBudgetLevel3Click,
-        &CCitizenInfoWidget::OnBudgetLevel4Click,
-        &CCitizenInfoWidget::OnBudgetLevel5Click
-    };
-
     for (int Index = 0; Index < GBudgetLevelCount; ++Index)
     {
         auto Button = Widget.CreateWidget<CButton>(
@@ -833,10 +828,31 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
             GBigTextButtonSelectedTexture,
             GBigTextButtonDisabledTexture);
         ConfigureDefaultButtonStyle(Button);
-        Button->SetEventCallback<CCitizenInfoWidget>(
+        Button->SetEventCallback(
             EButtonEventState::Click,
-            &Widget,
-            BudgetCallbacks[Index]);
+            [Widget, Index]() mutable
+            {
+                switch (Index)
+                {
+                case 0:
+                    Widget.OnBudgetLevel1Click();
+                    break;
+                case 1:
+                    Widget.OnBudgetLevel2Click();
+                    break;
+                case 2:
+                    Widget.OnBudgetLevel3Click();
+                    break;
+                case 3:
+                    Widget.OnBudgetLevel4Click();
+                    break;
+                case 4:
+                    Widget.OnBudgetLevel5Click();
+                    break;
+                default:
+                    break;
+                }
+            });
 
         auto Label = CWidget::CreateStaticWidget<CTextBlock>(
             "CitizenInfo_BudgetLabel_" + std::to_string(Index + 1),
@@ -865,7 +881,8 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
         [&Widget](
             const std::string& Name,
             const wchar_t* LabelText,
-            void (CCitizenInfoWidget::*Callback)())
+            const std::function<void(CCitizenInfoWidget::FRendererView&)>&
+                Callback)
         -> std::shared_ptr<CButton>
     {
         auto Button = Widget.CreateWidget<CButton>(Name, 9).lock();
@@ -884,10 +901,12 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
 
         if (Callback)
         {
-            Button->SetEventCallback<CCitizenInfoWidget>(
+            Button->SetEventCallback(
                 EButtonEventState::Click,
-                &Widget,
-                Callback);
+                [Widget, Callback]() mutable
+                {
+                    Callback(Widget);
+                });
         }
 
         auto Label = CWidget::CreateStaticWidget<CTextBlock>(
@@ -914,17 +933,26 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
         CreateActionButton(
             "CitizenInfo_DemolishButton",
             UIStrings::Get(L"citizen_info.action.demolish").c_str(),
-            &CCitizenInfoWidget::OnDemolishButtonClick);
+            [](CCitizenInfoWidget::FRendererView& View)
+            {
+                View.OnDemolishButtonClick();
+            });
     Widget.mMoveButton =
         CreateActionButton(
             "CitizenInfo_MoveButton",
-            UIStrings::Get(L"citizen_info.action.move").c_str(),
-            &CCitizenInfoWidget::OnMoveButtonClick);
-    Widget.mCloneButton =
+            UIStrings::Get(L"citizen_info.action.relocate").c_str(),
+            [](CCitizenInfoWidget::FRendererView& View)
+            {
+                View.OnMoveButtonClick();
+            });
+    Widget.mFocusButton =
         CreateActionButton(
-            "CitizenInfo_CloneButton",
-            UIStrings::Get(L"citizen_info.action.clone").c_str(),
-            &CCitizenInfoWidget::OnCloneButtonClick);
+            "CitizenInfo_FocusButton",
+            UIStrings::Get(L"citizen_info.action.focus").c_str(),
+            [](CCitizenInfoWidget::FRendererView& View)
+            {
+                View.OnFocusButtonClick();
+            });
 
     auto OverviewCommandButton = Widget.CreateWidget<CButton>(
         "CitizenInfo_OverviewCommandButton",
@@ -940,10 +968,12 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
             GBigTextButtonSelectedTexture,
             GBigTextButtonDisabledTexture);
         ConfigureDefaultButtonStyle(OverviewCommandButton);
-        OverviewCommandButton->SetEventCallback<CCitizenInfoWidget>(
+        OverviewCommandButton->SetEventCallback(
             EButtonEventState::Click,
-            &Widget,
-            &CCitizenInfoWidget::OnOverviewCommandButtonClick);
+            [Widget]() mutable
+            {
+                Widget.OnOverviewCommandButtonClick();
+            });
 
         auto Label = CWidget::CreateStaticWidget<CTextBlock>(
             "CitizenInfo_OverviewCommandButton_Label",
@@ -1073,15 +1103,9 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Widget)
             "CitizenInfoMoveAction",
             GMoveActionIcon);
 
-    if (auto CloneButton = Widget.mCloneButton.lock())
+    if (auto FocusButton = Widget.mFocusButton.lock())
         ConfigureActionIcon(
-            CloneButton,
-            "CitizenInfoCloneAction",
-            GCloneActionIcon);
-
-    if (auto CloneButton = Widget.mCloneButton.lock())
-    {
-        CloneButton->ButtonEnable(false);
-        CloneButton->SetOpacityAll(0.72f);
-    }
+            FocusButton,
+            "CitizenInfoFocusAction",
+            GFocusActionIcon);
 }

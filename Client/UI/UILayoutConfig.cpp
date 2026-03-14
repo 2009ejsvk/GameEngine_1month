@@ -1,10 +1,17 @@
 #include "UILayoutConfig.h"
 #include "RuntimeConfigRegistry.h"
+#include "UI/Button.h"
+#include "UI/Image.h"
+#include "UI/TextBlock.h"
+#include "World/WorldUIManager.h"
 #include <Windows.h>
+#include <cmath>
 #include <fstream>
 #include <string>
 #include <algorithm>
 #include <cctype>
+#include <unordered_map>
+#include <vector>
 
 namespace UIConfig
 {
@@ -52,6 +59,16 @@ namespace UIConfig
     float DateFontSize           = 22.f;
 
     // 게임 속도 버튼
+    float PlayPauseButtonSize           = 44.f;
+    float PlayPauseButtonOffsetX        = 24.f;
+    float PlayPauseButtonOffsetY        = 0.f;
+    float PlayPauseButtonBottomMargin   = 18.f;
+    float SpeedMultiplierButtonSize     = 44.f;
+    float SpeedMultiplierButtonOffsetX  = 76.f;
+    float SpeedMultiplierButtonOffsetY  = 0.f;
+    float SpeedMultiplierButtonBottomMargin = 18.f;
+
+    // 레거시 공용 키 호환용
     float SpeedButtonSize         = 44.f;
     float SpeedButtonStep         = 52.f;
     float SpeedButtonOffsetX      = 24.f;
@@ -90,6 +107,48 @@ namespace UIConfig
     float EdictDetailTitleFontSize  = 23.f;
     float EdictDetailBodyFontSize   = 15.f;
     float EdictDetailCostFontSize   = 18.f;
+    float EdictTitleTextOffsetX     = 0.f;
+    float EdictTitleTextOffsetY     = 0.f;
+    float EdictSlotTextOffsetX      = 0.f;
+    float EdictSlotTextOffsetY      = 0.f;
+    float EdictDetailTitleOffsetX   = 0.f;
+    float EdictDetailTitleOffsetY   = 0.f;
+    float EdictDetailCostRowWidth   = 140.f;
+    float EdictDetailCostRowOffsetX = 0.f;
+    float EdictDetailCostRowOffsetY = 0.f;
+    float EdictDetailCostIconSize   = 24.f;
+    float EdictDetailCostIconOffsetX = 0.f;
+    float EdictDetailCostIconOffsetY = 0.f;
+    float EdictDetailCostOffsetX    = 0.f;
+    float EdictDetailCostOffsetY    = 0.f;
+    float EdictDetailCostTextWidth  = 108.f;
+    float EdictDetailCostTextHeight = 30.f;
+    bool EdictDetailInfoInlineWithCost = true;
+    float EdictDetailInfoInlineGapX = 12.f;
+    float EdictDetailInfoPanelOffsetX = 0.f;
+    float EdictDetailInfoPanelOffsetY = 0.f;
+    float EdictDetailInfoPanelWidthAdjust = 0.f;
+    float EdictDetailInfoPanelHeightAdjust = 0.f;
+    float EdictDetailInfoTextWidth = 0.f;
+    float EdictDetailInfoTextHeight = 20.f;
+    float EdictDetailInfoOffsetX    = 0.f;
+    float EdictDetailInfoOffsetY    = 0.f;
+    float EdictFeedbackOffsetX      = 0.f;
+    float EdictFeedbackOffsetY      = 0.f;
+    float EdictDetailBodyOffsetX    = 0.f;
+    float EdictDetailBodyOffsetY    = 0.f;
+    float EdictRequirementOffsetX   = 0.f;
+    float EdictRequirementOffsetY   = 0.f;
+    float EdictApplyButtonOffsetX   = 0.f;
+    float EdictApplyButtonOffsetY   = 0.f;
+    float EdictApplyButtonTextOffsetX = 0.f;
+    float EdictApplyButtonTextOffsetY = 0.f;
+    float EdictTaxPolicyTitleOffsetX = 0.f;
+    float EdictTaxPolicyTitleOffsetY = 0.f;
+    float EdictTaxPolicyRowTextOffsetX = 0.f;
+    float EdictTaxPolicyRowTextOffsetY = 0.f;
+    float EdictTaxPolicySummaryOffsetX = 0.f;
+    float EdictTaxPolicySummaryOffsetY = 0.f;
     float EdictApplyButtonWidth     = 140.f;
     float EdictApplyButtonHeight    = 38.f;
     float EdictScrollTrackWidth     = 10.f;
@@ -150,24 +209,104 @@ namespace UIConfig
     float BuildingPanelMinWidth            = 320.f;
     float BuildingPanelMaxWidth            = 410.f;
     float BuildingPanelTopOffset           = 58.f;
+    float BuildingPanelBottomMargin        = 10.f;
+    float BuildingPanelRightInset          = 10.f;
+    float BuildingPanelMinHeight           = 420.f;
     float BuildingPanelInnerMarginX        = 18.f;
     float BuildingPanelInnerMarginTop      = 16.f;
+    float BuildingPanelInnerBottomInset    = 28.f;
     float BuildingTabWidth                 = 56.f;
     float BuildingTabHeight                = 56.f;
     float BuildingTabGap                   = 10.f;
+    float BuildingTabLabelFontSize         = 14.f;
+    float BuildingTabLabelOffsetX          = 0.f;
+    float BuildingTabLabelOffsetY          = 0.f;
     float BuildingTitleFontSize            = 26.f;
     float BuildingSubtitleFontSize         = 15.f;
     float BuildingBodyFontSize             = 18.f;
+    float BuildingPageTitleFontSize        = 21.f;
+    float BuildingBudgetTextFontSize       = 16.f;
+    float BuildingOverviewWorkModeLabelFontSize = 18.f;
+    float BuildingOverviewWorkModeValueFontSize = 17.f;
+    float BuildingOverviewBudgetLabelFontSize = 18.f;
+    float BuildingOverviewBudgetValueFontSize = 18.f;
+    float BuildingOverviewOccupancyLabelFontSize = 18.f;
+    float BuildingOverviewOccupancyValueFontSize = 18.f;
+    float BuildingOverviewMetricLabelFontSize = 17.f;
+    float BuildingOverviewMetricSectionHeaderFontSize = 18.f;
+    float BuildingOverviewMetricValueFontSize = 17.f;
+    float BuildingUpgradeTitleFontSize    = 18.f;
+    float BuildingUpgradeDescriptionFontSize = 16.f;
+    float BuildingInformationAccentFontSize = 28.f;
+    float BuildingInformationBodyFontSize = 17.f;
+    float BuildingBudgetButtonFontSize    = 16.f;
+    float BuildingActionButtonFontSize    = 18.f;
+    float BuildingOverviewCommandButtonFontSize = 18.f;
+    float BuildingTitleIconInsetX          = 6.f;
+    float BuildingTitleIconOffsetY         = 0.f;
+    float BuildingTitleTextInsetX          = 14.f;
+    float BuildingTitleIconGap             = 6.f;
+    float BuildingTitleTextOffsetX         = 0.f;
+    float BuildingTitleTextOffsetY         = 0.f;
+    float BuildingTitleTextWidthAdjust     = 0.f;
+    float BuildingTitleTextHeightAdjust    = 0.f;
+    float BuildingSubtitleOffsetY          = 4.f;
     float BuildingTitleRibbonOffsetX       = 40.f;
     float BuildingTitleRibbonOffsetY       = 18.f;
     float BuildingTitleRibbonHeight        = 48.f;
+    float BuildingSectionRibbonHeight      = 34.f;
+    float BuildingSectionRibbonOffsetY     = 28.f;
+    float BuildingCollapsedSectionGap      = 6.f;
     float BuildingCloseButtonOffsetX       = 38.f;
+    float BuildingCloseButtonOffsetY       = 4.f;
     float BuildingCloseButtonSize          = 34.f;
+    float BuildingCompactControlHeight     = 22.f;
+    float BuildingCompactBudgetButtonWidth = 36.f;
+    float BuildingSectionDividerWidth      = 172.f;
+    float BuildingSectionDividerHeight     = 14.f;
+    float BuildingBudgetBaseOffsetY        = 36.f;
+    float BuildingBudgetLabelOffsetY       = 2.f;
+    float BuildingOverviewWorkModeLabelOffsetX = 0.f;
+    float BuildingOverviewWorkModeLabelOffsetY = 0.f;
+    float BuildingOverviewWorkModeLabelWidthAdjust = 0.f;
+    float BuildingOverviewWorkModeBackgroundOffsetX = 0.f;
+    float BuildingOverviewWorkModeBackgroundOffsetY = 0.f;
+    float BuildingOverviewWorkModeBackgroundWidthAdjust = 0.f;
+    float BuildingOverviewWorkModeBackgroundHeightAdjust = 0.f;
+    float BuildingOverviewWorkModeTextOffsetX = 0.f;
+    float BuildingOverviewWorkModeTextOffsetY = 0.f;
+    float BuildingOverviewWorkModeTextWidthAdjust = 0.f;
+    float BuildingOverviewWorkModeTextHeightAdjust = 0.f;
+    float BuildingOverviewBudgetLabelOffsetX = 0.f;
+    float BuildingOverviewBudgetLabelOffsetY = 0.f;
+    float BuildingOverviewBudgetLabelWidthAdjust = 0.f;
+    float BuildingOverviewBudgetValueOffsetX = 0.f;
+    float BuildingOverviewBudgetValueOffsetY = 0.f;
+    float BuildingOverviewBudgetValueWidthAdjust = 0.f;
+    float BuildingBudgetCustomButtonsOffsetY = 20.f;
+    float BuildingBudgetWorkButtonsOffsetY = 78.f;
+    float BuildingBudgetDefaultButtonsOffsetY = 26.f;
+    float BuildingBudgetCompactGap         = 6.f;
+    float BuildingBudgetDefaultGap         = 8.f;
+    float BuildingOccupancyGapY            = 18.f;
     float BuildingActionButtonHeight       = 34.f;
     float BuildingActionButtonWidth        = 124.f;
     float BuildingActionButtonBottomMargin = 52.f;
+    float BuildingActionCompactIconSize    = 34.f;
+    float BuildingActionCompactIconOffsetY = 2.f;
+    float BuildingMoveCompactRightOffset   = 82.f;
+    float BuildingFocusCompactRightOffset  = 40.f;
+    float BuildingOverviewCommandGap       = 10.f;
     float BuildingBudgetButtonHeight       = 30.f;
     float BuildingScrollTrackWidth         = 15.f;
+    float BuildingScrollBottomInset        = 52.f;
+    float BuildingScrollThumbHeight        = 94.f;
+    float BuildingScrollThumbTopOffset     = 14.f;
+    float BuildingBodyGapAfterSection      = 8.f;
+    float BuildingBodyGapAfterActions      = 14.f;
+    float BuildingBodyGapBeforeActions     = 12.f;
+    float BuildingBodyFallbackOffset       = 4.f;
+    float BuildingBodyBottomInset          = 22.f;
     float BuildingIconSize                 = 36.f;
 
     // NPC 선택 UI
@@ -184,6 +323,7 @@ namespace UIConfig
     float CitizenTitleFontSize        = 26.f;
     float CitizenSubtitleFontSize     = 15.f;
     float CitizenBodyFontSize         = 18.f;
+    float CitizenPageTitleFontSize    = 21.f;
     float CitizenTitleRibbonHeight    = 44.f;
     float CitizenSectionRibbonHeight  = 34.f;
     float CitizenSectionRibbonOffsetY = 28.f;
@@ -213,9 +353,473 @@ namespace UIConfig
     namespace
     {
         constexpr const wchar_t* GConfigId = L"UI.Layout";
+        constexpr const wchar_t* GWidgetPathDumpFile = L"UIWidgetPaths.txt";
+
+        template <typename T>
+        struct TOptionalOverrideValue
+        {
+            bool Set = false;
+            T Value = T();
+        };
+
+        struct FWidgetOverrideRule
+        {
+            TOptionalOverrideValue<float> PosX;
+            TOptionalOverrideValue<float> PosY;
+            TOptionalOverrideValue<float> OffsetX;
+            TOptionalOverrideValue<float> OffsetY;
+            TOptionalOverrideValue<float> Width;
+            TOptionalOverrideValue<float> Height;
+            TOptionalOverrideValue<float> WidthAdd;
+            TOptionalOverrideValue<float> HeightAdd;
+            TOptionalOverrideValue<float> PivotX;
+            TOptionalOverrideValue<float> PivotY;
+            TOptionalOverrideValue<float> Opacity;
+            TOptionalOverrideValue<float> ZOrder;
+            TOptionalOverrideValue<float> TintR;
+            TOptionalOverrideValue<float> TintG;
+            TOptionalOverrideValue<float> TintB;
+            TOptionalOverrideValue<float> TintA;
+            TOptionalOverrideValue<float> FontSize;
+            TOptionalOverrideValue<float> FontSizeAdd;
+            TOptionalOverrideValue<float> ShadowOffsetX;
+            TOptionalOverrideValue<float> ShadowOffsetY;
+            TOptionalOverrideValue<bool> Enable;
+        };
+
+        std::unordered_map<std::string, FWidgetOverrideRule> GWidgetPathOverrides;
+        std::unordered_map<std::string, FWidgetOverrideRule> GWidgetNameOverrides;
+        unsigned long long GLastDumpedWidgetPathGeneration = 0;
+
+        void TrimString(std::string& S);
+
+        template <typename T>
+        void SetOverrideValue(TOptionalOverrideValue<T>& Field, const T& Value)
+        {
+            Field.Set = true;
+            Field.Value = Value;
+        }
+
+        template <typename T>
+        void MergeOverrideValue(
+            TOptionalOverrideValue<T>& Destination,
+            const TOptionalOverrideValue<T>& Source)
+        {
+            if (Source.Set)
+                Destination = Source;
+        }
+
+        void MergeOverrideRule(
+            FWidgetOverrideRule& Destination,
+            const FWidgetOverrideRule& Source)
+        {
+            MergeOverrideValue(Destination.PosX, Source.PosX);
+            MergeOverrideValue(Destination.PosY, Source.PosY);
+            MergeOverrideValue(Destination.OffsetX, Source.OffsetX);
+            MergeOverrideValue(Destination.OffsetY, Source.OffsetY);
+            MergeOverrideValue(Destination.Width, Source.Width);
+            MergeOverrideValue(Destination.Height, Source.Height);
+            MergeOverrideValue(Destination.WidthAdd, Source.WidthAdd);
+            MergeOverrideValue(Destination.HeightAdd, Source.HeightAdd);
+            MergeOverrideValue(Destination.PivotX, Source.PivotX);
+            MergeOverrideValue(Destination.PivotY, Source.PivotY);
+            MergeOverrideValue(Destination.Opacity, Source.Opacity);
+            MergeOverrideValue(Destination.ZOrder, Source.ZOrder);
+            MergeOverrideValue(Destination.TintR, Source.TintR);
+            MergeOverrideValue(Destination.TintG, Source.TintG);
+            MergeOverrideValue(Destination.TintB, Source.TintB);
+            MergeOverrideValue(Destination.TintA, Source.TintA);
+            MergeOverrideValue(Destination.FontSize, Source.FontSize);
+            MergeOverrideValue(Destination.FontSizeAdd, Source.FontSizeAdd);
+            MergeOverrideValue(
+                Destination.ShadowOffsetX,
+                Source.ShadowOffsetX);
+            MergeOverrideValue(
+                Destination.ShadowOffsetY,
+                Source.ShadowOffsetY);
+            MergeOverrideValue(Destination.Enable, Source.Enable);
+        }
+
+        bool ParseWidgetOverrideKey(
+            const std::string& Key,
+            bool& OutByName,
+            std::string& OutTarget,
+            std::string& OutProperty)
+        {
+            size_t PrefixLength = 0;
+
+            if (Key.rfind("Widget.", 0) == 0)
+            {
+                OutByName = false;
+                PrefixLength = 7;
+            }
+            else if (Key.rfind("WidgetName.", 0) == 0)
+            {
+                OutByName = true;
+                PrefixLength = 11;
+            }
+            else
+            {
+                return false;
+            }
+
+            const size_t PropertyPos = Key.rfind('.');
+
+            if (PropertyPos == std::string::npos ||
+                PropertyPos <= PrefixLength ||
+                PropertyPos + 1 >= Key.size())
+            {
+                return false;
+            }
+
+            OutTarget = Key.substr(PrefixLength, PropertyPos - PrefixLength);
+            OutProperty = Key.substr(PropertyPos + 1);
+            TrimString(OutTarget);
+            TrimString(OutProperty);
+            return !OutTarget.empty() && !OutProperty.empty();
+        }
+
+        FWidgetOverrideRule* FindOverrideRule(
+            bool ByName,
+            const std::string& Target)
+        {
+            auto& SourceMap = ByName ? GWidgetNameOverrides : GWidgetPathOverrides;
+            return &SourceMap[Target];
+        }
+
+        bool ApplyWidgetOverrideValue(const std::string& Key, float Val)
+        {
+            bool ByName = false;
+            std::string Target;
+            std::string Property;
+
+            if (!ParseWidgetOverrideKey(Key, ByName, Target, Property))
+                return false;
+
+            FWidgetOverrideRule* const Rule =
+                FindOverrideRule(ByName, Target);
+
+            if (!Rule)
+                return false;
+
+            if      (Property == "PosX")          SetOverrideValue(Rule->PosX, Val);
+            else if (Property == "PosY")          SetOverrideValue(Rule->PosY, Val);
+            else if (Property == "OffsetX")       SetOverrideValue(Rule->OffsetX, Val);
+            else if (Property == "OffsetY")       SetOverrideValue(Rule->OffsetY, Val);
+            else if (Property == "Width")         SetOverrideValue(Rule->Width, Val);
+            else if (Property == "Height")        SetOverrideValue(Rule->Height, Val);
+            else if (Property == "WidthAdd")      SetOverrideValue(Rule->WidthAdd, Val);
+            else if (Property == "HeightAdd")     SetOverrideValue(Rule->HeightAdd, Val);
+            else if (Property == "PivotX")        SetOverrideValue(Rule->PivotX, Val);
+            else if (Property == "PivotY")        SetOverrideValue(Rule->PivotY, Val);
+            else if (Property == "Opacity")       SetOverrideValue(Rule->Opacity, Val);
+            else if (Property == "ZOrder")        SetOverrideValue(Rule->ZOrder, Val);
+            else if (Property == "TintR")         SetOverrideValue(Rule->TintR, Val);
+            else if (Property == "TintG")         SetOverrideValue(Rule->TintG, Val);
+            else if (Property == "TintB")         SetOverrideValue(Rule->TintB, Val);
+            else if (Property == "TintA")         SetOverrideValue(Rule->TintA, Val);
+            else if (Property == "FontSize")      SetOverrideValue(Rule->FontSize, Val);
+            else if (Property == "FontSizeAdd")   SetOverrideValue(Rule->FontSizeAdd, Val);
+            else if (Property == "ShadowOffsetX") SetOverrideValue(Rule->ShadowOffsetX, Val);
+            else if (Property == "ShadowOffsetY") SetOverrideValue(Rule->ShadowOffsetY, Val);
+            else return false;
+
+            return true;
+        }
+
+        bool ApplyWidgetOverrideFlag(const std::string& Key, bool Val)
+        {
+            bool ByName = false;
+            std::string Target;
+            std::string Property;
+
+            if (!ParseWidgetOverrideKey(Key, ByName, Target, Property))
+                return false;
+
+            if (Property != "Enable")
+                return false;
+
+            SetOverrideValue(FindOverrideRule(ByName, Target)->Enable, Val);
+            return true;
+        }
+
+        const char* GetWidgetTypeName(const std::shared_ptr<CWidget>& Widget)
+        {
+            if (std::dynamic_pointer_cast<CTextBlock>(Widget))
+                return "TextBlock";
+
+            if (std::dynamic_pointer_cast<CButton>(Widget))
+                return "Button";
+
+            if (std::dynamic_pointer_cast<CImage>(Widget))
+                return "Image";
+
+            if (std::dynamic_pointer_cast<CWidgetContainer>(Widget))
+                return "Container";
+
+            return "Widget";
+        }
+
+        bool BuildCombinedOverrideRule(
+            const std::string& WidgetPath,
+            const std::string& WidgetName,
+            FWidgetOverrideRule& OutRule)
+        {
+            bool HasOverride = false;
+            const auto NameIt = GWidgetNameOverrides.find(WidgetName);
+            const auto PathIt = GWidgetPathOverrides.find(WidgetPath);
+
+            if (NameIt != GWidgetNameOverrides.end())
+            {
+                MergeOverrideRule(OutRule, NameIt->second);
+                HasOverride = true;
+            }
+
+            if (PathIt != GWidgetPathOverrides.end())
+            {
+                MergeOverrideRule(OutRule, PathIt->second);
+                HasOverride = true;
+            }
+
+            return HasOverride;
+        }
+
+        void ApplyOverrideRuleToWidget(
+            const std::shared_ptr<CWidget>& Widget,
+            const FWidgetOverrideRule& Rule)
+        {
+            if (!Widget)
+                return;
+
+            if (Rule.Enable.Set)
+                Widget->SetEnable(Rule.Enable.Value);
+
+            FVector3 Position = Widget->GetPos();
+
+            if (Rule.PosX.Set)
+                Position.x = Rule.PosX.Value;
+
+            if (Rule.PosY.Set)
+                Position.y = Rule.PosY.Value;
+
+            if (Rule.OffsetX.Set)
+                Position.x += Rule.OffsetX.Value;
+
+            if (Rule.OffsetY.Set)
+                Position.y += Rule.OffsetY.Value;
+
+            Widget->SetPos(Position);
+
+            FVector3 Size = Widget->GetSize();
+
+            if (Rule.Width.Set)
+                Size.x = Rule.Width.Value;
+
+            if (Rule.Height.Set)
+                Size.y = Rule.Height.Value;
+
+            if (Rule.WidthAdd.Set)
+                Size.x += Rule.WidthAdd.Value;
+
+            if (Rule.HeightAdd.Set)
+                Size.y += Rule.HeightAdd.Value;
+
+            Size.x = (std::max)(0.f, Size.x);
+            Size.y = (std::max)(0.f, Size.y);
+            Widget->SetSize(Size);
+
+            FVector3 Pivot = Widget->GetPivot();
+
+            if (Rule.PivotX.Set)
+                Pivot.x = Rule.PivotX.Value;
+
+            if (Rule.PivotY.Set)
+                Pivot.y = Rule.PivotY.Value;
+
+            Widget->SetPivot(Pivot);
+
+            if (Rule.ZOrder.Set)
+                Widget->SetZOrder(static_cast<int>(Rule.ZOrder.Value));
+
+            if (Rule.TintR.Set || Rule.TintG.Set || Rule.TintB.Set || Rule.TintA.Set)
+            {
+                FVector4 Tint = Widget->GetWidgetColor();
+
+                if (Rule.TintR.Set)
+                    Tint.x = Rule.TintR.Value;
+
+                if (Rule.TintG.Set)
+                    Tint.y = Rule.TintG.Value;
+
+                if (Rule.TintB.Set)
+                    Tint.z = Rule.TintB.Value;
+
+                if (Rule.TintA.Set)
+                    Tint.w = Rule.TintA.Value;
+
+                Widget->SetWidgetColor(Tint);
+            }
+
+            if (Rule.Opacity.Set)
+                Widget->SetOpacity(Rule.Opacity.Value);
+
+            const auto Text = std::dynamic_pointer_cast<CTextBlock>(Widget);
+
+            if (!Text)
+                return;
+
+            float FontSize = Text->GetFontSize();
+
+            if (Rule.FontSize.Set)
+                FontSize = Rule.FontSize.Value;
+
+            if (Rule.FontSizeAdd.Set)
+                FontSize += Rule.FontSizeAdd.Value;
+
+            if (Rule.FontSize.Set || Rule.FontSizeAdd.Set)
+                Text->SetFontSize((std::max)(0.f, FontSize));
+
+            if (Rule.ShadowOffsetX.Set || Rule.ShadowOffsetY.Set)
+            {
+                FVector2 ShadowOffset = Text->GetShadowOffset();
+
+                if (Rule.ShadowOffsetX.Set)
+                    ShadowOffset.x = Rule.ShadowOffsetX.Value;
+
+                if (Rule.ShadowOffsetY.Set)
+                    ShadowOffset.y = Rule.ShadowOffsetY.Value;
+
+                Text->SetShadowOffset(ShadowOffset);
+            }
+        }
+
+        void DumpWidgetPathsRecursive(
+            const std::shared_ptr<CWidget>& Widget,
+            const std::string& WidgetPath,
+            std::ofstream& File)
+        {
+            if (!Widget)
+                return;
+
+            File << WidgetPath << " [" << GetWidgetTypeName(Widget) << "]\n";
+
+            if (const auto Button = std::dynamic_pointer_cast<CButton>(Widget))
+            {
+                const auto Child = Button->GetChild();
+
+                if (Child)
+                {
+                    DumpWidgetPathsRecursive(
+                        Child,
+                        WidgetPath + "/" + Child->GetName(),
+                        File);
+                }
+            }
+
+            const auto Container = std::dynamic_pointer_cast<CWidgetContainer>(Widget);
+
+            if (!Container)
+                return;
+
+            const auto& Children = Container->GetChildList();
+
+            for (size_t Index = 0; Index < Children.size(); ++Index)
+            {
+                const auto& Child = Children[Index];
+
+                if (!Child)
+                    continue;
+
+                DumpWidgetPathsRecursive(
+                    Child,
+                    WidgetPath + "/" + Child->GetName(),
+                    File);
+            }
+        }
+
+        void DumpWidgetPaths(const std::shared_ptr<CWorldUIManager>& UIManager)
+        {
+            if (!UIManager)
+                return;
+
+            std::ofstream File(
+                RuntimeConfigRegistry::BuildExeRelativePath(GWidgetPathDumpFile));
+
+            if (!File.is_open())
+                return;
+
+            File << "# Auto-generated widget path list for UILayout.ini\n";
+            File << "# Full-path syntax: Widget.TopHudWidget/TopHud_DateText.OffsetY = -4\n";
+            File << "# Name-wide syntax: WidgetName.TopHud_DateText.OffsetY = -4\n";
+            File << "# Supported props: PosX PosY OffsetX OffsetY Width Height WidthAdd HeightAdd\n";
+            File << "#                  PivotX PivotY Opacity ZOrder TintR TintG TintB TintA\n";
+            File << "#                  FontSize FontSizeAdd ShadowOffsetX ShadowOffsetY Enable\n\n";
+
+            const auto& WidgetList = UIManager->GetWidgetList();
+
+            for (size_t Index = 0; Index < WidgetList.size(); ++Index)
+            {
+                const auto& RootWidget = WidgetList[Index];
+
+                if (!RootWidget)
+                    continue;
+
+                DumpWidgetPathsRecursive(
+                    RootWidget,
+                    RootWidget->GetName(),
+                    File);
+            }
+        }
+
+        void ApplyWidgetOverridesRecursive(
+            const std::shared_ptr<CWidget>& Widget,
+            const std::string& WidgetPath)
+        {
+            if (!Widget)
+                return;
+
+            FWidgetOverrideRule Rule;
+
+            if (BuildCombinedOverrideRule(WidgetPath, Widget->GetName(), Rule))
+                ApplyOverrideRuleToWidget(Widget, Rule);
+
+            if (const auto Button = std::dynamic_pointer_cast<CButton>(Widget))
+            {
+                const auto Child = Button->GetChild();
+
+                if (Child)
+                {
+                    ApplyWidgetOverridesRecursive(
+                        Child,
+                        WidgetPath + "/" + Child->GetName());
+                }
+            }
+
+            const auto Container = std::dynamic_pointer_cast<CWidgetContainer>(Widget);
+
+            if (!Container)
+                return;
+
+            const auto& Children = Container->GetChildList();
+
+            for (size_t Index = 0; Index < Children.size(); ++Index)
+            {
+                const auto& Child = Children[Index];
+
+                if (!Child)
+                    continue;
+
+                ApplyWidgetOverridesRecursive(
+                    Child,
+                    WidgetPath + "/" + Child->GetName());
+            }
+        }
 
         void ResetToDefaults()
         {
+            GWidgetPathOverrides.clear();
+            GWidgetNameOverrides.clear();
+
             StatusBarX              = 14.f;
             StatusBarY              = 10.f;
             StatusBarHeight         = 94.f;
@@ -254,6 +858,15 @@ namespace UIConfig
             DateTextHeight          = 28.f;
             DateFontSize            = 22.f;
 
+            PlayPauseButtonSize           = 44.f;
+            PlayPauseButtonOffsetX        = 24.f;
+            PlayPauseButtonOffsetY        = 0.f;
+            PlayPauseButtonBottomMargin   = 18.f;
+            SpeedMultiplierButtonSize     = 44.f;
+            SpeedMultiplierButtonOffsetX  = 76.f;
+            SpeedMultiplierButtonOffsetY  = 0.f;
+            SpeedMultiplierButtonBottomMargin = 18.f;
+
             SpeedButtonSize         = 44.f;
             SpeedButtonStep         = 52.f;
             SpeedButtonOffsetX      = 24.f;
@@ -290,6 +903,48 @@ namespace UIConfig
             EdictDetailTitleFontSize   = 23.f;
             EdictDetailBodyFontSize    = 15.f;
             EdictDetailCostFontSize    = 18.f;
+            EdictTitleTextOffsetX      = 0.f;
+            EdictTitleTextOffsetY      = 0.f;
+            EdictSlotTextOffsetX       = 0.f;
+            EdictSlotTextOffsetY       = 0.f;
+            EdictDetailTitleOffsetX    = 0.f;
+            EdictDetailTitleOffsetY    = 0.f;
+            EdictDetailCostRowWidth    = 140.f;
+            EdictDetailCostRowOffsetX  = 0.f;
+            EdictDetailCostRowOffsetY  = 0.f;
+            EdictDetailCostIconSize    = 24.f;
+            EdictDetailCostIconOffsetX = 0.f;
+            EdictDetailCostIconOffsetY = 0.f;
+            EdictDetailCostOffsetX     = 0.f;
+            EdictDetailCostOffsetY     = 0.f;
+            EdictDetailCostTextWidth   = 108.f;
+            EdictDetailCostTextHeight  = 30.f;
+            EdictDetailInfoInlineWithCost = true;
+            EdictDetailInfoInlineGapX  = 12.f;
+            EdictDetailInfoPanelOffsetX = 0.f;
+            EdictDetailInfoPanelOffsetY = 0.f;
+            EdictDetailInfoPanelWidthAdjust = 0.f;
+            EdictDetailInfoPanelHeightAdjust = 0.f;
+            EdictDetailInfoTextWidth  = 0.f;
+            EdictDetailInfoTextHeight = 20.f;
+            EdictDetailInfoOffsetX     = 0.f;
+            EdictDetailInfoOffsetY     = 0.f;
+            EdictFeedbackOffsetX       = 0.f;
+            EdictFeedbackOffsetY       = 0.f;
+            EdictDetailBodyOffsetX     = 0.f;
+            EdictDetailBodyOffsetY     = 0.f;
+            EdictRequirementOffsetX    = 0.f;
+            EdictRequirementOffsetY    = 0.f;
+            EdictApplyButtonOffsetX    = 0.f;
+            EdictApplyButtonOffsetY    = 0.f;
+            EdictApplyButtonTextOffsetX = 0.f;
+            EdictApplyButtonTextOffsetY = 0.f;
+            EdictTaxPolicyTitleOffsetX = 0.f;
+            EdictTaxPolicyTitleOffsetY = 0.f;
+            EdictTaxPolicyRowTextOffsetX = 0.f;
+            EdictTaxPolicyRowTextOffsetY = 0.f;
+            EdictTaxPolicySummaryOffsetX = 0.f;
+            EdictTaxPolicySummaryOffsetY = 0.f;
             EdictApplyButtonWidth      = 140.f;
             EdictApplyButtonHeight     = 38.f;
             EdictScrollTrackWidth      = 10.f;
@@ -348,24 +1003,104 @@ namespace UIConfig
             BuildingPanelMinWidth            = 320.f;
             BuildingPanelMaxWidth            = 410.f;
             BuildingPanelTopOffset           = 58.f;
+            BuildingPanelBottomMargin        = 10.f;
+            BuildingPanelRightInset          = 10.f;
+            BuildingPanelMinHeight           = 420.f;
             BuildingPanelInnerMarginX        = 18.f;
             BuildingPanelInnerMarginTop      = 16.f;
+            BuildingPanelInnerBottomInset    = 28.f;
             BuildingTabWidth                 = 56.f;
             BuildingTabHeight                = 56.f;
             BuildingTabGap                   = 10.f;
+            BuildingTabLabelFontSize         = 14.f;
+            BuildingTabLabelOffsetX          = 0.f;
+            BuildingTabLabelOffsetY          = 0.f;
             BuildingTitleFontSize            = 26.f;
             BuildingSubtitleFontSize         = 15.f;
             BuildingBodyFontSize             = 18.f;
+            BuildingPageTitleFontSize        = 21.f;
+            BuildingBudgetTextFontSize       = 16.f;
+            BuildingOverviewWorkModeLabelFontSize = 18.f;
+            BuildingOverviewWorkModeValueFontSize = 17.f;
+            BuildingOverviewBudgetLabelFontSize = 18.f;
+            BuildingOverviewBudgetValueFontSize = 18.f;
+            BuildingOverviewOccupancyLabelFontSize = 18.f;
+            BuildingOverviewOccupancyValueFontSize = 18.f;
+            BuildingOverviewMetricLabelFontSize = 17.f;
+            BuildingOverviewMetricSectionHeaderFontSize = 18.f;
+            BuildingOverviewMetricValueFontSize = 17.f;
+            BuildingUpgradeTitleFontSize    = 18.f;
+            BuildingUpgradeDescriptionFontSize = 16.f;
+            BuildingInformationAccentFontSize = 28.f;
+            BuildingInformationBodyFontSize = 17.f;
+            BuildingBudgetButtonFontSize    = 16.f;
+            BuildingActionButtonFontSize    = 18.f;
+            BuildingOverviewCommandButtonFontSize = 18.f;
+            BuildingTitleIconInsetX          = 6.f;
+            BuildingTitleIconOffsetY         = 0.f;
+            BuildingTitleTextInsetX          = 14.f;
+            BuildingTitleIconGap             = 6.f;
+            BuildingTitleTextOffsetX         = 0.f;
+            BuildingTitleTextOffsetY         = 0.f;
+            BuildingTitleTextWidthAdjust     = 0.f;
+            BuildingTitleTextHeightAdjust    = 0.f;
+            BuildingSubtitleOffsetY          = 4.f;
             BuildingTitleRibbonOffsetX       = 40.f;
             BuildingTitleRibbonOffsetY       = 18.f;
             BuildingTitleRibbonHeight        = 48.f;
+            BuildingSectionRibbonHeight      = 34.f;
+            BuildingSectionRibbonOffsetY     = 28.f;
+            BuildingCollapsedSectionGap      = 6.f;
             BuildingCloseButtonOffsetX       = 38.f;
+            BuildingCloseButtonOffsetY       = 4.f;
             BuildingCloseButtonSize          = 34.f;
+            BuildingCompactControlHeight     = 22.f;
+            BuildingCompactBudgetButtonWidth = 36.f;
+            BuildingSectionDividerWidth      = 172.f;
+            BuildingSectionDividerHeight     = 14.f;
+            BuildingBudgetBaseOffsetY        = 36.f;
+            BuildingBudgetLabelOffsetY       = 2.f;
+            BuildingOverviewWorkModeLabelOffsetX = 0.f;
+            BuildingOverviewWorkModeLabelOffsetY = 0.f;
+            BuildingOverviewWorkModeLabelWidthAdjust = 0.f;
+            BuildingOverviewWorkModeBackgroundOffsetX = 0.f;
+            BuildingOverviewWorkModeBackgroundOffsetY = 0.f;
+            BuildingOverviewWorkModeBackgroundWidthAdjust = 0.f;
+            BuildingOverviewWorkModeBackgroundHeightAdjust = 0.f;
+            BuildingOverviewWorkModeTextOffsetX = 0.f;
+            BuildingOverviewWorkModeTextOffsetY = 0.f;
+            BuildingOverviewWorkModeTextWidthAdjust = 0.f;
+            BuildingOverviewWorkModeTextHeightAdjust = 0.f;
+            BuildingOverviewBudgetLabelOffsetX = 0.f;
+            BuildingOverviewBudgetLabelOffsetY = 0.f;
+            BuildingOverviewBudgetLabelWidthAdjust = 0.f;
+            BuildingOverviewBudgetValueOffsetX = 0.f;
+            BuildingOverviewBudgetValueOffsetY = 0.f;
+            BuildingOverviewBudgetValueWidthAdjust = 0.f;
+            BuildingBudgetCustomButtonsOffsetY = 20.f;
+            BuildingBudgetWorkButtonsOffsetY = 78.f;
+            BuildingBudgetDefaultButtonsOffsetY = 26.f;
+            BuildingBudgetCompactGap         = 6.f;
+            BuildingBudgetDefaultGap         = 8.f;
+            BuildingOccupancyGapY            = 18.f;
             BuildingActionButtonHeight       = 34.f;
             BuildingActionButtonWidth        = 124.f;
             BuildingActionButtonBottomMargin = 52.f;
+            BuildingActionCompactIconSize    = 34.f;
+            BuildingActionCompactIconOffsetY = 2.f;
+            BuildingMoveCompactRightOffset   = 82.f;
+            BuildingFocusCompactRightOffset  = 40.f;
+            BuildingOverviewCommandGap       = 10.f;
             BuildingBudgetButtonHeight       = 30.f;
             BuildingScrollTrackWidth         = 15.f;
+            BuildingScrollBottomInset        = 52.f;
+            BuildingScrollThumbHeight        = 94.f;
+            BuildingScrollThumbTopOffset     = 14.f;
+            BuildingBodyGapAfterSection      = 8.f;
+            BuildingBodyGapAfterActions      = 14.f;
+            BuildingBodyGapBeforeActions     = 12.f;
+            BuildingBodyFallbackOffset       = 4.f;
+            BuildingBodyBottomInset          = 22.f;
             BuildingIconSize                 = 36.f;
 
             CitizenPanelWidthRatio       = 0.24f;
@@ -381,6 +1116,7 @@ namespace UIConfig
             CitizenTitleFontSize         = 26.f;
             CitizenSubtitleFontSize      = 15.f;
             CitizenBodyFontSize          = 18.f;
+            CitizenPageTitleFontSize     = 21.f;
             CitizenTitleRibbonHeight     = 44.f;
             CitizenSectionRibbonHeight   = 34.f;
             CitizenSectionRibbonOffsetY  = 28.f;
@@ -491,10 +1227,39 @@ namespace UIConfig
             else if (Key == "DateTextWidth")          DateTextWidth          = Val;
             else if (Key == "DateTextHeight")         DateTextHeight         = Val;
             else if (Key == "DateFontSize")           DateFontSize           = Val;
-            else if (Key == "SpeedButtonSize")         SpeedButtonSize         = Val;
-            else if (Key == "SpeedButtonStep")         SpeedButtonStep         = Val;
-            else if (Key == "SpeedButtonOffsetX")      SpeedButtonOffsetX      = Val;
-            else if (Key == "SpeedButtonBottomMargin") SpeedButtonBottomMargin = Val;
+            else if (Key == "PlayPauseButtonSize")       PlayPauseButtonSize       = Val;
+            else if (Key == "PlayPauseButtonOffsetX")    PlayPauseButtonOffsetX    = Val;
+            else if (Key == "PlayPauseButtonOffsetY")    PlayPauseButtonOffsetY    = Val;
+            else if (Key == "PlayPauseButtonBottomMargin") PlayPauseButtonBottomMargin = Val;
+            else if (Key == "SpeedMultiplierButtonSize") SpeedMultiplierButtonSize = Val;
+            else if (Key == "SpeedMultiplierButtonOffsetX") SpeedMultiplierButtonOffsetX = Val;
+            else if (Key == "SpeedMultiplierButtonOffsetY") SpeedMultiplierButtonOffsetY = Val;
+            else if (Key == "SpeedMultiplierButtonBottomMargin") SpeedMultiplierButtonBottomMargin = Val;
+            else if (Key == "SpeedButtonSize")
+            {
+                SpeedButtonSize = Val;
+                PlayPauseButtonSize = Val;
+                SpeedMultiplierButtonSize = Val;
+            }
+            else if (Key == "SpeedButtonStep")
+            {
+                SpeedButtonStep = Val;
+                SpeedMultiplierButtonOffsetX =
+                    SpeedButtonOffsetX + SpeedButtonStep;
+            }
+            else if (Key == "SpeedButtonOffsetX")
+            {
+                SpeedButtonOffsetX = Val;
+                PlayPauseButtonOffsetX = Val;
+                SpeedMultiplierButtonOffsetX =
+                    SpeedButtonOffsetX + SpeedButtonStep;
+            }
+            else if (Key == "SpeedButtonBottomMargin")
+            {
+                SpeedButtonBottomMargin = Val;
+                PlayPauseButtonBottomMargin = Val;
+                SpeedMultiplierButtonBottomMargin = Val;
+            }
             else return false;
             return true;
         }
@@ -545,6 +1310,47 @@ namespace UIConfig
             else if (Key == "EdictDetailTitleFontSize") EdictDetailTitleFontSize = Val;
             else if (Key == "EdictDetailBodyFontSize")  EdictDetailBodyFontSize  = Val;
             else if (Key == "EdictDetailCostFontSize")  EdictDetailCostFontSize  = Val;
+            else if (Key == "EdictTitleTextOffsetX")    EdictTitleTextOffsetX    = Val;
+            else if (Key == "EdictTitleTextOffsetY")    EdictTitleTextOffsetY    = Val;
+            else if (Key == "EdictSlotTextOffsetX")     EdictSlotTextOffsetX     = Val;
+            else if (Key == "EdictSlotTextOffsetY")     EdictSlotTextOffsetY     = Val;
+            else if (Key == "EdictDetailTitleOffsetX")  EdictDetailTitleOffsetX  = Val;
+            else if (Key == "EdictDetailTitleOffsetY")  EdictDetailTitleOffsetY  = Val;
+            else if (Key == "EdictDetailCostRowWidth")  EdictDetailCostRowWidth  = Val;
+            else if (Key == "EdictDetailCostRowOffsetX") EdictDetailCostRowOffsetX = Val;
+            else if (Key == "EdictDetailCostRowOffsetY") EdictDetailCostRowOffsetY = Val;
+            else if (Key == "EdictDetailCostIconSize")  EdictDetailCostIconSize  = Val;
+            else if (Key == "EdictDetailCostIconOffsetX") EdictDetailCostIconOffsetX = Val;
+            else if (Key == "EdictDetailCostIconOffsetY") EdictDetailCostIconOffsetY = Val;
+            else if (Key == "EdictDetailCostOffsetX")   EdictDetailCostOffsetX   = Val;
+            else if (Key == "EdictDetailCostOffsetY")   EdictDetailCostOffsetY   = Val;
+            else if (Key == "EdictDetailCostTextWidth") EdictDetailCostTextWidth = Val;
+            else if (Key == "EdictDetailCostTextHeight") EdictDetailCostTextHeight = Val;
+            else if (Key == "EdictDetailInfoInlineGapX") EdictDetailInfoInlineGapX = Val;
+            else if (Key == "EdictDetailInfoPanelOffsetX") EdictDetailInfoPanelOffsetX = Val;
+            else if (Key == "EdictDetailInfoPanelOffsetY") EdictDetailInfoPanelOffsetY = Val;
+            else if (Key == "EdictDetailInfoPanelWidthAdjust") EdictDetailInfoPanelWidthAdjust = Val;
+            else if (Key == "EdictDetailInfoPanelHeightAdjust") EdictDetailInfoPanelHeightAdjust = Val;
+            else if (Key == "EdictDetailInfoTextWidth") EdictDetailInfoTextWidth = Val;
+            else if (Key == "EdictDetailInfoTextHeight") EdictDetailInfoTextHeight = Val;
+            else if (Key == "EdictDetailInfoOffsetX")   EdictDetailInfoOffsetX   = Val;
+            else if (Key == "EdictDetailInfoOffsetY")   EdictDetailInfoOffsetY   = Val;
+            else if (Key == "EdictFeedbackOffsetX")     EdictFeedbackOffsetX     = Val;
+            else if (Key == "EdictFeedbackOffsetY")     EdictFeedbackOffsetY     = Val;
+            else if (Key == "EdictDetailBodyOffsetX")   EdictDetailBodyOffsetX   = Val;
+            else if (Key == "EdictDetailBodyOffsetY")   EdictDetailBodyOffsetY   = Val;
+            else if (Key == "EdictRequirementOffsetX")  EdictRequirementOffsetX  = Val;
+            else if (Key == "EdictRequirementOffsetY")  EdictRequirementOffsetY  = Val;
+            else if (Key == "EdictApplyButtonOffsetX")  EdictApplyButtonOffsetX  = Val;
+            else if (Key == "EdictApplyButtonOffsetY")  EdictApplyButtonOffsetY  = Val;
+            else if (Key == "EdictApplyButtonTextOffsetX") EdictApplyButtonTextOffsetX = Val;
+            else if (Key == "EdictApplyButtonTextOffsetY") EdictApplyButtonTextOffsetY = Val;
+            else if (Key == "EdictTaxPolicyTitleOffsetX") EdictTaxPolicyTitleOffsetX = Val;
+            else if (Key == "EdictTaxPolicyTitleOffsetY") EdictTaxPolicyTitleOffsetY = Val;
+            else if (Key == "EdictTaxPolicyRowTextOffsetX") EdictTaxPolicyRowTextOffsetX = Val;
+            else if (Key == "EdictTaxPolicyRowTextOffsetY") EdictTaxPolicyRowTextOffsetY = Val;
+            else if (Key == "EdictTaxPolicySummaryOffsetX") EdictTaxPolicySummaryOffsetX = Val;
+            else if (Key == "EdictTaxPolicySummaryOffsetY") EdictTaxPolicySummaryOffsetY = Val;
             else if (Key == "EdictApplyButtonWidth")    EdictApplyButtonWidth    = Val;
             else if (Key == "EdictApplyButtonHeight")   EdictApplyButtonHeight   = Val;
             else if (Key == "EdictScrollTrackWidth")    EdictScrollTrackWidth    = Val;
@@ -560,6 +1366,8 @@ namespace UIConfig
         {
             if (Key == "EdictEnableTaxPolicyPanel")
                 EdictEnableTaxPolicyPanel = Val;
+            else if (Key == "EdictDetailInfoInlineWithCost")
+                EdictDetailInfoInlineWithCost = Val;
             else
                 return false;
 
@@ -616,32 +1424,82 @@ namespace UIConfig
             return true;
         }
 
-        bool ApplyValue_BuildingCitizen(const std::string& Key, float Val)
+        bool ApplyValue_BuildingCitizenLayout(const std::string& Key, float Val)
         {
-            if      (Key == "BuildingPanelWidthRatio")          BuildingPanelWidthRatio          = Val;
-            else if (Key == "BuildingPanelMinWidth")            BuildingPanelMinWidth            = Val;
-            else if (Key == "BuildingPanelMaxWidth")            BuildingPanelMaxWidth            = Val;
-            else if (Key == "BuildingPanelTopOffset")           BuildingPanelTopOffset           = Val;
-            else if (Key == "BuildingPanelInnerMarginX")        BuildingPanelInnerMarginX        = Val;
-            else if (Key == "BuildingPanelInnerMarginTop")      BuildingPanelInnerMarginTop      = Val;
-            else if (Key == "BuildingTabWidth")                 BuildingTabWidth                 = Val;
-            else if (Key == "BuildingTabHeight")                BuildingTabHeight                = Val;
-            else if (Key == "BuildingTabGap")                   BuildingTabGap                   = Val;
-            else if (Key == "BuildingTitleFontSize")            BuildingTitleFontSize            = Val;
-            else if (Key == "BuildingSubtitleFontSize")         BuildingSubtitleFontSize         = Val;
-            else if (Key == "BuildingBodyFontSize")             BuildingBodyFontSize             = Val;
+            if      (Key == "BuildingTitleIconInsetX")          BuildingTitleIconInsetX          = Val;
+            else if (Key == "BuildingTitleIconOffsetY")         BuildingTitleIconOffsetY         = Val;
+            else if (Key == "BuildingTitleTextInsetX")          BuildingTitleTextInsetX          = Val;
+            else if (Key == "BuildingTitleIconGap")             BuildingTitleIconGap             = Val;
+            else if (Key == "BuildingTitleTextOffsetX")         BuildingTitleTextOffsetX         = Val;
+            else if (Key == "BuildingTitleTextOffsetY")         BuildingTitleTextOffsetY         = Val;
+            else if (Key == "BuildingTitleTextWidthAdjust")     BuildingTitleTextWidthAdjust     = Val;
+            else if (Key == "BuildingTitleTextHeightAdjust")    BuildingTitleTextHeightAdjust    = Val;
+            else if (Key == "BuildingSubtitleOffsetY")          BuildingSubtitleOffsetY          = Val;
             else if (Key == "BuildingTitleRibbonOffsetX")       BuildingTitleRibbonOffsetX       = Val;
             else if (Key == "BuildingTitleRibbonOffsetY")       BuildingTitleRibbonOffsetY       = Val;
             else if (Key == "BuildingTitleRibbonHeight")        BuildingTitleRibbonHeight        = Val;
+            else if (Key == "BuildingSectionRibbonHeight")      BuildingSectionRibbonHeight      = Val;
+            else if (Key == "BuildingSectionRibbonOffsetY")     BuildingSectionRibbonOffsetY     = Val;
+            else if (Key == "BuildingCollapsedSectionGap")      BuildingCollapsedSectionGap      = Val;
             else if (Key == "BuildingCloseButtonOffsetX")       BuildingCloseButtonOffsetX       = Val;
+            else if (Key == "BuildingCloseButtonOffsetY")       BuildingCloseButtonOffsetY       = Val;
             else if (Key == "BuildingCloseButtonSize")          BuildingCloseButtonSize          = Val;
+            else if (Key == "BuildingCompactControlHeight")     BuildingCompactControlHeight     = Val;
+            else if (Key == "BuildingCompactBudgetButtonWidth") BuildingCompactBudgetButtonWidth = Val;
+            else if (Key == "BuildingSectionDividerWidth")      BuildingSectionDividerWidth      = Val;
+            else if (Key == "BuildingSectionDividerHeight")     BuildingSectionDividerHeight     = Val;
+            else if (Key == "BuildingBudgetBaseOffsetY")        BuildingBudgetBaseOffsetY        = Val;
+            else if (Key == "BuildingBudgetLabelOffsetY")       BuildingBudgetLabelOffsetY       = Val;
+            else if (Key == "BuildingOverviewWorkModeLabelOffsetX") BuildingOverviewWorkModeLabelOffsetX = Val;
+            else if (Key == "BuildingOverviewWorkModeLabelOffsetY") BuildingOverviewWorkModeLabelOffsetY = Val;
+            else if (Key == "BuildingOverviewWorkModeLabelWidthAdjust") BuildingOverviewWorkModeLabelWidthAdjust = Val;
+            else if (Key == "BuildingOverviewWorkModeBackgroundOffsetX") BuildingOverviewWorkModeBackgroundOffsetX = Val;
+            else if (Key == "BuildingOverviewWorkModeBackgroundOffsetY") BuildingOverviewWorkModeBackgroundOffsetY = Val;
+            else if (Key == "BuildingOverviewWorkModeBackgroundWidthAdjust") BuildingOverviewWorkModeBackgroundWidthAdjust = Val;
+            else if (Key == "BuildingOverviewWorkModeBackgroundHeightAdjust") BuildingOverviewWorkModeBackgroundHeightAdjust = Val;
+            else if (Key == "BuildingOverviewWorkModeTextOffsetX") BuildingOverviewWorkModeTextOffsetX = Val;
+            else if (Key == "BuildingOverviewWorkModeTextOffsetY") BuildingOverviewWorkModeTextOffsetY = Val;
+            else if (Key == "BuildingOverviewWorkModeTextWidthAdjust") BuildingOverviewWorkModeTextWidthAdjust = Val;
+            else if (Key == "BuildingOverviewWorkModeTextHeightAdjust") BuildingOverviewWorkModeTextHeightAdjust = Val;
+            else if (Key == "BuildingOverviewBudgetLabelOffsetX") BuildingOverviewBudgetLabelOffsetX = Val;
+            else if (Key == "BuildingOverviewBudgetLabelOffsetY") BuildingOverviewBudgetLabelOffsetY = Val;
+            else if (Key == "BuildingOverviewBudgetLabelWidthAdjust") BuildingOverviewBudgetLabelWidthAdjust = Val;
+            else if (Key == "BuildingOverviewBudgetValueOffsetX") BuildingOverviewBudgetValueOffsetX = Val;
+            else if (Key == "BuildingOverviewBudgetValueOffsetY") BuildingOverviewBudgetValueOffsetY = Val;
+            else if (Key == "BuildingOverviewBudgetValueWidthAdjust") BuildingOverviewBudgetValueWidthAdjust = Val;
+            else if (Key == "BuildingBudgetCustomButtonsOffsetY") BuildingBudgetCustomButtonsOffsetY = Val;
+            else if (Key == "BuildingBudgetWorkButtonsOffsetY") BuildingBudgetWorkButtonsOffsetY = Val;
+            else if (Key == "BuildingBudgetDefaultButtonsOffsetY") BuildingBudgetDefaultButtonsOffsetY = Val;
+            else if (Key == "BuildingBudgetCompactGap")         BuildingBudgetCompactGap         = Val;
+            else if (Key == "BuildingBudgetDefaultGap")         BuildingBudgetDefaultGap         = Val;
+            else if (Key == "BuildingOccupancyGapY")            BuildingOccupancyGapY            = Val;
             else if (Key == "BuildingActionButtonHeight")       BuildingActionButtonHeight       = Val;
             else if (Key == "BuildingActionButtonWidth")        BuildingActionButtonWidth        = Val;
             else if (Key == "BuildingActionButtonBottomMargin") BuildingActionButtonBottomMargin = Val;
+            else if (Key == "BuildingActionCompactIconSize")    BuildingActionCompactIconSize    = Val;
+            else if (Key == "BuildingActionCompactIconOffsetY") BuildingActionCompactIconOffsetY = Val;
+            else if (Key == "BuildingMoveCompactRightOffset")   BuildingMoveCompactRightOffset   = Val;
+            else if (Key == "BuildingFocusCompactRightOffset")  BuildingFocusCompactRightOffset  = Val;
+            else if (Key == "BuildingOverviewCommandGap")       BuildingOverviewCommandGap       = Val;
             else if (Key == "BuildingBudgetButtonHeight")       BuildingBudgetButtonHeight       = Val;
             else if (Key == "BuildingScrollTrackWidth")         BuildingScrollTrackWidth         = Val;
+            else if (Key == "BuildingScrollBottomInset")        BuildingScrollBottomInset        = Val;
+            else if (Key == "BuildingScrollThumbHeight")        BuildingScrollThumbHeight        = Val;
+            else if (Key == "BuildingScrollThumbTopOffset")     BuildingScrollThumbTopOffset     = Val;
+            else if (Key == "BuildingBodyGapAfterSection")      BuildingBodyGapAfterSection      = Val;
+            else if (Key == "BuildingBodyGapAfterActions")      BuildingBodyGapAfterActions      = Val;
+            else if (Key == "BuildingBodyGapBeforeActions")     BuildingBodyGapBeforeActions     = Val;
+            else if (Key == "BuildingBodyFallbackOffset")       BuildingBodyFallbackOffset       = Val;
+            else if (Key == "BuildingBodyBottomInset")          BuildingBodyBottomInset          = Val;
             else if (Key == "BuildingIconSize")                 BuildingIconSize                 = Val;
-            else if (Key == "CitizenPanelWidthRatio")     CitizenPanelWidthRatio     = Val;
+            else return false;
+
+            return true;
+        }
+
+        bool ApplyValue_CitizenPanel(const std::string& Key, float Val)
+        {
+            if      (Key == "CitizenPanelWidthRatio")     CitizenPanelWidthRatio     = Val;
             else if (Key == "CitizenPanelMinWidth")       CitizenPanelMinWidth       = Val;
             else if (Key == "CitizenPanelMaxWidth")       CitizenPanelMaxWidth       = Val;
             else if (Key == "CitizenPanelTopOffset")      CitizenPanelTopOffset      = Val;
@@ -654,6 +1512,7 @@ namespace UIConfig
             else if (Key == "CitizenTitleFontSize")       CitizenTitleFontSize       = Val;
             else if (Key == "CitizenSubtitleFontSize")    CitizenSubtitleFontSize    = Val;
             else if (Key == "CitizenBodyFontSize")        CitizenBodyFontSize        = Val;
+            else if (Key == "CitizenPageTitleFontSize")   CitizenPageTitleFontSize   = Val;
             else if (Key == "CitizenTitleRibbonHeight")   CitizenTitleRibbonHeight   = Val;
             else if (Key == "CitizenSectionRibbonHeight") CitizenSectionRibbonHeight = Val;
             else if (Key == "CitizenSectionRibbonOffsetY") CitizenSectionRibbonOffsetY = Val;
@@ -668,12 +1527,59 @@ namespace UIConfig
             else if (Key == "CitizenFooterBottomInset")   CitizenFooterBottomInset   = Val;
             else if (Key == "CitizenBodyBottomInset")     CitizenBodyBottomInset     = Val;
             else return false;
+
+            return true;
+        }
+
+        bool ApplyValue_BuildingCitizen(const std::string& Key, float Val)
+        {
+            if      (Key == "BuildingPanelWidthRatio")          BuildingPanelWidthRatio          = Val;
+            else if (Key == "BuildingPanelMinWidth")            BuildingPanelMinWidth            = Val;
+            else if (Key == "BuildingPanelMaxWidth")            BuildingPanelMaxWidth            = Val;
+            else if (Key == "BuildingPanelTopOffset")           BuildingPanelTopOffset           = Val;
+            else if (Key == "BuildingPanelBottomMargin")        BuildingPanelBottomMargin        = Val;
+            else if (Key == "BuildingPanelRightInset")          BuildingPanelRightInset          = Val;
+            else if (Key == "BuildingPanelMinHeight")           BuildingPanelMinHeight           = Val;
+            else if (Key == "BuildingPanelInnerMarginX")        BuildingPanelInnerMarginX        = Val;
+            else if (Key == "BuildingPanelInnerMarginTop")      BuildingPanelInnerMarginTop      = Val;
+            else if (Key == "BuildingPanelInnerBottomInset")    BuildingPanelInnerBottomInset    = Val;
+            else if (Key == "BuildingTabWidth")                 BuildingTabWidth                 = Val;
+            else if (Key == "BuildingTabHeight")                BuildingTabHeight                = Val;
+            else if (Key == "BuildingTabGap")                   BuildingTabGap                   = Val;
+            else if (Key == "BuildingTabLabelFontSize")         BuildingTabLabelFontSize         = Val;
+            else if (Key == "BuildingTabLabelOffsetX")          BuildingTabLabelOffsetX          = Val;
+            else if (Key == "BuildingTabLabelOffsetY")          BuildingTabLabelOffsetY          = Val;
+            else if (Key == "BuildingTitleFontSize")            BuildingTitleFontSize            = Val;
+            else if (Key == "BuildingSubtitleFontSize")         BuildingSubtitleFontSize         = Val;
+            else if (Key == "BuildingBodyFontSize")             BuildingBodyFontSize             = Val;
+            else if (Key == "BuildingPageTitleFontSize")        BuildingPageTitleFontSize        = Val;
+            else if (Key == "BuildingBudgetTextFontSize")       BuildingBudgetTextFontSize       = Val;
+            else if (Key == "BuildingOverviewWorkModeLabelFontSize") BuildingOverviewWorkModeLabelFontSize = Val;
+            else if (Key == "BuildingOverviewWorkModeValueFontSize") BuildingOverviewWorkModeValueFontSize = Val;
+            else if (Key == "BuildingOverviewBudgetLabelFontSize") BuildingOverviewBudgetLabelFontSize = Val;
+            else if (Key == "BuildingOverviewBudgetValueFontSize") BuildingOverviewBudgetValueFontSize = Val;
+            else if (Key == "BuildingOverviewOccupancyLabelFontSize") BuildingOverviewOccupancyLabelFontSize = Val;
+            else if (Key == "BuildingOverviewOccupancyValueFontSize") BuildingOverviewOccupancyValueFontSize = Val;
+            else if (Key == "BuildingOverviewMetricLabelFontSize") BuildingOverviewMetricLabelFontSize = Val;
+            else if (Key == "BuildingOverviewMetricSectionHeaderFontSize") BuildingOverviewMetricSectionHeaderFontSize = Val;
+            else if (Key == "BuildingOverviewMetricValueFontSize") BuildingOverviewMetricValueFontSize = Val;
+            else if (Key == "BuildingUpgradeTitleFontSize")    BuildingUpgradeTitleFontSize    = Val;
+            else if (Key == "BuildingUpgradeDescriptionFontSize") BuildingUpgradeDescriptionFontSize = Val;
+            else if (Key == "BuildingInformationAccentFontSize") BuildingInformationAccentFontSize = Val;
+            else if (Key == "BuildingInformationBodyFontSize") BuildingInformationBodyFontSize = Val;
+            else if (Key == "BuildingBudgetButtonFontSize")    BuildingBudgetButtonFontSize    = Val;
+            else if (Key == "BuildingActionButtonFontSize")    BuildingActionButtonFontSize    = Val;
+            else if (Key == "BuildingOverviewCommandButtonFontSize") BuildingOverviewCommandButtonFontSize = Val;
+            else if (ApplyValue_BuildingCitizenLayout(Key, Val)) return true;
+            else if (ApplyValue_CitizenPanel(Key, Val)) return true;
+            else return false;
             return true;
         }
 
         // 키 이름으로 값 적용 (서브함수들 위임)
         void ApplyFloatValue(const std::string& Key, float Val)
         {
+            if (ApplyWidgetOverrideValue(Key, Val)) return;
             if (ApplyValue_HUD(Key, Val))            return;
             if (ApplyValue_Panel(Key, Val))          return;
             if (ApplyValue_Menu(Key, Val))           return;
@@ -715,7 +1621,8 @@ namespace UIConfig
                     bool BoolValue = false;
 
                     if (TryParseBoolValue(Value, BoolValue) &&
-                        ApplyValue_EdictFlags(Key, BoolValue))
+                        (ApplyValue_EdictFlags(Key, BoolValue) ||
+                            ApplyWidgetOverrideFlag(Key, BoolValue)))
                     {
                         continue;
                     }
@@ -743,6 +1650,38 @@ namespace UIConfig
                 &LoadFile,
                 nullptr
             });
+    }
+
+    void ApplyWidgetOverrides(const std::shared_ptr<CWorldUIManager>& UIManager)
+    {
+        if (!UIManager)
+            return;
+
+        const unsigned long long Generation =
+            RuntimeConfigRegistry::GetSourceGeneration(GConfigId);
+
+        if (Generation != GLastDumpedWidgetPathGeneration)
+        {
+            DumpWidgetPaths(UIManager);
+            GLastDumpedWidgetPathGeneration = Generation;
+        }
+
+        if (GWidgetPathOverrides.empty() && GWidgetNameOverrides.empty())
+            return;
+
+        const auto& WidgetList = UIManager->GetWidgetList();
+
+        for (size_t Index = 0; Index < WidgetList.size(); ++Index)
+        {
+            const auto& RootWidget = WidgetList[Index];
+
+            if (!RootWidget)
+                continue;
+
+            ApplyWidgetOverridesRecursive(
+                RootWidget,
+                RootWidget->GetName());
+        }
     }
 
     bool ReloadIfChanged(float DeltaTime)

@@ -1,14 +1,16 @@
 #include "CitizenInfoDataProvider.h"
 #include "CitizenInfoBuildingRuntime.h"
 #include "CitizenInfoConstants.h"
+#include "CitizenInfoPresentation.h"
 #include "CitizenInfoQueryService.h"
 #include "UIStrings.h"
 #include "../Building/BuildingCatalog.h"
 #include "../Economy/ResourceTradePricing.h"
-#include <Windows.h>
+#include "../StringUtils.h"
 #include <algorithm>
 #include <cmath>
 #include <cwchar>
+#include <cwctype>
 #include <vector>
 
 namespace
@@ -16,6 +18,15 @@ namespace
     using CitizenInfoConstants::GBuildingTabCount;
     using CitizenInfoConstants::GCitizenTabCount;
     using FBuildingUiSnapshot = CitizenInfoBuildingRuntime::FBuildingUiSnapshot;
+    using CitizenInfoPresentation::PopulateBuildingEfficiencyMetrics;
+    using CitizenInfoPresentation::PopulateBuildingInformationPanel;
+    using CitizenInfoPresentation::PopulateBuildingStatisticsMetrics;
+    using CitizenInfoPresentation::PopulateBuildingUpgradeCard;
+    using CitizenInfoPresentation::PopulateCustomsWorkOverview;
+    using CitizenInfoPresentation::PopulateResidentialOverview;
+    using CitizenInfoPresentation::ResolveBuildingPageTitle;
+    using CitizenInfoPresentation::HasOverviewMetrics;
+    using StringUtils::Utf8ToWide;
 
     std::string BuildCatalogIconTextureKey(
         const FBuildingCatalogEntry& Entry)
@@ -130,26 +141,6 @@ namespace
         bool CanGenerateWorkOutput = false;
     };
     #endif
-
-    std::wstring Utf8ToWide(const std::string& Text)
-    {
-        if (Text.empty())
-            return std::wstring();
-
-        const int RequiredCount = MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(), -1, nullptr, 0);
-
-        if (RequiredCount <= 1)
-            return std::wstring(Text.begin(), Text.end());
-
-        std::wstring WideText;
-        WideText.resize(RequiredCount - 1);
-        MultiByteToWideChar(
-            CP_UTF8, 0, Text.c_str(),
-            static_cast<int>(Text.size()),
-            &WideText[0], RequiredCount - 1);
-        return WideText;
-    }
 
     std::wstring Trim(const std::wstring& Text)
     {
@@ -648,312 +639,6 @@ namespace
     int ResolveOverviewRequiredPower(const FBuildingUiSnapshot& Snapshot)
     {
         return (std::max)(0, Snapshot.RequiredPowerMW);
-    }
-
-    bool UseGenericBuildingWorkOverview(const FBuildingUiSnapshot& Snapshot)
-    {
-        return !Snapshot.Residential &&
-            Snapshot.WorkProvider &&
-            !Snapshot.IsRoad;
-    }
-
-    struct FOverviewMetricWriter
-    {
-        CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot;
-        int WriteIndex = 0;
-
-        void Add(
-            const std::wstring& Label,
-            const std::wstring& Value,
-            bool Accent = false)
-        {
-            if (WriteIndex < 0 ||
-                WriteIndex >=
-                    static_cast<int>(Snapshot.OverviewMetricLabels.size()) ||
-                Label.empty())
-            {
-                return;
-            }
-
-            Snapshot.OverviewMetricLabels[static_cast<size_t>(WriteIndex)] =
-                Label;
-            Snapshot.OverviewMetricValues[static_cast<size_t>(WriteIndex)] =
-                Value;
-            Snapshot.OverviewMetricAccentValues[
-                static_cast<size_t>(WriteIndex)] = Accent;
-            ++WriteIndex;
-        }
-
-        void AddHeader(const std::wstring& Label)
-        {
-            Add(Label, std::wstring(), false);
-        }
-    };
-
-    std::wstring ResolveOverviewBudgetValue(const FBuildingUiSnapshot& Snapshot)
-    {
-        return FormatMoney(Snapshot.MonthlyUpkeepCost);
-    }
-
-    std::wstring ResolveWorkerOverviewEfficiency(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        const int EfficiencyPercent = static_cast<int>(roundf(
-            Snapshot.BudgetScale *
-            (Snapshot.RequiredPowerMW > 0 ?
-                Snapshot.PowerSupplyRatio :
-                1.f) *
-            100.f));
-        return std::to_wstring((std::max)(0, EfficiencyPercent)) + L"%";
-    }
-
-    std::wstring ResolveWorkerOverviewJobQuality(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        if (!Snapshot.JobQualityText.empty())
-            return Snapshot.JobQualityText;
-
-        if (Snapshot.JobCap > 0)
-            return std::to_wstring(Snapshot.JobCap);
-
-        return L"-";
-    }
-
-    std::wstring ResolveWorkerOverviewVisitorValue(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        if (Snapshot.ServiceCapacity > 0)
-        {
-            return std::to_wstring(Snapshot.AssignedVisitors.size()) +
-                L" / " +
-                std::to_wstring((std::max)(0, Snapshot.ServiceCapacity));
-        }
-
-        if (!Snapshot.AssignedVisitors.empty())
-            return std::to_wstring(Snapshot.AssignedVisitors.size());
-
-        return std::wstring();
-    }
-
-    const wchar_t* GetServiceCapacityLabelKey(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        return Snapshot.ServiceCapacityUsesHouseholds ?
-            L"citizen_info.label.household_capacity" :
-            L"citizen_info.label.service_capacity";
-    }
-
-    std::wstring ResolveWorkerOverviewPreferredType(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        if (!Snapshot.TouristPreferenceText.empty())
-            return Snapshot.TouristPreferenceText;
-
-        if (Snapshot.CatalogEntry &&
-            Snapshot.CatalogEntry->PrimaryTouristPreference !=
-                ETouristPreference::None)
-        {
-            return GetTouristPreferenceDisplayName(
-                Snapshot.CatalogEntry->PrimaryTouristPreference);
-        }
-
-        return std::wstring();
-    }
-
-    std::wstring ResolveWorkerOverviewPowerValue(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        const int RequiredPowerMW = (std::max)(0, Snapshot.RequiredPowerMW);
-
-        if (RequiredPowerMW > 0)
-        {
-            std::wstring Value = FormatMegawattValue(-RequiredPowerMW);
-            Value += L" (";
-            Value += FormatPowerCoverageValue(Snapshot.PowerSupplyRatio);
-            Value += L")";
-            return Value;
-        }
-
-        if (!Snapshot.RequiredPowerText.empty())
-            return L"-" + Snapshot.RequiredPowerText;
-
-        const int ProducedPowerMW = (std::max)(0, Snapshot.ProducedPowerMW);
-
-        if (ProducedPowerMW > 0)
-            return L"+" + FormatMegawattValue(ProducedPowerMW);
-
-        if (!Snapshot.ProducedPowerText.empty())
-            return L"+" + Snapshot.ProducedPowerText;
-
-        return std::wstring();
-    }
-
-    std::wstring ResolveWorkerOverviewStorageValue(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        if (!Snapshot.Harbor &&
-            !Snapshot.Warehouse &&
-            !Snapshot.CanGenerateWorkOutput &&
-            Snapshot.ResourceStock <= 0)
-        {
-            return std::wstring();
-        }
-
-        return FormatInteger(Snapshot.ResourceStock) +
-            L" / " +
-            FormatInteger(Snapshot.MaxResourceStock);
-    }
-
-    void PopulateGenericWorkOverview(
-        const FBuildingUiSnapshot& Snapshot,
-        CitizenInfoDataProvider::FCitizenInfoSnapshot& Result)
-    {
-        Result.OverviewWorkModeLabel =
-            Ui(L"citizen_info.label.work_mode");
-        Result.OverviewWorkModeValue =
-            !Snapshot.ActiveOperationModeText.empty() ?
-                Snapshot.ActiveOperationModeText :
-                (!Snapshot.OperationModes.empty() ?
-                    Snapshot.OperationModes.front() :
-                    Ui(L"citizen_info.work_mode.general_control"));
-        Result.OverviewBudgetLabel = Ui(L"citizen_info.label.budget");
-        Result.OverviewBudgetValue = ResolveOverviewBudgetValue(Snapshot);
-        Result.OverviewOccupancyLabel = Ui(L"citizen_info.label.workers");
-        Result.OverviewOccupancyValue =
-            std::to_wstring(Snapshot.AssignedEmployees.size()) +
-            L" / " +
-            std::to_wstring((std::max)(0, Snapshot.Capacity));
-        Result.OverviewResidentCount =
-            static_cast<int>(Snapshot.AssignedEmployees.size());
-        Result.OverviewResidentCapacity =
-            (std::max)(0, Snapshot.Capacity);
-
-        const bool HasServiceBlock =
-            Snapshot.ServiceCapacity > 0 ||
-            !Snapshot.ServiceQualityText.empty() ||
-            !Snapshot.WealthRequirementText.empty() ||
-            !ResolveWorkerOverviewPreferredType(Snapshot).empty();
-
-        if (HasServiceBlock)
-        {
-            Result.ShowBuildingVisitorIcons = Snapshot.ServiceCapacity > 0;
-            Result.OverviewVisitorCount =
-                static_cast<int>(Snapshot.AssignedVisitors.size());
-            Result.OverviewVisitorCapacity =
-                (std::max)(
-                    static_cast<int>(Snapshot.AssignedVisitors.size()),
-                    (std::max)(0, Snapshot.ServiceCapacity));
-        }
-
-        FOverviewMetricWriter Writer{ Result };
-        Writer.Add(
-            Ui(L"citizen_info.label.job_quality"),
-            ResolveWorkerOverviewJobQuality(Snapshot));
-        Writer.Add(
-            Ui(L"citizen_info.label.required_education"),
-            GetCitizenEducationDisplayName(
-                Snapshot.RequiredEducationLevel));
-        Writer.Add(
-            Ui(L"citizen_info.label.monthly_wage_cost"),
-            FormatMoney(Snapshot.MonthlyWageCost));
-        Writer.Add(
-            Ui(L"citizen_info.label.efficiency"),
-            ResolveWorkerOverviewEfficiency(Snapshot));
-
-        const std::wstring PowerValue =
-            ResolveWorkerOverviewPowerValue(Snapshot);
-
-        if (!PowerValue.empty() || !Snapshot.ProducedPowerText.empty())
-        {
-            Writer.Add(Ui(L"citizen_info.label.electricity"), PowerValue);
-            Writer.Add(Ui(L"citizen_info.label.power_network"), L"#1");
-
-            const int PowerSurplusMW =
-                Snapshot.TotalProducedPowerMW -
-                Snapshot.TotalRequiredPowerMW;
-            Writer.Add(
-                Ui(L"citizen_info.label.power_grid_status"),
-                FormatSignedMegawattValue(PowerSurplusMW),
-                PowerSurplusMW >= 0);
-        }
-        else
-        {
-            Writer.Add(
-                Ui(L"citizen_info.label.road_accessibility"),
-                std::to_wstring(static_cast<int>(roundf(
-                    Snapshot.AccessibilityScore * 100.f))) +
-                    L"%");
-        }
-
-        if (HasServiceBlock)
-        {
-            const std::wstring VisitorValue =
-                ResolveWorkerOverviewVisitorValue(Snapshot);
-
-            if (!VisitorValue.empty())
-            {
-                Writer.Add(
-                    Ui(L"citizen_info.label.visitors"),
-                    VisitorValue);
-            }
-
-            if (!Snapshot.ServiceQualityText.empty())
-            {
-                Writer.Add(
-                    Ui(L"citizen_info.label.service_quality"),
-                    Snapshot.ServiceQualityText);
-            }
-
-            if (!Snapshot.WealthRequirementText.empty())
-            {
-                Writer.Add(
-                    Ui(L"citizen_info.label.required_wealth"),
-                    NormalizeWealthRequirementText(
-                        Snapshot.WealthRequirementText));
-            }
-
-            const std::wstring PreferredType =
-                ResolveWorkerOverviewPreferredType(Snapshot);
-
-            if (!PreferredType.empty())
-            {
-                Writer.Add(
-                    Ui(L"citizen_info.label.preferred_type"),
-                    PreferredType);
-            }
-        }
-
-        const std::wstring StorageValue =
-            ResolveWorkerOverviewStorageValue(Snapshot);
-
-        if (!StorageValue.empty())
-        {
-            Writer.AddHeader(Ui(L"citizen_info.label.storage"));
-            Writer.Add(Ui(L"citizen_info.label.stock"), StorageValue);
-
-            if (Snapshot.Harbor)
-            {
-                Writer.Add(
-                    Ui(L"citizen_info.label.next_arrival_time"),
-                    FormatDayCount((std::max)(
-                        0,
-                        static_cast<int>(roundf(
-                            (1.f - Snapshot.HarborShipProgressPercent) *
-                            3.f *
-                            static_cast<float>((std::max)(
-                                1,
-                                Snapshot.DaysInMonth)))))));
-                Writer.Add(
-                    Ui(L"citizen_info.label.exportable_stock"),
-                    FormatInteger(Snapshot.ExportableStock));
-            }
-        }
-        else if (Snapshot.CanGenerateWorkOutput)
-        {
-            Writer.Add(
-                Ui(L"citizen_info.label.current_stock"),
-                FormatInteger(Snapshot.ResourceStock));
-        }
     }
 
     std::vector<std::wstring> ExtractBulletSection(
@@ -1698,1000 +1383,6 @@ namespace
     }
     #endif
 
-    std::wstring BuildOverviewBody(const FBuildingUiSnapshot& Snapshot)
-    {
-        std::wstring Body;
-
-        if (!Snapshot.OperationModes.empty())
-        {
-            AppendLine(Body, Ui(L"citizen_info.section.operation_modes"));
-            AppendLine(
-                Body,
-                L"  " +
-                (Snapshot.ActiveOperationModeText.empty() ?
-                    Snapshot.OperationModes.front() :
-                    Snapshot.ActiveOperationModeText));
-
-            if (!Snapshot.ActiveOperationModeEffectSummary.empty())
-            {
-                AppendLine(
-                    Body,
-                    L"  (" + Snapshot.ActiveOperationModeEffectSummary + L")");
-            }
-        }
-
-        if (Snapshot.Residential)
-        {
-            AppendLine(Body, L"");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.residents_status") + L": " +
-                std::to_wstring(Snapshot.Residents.size()) +
-                L" / " +
-                std::to_wstring(Snapshot.Capacity));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.household_capacity",
-                Snapshot.HouseholdCapacityText);
-        }
-        else if (Snapshot.WorkProvider)
-        {
-            AppendLine(Body, L"");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.workers") + L": " +
-                std::to_wstring(Snapshot.AssignedEmployees.size()) +
-                L" / " +
-                std::to_wstring(Snapshot.Capacity));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.required_education",
-                GetCitizenEducationDisplayName(
-                    Snapshot.RequiredEducationLevel));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.job_quality",
-                Snapshot.JobQualityText);
-        }
-
-        if (Snapshot.CatalogEntry)
-        {
-            const wchar_t* const ProductionStageText =
-                GetProductionChainStageDisplayName(
-                    Snapshot.CatalogEntry->ProductionChainStage);
-
-            if (ProductionStageText && *ProductionStageText)
-            {
-                AppendKeyValueByKey(
-                    Body,
-                    L"citizen_info.label.production_stage",
-                    ProductionStageText);
-            }
-
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.production",
-                BuildProductionChainSummary(*Snapshot.CatalogEntry));
-        }
-
-        if (Snapshot.Residential && Snapshot.CatalogEntry)
-        {
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.housing_class",
-                GetHousingClassDisplayName(
-                    Snapshot.CatalogEntry->HousingClass));
-        }
-
-        if (Snapshot.ServiceCapacity > 0 ||
-            !Snapshot.ServiceQualityText.empty() ||
-            !Snapshot.WealthRequirementText.empty() ||
-            !Snapshot.TouristPreferenceText.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.service"));
-
-            if (Snapshot.ServiceCapacity > 0)
-            {
-                AppendLine(
-                    Body,
-                    Ui(L"citizen_info.label.visitors") + L": " +
-                    std::to_wstring(Snapshot.AssignedVisitors.size()) +
-                    L" / " +
-                    std::to_wstring(Snapshot.ServiceCapacity));
-            }
-
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.service_quality",
-                Snapshot.ServiceQualityText);
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.wealth_requirement",
-                Snapshot.WealthRequirementText);
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.tourist_preference",
-                Snapshot.TouristPreferenceText);
-        }
-
-        if (!Snapshot.RequiredPowerText.empty() ||
-            !Snapshot.ProducedPowerText.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.power"));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.required_power",
-                Snapshot.RequiredPowerText);
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.produced_power",
-                Snapshot.ProducedPowerText);
-            if (Snapshot.RequiredPowerMW > 0)
-            {
-                AppendKeyValueByKey(
-                    Body,
-                    L"citizen_info.label.power_coverage",
-                    FormatPowerCoverageValue(
-                        Snapshot.PowerSupplyRatio));
-            }
-        }
-
-        if (Snapshot.PollutionOutput > 0 ||
-            Snapshot.PollutionMitigation > 0 ||
-            Snapshot.LocalPollutionExposure > 0)
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.environment"));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.pollution_output",
-                std::to_wstring(Snapshot.PollutionOutput));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.pollution_mitigation",
-                std::to_wstring(Snapshot.PollutionMitigation));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.local_pollution",
-                std::to_wstring(Snapshot.LocalPollutionExposure));
-        }
-
-        if (Snapshot.UsesResourceStock || Snapshot.Harbor)
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.storage_logistics"));
-
-            if (Snapshot.UsesResourceStock)
-            {
-                AppendLine(
-                    Body,
-                    Ui(L"citizen_info.label.stock") + L": " +
-                    FormatInteger(Snapshot.ResourceStock) +
-                    L" / " +
-                    FormatInteger(Snapshot.MaxResourceStock));
-                AppendProducedResourceTradeLines(Body, Snapshot);
-            }
-
-            if (Snapshot.Warehouse)
-            {
-                for (size_t SlotIndex = 0;
-                    SlotIndex < Snapshot.WarehouseSlotLines.size();
-                    ++SlotIndex)
-                {
-                    AppendLine(Body, Snapshot.WarehouseSlotLines[SlotIndex]);
-                }
-            }
-
-            for (size_t LineIndex = 0;
-                LineIndex < Snapshot.LogisticsLines.size();
-                ++LineIndex)
-            {
-                AppendLine(Body, Snapshot.LogisticsLines[LineIndex]);
-            }
-
-            if (Snapshot.Harbor)
-            {
-                AppendLine(
-                    Body,
-                    Ui(L"citizen_info.label.exportable_stock") + L": " +
-                    FormatInteger(Snapshot.ExportableStock));
-                AppendLine(
-                    Body,
-                    Ui(L"citizen_info.label.ship_progress") + L": " +
-                    std::to_wstring(static_cast<int>(roundf(
-                        Snapshot.HarborShipProgressPercent * 100.f))) +
-                    L"%");
-                AppendHarborPolicyReference(Body, Snapshot);
-                AppendHarborPriorityReference(Body, Snapshot);
-                AppendHarborTradePriceReference(Body);
-            }
-        }
-
-        if (!Snapshot.EffectText.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.main_effect"));
-            AppendLine(Body, Snapshot.EffectText);
-        }
-
-        if (!Snapshot.NoteText.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.note"));
-            AppendLine(Body, Snapshot.NoteText);
-        }
-
-        return Body.empty() ?
-            UIStrings::Get(L"citizen_info.building.data_pending") :
-            Body;
-    }
-
-    std::wstring BuildStatisticsBody(const FBuildingUiSnapshot& Snapshot)
-    {
-        std::wstring Body;
-
-        AppendLine(
-            Body,
-            Ui(L"citizen_info.label.monthly_wage_cost") +
-                L": " + FormatMoney(Snapshot.MonthlyWageCost));
-        AppendLine(
-            Body,
-            Ui(L"citizen_info.label.monthly_upkeep_cost") +
-                L": " + FormatMoney(Snapshot.MonthlyUpkeepCost));
-        AppendLine(
-            Body,
-            Ui(L"citizen_info.label.monthly_total_cost") + L": " +
-            FormatMoney(
-                static_cast<long long>(Snapshot.MonthlyWageCost) +
-                static_cast<long long>(Snapshot.MonthlyUpkeepCost)));
-        AppendLine(
-            Body,
-            Ui(L"citizen_info.label.daily_wage_cost") +
-                L": " + FormatMoney(Snapshot.DailyWageCost));
-        AppendLine(
-            Body,
-            Ui(L"citizen_info.label.daily_upkeep_cost") +
-                L": " + FormatMoney(Snapshot.DailyUpkeepCost));
-
-        if (Snapshot.UsesResourceStock)
-        {
-            AppendLine(Body, L"");
-            if (Snapshot.CatalogEntry)
-            {
-                const wchar_t* const ProductionStageText =
-                    GetProductionChainStageDisplayName(
-                        Snapshot.CatalogEntry->ProductionChainStage);
-
-                if (ProductionStageText && *ProductionStageText)
-                {
-                    AppendLine(
-                        Body,
-                        Ui(L"citizen_info.label.production_stage") +
-                            L": " +
-                            ProductionStageText);
-                    AppendLine(
-                        Body,
-                        Ui(L"citizen_info.label.production") +
-                            L": " +
-                            BuildProductionChainSummary(
-                                *Snapshot.CatalogEntry));
-                }
-            }
-
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.current_stock") + L": " +
-                FormatInteger(Snapshot.ResourceStock) +
-                L" / " +
-                FormatInteger(Snapshot.MaxResourceStock));
-            AppendProducedResourceTradeLines(Body, Snapshot);
-        }
-
-        if (Snapshot.Warehouse && !Snapshot.WarehouseSlotLines.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.warehouse_slots"));
-
-            for (size_t SlotIndex = 0;
-                SlotIndex < Snapshot.WarehouseSlotLines.size();
-                ++SlotIndex)
-            {
-                AppendLine(Body, Snapshot.WarehouseSlotLines[SlotIndex]);
-            }
-        }
-
-        if (!Snapshot.LogisticsLines.empty())
-        {
-            AppendLine(Body, L"");
-
-            for (size_t LineIndex = 0;
-                LineIndex < Snapshot.LogisticsLines.size();
-                ++LineIndex)
-            {
-                AppendLine(Body, Snapshot.LogisticsLines[LineIndex]);
-            }
-        }
-
-        if (Snapshot.Harbor)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.ship_arrival_progress") + L": " +
-                std::to_wstring(static_cast<int>(roundf(
-                    Snapshot.HarborShipProgressPercent * 100.f))) +
-                L"%");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.exportable_total") + L": " +
-                FormatInteger(Snapshot.ExportableStock));
-            AppendLine(Body, L"");
-            AppendHarborPolicyReference(Body, Snapshot);
-            AppendHarborPriorityReference(Body, Snapshot);
-            AppendHarborTradePriceReference(Body);
-        }
-
-        if (Snapshot.Residential)
-        {
-            AppendLine(Body, L"");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.resident_assignment") + L": " +
-                std::to_wstring(Snapshot.Residents.size()) +
-                L" / " +
-                std::to_wstring(Snapshot.Capacity));
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.representative_resident") +
-                    L": " + SummarizeNames(Snapshot.Residents));
-        }
-
-        if (Snapshot.WorkProvider)
-        {
-            AppendLine(Body, L"");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.assigned_workers") + L": " +
-                std::to_wstring(Snapshot.AssignedEmployees.size()));
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.working_now") + L": " +
-                std::to_wstring(Snapshot.WorkingEmployees.size()));
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.representative_worker") + L": " +
-                SummarizeNames(Snapshot.AssignedEmployees));
-        }
-
-        if (!Snapshot.AssignedVisitors.empty() ||
-            !Snapshot.ArrivedVisitors.empty() ||
-            !Snapshot.IncomingVisitors.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.assigned_visitors") + L": " +
-                std::to_wstring(Snapshot.AssignedVisitors.size()));
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.on_site_visitors") + L": " +
-                std::to_wstring(Snapshot.ArrivedVisitors.size()));
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.incoming_visitors") + L": " +
-                std::to_wstring(Snapshot.IncomingVisitors.size()));
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.representative_visitor") + L": " +
-                SummarizeNames(Snapshot.ArrivedVisitors));
-        }
-
-        return Body;
-    }
-
-    std::wstring BuildUpgradesBody(const FBuildingUiSnapshot& Snapshot)
-    {
-        std::wstring Body;
-
-        if (Snapshot.CatalogEntry &&
-            !Snapshot.CatalogEntry->RuntimeUpgradeDefs.empty())
-        {
-            const FBuildingRuntimeUpgradeDef* const ActiveUpgradeDef =
-                ResolveActiveRuntimeUpgradeDef(Snapshot);
-            AppendLine(Body, Ui(L"citizen_info.section.active_upgrades"));
-
-            if (ActiveUpgradeDef)
-            {
-                AppendLine(
-                    Body,
-                    BuildRuntimeUpgradeLine(
-                        *ActiveUpgradeDef,
-                        true,
-                        Snapshot.ActiveRuntimeUpgradeEffectSummary.empty() ?
-                            nullptr :
-                            &Snapshot.ActiveRuntimeUpgradeEffectSummary));
-            }
-            else if (Snapshot.ActiveRuntimeUpgradeText.empty())
-            {
-                AppendLine(Body, L"-");
-            }
-            else
-            {
-                std::wstring ActiveLine =
-                    L"* " + Snapshot.ActiveRuntimeUpgradeText;
-
-                if (!Snapshot.ActiveRuntimeUpgradeEffectSummary.empty())
-                {
-                    ActiveLine += L" (";
-                    ActiveLine += Snapshot.ActiveRuntimeUpgradeEffectSummary;
-                    ActiveLine += L")";
-                }
-
-                AppendLine(Body, ActiveLine);
-            }
-
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.runtime_upgrades"));
-
-            for (size_t Index = 0;
-                Index < Snapshot.CatalogEntry->RuntimeUpgradeDefs.size();
-                ++Index)
-            {
-                const bool IsActiveUpgrade =
-                    static_cast<int>(Index) ==
-                    Snapshot.ActiveRuntimeUpgradeIndex;
-                const FBuildingRuntimeUpgradeDef& UpgradeDef =
-                    Snapshot.CatalogEntry->RuntimeUpgradeDefs[Index];
-                const std::wstring* const ActiveEffectSummary =
-                    IsActiveUpgrade &&
-                        !Snapshot.ActiveRuntimeUpgradeEffectSummary.empty() ?
-                        &Snapshot.ActiveRuntimeUpgradeEffectSummary :
-                        nullptr;
-                AppendLine(
-                    Body,
-                    BuildRuntimeUpgradeLine(
-                        UpgradeDef,
-                        IsActiveUpgrade,
-                        ActiveEffectSummary));
-            }
-
-            AppendLine(Body, L"");
-        }
-
-        if (!Snapshot.UpgradeHints.empty())
-        {
-            AppendLine(Body, Ui(L"citizen_info.section.registered_upgrades"));
-
-            for (size_t Index = 0; Index < Snapshot.UpgradeHints.size(); ++Index)
-                AppendLine(Body, L"- " + Snapshot.UpgradeHints[Index]);
-        }
-        else
-        {
-            AppendLine(Body, Ui(L"citizen_info.upgrades.none"));
-        }
-
-        if (!Snapshot.OperationModes.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.section.operation_mode_candidates"));
-
-            for (size_t Index = 0; Index < Snapshot.OperationModes.size(); ++Index)
-            {
-                const bool IsActiveMode =
-                    static_cast<int>(Index) == Snapshot.ActiveOperationModeIndex;
-                std::wstring Line =
-                    (IsActiveMode ? L"* " : L"- ") +
-                    Snapshot.OperationModes[Index];
-
-                if (IsActiveMode &&
-                    !Snapshot.ActiveOperationModeEffectSummary.empty())
-                {
-                    Line += L" (";
-                    Line += Snapshot.ActiveOperationModeEffectSummary;
-                    Line += L")";
-                }
-
-                AppendLine(Body, Line);
-            }
-        }
-
-        if (Snapshot.Harbor)
-        {
-            AppendLine(Body, L"");
-            AppendHarborPolicyReference(Body, Snapshot);
-        }
-
-        return Body;
-    }
-
-    std::wstring BuildEfficiencyBody(const FBuildingUiSnapshot& Snapshot)
-    {
-        std::wstring Body;
-        const int BudgetPercent =
-            static_cast<int>(roundf(Snapshot.BudgetScale * 100.f));
-        const int CapacityFillPercent =
-            Snapshot.Capacity > 0 ?
-            static_cast<int>(roundf(
-                (static_cast<float>(
-                    Snapshot.Residential ?
-                    Snapshot.Residents.size() :
-                    Snapshot.AssignedEmployees.size()) /
-                    static_cast<float>(Snapshot.Capacity)) * 100.f)) :
-            100;
-        const int VisitorFillPercent =
-            Snapshot.ServiceCapacity > 0 ?
-            static_cast<int>(roundf(
-                (static_cast<float>(Snapshot.AssignedVisitors.size()) /
-                    static_cast<float>(Snapshot.ServiceCapacity)) * 100.f)) :
-            0;
-
-        AppendLine(
-            Body,
-            Ui(L"citizen_info.label.current_efficiency") + L": " +
-            std::to_wstring(BudgetPercent) +
-            L"%");
-        AppendLine(
-            Body,
-            Ui(L"citizen_info.label.budget_scale") +
-                L": " + FormatMultiplier(Snapshot.BudgetScale));
-
-        if (!Snapshot.IsRoad)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.road_accessibility") + L": " +
-                std::to_wstring(static_cast<int>(roundf(
-                    Snapshot.AccessibilityScore * 100.f))) +
-                L"%");
-        }
-
-        if (Snapshot.Residential)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.housing_fill_rate") + L": " +
-                std::to_wstring((std::max)(0, CapacityFillPercent)) +
-                L"%");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.housing_satisfaction_cap") + L": " +
-                std::to_wstring(Snapshot.HousingCap));
-        }
-        else if (Snapshot.WorkProvider)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.worker_fill_rate") + L": " +
-                std::to_wstring((std::max)(0, CapacityFillPercent)) +
-                L"%");
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.job_satisfaction_cap") + L": " +
-                std::to_wstring(Snapshot.JobCap));
-        }
-
-        if (Snapshot.FoodProvider)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.food_satisfaction_cap") + L": " +
-                std::to_wstring(Snapshot.FoodCap));
-        }
-
-        if (Snapshot.EntertainmentProvider)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.fun_satisfaction_cap") + L": " +
-                std::to_wstring(Snapshot.FunCap));
-        }
-
-        if (Snapshot.ServiceCapacity > 0)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.visitor_utilization") + L": " +
-                std::to_wstring((std::max)(0, VisitorFillPercent)) +
-                L"%");
-        }
-
-        if (!Snapshot.RequiredPowerText.empty())
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.power_demand",
-                Snapshot.RequiredPowerText);
-
-        if (Snapshot.PollutionOutput > 0 ||
-            Snapshot.PollutionMitigation > 0 ||
-            Snapshot.LocalPollutionExposure > 0)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.pollution_output") + L": " +
-                std::to_wstring(Snapshot.PollutionOutput));
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.pollution_mitigation") + L": " +
-                std::to_wstring(Snapshot.PollutionMitigation));
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.local_pollution") + L": " +
-                std::to_wstring(Snapshot.LocalPollutionExposure));
-        }
-
-        if (Snapshot.Harbor)
-        {
-            AppendLine(Body, L"");
-            AppendHarborPolicyReference(Body, Snapshot);
-        }
-
-        return Body;
-    }
-
-    std::wstring BuildInformationBody(const FBuildingUiSnapshot& Snapshot)
-    {
-        std::wstring Body = ResolveRoleSummary(Snapshot);
-
-        AppendLine(Body, L"");
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.category",
-            Snapshot.CategoryName);
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.blueprint_cost",
-            FormatCatalogCostValue(
-                Snapshot.BlueprintCostState,
-                Snapshot.BlueprintCost));
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.construction_cost",
-            FormatCatalogCostValue(
-                Snapshot.ConstructionCostState,
-                Snapshot.ConstructionCost));
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.required_power",
-            Snapshot.RequiredPowerText);
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.produced_power",
-            Snapshot.ProducedPowerText);
-        AppendKeyValueByKey(
-            Body,
-            Snapshot.Residential ?
-                L"citizen_info.label.household_capacity" :
-                GetServiceCapacityLabelKey(Snapshot),
-            Snapshot.Residential ?
-                Snapshot.HouseholdCapacityText :
-                Snapshot.ServiceCapacityText);
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.housing_quality",
-            Snapshot.HousingQualityText);
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.job_quality",
-            Snapshot.JobQualityText);
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.service_quality",
-            Snapshot.ServiceQualityText);
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.required_wealth",
-            NormalizeWealthRequirementText(
-                Snapshot.WealthRequirementText));
-
-        if (Snapshot.CatalogEntry)
-        {
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.unlock_era",
-                GetBuildingEraDisplayName(Snapshot.CatalogEntry->UnlockEra));
-
-            const wchar_t* const ProductionStageText =
-                GetProductionChainStageDisplayName(
-                    Snapshot.CatalogEntry->ProductionChainStage);
-
-            if (ProductionStageText && *ProductionStageText)
-            {
-                AppendKeyValueByKey(
-                    Body,
-                    L"citizen_info.label.production_stage",
-                    ProductionStageText);
-                AppendKeyValueByKey(
-                    Body,
-                    L"citizen_info.label.production",
-                    BuildProductionChainSummary(*Snapshot.CatalogEntry));
-            }
-
-            if (Snapshot.CatalogEntry->HousingClass !=
-                EBuildingHousingClass::None)
-            {
-                AppendKeyValueByKey(
-                    Body,
-                    L"citizen_info.label.housing_grade",
-                    GetHousingClassDisplayName(
-                        Snapshot.CatalogEntry->HousingClass));
-            }
-
-            if (Snapshot.CatalogEntry->LeisureClass !=
-                EBuildingLeisureClass::None)
-            {
-                AppendKeyValueByKey(
-                    Body,
-                    L"citizen_info.label.leisure_grade",
-                    GetLeisureClassDisplayName(
-                        Snapshot.CatalogEntry->LeisureClass));
-            }
-
-            if (Snapshot.CatalogEntry->PrimaryTouristPreference !=
-                ETouristPreference::None)
-            {
-                AppendKeyValueByKey(
-                    Body,
-                    L"citizen_info.label.primary_tourist",
-                    GetTouristPreferenceDisplayName(
-                        Snapshot.CatalogEntry->PrimaryTouristPreference));
-            }
-        }
-
-        if (Snapshot.PollutionOutput > 0 ||
-            Snapshot.PollutionMitigation > 0 ||
-            Snapshot.LocalPollutionExposure > 0)
-        {
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.pollution_output",
-                std::to_wstring(Snapshot.PollutionOutput));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.pollution_mitigation",
-                std::to_wstring(Snapshot.PollutionMitigation));
-            AppendKeyValueByKey(
-                Body,
-                L"citizen_info.label.local_pollution",
-                std::to_wstring(Snapshot.LocalPollutionExposure));
-        }
-
-        AppendKeyValueByKey(
-            Body,
-            L"citizen_info.label.required_education",
-            GetCitizenEducationDisplayName(
-                Snapshot.RequiredEducationLevel));
-
-        if (!Snapshot.NarrativeLines.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, JoinLines(Snapshot.NarrativeLines));
-        }
-        else if (!Snapshot.DetailText.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Snapshot.DetailText);
-        }
-
-        return Body;
-    }
-
-    std::wstring BuildCustomsModeSelectionBody(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        std::wstring Body =
-            L"해당 건물의 근무 형태를 선택하십시오.";
-        const std::wstring Description =
-            CitizenInfoBuildingRuntime::ResolveCustomsModeDescription(
-                Snapshot,
-                Snapshot.ActiveOperationModeIndex);
-
-        if (!Description.empty())
-        {
-            AppendLine(Body, L"");
-            AppendLine(Body, Description);
-        }
-
-        return Body;
-    }
-
-    std::wstring BuildCustomsUpgradesBody(
-        const FBuildingUiSnapshot& Snapshot)
-    {
-        return BuildUpgradesBody(Snapshot);
-    }
-
-    const wchar_t* GetCitizenProfileWealthDisplayName(
-        ECitizenWealthLevel Level)
-    {
-        switch (Level)
-        {
-        case ECitizenWealthLevel::WellOff:
-            return UiText(L"citizen_info.wealth_profile.well_off");
-        case ECitizenWealthLevel::Rich:
-            return UiText(L"citizen_info.wealth_profile.rich");
-        default:
-            return UiText(L"citizen_info.wealth_profile.poor");
-        }
-    }
-
-    const wchar_t* GetCitizenActivityDisplayName(ECitizenState State)
-    {
-        switch (State)
-        {
-        case ECitizenState::GoingToWork:
-        case ECitizenState::AtWork:
-        case ECitizenState::GoingToTeamsterSource:
-        case ECitizenState::GoingToTeamsterHarbor:
-        case ECitizenState::GoingToTeamsterConsumerSource:
-        case ECitizenState::GoingToTeamsterConsumerTarget:
-        case ECitizenState::GoingToTeamsterOffice:
-            return UiText(L"citizen_info.activity.work");
-        case ECitizenState::GoingToFood:
-        case ECitizenState::AtFood:
-            return UiText(L"citizen_info.activity.food");
-        case ECitizenState::GoingToHealth:
-        case ECitizenState::AtHealth:
-        case ECitizenState::GoingToFaith:
-        case ECitizenState::AtFaith:
-        case ECitizenState::GoingHome:
-        case ECitizenState::AtHome:
-        case ECitizenState::GoingToFun:
-        case ECitizenState::AtFun:
-            return UiText(L"citizen_info.activity.leisure");
-        default:
-            return UIStrings::Get(L"citizen_info.activity.move").c_str();
-        }
-    }
-
-    std::wstring ResolveBuildingDisplayName(
-        const std::shared_ptr<CitizenInfoDataProvider::ICitizenInfoQuerySource>&
-            QuerySource,
-        const std::string& BuildingName)
-    {
-        if (BuildingName.empty())
-            return L"-";
-
-        if (!QuerySource)
-            return Utf8ToWide(BuildingName);
-
-        return QuerySource->ResolveBuildingDisplayName(BuildingName);
-    }
-
-    std::wstring ResolveCitizenLocationText(
-        const std::shared_ptr<CitizenInfoDataProvider::ICitizenInfoQuerySource>&
-            QuerySource,
-        const CitizenInfoDataProvider::FCitizenInfoCitizenRecord& Citizen)
-    {
-        if (!Citizen.Valid)
-            return L"-";
-
-        auto MakeInteriorText =
-            [&](const std::string& BuildingName)
-        {
-            const std::wstring DisplayName =
-                ResolveBuildingDisplayName(QuerySource, BuildingName);
-
-            if (DisplayName.empty() || DisplayName == L"-")
-                return std::wstring(L"-");
-
-            return DisplayName +
-                UIStrings::Get(L"citizen_info.location.interior_suffix");
-        };
-
-        switch (Citizen.State)
-        {
-        case ECitizenState::AtHome:
-        case ECitizenState::GoingHome:
-            return MakeInteriorText(Citizen.HomeBuildingName);
-        case ECitizenState::AtWork:
-        case ECitizenState::GoingToWork:
-        case ECitizenState::GoingToTeamsterSource:
-        case ECitizenState::GoingToTeamsterHarbor:
-        case ECitizenState::GoingToTeamsterConsumerSource:
-        case ECitizenState::GoingToTeamsterConsumerTarget:
-        case ECitizenState::GoingToTeamsterOffice:
-            return MakeInteriorText(Citizen.WorkBuildingName);
-        case ECitizenState::AtFood:
-        case ECitizenState::GoingToFood:
-            return MakeInteriorText(
-                Citizen.FoodVisitBuildingName.empty() ?
-                    Citizen.FoodBuildingName :
-                    Citizen.FoodVisitBuildingName);
-        case ECitizenState::AtFun:
-        case ECitizenState::GoingToFun:
-            return MakeInteriorText(
-                Citizen.FunVisitBuildingName.empty() ?
-                    Citizen.FunBuildingName :
-                    Citizen.FunVisitBuildingName);
-        case ECitizenState::AtHealth:
-        case ECitizenState::GoingToHealth:
-            return MakeInteriorText(
-                Citizen.HealthVisitBuildingName.empty() ?
-                    Citizen.HealthBuildingName :
-                    Citizen.HealthVisitBuildingName);
-        case ECitizenState::AtFaith:
-        case ECitizenState::GoingToFaith:
-            return MakeInteriorText(
-                Citizen.FaithVisitBuildingName.empty() ?
-                    Citizen.FaithBuildingName :
-                    Citizen.FaithVisitBuildingName);
-        default:
-            return UIStrings::Get(L"citizen_info.location.outside_tropico");
-        }
-    }
-
-    const wchar_t* GetCitizenPoliticalIntensityDisplayName(
-        EPoliticalAxis Axis,
-        EPoliticalSupportLevel Support)
-    {
-        if (Support == EPoliticalSupportLevel::Strong)
-        {
-            return Axis == EPoliticalAxis::ReligionMilitarism ?
-                UiText(L"citizen_info.politics.intensity.fervent") :
-                UiText(L"citizen_info.politics.intensity.strong");
-        }
-
-        return GetPoliticalSupportDisplayName(Support);
-    }
-
-    std::array<std::wstring, 3> BuildCitizenOpinionLines(
-        const FNpcPoliticalProfile& PoliticalProfile)
-    {
-        struct FOpinionEntry
-        {
-            EPoliticalAxis Axis;
-            FNpcPoliticalChoice Choice;
-        };
-
-        const std::array<FOpinionEntry, 4> OrderedEntries =
-        {{
-            { EPoliticalAxis::ReligionMilitarism,
-                PoliticalProfile.ReligionMilitarism },
-            { EPoliticalAxis::EnvironmentIndustry,
-                PoliticalProfile.EnvironmentIndustry },
-            { EPoliticalAxis::IntellectualConservative,
-                PoliticalProfile.IntellectualConservative },
-            { EPoliticalAxis::Economy,
-                PoliticalProfile.Economy }
-        }};
-
-        std::array<std::wstring, 3> Lines = {};
-        int WriteIndex = 0;
-
-        for (const FOpinionEntry& Entry : OrderedEntries)
-        {
-            if (WriteIndex >= static_cast<int>(Lines.size()))
-                break;
-
-            if (Entry.Choice.Stance == EPoliticalStance::Neutral)
-                continue;
-
-            Lines[static_cast<size_t>(WriteIndex)] =
-                std::wstring(GetPoliticalFactionDisplayName(
-                    Entry.Axis,
-                    Entry.Choice.Stance)) +
-                L" (" +
-                GetCitizenPoliticalIntensityDisplayName(
-                    Entry.Axis,
-                    Entry.Choice.Support) +
-                L")";
-            ++WriteIndex;
-        }
-
-        return Lines;
-    }
-
-    float BuildCitizenSupportRatio(
-        const FNpcSatisfaction& Satisfaction)
-    {
-        const float Overall =
-            (std::max)(0.f, (std::min)(100.f, Satisfaction.Overall));
-        const float Ratio = (Overall + 12.f) / 112.f;
-        return (std::max)(0.f, (std::min)(1.f, Ratio));
-    }
 }
 
 namespace CitizenInfoDataProvider
@@ -2902,7 +1593,7 @@ namespace CitizenInfoDataProvider
                         Citizen.IdentityProfile.TouristProfile) :
                     std::wstring(L"-");
             const std::wstring TouristVenueText =
-                ResolveBuildingDisplayName(
+                CitizenInfoPresentation::ResolveBuildingDisplayName(
                     QuerySource,
                     Citizen.FunVisitBuildingName.empty() ?
                         Citizen.FunBuildingName :
@@ -2929,11 +1620,14 @@ namespace CitizenInfoDataProvider
             Result.OverviewMetricLabels[0] =
                 Ui(L"citizen_info.metric.activity");
             Result.OverviewMetricValues[0] =
-                GetCitizenActivityDisplayName(Citizen.State);
+                CitizenInfoPresentation::GetCitizenActivityDisplayName(
+                    Citizen.State);
             Result.OverviewMetricLabels[1] =
                 Ui(L"citizen_info.metric.location");
             Result.OverviewMetricValues[1] =
-                ResolveCitizenLocationText(QuerySource, Citizen);
+                CitizenInfoPresentation::ResolveCitizenLocationText(
+                    QuerySource,
+                    Citizen);
             Result.OverviewMetricLabels[2] =
                 Ui(
                     IsTourist ?
@@ -2954,7 +1648,7 @@ namespace CitizenInfoDataProvider
             Result.OverviewMetricLabels[4] =
                 Ui(L"citizen_info.metric.wealth");
             Result.OverviewMetricValues[4] =
-                GetCitizenProfileWealthDisplayName(
+                CitizenInfoPresentation::GetCitizenProfileWealthDisplayName(
                     Citizen.IdentityProfile.WealthLevel);
             Result.OverviewMetricLabels[5] =
                 Ui(L"citizen_info.metric.education");
@@ -2969,13 +1663,13 @@ namespace CitizenInfoDataProvider
             Result.OverviewMetricValues[6] =
                 IsTourist ?
                     TouristVenueText :
-                    ResolveBuildingDisplayName(
+                    CitizenInfoPresentation::ResolveBuildingDisplayName(
                         QuerySource,
                         Citizen.WorkBuildingName);
             Result.OverviewMetricLabels[7] =
                 Ui(L"citizen_info.metric.home");
             Result.OverviewMetricValues[7] =
-                ResolveBuildingDisplayName(
+                CitizenInfoPresentation::ResolveBuildingDisplayName(
                     QuerySource,
                     Citizen.HomeBuildingName);
             Result.OverviewMetricAccentValues[6] =
@@ -3042,9 +1736,11 @@ namespace CitizenInfoDataProvider
                 (std::max)(0.f, (std::min)(1.f, Citizen.Satisfaction.Security / 100.f))
             }};
             Result.CitizenPoliticsOpinionLines =
-                BuildCitizenOpinionLines(Citizen.PoliticalProfile);
+                CitizenInfoPresentation::BuildCitizenOpinionLines(
+                    Citizen.PoliticalProfile);
             Result.CitizenPoliticsSupportRatio =
-                BuildCitizenSupportRatio(Citizen.Satisfaction);
+                CitizenInfoPresentation::BuildCitizenSupportRatio(
+                    Citizen.Satisfaction);
         }
         else if (Result.Valid && Result.SelectedTabIndex == 2)
         {
@@ -3139,10 +1835,11 @@ namespace CitizenInfoDataProvider
         }
 
         Result.PageTitle =
-            CitizenInfoConstants::GetBuildingPageTitle(
-                Result.SelectedTabIndex);
+            ResolveBuildingPageTitle(
+                BuildingSnapshot,
+                Result.SelectedTabIndex,
+                ShowCustomsModePage);
         Result.ShowTabButtons = true;
-        Result.ShowSectionRibbon = Result.SelectedTabIndex != 0;
         Result.ShowBudgetControls = Result.SelectedTabIndex == 0;
         Result.ShowActionButtons =
             Result.SelectedTabIndex == 0 &&
@@ -3151,9 +1848,7 @@ namespace CitizenInfoDataProvider
         Result.ShowMoveButton =
             Result.ShowActionButtons &&
             !IsCustomsOffice;
-        Result.ShowCloneButton =
-            Result.ShowActionButtons &&
-            !IsCustomsOffice;
+        Result.ShowFocusButton = Result.ShowActionButtons;
         Result.ShowBuildingOverview =
             Result.SelectedTabIndex == 0 &&
             BuildingSnapshot.Residential;
@@ -3161,23 +1856,11 @@ namespace CitizenInfoDataProvider
             Result.SelectedTabIndex == 0 &&
             !ShowCustomsModePage &&
             (IsCustomsOffice ||
-                UseGenericBuildingWorkOverview(BuildingSnapshot));
-        Result.ShowBuildingMetricRows =
-            Result.SelectedTabIndex == 1 &&
-            BuildingSnapshot.Residential;
-        if (IsCustomsOffice &&
-            (Result.SelectedTabIndex == 1 ||
-                Result.SelectedTabIndex == 3))
-        {
-            Result.ShowBuildingMetricRows = true;
-        }
+                CitizenInfoPresentation::UseGenericBuildingWorkOverview(
+                    BuildingSnapshot));
+        Result.ShowBuildingMetricRows = false;
         Result.ShowBuildingUpgradeCard = false;
         Result.ShowBuildingInformationParagraphs = false;
-        Result.ShowSectionRibbon =
-            Result.SelectedTabIndex != 0 &&
-            !Result.ShowBuildingInformationParagraphs;
-        if (ShowCustomsModePage)
-            Result.ShowSectionRibbon = false;
         const bool ShowHydroponicCommand =
             Result.SelectedTabIndex == 0 &&
             CitizenInfoBuildingRuntime::IsHydroponicFarmBuilding(
@@ -3369,8 +2052,9 @@ namespace CitizenInfoDataProvider
             L"citizen_info.budget.summary_template",
             {
                 std::to_wstring(BuildingSnapshot.BudgetLevel),
-                FormatMultiplier(BuildingSnapshot.BudgetScale),
-                FormatMoney(TotalMonthlyCost)
+                CitizenInfoPresentation::FormatMultiplier(
+                    BuildingSnapshot.BudgetScale),
+                CitizenInfoPresentation::FormatMoney(TotalMonthlyCost)
             });
 
         if (BuildingSnapshot.CatalogEntry)
@@ -3387,264 +2071,101 @@ namespace CitizenInfoDataProvider
             }
         }
 
+        if (Result.SelectedTabIndex == 2 &&
+            !ShowCustomsModePage &&
+            PopulateBuildingUpgradeCard(
+                BuildingSnapshot,
+                Result))
+        {
+            Result.ShowBuildingUpgradeCard = true;
+            Result.UpgradeCardIconPath = Result.TitleIconPath;
+            Result.UpgradeCardIconTextureKey = Result.TitleIconTextureKey;
+        }
+
+        if (Result.SelectedTabIndex == 4 &&
+            !ShowCustomsModePage &&
+            PopulateBuildingInformationPanel(
+                BuildingSnapshot,
+                Result))
+        {
+            Result.ShowBuildingInformationParagraphs = true;
+        }
+
         if (Result.ShowBuildingOverview)
         {
-            const int PowerSurplusMW =
-                BuildingSnapshot.TotalProducedPowerMW -
-                BuildingSnapshot.TotalRequiredPowerMW;
-            const int HousingQuality =
-                ResolveOverviewHousingQuality(BuildingSnapshot);
-            const long long MonthlyIncome =
-                ResolveOverviewMonthlyIncome(BuildingSnapshot);
-            const int RequiredPowerMW =
-                ResolveOverviewRequiredPower(BuildingSnapshot);
-
-            Result.OverviewBudgetLabel =
-                Ui(L"citizen_info.label.budget");
-            Result.OverviewBudgetValue =
-                FormatMoney(BuildingSnapshot.MonthlyUpkeepCost);
-            Result.OverviewOccupancyLabel =
-                Ui(L"citizen_info.label.residence");
-            Result.OverviewOccupancyValue =
-                std::to_wstring(BuildingSnapshot.Residents.size()) +
-                L" / " +
-                std::to_wstring((std::max)(0, BuildingSnapshot.Capacity));
-            Result.OverviewResidentCount =
-                static_cast<int>(BuildingSnapshot.Residents.size());
-            Result.OverviewResidentCapacity =
-                (std::max)(0, BuildingSnapshot.Capacity);
-            Result.OverviewMetricLabels =
-            {
-                Ui(L"citizen_info.label.housing_quality"),
-                Ui(L"citizen_info.label.required_wealth"),
-                Ui(L"citizen_info.label.monthly_income"),
-                Ui(L"citizen_info.label.electricity"),
-                Ui(L"citizen_info.label.power_network"),
-                Ui(L"citizen_info.label.power_grid_status")
-            };
-            Result.OverviewMetricValues =
-            {
-                std::to_wstring(HousingQuality),
-                NormalizeWealthRequirementText(
-                    BuildingSnapshot.WealthRequirementText),
-                FormatMoney(MonthlyIncome),
-                FormatMegawattValue(-RequiredPowerMW),
-                L"#1",
-                FormatSignedMegawattValue(PowerSurplusMW)
-            };
+            PopulateResidentialOverview(BuildingSnapshot, Result);
         }
 
         if (Result.ShowBuildingWorkOverview)
         {
             if (IsCustomsOffice)
             {
-                const int WorkerCapacity =
-                    (std::max)(1, BuildingSnapshot.Capacity);
-                const int WorkerCount = (std::min)(
-                    WorkerCapacity,
-                    static_cast<int>(BuildingSnapshot.AssignedEmployees.size()));
-                Result.OverviewWorkModeLabel =
-                    Ui(L"citizen_info.label.work_mode");
-                Result.OverviewWorkModeValue =
-                    !BuildingSnapshot.ActiveOperationModeText.empty() ?
-                        BuildingSnapshot.ActiveOperationModeText :
-                        L"수입세 감소";
-                Result.OverviewBudgetLabel =
-                    Ui(L"citizen_info.label.budget");
-                Result.OverviewBudgetValue =
-                    BuildingSnapshot.MonthlyUpkeepCost > 0 ?
-                        FormatMoney(BuildingSnapshot.MonthlyUpkeepCost) :
-                        L"$118";
-                Result.OverviewOccupancyLabel =
-                    Ui(L"citizen_info.label.workers");
-                Result.OverviewOccupancyValue =
-                    std::to_wstring(WorkerCount) +
-                    L" / " +
-                    std::to_wstring(WorkerCapacity);
-                Result.OverviewResidentCount = WorkerCount;
-                Result.OverviewResidentCapacity = WorkerCapacity;
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.job_quality"),
-                    Ui(L"citizen_info.label.required_education"),
-                    Ui(L"citizen_info.label.wage"),
-                    Ui(L"citizen_info.label.efficiency")
-                };
-                Result.OverviewMetricValues =
-                {
-                    !BuildingSnapshot.JobQualityText.empty() ?
-                        BuildingSnapshot.JobQualityText :
-                        L"70",
-                    GetCitizenEducationDisplayName(
-                        BuildingSnapshot.RequiredEducationLevel),
-                    CitizenInfoBuildingRuntime::ResolveCustomsPerWorkerWage(
-                        BuildingSnapshot),
-                    std::to_wstring(
-                    CitizenInfoBuildingRuntime::ResolveCustomsEfficiencyPercent(
-                        BuildingSnapshot)) +
-                        L"%"
-                };
+                PopulateCustomsWorkOverview(BuildingSnapshot, Result);
             }
             else
             {
-                PopulateGenericWorkOverview(BuildingSnapshot, Result);
+                CitizenInfoPresentation::PopulateGenericWorkOverview(
+                    BuildingSnapshot,
+                    Result);
             }
         }
 
-        if (Result.ShowBuildingMetricRows && Result.SelectedTabIndex == 1)
+        if (Result.SelectedTabIndex == 1)
         {
-            if (IsCustomsOffice)
-            {
-                const long long BuildingExpense =
-                    static_cast<long long>(
-                        (std::max)(
-                            118,
-                            BuildingSnapshot.MonthlyUpkeepCost));
-                Result.OverviewMetricLabels =
-                {
-                    L"수입 (전체)",
-                    L"수입 (건물)",
-                    L"수출량",
-                    L"수입량",
-                    L"전체 수출량 (무역로)",
-                    L"관광객 도착"
-                };
-                Result.OverviewMetricValues =
-                {
-                    FormatMoneyDollarFirst(
-                        -BuildingSnapshot.LastDailyImportExpense),
-                    FormatMoneyDollarFirst(-BuildingExpense),
-                    FormatInteger(
-                        BuildingSnapshot.TradeRouteExportFulfilledUnits),
-                    FormatInteger(
-                        BuildingSnapshot.TradeRouteImportFulfilledUnits),
-                    FormatInteger(
-                        BuildingSnapshot.TradeRouteExportContractUnits),
-                    FormatInteger(BuildingSnapshot.TourismArrivalCount)
-                };
-            }
-            else
-            {
-                const long long IncomeTotal =
-                    ResolveOverviewMonthlyIncome(BuildingSnapshot) * 12LL;
-                const long long IncomePrevious =
-                    ResolveOverviewMonthlyIncome(BuildingSnapshot) -
-                    static_cast<long long>(BuildingSnapshot.MonthlyUpkeepCost);
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.total_income"),
-                    Ui(L"citizen_info.label.last_month_income"),
-                    L"",
-                    L"",
-                    L"",
-                    L""
-                };
-                Result.OverviewMetricValues =
-                {
-                    FormatMoney(IncomeTotal),
-                    FormatMoneyDollarFirst(IncomePrevious),
-                    L"",
-                    L"",
-                    L"",
-                    L""
-                };
-            }
+            PopulateBuildingStatisticsMetrics(
+                BuildingSnapshot,
+                IsCustomsOffice,
+                Result);
+            Result.ShowBuildingMetricRows = HasOverviewMetrics(Result);
         }
 
-        if (Result.ShowBuildingMetricRows && Result.SelectedTabIndex == 3)
+        if (Result.SelectedTabIndex == 3)
         {
-            if (IsCustomsOffice)
-            {
-                const int DiplomacyModifier =
-                    CitizenInfoBuildingRuntime::
-                        ComputeAverageCustomsDiplomacyExportBiasPercent();
-                const int BudgetModifier =
-                    CitizenInfoBuildingRuntime::
-                        ResolveCustomsBudgetModifierPercent(BuildingSnapshot);
-                Result.ShowHeaderNote = true;
-                Result.ShowSectionDivider = true;
-                Result.HeaderNoteText =
-                    L"수출 가격 보너스는 효율에 따라 변합니다.";
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.efficiency"),
-                    L"경제부 장관",
-                    L"예산 수정치"
-                };
-                Result.OverviewMetricValues =
-                {
-                    std::to_wstring(
-                        CitizenInfoBuildingRuntime::
-                            ResolveCustomsEfficiencyPercent(
-                                BuildingSnapshot)) +
-                        L"%",
-                    std::wstring(
-                        DiplomacyModifier > 0 ? L"+" : L"") +
-                        std::to_wstring(DiplomacyModifier) +
-                        L"%",
-                    std::wstring(
-                        BudgetModifier > 0 ? L"+" : L"") +
-                        std::to_wstring(BudgetModifier) +
-                        L"%"
-                };
-                Result.OverviewMetricAccentValues[1] = true;
-                Result.OverviewMetricAccentValues[2] = true;
-            }
-            else
-            {
-                Result.ShowHeaderNote = true;
-                Result.ShowSectionDivider = true;
-                Result.HeaderNoteText =
-                    Ui(L"citizen_info.note.housing_quality_efficiency");
-                Result.OverviewMetricLabels =
-                {
-                    Ui(L"citizen_info.label.efficiency"),
-                    L"",
-                    L"",
-                    L"",
-                    L"",
-                    L""
-                };
-                Result.OverviewMetricValues =
-                {
-                    L"100%",
-                    L"",
-                    L"",
-                    L"",
-                    L"",
-                    L""
-                };
-            }
+            PopulateBuildingEfficiencyMetrics(
+                BuildingSnapshot,
+                IsCustomsOffice,
+                Result);
+            Result.ShowBuildingMetricRows = HasOverviewMetrics(Result);
         }
+
+        Result.ShowSectionRibbon =
+            Result.SelectedTabIndex != 0 &&
+            !ShowCustomsModePage;
 
         switch (Result.SelectedTabIndex)
         {
         case 1:
-            Result.BodyText = Result.ShowBuildingMetricRows ?
-                std::wstring() :
-                BuildStatisticsBody(BuildingSnapshot);
+            Result.BodyText =
+                CitizenInfoPresentation::BuildStatisticsBody(
+                    BuildingSnapshot);
             break;
         case 2:
             Result.BodyText = IsCustomsOffice ?
-                BuildCustomsUpgradesBody(BuildingSnapshot) :
-                BuildUpgradesBody(BuildingSnapshot);
+                CitizenInfoPresentation::BuildCustomsUpgradesBody(
+                    BuildingSnapshot) :
+                CitizenInfoPresentation::BuildUpgradesBody(
+                    BuildingSnapshot);
             break;
         case 3:
-            Result.BodyText = Result.ShowBuildingMetricRows ?
-                std::wstring() :
-                BuildEfficiencyBody(BuildingSnapshot);
+            Result.BodyText =
+                CitizenInfoPresentation::BuildEfficiencyBody(
+                    BuildingSnapshot);
             break;
         case 4:
-            Result.BodyText = BuildInformationBody(BuildingSnapshot);
+            Result.BodyText =
+                CitizenInfoPresentation::BuildInformationBody(
+                    BuildingSnapshot);
             break;
         case 0:
         default:
             Result.BodyText =
                 ShowCustomsModePage ?
-                    BuildCustomsModeSelectionBody(BuildingSnapshot) :
+                    CitizenInfoPresentation::BuildCustomsModeSelectionBody(
+                        BuildingSnapshot) :
                 Result.ShowBuildingOverview ?
                 std::wstring() :
-                BuildOverviewBody(BuildingSnapshot);
+                CitizenInfoPresentation::BuildOverviewBody(
+                    BuildingSnapshot);
             break;
         }
 

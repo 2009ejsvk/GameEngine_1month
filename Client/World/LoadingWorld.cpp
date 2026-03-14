@@ -1,4 +1,5 @@
 #include "LoadingWorld.h"
+#include "../UI/UILayoutConfig.h"
 #include "../UI/LoadingWidget.h"
 #include "World/WorldUIManager.h"
 #include "ThreadManager.h"
@@ -41,6 +42,11 @@ void CLoadingWorld::Update(float DeltaTime)
 			CRenderManager::GetInst()->SetDebugTarget(false);
 		}
 	}
+}
+
+void CLoadingWorld::OnUiManagerUpdated()
+{
+    UIConfig::ApplyWidgetOverrides(GetUIManager().lock());
 }
 
 void CLoadingWorld::Load(EWorldType WorldType)

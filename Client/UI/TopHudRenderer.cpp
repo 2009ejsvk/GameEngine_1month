@@ -135,16 +135,7 @@ namespace
     const TCHAR* GetSpeedStateIconPath(
         const TopHudDataProvider::FTopHudSnapshot& Snapshot)
     {
-        if (Snapshot.GamePaused)
-            return GSpeedStateIcons[0];
-
-        if (Snapshot.GameSpeedMultiplier >= 4)
-            return GSpeedStateIcons[3];
-
-        if (Snapshot.GameSpeedMultiplier >= 2)
-            return GSpeedStateIcons[2];
-
-        return GSpeedStateIcons[1];
+        return Snapshot.GamePaused ? GSpeedStateIcons[1] : GSpeedStateIcons[0];
     }
 
     const TCHAR* GetSpeedMultiplierIconPath(
@@ -174,9 +165,6 @@ namespace
     FVector4 GetSpeedMultiplierTint(
         const TopHudDataProvider::FTopHudSnapshot& Snapshot)
     {
-        if (Snapshot.GamePaused)
-            return FVector4(1.06f, 0.94f, 0.70f, 0.88f);
-
         if (Snapshot.GameSpeedMultiplier >= 4)
             return FVector4(1.22f, 1.06f, 0.58f, 1.f);
 
@@ -658,9 +646,7 @@ void FTopHudRenderer::ApplySnapshot(
         {
             StateIcon->SetTexture(
                 "TopHudSpeedStateIcon_" +
-                    std::to_string(Snapshot.GamePaused ? 0 :
-                        Snapshot.GameSpeedMultiplier >= 4 ? 3 :
-                        Snapshot.GameSpeedMultiplier >= 2 ? 2 : 1),
+                    std::to_string(Snapshot.GamePaused ? 1 : 0),
                 GetSpeedStateIconPath(Snapshot));
             StateIcon->SetTint(GetSpeedStateTint(Snapshot));
         }
@@ -896,13 +882,22 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
             UIConfig::DateTextHeight * TopHudScale);
     }
 
-    const float SpeedButtonSize = UIConfig::SpeedButtonSize * TopHudScale;
-    const float SpeedButtonStep = UIConfig::SpeedButtonStep * TopHudScale;
-    const float SpeedButtonY =
-        TopHudPanelY + TopHudPanelH - SpeedButtonSize -
-        UIConfig::SpeedButtonBottomMargin * TopHudScale;
-    const float SpeedButtonStartX =
-        TopHudPanelX + UIConfig::SpeedButtonOffsetX * TopHudScale;
+    const float PlayPauseButtonSize =
+        UIConfig::PlayPauseButtonSize * TopHudScale;
+    const float PlayPauseButtonX =
+        TopHudPanelX + UIConfig::PlayPauseButtonOffsetX * TopHudScale;
+    const float PlayPauseButtonY =
+        TopHudPanelY + TopHudPanelH - PlayPauseButtonSize -
+        UIConfig::PlayPauseButtonBottomMargin * TopHudScale +
+        UIConfig::PlayPauseButtonOffsetY * TopHudScale;
+    const float SpeedMultiplierButtonSize =
+        UIConfig::SpeedMultiplierButtonSize * TopHudScale;
+    const float SpeedMultiplierButtonX =
+        TopHudPanelX + UIConfig::SpeedMultiplierButtonOffsetX * TopHudScale;
+    const float SpeedMultiplierButtonY =
+        TopHudPanelY + TopHudPanelH - SpeedMultiplierButtonSize -
+        UIConfig::SpeedMultiplierButtonBottomMargin * TopHudScale +
+        UIConfig::SpeedMultiplierButtonOffsetY * TopHudScale;
 
     for (int i = 0; i < static_cast<int>(Widget.mSpeedButtons.size()); ++i)
     {
@@ -915,19 +910,27 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
         if (!SpeedButton)
             continue;
 
+        const bool IsPlayPauseButton = i == GSpeedStateButtonIndex;
+        const float ButtonSize =
+            IsPlayPauseButton ? PlayPauseButtonSize : SpeedMultiplierButtonSize;
+        const float ButtonX =
+            IsPlayPauseButton ? PlayPauseButtonX : SpeedMultiplierButtonX;
+        const float ButtonY =
+            IsPlayPauseButton ? PlayPauseButtonY : SpeedMultiplierButtonY;
+
         SpeedButton->SetPos(
-            SpeedButtonStartX + SpeedButtonStep * static_cast<float>(i),
-            SpeedButtonY);
-        SpeedButton->SetSize(SpeedButtonSize, SpeedButtonSize);
+            ButtonX,
+            ButtonY);
+        SpeedButton->SetSize(ButtonSize, ButtonSize);
 
         if (SpeedIcon)
         {
             SpeedIcon->SetPos(
-                SpeedButtonSize * 0.18f,
-                SpeedButtonSize * 0.18f);
+                ButtonSize * 0.18f,
+                ButtonSize * 0.18f);
             SpeedIcon->SetSize(
-                SpeedButtonSize * 0.64f,
-                SpeedButtonSize * 0.64f);
+                ButtonSize * 0.64f,
+                ButtonSize * 0.64f);
         }
     }
 

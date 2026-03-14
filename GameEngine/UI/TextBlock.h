@@ -56,6 +56,16 @@ public:
 		return mText;
 	}
 
+    float GetFontSize() const
+    {
+        return mFontSize;
+    }
+
+    const FVector2& GetShadowOffset() const
+    {
+        return mShadowOffset;
+    }
+
 	const TCHAR* GetTextPtr()	const
 	{
 		return mText.c_str();

@@ -6,7 +6,20 @@
 #include <array>
 #include <vector>
 
+class CAlmanacWidget;
 class FAlmanacRenderer;
+
+namespace AlmanacDataProvider
+{
+    struct FAlmanacSnapshot;
+}
+
+namespace AlmanacRendererPopulationPage
+{
+    void Apply(
+        CAlmanacWidget& Widget,
+        const AlmanacDataProvider::FAlmanacSnapshot& Snapshot);
+}
 
 enum class EAlmanacPage
 {
@@ -27,6 +40,9 @@ class CAlmanacWidget :
 {
     friend class CWorldUIManager;
     friend class FAlmanacRenderer;
+    friend void AlmanacRendererPopulationPage::Apply(
+        CAlmanacWidget& Widget,
+        const AlmanacDataProvider::FAlmanacSnapshot& Snapshot);
 
 protected:
     CAlmanacWidget();

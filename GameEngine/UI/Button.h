@@ -85,6 +85,11 @@ public:
 		else
 			mChild.reset();
 	}
+
+    std::shared_ptr<CWidget> GetChild() const
+    {
+        return mChild;
+    }
 	virtual void SetOpacityAll(float Opacity);
 
 public:

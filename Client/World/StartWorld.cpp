@@ -1,4 +1,5 @@
 #include "StartWorld.h"
+#include "../UI/UILayoutConfig.h"
 #include "../UI/StartWidget.h"
 #include "World/WorldUIManager.h"
 
@@ -21,6 +22,11 @@ bool CStartWorld::Init()
 	CreateUI();
 
 	return true;
+}
+
+void CStartWorld::OnUiManagerUpdated()
+{
+    UIConfig::ApplyWidgetOverrides(GetUIManager().lock());
 }
 
 void CStartWorld::LoadAnimation2D()

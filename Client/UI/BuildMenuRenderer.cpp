@@ -135,7 +135,6 @@ void FBuildMenuRenderer::ApplySnapshot(
     auto DetailBlueprintCostText = Widget.mDetailBlueprintCostText.lock();
     auto DetailConstructionCostText =
         Widget.mDetailConstructionCostText.lock();
-    auto DetailInfoText = Widget.mDetailInfoText.lock();
     auto DetailBodyText = Widget.mDetailBodyText.lock();
 
     if (DetailTitleText)
@@ -148,8 +147,6 @@ void FBuildMenuRenderer::ApplySnapshot(
         DetailConstructionCostText->SetText(
             Snapshot.Detail.ConstructionCost.c_str());
     }
-    if (DetailInfoText)
-        DetailInfoText->SetText(Snapshot.Detail.InfoText.c_str());
     if (DetailBodyText)
         DetailBodyText->SetText(Snapshot.Detail.BodyText.c_str());
 
@@ -242,7 +239,6 @@ void FBuildMenuRenderer::RefreshLayout(CBuildMenuWidget& Widget)
     auto MenuTitleRibbon = Widget.mMenuTitleRibbon.lock();
     auto MenuGridFrame = Widget.mMenuGridFrame.lock();
     auto MenuDetailFrame = Widget.mMenuDetailFrame.lock();
-    auto DetailInfoPanel = Widget.mDetailInfoPanel.lock();
     auto ScrollTrack = Widget.mScrollTrack.lock();
     auto ScrollThumb = Widget.mScrollThumb.lock();
 
@@ -455,10 +451,8 @@ void FBuildMenuRenderer::RefreshLayout(CBuildMenuWidget& Widget)
     auto DetailConstructionIcon = Widget.mDetailConstructionIcon.lock();
     auto DetailConstructionCostText =
         Widget.mDetailConstructionCostText.lock();
-    auto DetailInfoText = Widget.mDetailInfoText.lock();
     auto DetailBodyText = Widget.mDetailBodyText.lock();
     const float DetailPadding = 18.f * Scale;
-    const float DetailColumnGap = 16.f * Scale;
     const float DetailTitleTop = DetailFrameTop + 12.f * Scale;
     const float DetailTitleHeight = 30.f * Scale;
     const float CostTop = DetailTitleTop + DetailTitleHeight + 10.f * Scale;
@@ -472,23 +466,11 @@ void FBuildMenuRenderer::RefreshLayout(CBuildMenuWidget& Widget)
         DetailFrameHeight -
             (DetailContentTop - DetailFrameTop) -
             DetailPadding);
-    float DetailInfoWidth = (std::max)(
-        250.f * Scale,
-        DetailFrameWidth * 0.34f);
-    DetailInfoWidth = (std::min)(
-        DetailInfoWidth,
-        DetailFrameWidth - DetailPadding * 2.f - 220.f * Scale);
     const float DetailBodyLeft = DetailFrameLeft + DetailPadding;
-    const float DetailInfoLeft =
-        DetailFrameLeft + DetailFrameWidth -
-        DetailPadding -
-        DetailInfoWidth;
     const float DetailBodyTop = DetailContentTop;
-    const float DetailInfoTop = DetailContentTop;
-    const float DetailInfoHeight = DetailContentHeight;
     const float DetailBodyWidth = (std::max)(
         200.f * Scale,
-        DetailInfoLeft - DetailBodyLeft - DetailColumnGap);
+        DetailFrameWidth - DetailPadding * 2.f);
     const float DetailBodyHeight = DetailContentHeight;
     const float CostLeft = DetailFrameLeft + DetailPadding;
 
@@ -533,23 +515,6 @@ void FBuildMenuRenderer::RefreshLayout(CBuildMenuWidget& Widget)
             CostLeft + SecondaryCostOffset + CostIconSize + CostLabelGap,
             CostTop - 1.f * Scale);
         DetailConstructionCostText->SetSize(180.f * Scale, CostTextHeight);
-    }
-
-    if (DetailInfoPanel)
-    {
-        DetailInfoPanel->SetPos(DetailInfoLeft, DetailInfoTop);
-        DetailInfoPanel->SetSize(DetailInfoWidth, DetailInfoHeight);
-    }
-
-    if (DetailInfoText)
-    {
-        DetailInfoText->SetFontSize(16.f * Scale);
-        DetailInfoText->SetPos(
-            DetailInfoLeft + 16.f * Scale,
-            DetailInfoTop + 14.f * Scale);
-        DetailInfoText->SetSize(
-            DetailInfoWidth - 32.f * Scale,
-            DetailInfoHeight - 28.f * Scale);
     }
 
     if (DetailBodyText)
@@ -736,18 +701,6 @@ void FBuildMenuRenderer::CreateMenuFrameWidgets(CBuildMenuWidget& Widget)
             GMenuDetailFrameTexture);
         MenuDetailFrame->SetTint(1.f, 1.f, 1.f, 0.98f);
         Widget.mMenuDetailFrame = MenuDetailFrame;
-    }
-
-    auto DetailInfoPanel =
-        Widget.CreateWidget<CImage>("BuildMenu_DetailInfoPanel", 7).lock();
-
-    if (DetailInfoPanel)
-    {
-        DetailInfoPanel->SetTexture(
-            "BuildMenuDetailInfoPanelTexture",
-            GDetailInfoPanelTexture);
-        DetailInfoPanel->SetTint(1.f, 1.f, 1.f, 0.96f);
-        Widget.mDetailInfoPanel = DetailInfoPanel;
     }
 
     auto ScrollTrack =
@@ -1097,31 +1050,13 @@ void FBuildMenuRenderer::CreateDetailWidgets(CBuildMenuWidget& Widget)
         Widget.mDetailConstructionCostText = DetailConstructionCostText;
     }
 
-    auto DetailInfoText =
-        Widget.CreateWidget<CTextBlock>(
-            "BuildMenu_DetailInfoText",
-            8).lock();
-
-    if (DetailInfoText)
-    {
-        DetailInfoText->SetText(TEXT("핵심 정보\n- 준비 중"));
-        DetailInfoText->SetFontSize(16.f);
-        DetailInfoText->SetAlignH(ETextAlignH::Left);
-        DetailInfoText->SetAlignV(ETextAlignV::Top);
-        DetailInfoText->SetTextColor(56, 56, 56, 255);
-        DetailInfoText->EnableShadow(true);
-        DetailInfoText->SetShadowOffset(1.f, 1.f);
-        DetailInfoText->SetShadowTextColor(255, 255, 255, 150);
-        Widget.mDetailInfoText = DetailInfoText;
-    }
-
     auto DetailBodyText =
         Widget.CreateWidget<CTextBlock>("BuildMenu_DetailBody", 7).lock();
 
     if (DetailBodyText)
     {
         DetailBodyText->SetText(
-            TEXT("건물을 선택하면 설명과 핵심 정보가 이 영역에 함께 표시됩니다."));
+            TEXT("건물을 선택하면 설명이 이 영역에 표시됩니다."));
         DetailBodyText->SetFontSize(15.f);
         DetailBodyText->SetAlignH(ETextAlignH::Left);
         DetailBodyText->SetAlignV(ETextAlignV::Top);
@@ -1139,13 +1074,11 @@ void FBuildMenuRenderer::ApplyMenuOpenState(CBuildMenuWidget& Widget)
     auto MenuTitleRibbon = Widget.mMenuTitleRibbon.lock();
     auto MenuGridFrame = Widget.mMenuGridFrame.lock();
     auto MenuDetailFrame = Widget.mMenuDetailFrame.lock();
-    auto DetailInfoPanel = Widget.mDetailInfoPanel.lock();
     auto DetailBlueprintIcon = Widget.mDetailBlueprintIcon.lock();
     auto DetailConstructionIcon = Widget.mDetailConstructionIcon.lock();
     auto DetailBlueprintCostText = Widget.mDetailBlueprintCostText.lock();
     auto DetailConstructionCostText =
         Widget.mDetailConstructionCostText.lock();
-    auto DetailInfoText = Widget.mDetailInfoText.lock();
     auto ScrollTrack = Widget.mScrollTrack.lock();
     auto ScrollThumb = Widget.mScrollThumb.lock();
     auto TitleText = Widget.mTitleText.lock();
@@ -1164,8 +1097,6 @@ void FBuildMenuRenderer::ApplyMenuOpenState(CBuildMenuWidget& Widget)
         MenuGridFrame->SetEnable(Widget.mMenuOpen);
     if (MenuDetailFrame)
         MenuDetailFrame->SetEnable(Widget.mMenuOpen);
-    if (DetailInfoPanel)
-        DetailInfoPanel->SetEnable(Widget.mMenuOpen);
     if (DetailBlueprintIcon)
         DetailBlueprintIcon->SetEnable(Widget.mMenuOpen);
     if (DetailConstructionIcon)
@@ -1174,8 +1105,6 @@ void FBuildMenuRenderer::ApplyMenuOpenState(CBuildMenuWidget& Widget)
         DetailBlueprintCostText->SetEnable(Widget.mMenuOpen);
     if (DetailConstructionCostText)
         DetailConstructionCostText->SetEnable(Widget.mMenuOpen);
-    if (DetailInfoText)
-        DetailInfoText->SetEnable(Widget.mMenuOpen);
     if (ScrollTrack)
         ScrollTrack->SetEnable(Widget.mMenuOpen);
     if (ScrollThumb)

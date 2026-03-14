@@ -206,13 +206,23 @@ void CTopHudWidget::OnSpeedStateButtonClick()
     if (!HudAccess)
         return;
 
-    HudAccess->CycleSimulationSpeedState();
+    HudAccess->ToggleSimulationPaused();
     RefreshFromState();
 }
 
 void CTopHudWidget::OnSpeedMultiplierButtonClick()
 {
-    OnSpeedStateButtonClick();
+    if (mGameLost)
+        return;
+
+    auto HudAccess =
+        std::dynamic_pointer_cast<IMainWorldHudAccess>(mWorld.lock());
+
+    if (!HudAccess)
+        return;
+
+    HudAccess->CycleSimulationSpeedMultiplier();
+    RefreshFromState();
 }
 
 void CTopHudWidget::OnAnyButtonClick()

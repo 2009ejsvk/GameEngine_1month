@@ -1,11 +1,9 @@
 #include "EconomySystem.h"
 #include "ResourceTradePricing.h"
 #include "TradePolicyRuntime.h"
-#include "../Politics/EdictSystem.h"
+#include "../Politics/EdictBudgetRuntime.h"
 #include "../GameConstants.h"
-#include "World/World.h"
-#include "../Map/BuildingMarkerOrb.h"
-#include "../Map/PlacementAreaObject.h"
+#include "../World/EconomyWorldAccess.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -54,22 +52,21 @@ namespace
     };
 
     bool IsOperationalBuilding(
-        const std::shared_ptr<CPlacementAreaObject>& Building)
+        const std::shared_ptr<EconomyWorldAccess::IEconomyBuildingAccess>& Building)
     {
-        return Building &&
-            Building->GetAlive() &&
-            Building->GetEnable() &&
-            Building->HasPlacedArea();
+        return Building && Building->IsOperational();
     }
 
     FHarborTradeDemandSnapshot BuildHarborTradeDemandSnapshot(
-        const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList)
+        const std::vector<
+            std::shared_ptr<EconomyWorldAccess::IEconomyBuildingAccess>>&
+                BuildingList)
     {
         FHarborTradeDemandSnapshot Snapshot;
 
         for (size_t i = 0; i < BuildingList.size(); ++i)
         {
-            auto Building = BuildingList[i].lock();
+            const auto& Building = BuildingList[i];
 
             if (!IsOperationalBuilding(Building))
                 continue;
@@ -142,7 +139,7 @@ namespace
     }
 
     FHarborImportCandidate ResolveHarborImportCandidate(
-        const std::shared_ptr<CPlacementAreaObject>& Harbor,
+        const std::shared_ptr<EconomyWorldAccess::IEconomyBuildingAccess>& Harbor,
         EResourceType ResourceType,
         const FHarborTradeDemandSnapshot& DemandSnapshot,
         const TradePolicy::FImportTradePolicy& ImportPolicy)
@@ -246,7 +243,7 @@ namespace
     }
 
     long long SettleHarborExportIncome(
-        const std::shared_ptr<CPlacementAreaObject>& Harbor,
+        const std::shared_ptr<EconomyWorldAccess::IEconomyBuildingAccess>& Harbor,
         const TradePolicy::FExportTradePolicy& ExportPolicy,
         double ExportMultiplier,
         FHarborTradeDemandSnapshot& DemandSnapshot)
@@ -376,7 +373,7 @@ namespace
     }
 
     long long SettleHarborImportExpense(
-        const std::shared_ptr<CPlacementAreaObject>& Harbor,
+        const std::shared_ptr<EconomyWorldAccess::IEconomyBuildingAccess>& Harbor,
         const FHarborTradeDemandSnapshot& DemandSnapshot,
         const TradePolicy::FImportTradePolicy& ImportPolicy,
         long long& InOutRemainingImportBudget)
@@ -695,9 +692,9 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
     const FTaxEventEconomyEffects EventEffects =
         ResolveTaxEventEconomyEffects(TaxEventStatus);
 
-    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+    const auto BuildingList = EconomyWorldAccess::CollectBuildings(World);
 
-    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+    if (BuildingList.empty())
         return Result;
 
     FHarborTradeDemandSnapshot HarborTradeDemand =
@@ -709,12 +706,9 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
 
     for (size_t i = 0; i < BuildingList.size(); ++i)
     {
-        auto Building = BuildingList[i].lock();
+        const auto& Building = BuildingList[i];
 
-        if (!Building ||
-            !Building->GetAlive() ||
-            !Building->GetEnable() ||
-            !Building->HasPlacedArea())
+        if (!IsOperationalBuilding(Building))
         {
             continue;
         }
@@ -768,7 +762,7 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
             Building->ApplyDailyWarehouseStorageLoss();
     }
 
-    std::vector<std::weak_ptr<CBuildingMarkerOrb>> CitizenList;
+    const auto CitizenList = EconomyWorldAccess::CollectCitizens(World);
     double ConsumptionTaxIncome = 0.0;
     double IncomeTaxIncome = 0.0;
     double ResidenceTaxIncome = 0.0;
@@ -776,43 +770,41 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
     double OverallSum = 0.0;
     int ActiveCitizenCount = 0;
 
-    if (World->FindObjectListByType<CBuildingMarkerOrb>(CitizenList))
+    for (size_t i = 0; i < CitizenList.size(); ++i)
     {
-        for (size_t i = 0; i < CitizenList.size(); ++i)
+        const auto& Citizen = CitizenList[i];
+
+        if (!Citizen || !Citizen->IsOperational())
+            continue;
+
+        ++ActiveCitizenCount;
+        const EconomyWorldAccess::FCitizenEconomySnapshot Snapshot =
+            Citizen->GetEconomySnapshot();
+        SecuritySum += Snapshot.Security;
+        OverallSum += Snapshot.Overall;
+
+        ConsumptionTaxIncome +=
+            GameConstants::Economy::DailyConsumptionSpendBase *
+            static_cast<double>(
+                GovernmentProfile.TaxPolicy.ConsumptionRatePercent) /
+            100.0;
+
+        if (Snapshot.HasWorkBuilding)
         {
-            auto Citizen = CitizenList[i].lock();
-
-            if (!Citizen || !Citizen->GetAlive() || !Citizen->GetEnable())
-                continue;
-
-            ++ActiveCitizenCount;
-            const FNpcSatisfaction& Satisfaction = Citizen->GetSatisfaction();
-            SecuritySum += Satisfaction.Security;
-            OverallSum += Satisfaction.Overall;
-
-            ConsumptionTaxIncome +=
-                GameConstants::Economy::DailyConsumptionSpendBase *
+            IncomeTaxIncome +=
+                GameConstants::Economy::DailyWorkerIncomeBase *
                 static_cast<double>(
-                    GovernmentProfile.TaxPolicy.ConsumptionRatePercent) /
+                    GovernmentProfile.TaxPolicy.IncomeRatePercent) /
                 100.0;
+        }
 
-            if (!Citizen->GetWorkBuilding().empty())
-            {
-                IncomeTaxIncome +=
-                    GameConstants::Economy::DailyWorkerIncomeBase *
-                    static_cast<double>(
-                        GovernmentProfile.TaxPolicy.IncomeRatePercent) /
-                    100.0;
-            }
-
-            if (!Citizen->GetHomeBuilding().empty())
-            {
-                ResidenceTaxIncome +=
-                    GameConstants::Economy::DailyResidenceValueBase *
-                    static_cast<double>(
-                        GovernmentProfile.TaxPolicy.PropertyRatePercent) /
-                    100.0;
-            }
+        if (Snapshot.HasHomeBuilding)
+        {
+            ResidenceTaxIncome +=
+                GameConstants::Economy::DailyResidenceValueBase *
+                static_cast<double>(
+                    GovernmentProfile.TaxPolicy.PropertyRatePercent) /
+                100.0;
         }
     }
 
@@ -906,7 +898,7 @@ EconomySystem::FWorldSettlementResult EconomySystem::ApplyDailyWorldSettlement(
     const long long TaxRevenueDelta =
         Result.AdjustedTaxIncome - Result.BaseResult.TaxIncome;
     const long long DailyEdictUpkeep =
-        EdictSystem::CalculateEdictDailyUpkeep(
+        EdictBudgetRuntime::CalculateDailyUpkeep(
             GovernmentEdicts,
             DaysInMonth);
     const long long DailyEdictBudgetDelta =
@@ -1081,16 +1073,13 @@ void EconomySystem::ApplyDailyTaxPolicyEventEffects(
         return;
     }
 
-    std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
-
-    if (!World->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
-        return;
+    const auto OrbList = EconomyWorldAccess::CollectCitizens(World);
 
     for (size_t i = 0; i < OrbList.size(); ++i)
     {
-        auto Orb = OrbList[i].lock();
+        const auto& Orb = OrbList[i];
 
-        if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+        if (!Orb || !Orb->IsOperational())
             continue;
 
         Orb->ApplySatisfactionDelta(

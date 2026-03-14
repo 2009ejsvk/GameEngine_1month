@@ -1,6 +1,6 @@
 #include "AlmanacPageData.h"
 #include "RuntimeConfigRegistry.h"
-#include <Windows.h>
+#include "StringUtils.h"
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -11,8 +11,6 @@ namespace AlmanacPageData
 {
     namespace
     {
-        FDataSet GCurrentData;
-        bool GInitialized = false;
         constexpr const wchar_t* GConfigId = L"UI.AlmanacPageData";
 
         void TrimString(std::string& Value)
@@ -58,33 +56,6 @@ namespace AlmanacPageData
             return Parts;
         }
 
-        std::wstring Utf8ToWide(const std::string& Value)
-        {
-            if (Value.empty())
-                return std::wstring();
-
-            const int RequiredLength = MultiByteToWideChar(
-                CP_UTF8,
-                0,
-                Value.c_str(),
-                static_cast<int>(Value.size()),
-                nullptr,
-                0);
-
-            if (RequiredLength <= 0)
-                return std::wstring(Value.begin(), Value.end());
-
-            std::wstring Result(static_cast<size_t>(RequiredLength), L'\0');
-            MultiByteToWideChar(
-                CP_UTF8,
-                0,
-                Value.c_str(),
-                static_cast<int>(Value.size()),
-                &Result[0],
-                RequiredLength);
-            return Result;
-        }
-
         std::wstring ParseTextValue(const std::string& Value)
         {
             std::string Unescaped;
@@ -104,7 +75,7 @@ namespace AlmanacPageData
                 Unescaped.push_back(Value[Index]);
             }
 
-            return Utf8ToWide(Unescaped);
+            return StringUtils::Utf8ToWide(Unescaped);
         }
 
         int ParseInt(const std::string& Value, int Fallback = 0)
@@ -473,57 +444,81 @@ namespace AlmanacPageData
             return false;
         }
 
-        void ResetToDefaults()
+        class FPageDataRepository
         {
-            SetDefaultData(GCurrentData);
-            GInitialized = true;
-        }
-
-        bool LoadFile(const std::wstring& Path)
-        {
-            std::ifstream File(Path);
-
-            if (!File.is_open())
-                return false;
-
-            FDataSet Data;
-            SetDefaultData(Data);
-
-            std::string Line;
-
-            while (std::getline(File, Line))
+        public:
+            static FPageDataRepository& Get()
             {
-                if (Line.empty() || Line[0] == '#' || Line[0] == ';')
-                    continue;
-
-                const size_t EqPos = Line.find('=');
-
-                if (EqPos == std::string::npos)
-                    continue;
-
-                std::string Key = Line.substr(0, EqPos);
-                std::string Value = Line.substr(EqPos + 1);
-                TrimString(Key);
-                TrimString(Value);
-
-                if (Key.empty())
-                    continue;
-
-                ApplyRecord(Key, Value, Data);
+                static FPageDataRepository Repository;
+                return Repository;
             }
 
-            GCurrentData = std::move(Data);
-            GInitialized = true;
-            return true;
-        }
+            void ResetToDefaults()
+            {
+                SetDefaultData(CurrentData);
+            }
 
-        void EnsureLoaded()
+            bool LoadFile(const std::wstring& Path)
+            {
+                std::ifstream File(Path);
+
+                if (!File.is_open())
+                    return false;
+
+                FDataSet Data;
+                SetDefaultData(Data);
+
+                std::string Line;
+
+                while (std::getline(File, Line))
+                {
+                    if (Line.empty() || Line[0] == '#' || Line[0] == ';')
+                        continue;
+
+                    const size_t EqPos = Line.find('=');
+
+                    if (EqPos == std::string::npos)
+                        continue;
+
+                    std::string Key = Line.substr(0, EqPos);
+                    std::string Value = Line.substr(EqPos + 1);
+                    TrimString(Key);
+                    TrimString(Value);
+
+                    if (Key.empty())
+                        continue;
+
+                    ApplyRecord(Key, Value, Data);
+                }
+
+                CurrentData = std::move(Data);
+                return true;
+            }
+
+            const FDataSet& GetData() const
+            {
+                return CurrentData;
+            }
+
+        private:
+            FPageDataRepository()
+            {
+                ResetToDefaults();
+            }
+
+            FDataSet CurrentData;
+        };
+
+        void ResetRepositoryToDefaults()
         {
-            if (GInitialized)
-                return;
-
-            RegisterRuntimeConfig();
+            FPageDataRepository::Get().ResetToDefaults();
         }
+
+        bool LoadRepositoryFile(const std::wstring& Path)
+        {
+            return FPageDataRepository::Get().LoadFile(Path);
+        }
+
     }
 
     void RegisterRuntimeConfig()
@@ -534,16 +529,16 @@ namespace AlmanacPageData
                 RuntimeConfigRegistry::BuildExeRelativePath(
                     L"AlmanacPageData.ini"),
                 0.5f,
-                &ResetToDefaults,
-                &LoadFile,
+                &ResetRepositoryToDefaults,
+                &LoadRepositoryFile,
                 nullptr
             });
     }
 
     const FDataSet& Get()
     {
-        EnsureLoaded();
-        return GCurrentData;
+        RegisterRuntimeConfig();
+        return FPageDataRepository::Get().GetData();
     }
 
     bool ReloadIfChanged(float DeltaTime)

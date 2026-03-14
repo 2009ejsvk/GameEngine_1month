@@ -58,7 +58,7 @@ namespace CitizenInfoDataProvider
         bool ShowOverviewCommandButton = false;
         bool ShowDemolishButton = true;
         bool ShowMoveButton = true;
-        bool ShowCloneButton = true;
+        bool ShowFocusButton = true;
         std::wstring OverviewCommandButtonText;
         std::wstring OverviewWorkModeLabel = L"근무 형태";
         std::wstring OverviewWorkModeValue;

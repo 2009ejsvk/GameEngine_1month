@@ -2,16 +2,278 @@
 #include "BuildMenuQueryService.h"
 #include "../Building/BuildingCatalog.h"
 #include "../Building/BuildingCategoryInfo.h"
+#include "../StringUtils.h"
+#include "Asset/PathManager.h"
+#include <Windows.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cwchar>
 #include <cwctype>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace
 {
     constexpr int GSlotsPerPage = 15;
+    using StringUtils::Utf8ToWide;
+
+    std::wstring TrimTrailingSeparators(const std::wstring& Path)
+    {
+        size_t End = Path.size();
+
+        while (End > 0 &&
+            (Path[End - 1] == L'\\' || Path[End - 1] == L'/'))
+        {
+            --End;
+        }
+
+        return Path.substr(0, End);
+    }
+
+    std::wstring GetParentDirectoryPath(const TCHAR* FullPath)
+    {
+        if (!FullPath || !*FullPath)
+            return std::wstring();
+
+        const std::wstring TrimmedPath = TrimTrailingSeparators(FullPath);
+        const size_t SeparatorIndex =
+            TrimmedPath.find_last_of(L"\\/");
+
+        if (SeparatorIndex == std::wstring::npos)
+            return std::wstring();
+
+        return TrimmedPath.substr(0, SeparatorIndex);
+    }
+
+    std::wstring JoinPath(
+        const std::wstring& BasePath,
+        const wchar_t* Suffix)
+    {
+        if (BasePath.empty())
+            return std::wstring(Suffix ? Suffix : L"");
+
+        std::wstring Result = TrimTrailingSeparators(BasePath);
+
+        if (!Suffix || !*Suffix)
+            return Result;
+
+        Result += L"\\";
+        Result += Suffix;
+        return Result;
+    }
+
+    std::vector<std::wstring> BuildDescriptionOverrideCandidatePaths()
+    {
+        std::vector<std::wstring> Paths;
+
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring RepoRoot =
+                GetParentDirectoryPath(RootPath);
+
+            if (!RepoRoot.empty())
+            {
+                Paths.push_back(JoinPath(
+                    RepoRoot,
+                    L"Client\\Building\\Data\\BuildingDescriptionOverrides.tsv"));
+            }
+        }
+
+        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
+        {
+            Paths.push_back(JoinPath(
+                AssetPath,
+                L"Data\\BuildingDescriptionOverrides.tsv"));
+        }
+
+        return Paths;
+    }
+
+    bool LoadUtf8TextFile(
+        const std::wstring& FullPath,
+        std::string& OutText)
+    {
+        OutText.clear();
+
+        FILE* File = nullptr;
+        _wfopen_s(&File, FullPath.c_str(), L"rb");
+
+        if (!File)
+            return false;
+
+        fseek(File, 0, SEEK_END);
+        const long FileSize = ftell(File);
+        fseek(File, 0, SEEK_SET);
+
+        if (FileSize < 0)
+        {
+            fclose(File);
+            return false;
+        }
+
+        OutText.resize(static_cast<size_t>(FileSize));
+
+        if (FileSize > 0)
+        {
+            const size_t ReadSize = fread(
+                &OutText[0],
+                1,
+                static_cast<size_t>(FileSize),
+                File);
+
+            if (ReadSize != static_cast<size_t>(FileSize))
+            {
+                fclose(File);
+                OutText.clear();
+                return false;
+            }
+        }
+
+        fclose(File);
+
+        if (OutText.size() >= 3 &&
+            static_cast<unsigned char>(OutText[0]) == 0xEF &&
+            static_cast<unsigned char>(OutText[1]) == 0xBB &&
+            static_cast<unsigned char>(OutText[2]) == 0xBF)
+        {
+            OutText.erase(0, 3);
+        }
+
+        return true;
+    }
+
+    std::vector<std::string> SplitTabSeparatedLine(const std::string& Line)
+    {
+        std::vector<std::string> Fields;
+        std::string Current;
+
+        for (size_t Index = 0; Index < Line.size(); ++Index)
+        {
+            if (Line[Index] == '\t')
+            {
+                Fields.push_back(Current);
+                Current.clear();
+                continue;
+            }
+
+            Current.push_back(Line[Index]);
+        }
+
+        Fields.push_back(Current);
+        return Fields;
+    }
+
+    std::string UnescapeTsvField(const std::string& Text)
+    {
+        std::string Result;
+        Result.reserve(Text.size());
+
+        for (size_t Index = 0; Index < Text.size(); ++Index)
+        {
+            const char Ch = Text[Index];
+
+            if (Ch != '\\' || Index + 1 >= Text.size())
+            {
+                Result.push_back(Ch);
+                continue;
+            }
+
+            const char Next = Text[++Index];
+
+            switch (Next)
+            {
+            case 'n':
+                Result.push_back('\n');
+                break;
+            case 'r':
+                Result.push_back('\r');
+                break;
+            case 't':
+                Result.push_back('\t');
+                break;
+            case '\\':
+                Result.push_back('\\');
+                break;
+            default:
+                Result.push_back(Next);
+                break;
+            }
+        }
+
+        return Result;
+    }
+
+    std::unordered_map<std::string, std::wstring>
+        LoadDescriptionOverrides()
+    {
+        std::unordered_map<std::string, std::wstring> Result;
+        const std::vector<std::wstring> CandidatePaths =
+            BuildDescriptionOverrideCandidatePaths();
+
+        for (size_t PathIndex = 0;
+            PathIndex < CandidatePaths.size();
+            ++PathIndex)
+        {
+            std::string FileContent;
+
+            if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+                continue;
+
+            size_t Cursor = 0;
+
+            while (Cursor <= FileContent.size())
+            {
+                const size_t LineEnd = FileContent.find('\n', Cursor);
+                std::string Line =
+                    LineEnd == std::string::npos ?
+                    FileContent.substr(Cursor) :
+                    FileContent.substr(Cursor, LineEnd - Cursor);
+
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                if (!Line.empty() && Line[0] != '#')
+                {
+                    const std::vector<std::string> Fields =
+                        SplitTabSeparatedLine(Line);
+
+                    if (Fields.size() >= 2 && !Fields[0].empty())
+                    {
+                        Result[Fields[0]] =
+                            Utf8ToWide(UnescapeTsvField(Fields[1]));
+                    }
+                }
+
+                if (LineEnd == std::string::npos)
+                    break;
+
+                Cursor = LineEnd + 1;
+            }
+
+            if (!Result.empty())
+                break;
+        }
+
+        return Result;
+    }
+
+    const std::unordered_map<std::string, std::wstring>&
+        GetDescriptionOverrides()
+    {
+        static const std::unordered_map<std::string, std::wstring>
+            GDescriptionOverrides = LoadDescriptionOverrides();
+        return GDescriptionOverrides;
+    }
+
+    const std::wstring* FindDescriptionOverride(
+        const std::string& EntryId)
+    {
+        const auto& Overrides = GetDescriptionOverrides();
+        const auto It = Overrides.find(EntryId);
+        return It != Overrides.end() ? &It->second : nullptr;
+    }
 
     std::string BuildCatalogIconTextureKey(
         const FBuildingCatalogEntry& Entry)
@@ -742,7 +1004,15 @@ namespace
             Entry.ConstructionCost,
             L"무료");
         Result.InfoText = BuildHighlightsBlockText(ParsedDetail.Highlights);
-        Result.BodyText = ParsedDetail.Description;
+        if (const std::wstring* OverrideDescription =
+                FindDescriptionOverride(Entry.Id))
+        {
+            Result.BodyText = *OverrideDescription;
+        }
+        else
+        {
+            Result.BodyText = ParsedDetail.Description;
+        }
         return Result;
     }
 }

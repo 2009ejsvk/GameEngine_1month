@@ -39,9 +39,9 @@ namespace CitizenInfoRendererInternal
     constexpr const TCHAR* GActionIconButtonTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\IconBackground\\T_icon_background.png");
     constexpr const TCHAR* GMoveActionIcon = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingInfoIcons\\T_ICO_buildingAddRoute.png");
-    constexpr const TCHAR* GCloneActionIcon = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Icons\\ConstructionIcons\\T_ICO_blueprint.png");
+        "TROPICO_ASSET\\Visuals\\UI\\Icons\\ActionIcons\\T_ICO_action_relocate.png");
+    constexpr const TCHAR* GFocusActionIcon = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Icons\\ActionIcons\\T_ICO_action_focus.png");
     constexpr const TCHAR* GOverviewEmptyResidentIcon = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_population.png");
     constexpr const TCHAR* GSectionDividerTexture = TEXT(

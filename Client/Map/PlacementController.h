@@ -9,15 +9,13 @@
 class CPlacementController :
     public CGameObject
 {
-    friend class CWorld;
     friend class CObject;
 
-protected:
+public:
     CPlacementController();
     CPlacementController(const CPlacementController& ref);
     CPlacementController(CPlacementController&& ref) noexcept;
 
-public:
     virtual ~CPlacementController();
 
 private:
@@ -83,7 +81,9 @@ private:
         int TileIndex) const;
     void ApplyRoadPreviewTiles(const std::vector<int>& TileIndices);
     bool EnsureRoadPlacementObject();
-    bool TryPlaceRoadAtTile(int TileIndex);
+    bool TryPlaceRoadAtTile(
+        int TileIndex,
+        CPlacementAreaObject::FScopedTopologyBatch* TopologyBatch = nullptr);
     bool CommitRoadPathToTile(int EndTileIndex);
     void ClearRoadBrushMode();
     std::shared_ptr<class CPlacementAreaObject> PickPlacementObject(

@@ -80,8 +80,8 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     {
         TitleText->SetFontSize(UIConfig::EdictTitleFontSize * Scale);
         TitleText->SetPos(
-            TitleRibbonLeft + 32.f * Scale,
-            PanelTop + HeaderTopPadding);
+            TitleRibbonLeft + 32.f * Scale + UIConfig::EdictTitleTextOffsetX * Scale,
+            PanelTop + HeaderTopPadding + UIConfig::EdictTitleTextOffsetY * Scale);
         TitleText->SetSize(TitleRibbonWidth - 64.f * Scale, HeaderHeight);
     }
 
@@ -267,7 +267,9 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
 
         if (SlotText)
         {
-            SlotText->SetPos(10.f * Scale, SlotHeight - 44.f * Scale);
+            SlotText->SetPos(
+                10.f * Scale + UIConfig::EdictSlotTextOffsetX * Scale,
+                SlotHeight - 44.f * Scale + UIConfig::EdictSlotTextOffsetY * Scale);
             SlotText->SetSize(SlotWidth - 20.f * Scale, 38.f * Scale);
             SlotText->SetFontSize(14.5f * Scale);
         }
@@ -290,22 +292,31 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     const float DetailTitleTop = DetailFrameTop + 10.f * Scale;
     const float DetailTitleWidth = DetailFrameWidth * 0.52f;
     const float DetailTitleHeight = 30.f * Scale;
-    const float CostIconSize = 24.f * Scale;
-    const float CostTop = DetailTitleTop + DetailTitleHeight - 3.f * Scale;
-    const float CostRowWidth = 140.f * Scale;
-    const float CostLeft = DetailHeaderCenterX - CostRowWidth * 0.5f;
-    const float DetailInfoTop = CostTop + 28.f * Scale;
-    const float DetailInfoHeight = 20.f * Scale;
-    const float FeedbackTop = DetailInfoTop + DetailInfoHeight + 2.f * Scale;
-    const float FeedbackHeight = 22.f * Scale;
+    const float CostIconSize = UIConfig::EdictDetailCostIconSize * Scale;
+    const float CostTop =
+        DetailTitleTop + DetailTitleHeight - 3.f * Scale +
+        UIConfig::EdictDetailCostRowOffsetY * Scale;
+    const float CostRowWidth = UIConfig::EdictDetailCostRowWidth * Scale;
+    const float CostLeft =
+        DetailHeaderCenterX - CostRowWidth * 0.5f +
+        UIConfig::EdictDetailCostRowOffsetX * Scale;
+    const float CostIconTop =
+        CostTop + UIConfig::EdictDetailCostIconOffsetY * Scale;
+    const float CostTextWidth = UIConfig::EdictDetailCostTextWidth * Scale;
+    const float CostTextHeight = UIConfig::EdictDetailCostTextHeight * Scale;
+    const float CostTextTop =
+        CostTop - 2.f * Scale + UIConfig::EdictDetailCostOffsetY * Scale;
+    const bool InlineDetailInfoWithCost =
+        UIConfig::EdictDetailInfoInlineWithCost;
+    const float DetailInfoHeight =
+        UIConfig::EdictDetailInfoTextHeight * Scale;
     const float ApplyButtonWidth = UIConfig::EdictApplyButtonWidth * Scale;
     const float ApplyButtonHeight = UIConfig::EdictApplyButtonHeight * Scale;
-    const float ApplyButtonTop = DetailFrameTop + 14.f * Scale;
+    const float ApplyButtonTop =
+        DetailFrameTop + 14.f * Scale + UIConfig::EdictApplyButtonOffsetY * Scale;
     const float ApplyButtonLeft =
-        DetailFrameLeft + DetailFrameWidth - ApplyButtonWidth - 18.f * Scale;
-    const float InfoPanelTop = DetailFrameTop + 74.f * Scale;
-    const float InfoPanelHeight =
-        DetailFrameTop + DetailFrameHeight - InfoPanelTop - 14.f * Scale;
+        DetailFrameLeft + DetailFrameWidth - ApplyButtonWidth - 18.f * Scale +
+        UIConfig::EdictApplyButtonOffsetX * Scale;
     const float FeedbackGap = 8.f * Scale;
     const bool ShowTaxPanel = Widget.mShowTaxPolicyPanel;
     const float TaxPanelGap = 14.f * Scale;
@@ -318,9 +329,45 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     const float DetailContentWidth = HasTaxPanelColumn ?
         DetailInnerWidth - TaxPanelWidth - TaxPanelGap :
         DetailInnerWidth;
-    const float DetailBodyLeft = DetailInnerLeft + 14.f * Scale;
+    const float InfoPanelLeft =
+        DetailInnerLeft + UIConfig::EdictDetailInfoPanelOffsetX * Scale;
+    const float InfoPanelTop =
+        DetailFrameTop + 74.f * Scale + UIConfig::EdictDetailInfoPanelOffsetY * Scale;
+    const float InfoPanelWidth =
+        (std::max)(0.f,
+            DetailContentWidth + UIConfig::EdictDetailInfoPanelWidthAdjust * Scale);
+    const float InfoPanelHeight =
+        (std::max)(0.f,
+            DetailFrameTop + DetailFrameHeight - InfoPanelTop - 14.f * Scale +
+                UIConfig::EdictDetailInfoPanelHeightAdjust * Scale);
+    const float DetailInfoTop = InlineDetailInfoWithCost ?
+        CostTextTop + (CostTextHeight - DetailInfoHeight) * 0.5f +
+            UIConfig::EdictDetailInfoOffsetY * Scale :
+        CostTop + 28.f * Scale + UIConfig::EdictDetailInfoOffsetY * Scale;
+    const float DetailInfoLeft = InlineDetailInfoWithCost ?
+        CostLeft + CostIconSize + 8.f * Scale + CostTextWidth +
+            UIConfig::EdictDetailInfoInlineGapX * Scale +
+            UIConfig::EdictDetailInfoOffsetX * Scale :
+        InfoPanelLeft + UIConfig::EdictDetailInfoOffsetX * Scale;
+    const float DefaultDetailInfoWidth = InlineDetailInfoWithCost ?
+        (std::max)(0.f, ApplyButtonLeft - 10.f * Scale - DetailInfoLeft) :
+        InfoPanelWidth;
+    const float DetailInfoWidth =
+        UIConfig::EdictDetailInfoTextWidth > 0.f ?
+            UIConfig::EdictDetailInfoTextWidth * Scale :
+            DefaultDetailInfoWidth;
+    const float HeaderInfoRowBottom = InlineDetailInfoWithCost ?
+        (std::max)(
+            (std::max)(
+                CostIconTop + CostIconSize,
+                CostTextTop + CostTextHeight),
+            DetailInfoTop + DetailInfoHeight) :
+        DetailInfoTop + DetailInfoHeight;
+    const float FeedbackTop = HeaderInfoRowBottom + 2.f * Scale;
+    const float FeedbackHeight = 22.f * Scale;
+    const float DetailBodyLeft = InfoPanelLeft + 14.f * Scale;
     const float DetailBodyTop = FeedbackTop + FeedbackHeight + FeedbackGap;
-    const float DetailBodyWidth = (std::max)(0.f, DetailContentWidth - 28.f * Scale);
+    const float DetailBodyWidth = (std::max)(0.f, InfoPanelWidth - 28.f * Scale);
     const float RequirementHeight = 28.f * Scale;
     const float RequirementTop =
         InfoPanelTop + InfoPanelHeight - RequirementHeight - 8.f * Scale;
@@ -371,38 +418,42 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     {
         DetailTitleText->SetFontSize(UIConfig::EdictDetailTitleFontSize * Scale);
         DetailTitleText->SetPos(
-            DetailHeaderCenterX - DetailTitleWidth * 0.5f,
-            DetailTitleTop);
+            DetailHeaderCenterX - DetailTitleWidth * 0.5f +
+                UIConfig::EdictDetailTitleOffsetX * Scale,
+            DetailTitleTop + UIConfig::EdictDetailTitleOffsetY * Scale);
         DetailTitleText->SetSize(DetailTitleWidth, DetailTitleHeight);
     }
 
     if (DetailCostIcon)
     {
-        DetailCostIcon->SetPos(CostLeft, CostTop);
+        DetailCostIcon->SetPos(
+            CostLeft + UIConfig::EdictDetailCostIconOffsetX * Scale,
+            CostIconTop);
         DetailCostIcon->SetSize(CostIconSize, CostIconSize);
     }
 
     if (DetailCostText)
     {
         DetailCostText->SetPos(
-            CostLeft + CostIconSize + 8.f * Scale,
-            CostTop - 2.f * Scale);
-        DetailCostText->SetSize(
-            CostRowWidth - CostIconSize - 8.f * Scale,
-            30.f * Scale);
+            CostLeft + CostIconSize + 8.f * Scale +
+                UIConfig::EdictDetailCostOffsetX * Scale,
+            CostTextTop);
+        DetailCostText->SetSize(CostTextWidth, CostTextHeight);
         DetailCostText->SetFontSize(UIConfig::EdictDetailCostFontSize * Scale);
     }
 
     if (DetailInfoPanel)
     {
-        DetailInfoPanel->SetPos(DetailInnerLeft, InfoPanelTop);
-        DetailInfoPanel->SetSize(DetailContentWidth, InfoPanelHeight);
+        DetailInfoPanel->SetPos(InfoPanelLeft, InfoPanelTop);
+        DetailInfoPanel->SetSize(InfoPanelWidth, InfoPanelHeight);
     }
 
     if (DetailInfoText)
     {
-        DetailInfoText->SetPos(DetailInnerLeft, DetailInfoTop);
-        DetailInfoText->SetSize(DetailContentWidth, DetailInfoHeight);
+        DetailInfoText->SetPos(
+            DetailInfoLeft,
+            DetailInfoTop);
+        DetailInfoText->SetSize(DetailInfoWidth, DetailInfoHeight);
         DetailInfoText->SetFontSize(12.5f * Scale);
     }
 
@@ -413,26 +464,38 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     }
 
     if (ApplyButtonText)
+    {
+        ApplyButtonText->SetPos(
+            UIConfig::EdictApplyButtonTextOffsetX * Scale,
+            UIConfig::EdictApplyButtonTextOffsetY * Scale);
+        ApplyButtonText->SetSize(ApplyButtonWidth, ApplyButtonHeight);
         ApplyButtonText->SetFontSize(16.f * Scale);
+    }
 
     if (FeedbackText)
     {
-        FeedbackText->SetPos(DetailInnerLeft, FeedbackTop);
-        FeedbackText->SetSize(DetailContentWidth, FeedbackHeight);
+        FeedbackText->SetPos(
+            InfoPanelLeft + UIConfig::EdictFeedbackOffsetX * Scale,
+            FeedbackTop + UIConfig::EdictFeedbackOffsetY * Scale);
+        FeedbackText->SetSize(InfoPanelWidth, FeedbackHeight);
         FeedbackText->SetFontSize(12.5f * Scale);
     }
 
     if (DetailBodyText)
     {
-        DetailBodyText->SetPos(DetailBodyLeft, DetailBodyTop);
+        DetailBodyText->SetPos(
+            DetailBodyLeft + UIConfig::EdictDetailBodyOffsetX * Scale,
+            DetailBodyTop + UIConfig::EdictDetailBodyOffsetY * Scale);
         DetailBodyText->SetSize(DetailBodyWidth, DetailBodyHeight);
         DetailBodyText->SetFontSize(15.f * Scale);
     }
 
     if (RequirementText)
     {
-        RequirementText->SetPos(DetailInnerLeft, RequirementTop);
-        RequirementText->SetSize(DetailContentWidth, RequirementHeight);
+        RequirementText->SetPos(
+            InfoPanelLeft + UIConfig::EdictRequirementOffsetX * Scale,
+            RequirementTop + UIConfig::EdictRequirementOffsetY * Scale);
+        RequirementText->SetSize(InfoPanelWidth, RequirementHeight);
         RequirementText->SetFontSize(13.5f * Scale);
     }
 
@@ -450,8 +513,12 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     if (TaxPolicyTitleText)
     {
         TaxPolicyTitleText->SetPos(
-            LayoutTaxPanel ? TaxContentLeft : 0.f,
-            LayoutTaxPanel ? TaxContentTop : 0.f);
+            LayoutTaxPanel ?
+                (TaxContentLeft + UIConfig::EdictTaxPolicyTitleOffsetX * Scale) :
+                0.f,
+            LayoutTaxPanel ?
+                (TaxContentTop + UIConfig::EdictTaxPolicyTitleOffsetY * Scale) :
+                0.f);
         TaxPolicyTitleText->SetSize(
             LayoutTaxPanel ? TaxContentWidth : 0.f,
             LayoutTaxPanel ? TaxTitleHeight : 0.f);
@@ -473,8 +540,12 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
         if (RowText)
         {
             RowText->SetPos(
-                LayoutTaxPanel ? TaxContentLeft : 0.f,
-                LayoutTaxPanel ? RowTop : 0.f);
+                LayoutTaxPanel ?
+                    (TaxContentLeft + UIConfig::EdictTaxPolicyRowTextOffsetX * Scale) :
+                    0.f,
+                LayoutTaxPanel ?
+                    (RowTop + UIConfig::EdictTaxPolicyRowTextOffsetY * Scale) :
+                    0.f);
             RowText->SetSize(
                 LayoutTaxPanel ?
                     (std::max)(0.f, TaxContentWidth - TaxButtonGroupWidth - 10.f * Scale) :
@@ -506,8 +577,12 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
     if (TaxPolicySummaryText)
     {
         TaxPolicySummaryText->SetPos(
-            LayoutTaxPanel ? TaxContentLeft : 0.f,
-            LayoutTaxPanel ? TaxSummaryTop : 0.f);
+            LayoutTaxPanel ?
+                (TaxContentLeft + UIConfig::EdictTaxPolicySummaryOffsetX * Scale) :
+                0.f,
+            LayoutTaxPanel ?
+                (TaxSummaryTop + UIConfig::EdictTaxPolicySummaryOffsetY * Scale) :
+                0.f);
         TaxPolicySummaryText->SetSize(
             LayoutTaxPanel ? TaxContentWidth : 0.f,
             LayoutTaxPanel ? TaxSummaryHeight : 0.f);

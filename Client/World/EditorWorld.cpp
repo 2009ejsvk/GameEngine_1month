@@ -1,5 +1,6 @@
 #include "EditorWorld.h"
 #include "../ObjectNames.h"
+#include "../UI/UILayoutConfig.h"
 #include "World/WorldUIManager.h"
 #include "World/WorldManager.h"
 #include "../Map/TileMapMain.h"
@@ -40,6 +41,11 @@ bool CEditorWorld::Init()
 void CEditorWorld::Update(float DeltaTime)
 {
 	CWorld::Update(DeltaTime);
+}
+
+void CEditorWorld::OnUiManagerUpdated()
+{
+    UIConfig::ApplyWidgetOverrides(GetUIManager().lock());
 }
 
 void CEditorWorld::LoadAnimation2D()
