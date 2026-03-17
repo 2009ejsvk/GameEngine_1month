@@ -22,7 +22,7 @@ namespace
     using namespace TropicoUiStyle;
     using namespace TropicoUiTheme;
 
-    constexpr const TCHAR* GEdictMenuPanelTexture = GMainMenuPanelTexture;
+    const auto& GEdictMenuPanelTexture = GMainMenuPanelTexture;
     constexpr const TCHAR* GCostIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_money.png");
     constexpr const TCHAR* GStarEmptyTexture = TEXT(

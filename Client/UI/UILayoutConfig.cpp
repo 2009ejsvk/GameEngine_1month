@@ -10,7 +10,10 @@
 #include <string>
 #include <algorithm>
 #include <cctype>
+#include <iomanip>
+#include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace UIConfig
@@ -352,8 +355,15 @@ namespace UIConfig
 
     namespace
     {
-        constexpr const wchar_t* GConfigId = L"UI.Layout";
+        constexpr const wchar_t* GPrimaryConfigFile = L"UILayout.ini";
+        constexpr const wchar_t* GSplitConfigDirectory = L"UILayout\\";
         constexpr const wchar_t* GWidgetPathDumpFile = L"UIWidgetPaths.txt";
+        constexpr const wchar_t* GWidgetTemplateFile =
+            L"UIWidgetOverrideTemplate.ini";
+        constexpr const char* GWidgetTemplateBeginMarker =
+            "# >>> AUTO-GENERATED WIDGET OVERRIDE TEMPLATE BEGIN <<<";
+        constexpr const char* GWidgetTemplateEndMarker =
+            "# >>> AUTO-GENERATED WIDGET OVERRIDE TEMPLATE END <<<";
 
         template <typename T>
         struct TOptionalOverrideValue
@@ -390,8 +400,23 @@ namespace UIConfig
         std::unordered_map<std::string, FWidgetOverrideRule> GWidgetPathOverrides;
         std::unordered_map<std::string, FWidgetOverrideRule> GWidgetNameOverrides;
         unsigned long long GLastDumpedWidgetPathGeneration = 0;
+        unsigned long long GLastWidgetTreeSignature = 0;
+        unsigned long long GConfigGeneration = 0;
+        constexpr float GConfigCheckIntervalSeconds = 0.5f;
+        float GConfigCheckCooldown = 0.f;
+        bool GConfigRegistered = false;
+
+        struct FTrackedConfigFile
+        {
+            std::wstring Path;
+            unsigned long long WriteTime = 0;
+        };
+
+        std::vector<FTrackedConfigFile> GTrackedConfigFiles;
 
         void TrimString(std::string& S);
+        void ResetToDefaults();
+        bool LoadFile(const std::wstring& Path);
 
         template <typename T>
         void SetOverrideValue(TOptionalOverrideValue<T>& Field, const T& Value)
@@ -691,6 +716,564 @@ namespace UIConfig
 
                 Text->SetShadowOffset(ShadowOffset);
             }
+        }
+
+        std::wstring BuildPrimaryConfigPath()
+        {
+            return RuntimeConfigRegistry::BuildExeRelativePath(
+                GPrimaryConfigFile);
+        }
+
+        std::wstring BuildSplitConfigDirectoryPath()
+        {
+            return RuntimeConfigRegistry::BuildExeRelativePath(
+                GSplitConfigDirectory);
+        }
+
+        std::wstring BuildWidgetTemplatePath()
+        {
+            return RuntimeConfigRegistry::BuildExeRelativePath(
+                GWidgetTemplateFile);
+        }
+
+        unsigned long long ConvertFileTimeToTicks(const FILETIME& Time)
+        {
+            ULARGE_INTEGER Value = {};
+            Value.LowPart = Time.dwLowDateTime;
+            Value.HighPart = Time.dwHighDateTime;
+            return Value.QuadPart;
+        }
+
+        bool TryGetTrackedFileWriteTime(
+            const std::wstring& Path,
+            unsigned long long& OutWriteTime)
+        {
+            WIN32_FILE_ATTRIBUTE_DATA Attributes = {};
+
+            if (!GetFileAttributesExW(
+                    Path.c_str(),
+                    GetFileExInfoStandard,
+                    &Attributes) ||
+                (Attributes.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+            {
+                OutWriteTime = 0;
+                return false;
+            }
+
+            OutWriteTime = ConvertFileTimeToTicks(Attributes.ftLastWriteTime);
+            return true;
+        }
+
+        std::vector<FTrackedConfigFile> BuildTrackedConfigFiles()
+        {
+            std::vector<FTrackedConfigFile> Result;
+            unsigned long long WriteTime = 0;
+            const std::wstring PrimaryPath = BuildPrimaryConfigPath();
+
+            if (TryGetTrackedFileWriteTime(PrimaryPath, WriteTime))
+                Result.push_back({ PrimaryPath, WriteTime });
+
+            const std::wstring DirectoryPath = BuildSplitConfigDirectoryPath();
+            WIN32_FIND_DATAW FindData = {};
+            const HANDLE FindHandle = FindFirstFileW(
+                (DirectoryPath + L"*.ini").c_str(),
+                &FindData);
+
+            if (FindHandle != INVALID_HANDLE_VALUE)
+            {
+                do
+                {
+                    if ((FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) !=
+                        0)
+                    {
+                        continue;
+                    }
+
+                    Result.push_back(
+                        {
+                            DirectoryPath + FindData.cFileName,
+                            ConvertFileTimeToTicks(FindData.ftLastWriteTime)
+                        });
+                } while (FindNextFileW(FindHandle, &FindData));
+
+                FindClose(FindHandle);
+            }
+
+            if (Result.size() > 1)
+            {
+                std::sort(
+                    Result.begin() + 1,
+                    Result.end(),
+                    [](const FTrackedConfigFile& Left,
+                        const FTrackedConfigFile& Right)
+                    {
+                        return Left.Path < Right.Path;
+                    });
+            }
+
+            return Result;
+        }
+
+        bool TrackedConfigFilesMatch(
+            const std::vector<FTrackedConfigFile>& Left,
+            const std::vector<FTrackedConfigFile>& Right)
+        {
+            if (Left.size() != Right.size())
+                return false;
+
+            for (size_t Index = 0; Index < Left.size(); ++Index)
+            {
+                if (Left[Index].Path != Right[Index].Path ||
+                    Left[Index].WriteTime != Right[Index].WriteTime)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        void StripUtf8Bom(std::string& Line)
+        {
+            constexpr char GUtf8Bom[] = "\xEF\xBB\xBF";
+
+            if (Line.rfind(GUtf8Bom, 0) == 0)
+                Line.erase(0, 3);
+        }
+
+        bool ReadBinaryFile(const std::wstring& Path, std::string& OutContent)
+        {
+            std::ifstream File(Path, std::ios::binary);
+
+            if (!File.is_open())
+                return false;
+
+            std::ostringstream Buffer;
+            Buffer << File.rdbuf();
+            OutContent = Buffer.str();
+            return true;
+        }
+
+        bool WriteBinaryFile(const std::wstring& Path, const std::string& Content)
+        {
+            std::ofstream File(Path, std::ios::binary | std::ios::trunc);
+
+            if (!File.is_open())
+                return false;
+
+            File.write(Content.data(), Content.size());
+            return true;
+        }
+
+        void ReloadTrackedConfigFiles(
+            const std::vector<FTrackedConfigFile>& ConfigFiles)
+        {
+            ResetToDefaults();
+
+            for (size_t Index = 0; Index < ConfigFiles.size(); ++Index)
+                LoadFile(ConfigFiles[Index].Path);
+
+            GTrackedConfigFiles = ConfigFiles;
+            GConfigCheckCooldown = GConfigCheckIntervalSeconds;
+            GConfigRegistered = true;
+            ++GConfigGeneration;
+        }
+
+        std::string DetectLineEnding(const std::string& Text)
+        {
+            return Text.find("\r\n") != std::string::npos ? "\r\n" : "\n";
+        }
+
+        std::string FormatFloatValue(float Value)
+        {
+            if (!std::isfinite(Value))
+                Value = 0.f;
+
+            if (std::fabs(Value) < 0.0005f)
+                Value = 0.f;
+
+            std::ostringstream Stream;
+            Stream << std::fixed << std::setprecision(3) << Value;
+            std::string Result = Stream.str();
+
+            while (!Result.empty() && Result.back() == '0')
+                Result.pop_back();
+
+            if (!Result.empty() && Result.back() == '.')
+                Result.pop_back();
+
+            return Result.empty() ? "0" : Result;
+        }
+
+        std::string FormatBoolValue(bool Value)
+        {
+            return Value ? "1" : "0";
+        }
+
+        std::string BuildWidgetTemplateIntro(const std::string& NewLine)
+        {
+            std::ostringstream Stream;
+            Stream << GWidgetTemplateBeginMarker << NewLine;
+            Stream << "# Auto-generated widget override reference."
+                << NewLine;
+            Stream << "# Runtime-loaded overrides live in Binary/UILayout/*.ini."
+                << NewLine;
+            Stream << "# Copy a line from this file into a loaded config file,"
+                << " then remove the leading '# ' to activate it." << NewLine;
+            Stream << "# UIWidgetPaths.txt also lists every widget path."
+                << NewLine;
+            Stream << "# Full-path syntax: Widget.TopHudWidget/TopHud_DateText"
+                << ".OffsetY = -4" << NewLine;
+            Stream << "# Supported props: PosX PosY OffsetX OffsetY Width Height"
+                << " WidthAdd HeightAdd PivotX PivotY Opacity ZOrder TintR"
+                << " TintG TintB TintA FontSize FontSizeAdd ShadowOffsetX"
+                << " ShadowOffsetY Enable" << NewLine;
+            Stream << NewLine;
+            return Stream.str();
+        }
+
+        void CollectManagedWidgetOverrideKeys(
+            const std::string& SectionText,
+            std::unordered_set<std::string>& OutKeys)
+        {
+            std::istringstream Stream(SectionText);
+            std::string Line;
+
+            while (std::getline(Stream, Line))
+            {
+                if (!Line.empty() && Line.back() == '\r')
+                    Line.pop_back();
+
+                TrimString(Line);
+
+                if (Line.empty())
+                    continue;
+
+                if (Line[0] == '#' || Line[0] == ';')
+                {
+                    Line.erase(Line.begin());
+                    TrimString(Line);
+                }
+
+                if (Line.empty())
+                    continue;
+
+                const size_t EqPos = Line.find('=');
+                std::string Key =
+                    EqPos == std::string::npos ? Line : Line.substr(0, EqPos);
+                TrimString(Key);
+
+                if (Key.rfind("Widget.", 0) == 0 ||
+                    Key.rfind("WidgetName.", 0) == 0)
+                {
+                    OutKeys.insert(Key);
+                }
+            }
+        }
+
+        void AppendCommentedWidgetOverrideLine(
+            std::ostringstream& Stream,
+            const std::string& NewLine,
+            const std::string& Key,
+            const std::string& Value)
+        {
+            Stream << "# " << Key << " = " << Value << NewLine;
+        }
+
+        void AppendWidgetOverrideTemplateRecursive(
+            const std::shared_ptr<CWidget>& Widget,
+            const std::string& WidgetPath,
+            const std::unordered_set<std::string>& ExistingKeys,
+            const std::string& NewLine,
+            std::ostringstream& Stream)
+        {
+            if (!Widget)
+                return;
+
+            const FVector3 Position = Widget->GetPos();
+            const FVector3 Size = Widget->GetSize();
+            const FVector3 Pivot = Widget->GetPivot();
+            const FVector4 Tint = Widget->GetWidgetColor();
+
+            std::vector<std::pair<std::string, std::string>> Entries;
+            const std::string KeyPrefix = "Widget." + WidgetPath + ".";
+
+            Entries.emplace_back(
+                KeyPrefix + "PosX",
+                FormatFloatValue(Position.x));
+            Entries.emplace_back(
+                KeyPrefix + "PosY",
+                FormatFloatValue(Position.y));
+            Entries.emplace_back(KeyPrefix + "OffsetX", "0");
+            Entries.emplace_back(KeyPrefix + "OffsetY", "0");
+            Entries.emplace_back(
+                KeyPrefix + "Width",
+                FormatFloatValue(Size.x));
+            Entries.emplace_back(
+                KeyPrefix + "Height",
+                FormatFloatValue(Size.y));
+            Entries.emplace_back(KeyPrefix + "WidthAdd", "0");
+            Entries.emplace_back(KeyPrefix + "HeightAdd", "0");
+            Entries.emplace_back(
+                KeyPrefix + "PivotX",
+                FormatFloatValue(Pivot.x));
+            Entries.emplace_back(
+                KeyPrefix + "PivotY",
+                FormatFloatValue(Pivot.y));
+            Entries.emplace_back(
+                KeyPrefix + "Opacity",
+                FormatFloatValue(Tint.w));
+            Entries.emplace_back(
+                KeyPrefix + "ZOrder",
+                std::to_string(Widget->GetZOrder()));
+            Entries.emplace_back(
+                KeyPrefix + "TintR",
+                FormatFloatValue(Tint.x));
+            Entries.emplace_back(
+                KeyPrefix + "TintG",
+                FormatFloatValue(Tint.y));
+            Entries.emplace_back(
+                KeyPrefix + "TintB",
+                FormatFloatValue(Tint.z));
+            Entries.emplace_back(
+                KeyPrefix + "TintA",
+                FormatFloatValue(Tint.w));
+            Entries.emplace_back(
+                KeyPrefix + "Enable",
+                FormatBoolValue(Widget->GetEnable()));
+
+            if (const auto Text = std::dynamic_pointer_cast<CTextBlock>(Widget))
+            {
+                const FVector2 ShadowOffset = Text->GetShadowOffset();
+
+                Entries.emplace_back(
+                    KeyPrefix + "FontSize",
+                    FormatFloatValue(Text->GetFontSize()));
+                Entries.emplace_back(KeyPrefix + "FontSizeAdd", "0");
+                Entries.emplace_back(
+                    KeyPrefix + "ShadowOffsetX",
+                    FormatFloatValue(ShadowOffset.x));
+                Entries.emplace_back(
+                    KeyPrefix + "ShadowOffsetY",
+                    FormatFloatValue(ShadowOffset.y));
+            }
+
+            bool HasMissingEntry = false;
+
+            for (size_t Index = 0; Index < Entries.size(); ++Index)
+            {
+                if (ExistingKeys.find(Entries[Index].first) == ExistingKeys.end())
+                {
+                    HasMissingEntry = true;
+                    break;
+                }
+            }
+
+            if (HasMissingEntry)
+            {
+                Stream << "# " << WidgetPath << " ["
+                    << GetWidgetTypeName(Widget) << "]" << NewLine;
+
+                for (size_t Index = 0; Index < Entries.size(); ++Index)
+                {
+                    if (ExistingKeys.find(Entries[Index].first) !=
+                        ExistingKeys.end())
+                    {
+                        continue;
+                    }
+
+                    AppendCommentedWidgetOverrideLine(
+                        Stream,
+                        NewLine,
+                        Entries[Index].first,
+                        Entries[Index].second);
+                }
+
+                Stream << NewLine;
+            }
+
+            if (const auto Button = std::dynamic_pointer_cast<CButton>(Widget))
+            {
+                const auto Child = Button->GetChild();
+
+                if (Child)
+                {
+                    AppendWidgetOverrideTemplateRecursive(
+                        Child,
+                        WidgetPath + "/" + Child->GetName(),
+                        ExistingKeys,
+                        NewLine,
+                        Stream);
+                }
+            }
+
+            const auto Container = std::dynamic_pointer_cast<CWidgetContainer>(
+                Widget);
+
+            if (!Container)
+                return;
+
+            const auto& Children = Container->GetChildList();
+
+            for (size_t Index = 0; Index < Children.size(); ++Index)
+            {
+                const auto& Child = Children[Index];
+
+                if (!Child)
+                    continue;
+
+                AppendWidgetOverrideTemplateRecursive(
+                    Child,
+                    WidgetPath + "/" + Child->GetName(),
+                    ExistingKeys,
+                    NewLine,
+                    Stream);
+            }
+        }
+
+        std::string BuildMissingWidgetTemplateText(
+            const std::shared_ptr<CWorldUIManager>& UIManager,
+            const std::unordered_set<std::string>& ExistingKeys,
+            const std::string& NewLine)
+        {
+            if (!UIManager)
+                return std::string();
+
+            std::ostringstream Stream;
+            const auto& WidgetList = UIManager->GetWidgetList();
+
+            for (size_t Index = 0; Index < WidgetList.size(); ++Index)
+            {
+                const auto& RootWidget = WidgetList[Index];
+
+                if (!RootWidget)
+                    continue;
+
+                AppendWidgetOverrideTemplateRecursive(
+                    RootWidget,
+                    RootWidget->GetName(),
+                    ExistingKeys,
+                    NewLine,
+                    Stream);
+            }
+
+            return Stream.str();
+        }
+
+        void SyncWidgetTemplateSection(
+            const std::shared_ptr<CWorldUIManager>& UIManager)
+        {
+            if (!UIManager)
+                return;
+
+            const std::string NewLine = "\r\n";
+            const std::unordered_set<std::string> ExistingKeys;
+            const std::string TemplateBody = BuildMissingWidgetTemplateText(
+                UIManager,
+                ExistingKeys,
+                NewLine);
+
+            if (TemplateBody.empty())
+                return;
+
+            std::string UpdatedContent = "\xEF\xBB\xBF";
+            UpdatedContent += BuildWidgetTemplateIntro(NewLine);
+            UpdatedContent += TemplateBody;
+            UpdatedContent += GWidgetTemplateEndMarker;
+            UpdatedContent += NewLine;
+
+            std::string ExistingContent;
+
+            if (ReadBinaryFile(BuildWidgetTemplatePath(), ExistingContent) &&
+                ExistingContent == UpdatedContent)
+            {
+                return;
+            }
+
+            WriteBinaryFile(BuildWidgetTemplatePath(), UpdatedContent);
+        }
+
+        void HashWidgetPathString(
+            unsigned long long& Signature,
+            const std::string& Text)
+        {
+            for (size_t Index = 0; Index < Text.size(); ++Index)
+            {
+                Signature ^= static_cast<unsigned long long>(
+                    static_cast<unsigned char>(Text[Index]));
+                Signature *= 1099511628211ull;
+            }
+        }
+
+        void BuildWidgetTreeSignatureRecursive(
+            const std::shared_ptr<CWidget>& Widget,
+            const std::string& WidgetPath,
+            unsigned long long& Signature)
+        {
+            if (!Widget)
+                return;
+
+            HashWidgetPathString(Signature, WidgetPath);
+            HashWidgetPathString(Signature, GetWidgetTypeName(Widget));
+
+            if (const auto Button = std::dynamic_pointer_cast<CButton>(Widget))
+            {
+                const auto Child = Button->GetChild();
+
+                if (Child)
+                {
+                    BuildWidgetTreeSignatureRecursive(
+                        Child,
+                        WidgetPath + "/" + Child->GetName(),
+                        Signature);
+                }
+            }
+
+            const auto Container = std::dynamic_pointer_cast<CWidgetContainer>(
+                Widget);
+
+            if (!Container)
+                return;
+
+            const auto& Children = Container->GetChildList();
+
+            for (size_t Index = 0; Index < Children.size(); ++Index)
+            {
+                const auto& Child = Children[Index];
+
+                if (!Child)
+                    continue;
+
+                BuildWidgetTreeSignatureRecursive(
+                    Child,
+                    WidgetPath + "/" + Child->GetName(),
+                    Signature);
+            }
+        }
+
+        unsigned long long BuildWidgetTreeSignature(
+            const std::shared_ptr<CWorldUIManager>& UIManager)
+        {
+            if (!UIManager)
+                return 0;
+
+            unsigned long long Signature = 1469598103934665603ull;
+            const auto& WidgetList = UIManager->GetWidgetList();
+
+            for (size_t Index = 0; Index < WidgetList.size(); ++Index)
+            {
+                const auto& RootWidget = WidgetList[Index];
+
+                if (!RootWidget)
+                    continue;
+
+                BuildWidgetTreeSignatureRecursive(
+                    RootWidget,
+                    RootWidget->GetName(),
+                    Signature);
+            }
+
+            return Signature;
         }
 
         void DumpWidgetPathsRecursive(
@@ -1590,7 +2173,7 @@ namespace UIConfig
 
         bool LoadFile(const std::wstring& Path)
         {
-            std::ifstream File(Path);
+            std::ifstream File(Path, std::ios::binary);
 
             if (!File.is_open())
                 return false;
@@ -1599,6 +2182,9 @@ namespace UIConfig
 
             while (std::getline(File, Line))
             {
+                StripUtf8Bom(Line);
+                TrimString(Line);
+
                 // 주석(#, ;)과 빈 줄 무시
                 if (Line.empty() || Line[0] == '#' || Line[0] == ';')
                     continue;
@@ -1641,15 +2227,10 @@ namespace UIConfig
 
     void RegisterRuntimeConfig()
     {
-        RuntimeConfigRegistry::RegisterSource(
-            {
-                GConfigId,
-                RuntimeConfigRegistry::BuildExeRelativePath(L"UILayout.ini"),
-                0.5f,
-                &ResetToDefaults,
-                &LoadFile,
-                nullptr
-            });
+        if (GConfigRegistered)
+            return;
+
+        ReloadTrackedConfigFiles(BuildTrackedConfigFiles());
     }
 
     void ApplyWidgetOverrides(const std::shared_ptr<CWorldUIManager>& UIManager)
@@ -1657,13 +2238,17 @@ namespace UIConfig
         if (!UIManager)
             return;
 
-        const unsigned long long Generation =
-            RuntimeConfigRegistry::GetSourceGeneration(GConfigId);
+        const unsigned long long Generation = GConfigGeneration;
+        const unsigned long long WidgetTreeSignature =
+            BuildWidgetTreeSignature(UIManager);
 
-        if (Generation != GLastDumpedWidgetPathGeneration)
+        if (Generation != GLastDumpedWidgetPathGeneration ||
+            WidgetTreeSignature != GLastWidgetTreeSignature)
         {
             DumpWidgetPaths(UIManager);
+            SyncWidgetTemplateSection(UIManager);
             GLastDumpedWidgetPathGeneration = Generation;
+            GLastWidgetTreeSignature = WidgetTreeSignature;
         }
 
         if (GWidgetPathOverrides.empty() && GWidgetNameOverrides.empty())
@@ -1687,7 +2272,20 @@ namespace UIConfig
     bool ReloadIfChanged(float DeltaTime)
     {
         RegisterRuntimeConfig();
-        return RuntimeConfigRegistry::PollSource(GConfigId, DeltaTime);
+        GConfigCheckCooldown -= (std::max)(0.f, DeltaTime);
+
+        if (GConfigCheckCooldown > 0.f)
+            return false;
+
+        GConfigCheckCooldown = GConfigCheckIntervalSeconds;
+        const std::vector<FTrackedConfigFile> ConfigFiles =
+            BuildTrackedConfigFiles();
+
+        if (TrackedConfigFilesMatch(ConfigFiles, GTrackedConfigFiles))
+            return false;
+
+        ReloadTrackedConfigFiles(ConfigFiles);
+        return true;
     }
 
 } // namespace UIConfig

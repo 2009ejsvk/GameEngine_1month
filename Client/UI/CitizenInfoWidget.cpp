@@ -3,6 +3,10 @@
 #include "CitizenInfoInteractionService.h"
 #include "CitizenInfoQueryService.h"
 #include "CitizenInfoRenderer.h"
+#include "UI/TextBlock.h"
+#include "World/World.h"
+#include <algorithm>
+#include <limits>
 
 CCitizenInfoWidget::CCitizenInfoWidget()
 {
@@ -14,30 +18,37 @@ CCitizenInfoWidget::~CCitizenInfoWidget()
 
 void CCitizenInfoWidget::ResetCitizenModeState()
 {
-    mSelectedCitizenTab = ECitizenInfoTab::Overview;
-    mTrackedCitizenName.clear();
-    mCitizenPoliticsSatisfactionFillRatios.fill(0.f);
-    mCitizenPoliticsSupportRatio = 0.f;
+    auto& CitizenState = mState.Citizen;
+    CitizenState.SelectedTab = ECitizenInfoTab::Overview;
+    CitizenState.TrackedCitizenName.clear();
+    CitizenState.PoliticsSatisfactionFillRatios.fill(0.f);
+    CitizenState.PoliticsSupportRatio = 0.f;
 }
 
 void CCitizenInfoWidget::ResetBuildingModeState()
 {
-    mSelectedBuildingTab = EBuildingInfoTab::Overview;
-    mTrackedBuildingName.clear();
-    mCustomsModeSelectionOpen = false;
+    auto& BuildingState = mState.Building;
+    BuildingState.SelectedTab = EBuildingInfoTab::Overview;
+    BuildingState.TrackedBuildingName.clear();
+    BuildingState.CustomsModeSelectionOpen = false;
+    BuildingState.OverviewMetricScrollActive = false;
+    BuildingState.OverviewMetricScrollOffset = 0;
+    BuildingState.OverviewMetricScrollVisibleLineCount = 0;
+    BuildingState.OverviewMetricScrollTotalLineCount = 0;
+    BuildingState.OverviewMetricScrollFirstRowIndex = 0;
 }
 
 bool CCitizenInfoWidget::Init()
 {
     CWidgetContainer::Init();
 
-    mPanelMode = EPanelMode::Citizen;
+    mState.PanelMode = EPanelMode::Citizen;
     ResetCitizenModeState();
     ResetBuildingModeState();
-    mPanelWidth = 360.f;
-    mPanelHeight = 720.f;
-    mPanelTop = 56.f;
-    mRequestedScreenPos = FVector2(0.f, 0.f);
+    mState.PanelWidth = 360.f;
+    mState.PanelHeight = 720.f;
+    mState.PanelTop = 56.f;
+    mState.RequestedScreenPos = FVector2(0.f, 0.f);
 
     FCitizenInfoRenderer::CreateWidgets(*this);
     FCitizenInfoRenderer::RefreshLayout(*this);
@@ -52,6 +63,27 @@ void CCitizenInfoWidget::Update(float DeltaTime)
 
     if (!GetEnable())
         return;
+
+    if (mState.PanelMode == EPanelMode::Building && HasOverviewMetricScroll())
+    {
+        auto World = mWorld.lock();
+
+        if (World)
+        {
+            auto Input = World->GetInput().lock();
+
+            if (Input)
+            {
+                const int WheelDelta = Input->GetMouseWheelDelta();
+
+                if (WheelDelta != 0 &&
+                    IsMouseOverOverviewMetricArea(Input->GetMousePos()))
+                {
+                    MoveOverviewMetricScroll(WheelDelta < 0 ? 1 : -1);
+                }
+            }
+        }
+    }
 
     RefreshFromState();
 }
@@ -68,11 +100,11 @@ void CCitizenInfoWidget::OpenCitizen(
 {
     (void)Satisfaction;
 
-    mRequestedScreenPos = ScreenPos;
-    mPanelMode = EPanelMode::Citizen;
+    mState.RequestedScreenPos = ScreenPos;
+    mState.PanelMode = EPanelMode::Citizen;
     ResetCitizenModeState();
     ResetBuildingModeState();
-    mTrackedCitizenName = CitizenName;
+    mState.Citizen.TrackedCitizenName = CitizenName;
 
     SetEnable(true);
     RefreshFromState();
@@ -91,11 +123,11 @@ void CCitizenInfoWidget::OpenBuilding(
     (void)IsResidential;
     (void)Capacity;
 
-    mRequestedScreenPos = ScreenPos;
-    mPanelMode = EPanelMode::Building;
+    mState.RequestedScreenPos = ScreenPos;
+    mState.PanelMode = EPanelMode::Building;
     ResetCitizenModeState();
     ResetBuildingModeState();
-    mTrackedBuildingName = BuildingObjectName;
+    mState.Building.TrackedBuildingName = BuildingObjectName;
 
     SetEnable(true);
     RefreshFromState();
@@ -103,77 +135,94 @@ void CCitizenInfoWidget::OpenBuilding(
 
 CCitizenInfoWidget::FRendererView CCitizenInfoWidget::GetRendererView()
 {
+    auto& Chrome = mChrome;
+    auto& Building = mBuildingPanel;
+    auto& Citizen = mCitizenPanel;
+    auto& State = mState;
+
     return
     {
         *this,
-        mPanelMode,
-        mSelectedCitizenTab,
-        mSelectedBuildingTab,
-        mPanelImage,
-        mInnerFrame,
-        mTitleRibbon,
-        mSectionRibbon,
-        mScrollTrack,
-        mScrollThumb,
-        mTitleIcon,
-        mTitleText,
-        mSubtitleText,
-        mSectionDivider,
-        mPageTitleText,
-        mBodyText,
-        mBudgetText,
-        mCloseButton,
-        mTabButtons,
-        mTabButtonTexts,
-        mTabButtonIcons,
-        mDemolishButton,
-        mMoveButton,
-        mFocusButton,
-        mOverviewCommandButton,
-        mOverviewCommandButtonText,
-        mBudgetButtons,
-        mBudgetButtonTexts,
-        mOverviewWorkModeLabel,
-        mOverviewWorkModeBackground,
-        mOverviewWorkModeText,
-        mOverviewBudgetLabel,
-        mOverviewBudgetValue,
-        mOverviewOccupancyLabel,
-        mOverviewOccupancyValue,
-        mOverviewResidentIcons,
-        mOverviewVisitorIcons,
-        mOverviewMetricLabels,
-        mOverviewMetricValues,
-        mUpgradeCardBackground,
-        mUpgradeCardIcon,
-        mUpgradeCardTitle,
-        mUpgradeDescriptionText,
-        mInformationAccentText,
-        mInformationTopText,
-        mInformationBottomText,
-        mCitizenPoliticsSectionBackgrounds,
-        mCitizenPoliticsSectionTitles,
-        mCitizenPoliticsSatisfactionLabels,
-        mCitizenPoliticsSatisfactionRails,
-        mCitizenPoliticsSatisfactionFills,
-        mCitizenPoliticsOpinionTexts,
-        mCitizenPoliticsSupportIcons,
-        mCitizenPoliticsSupportRail,
-        mCitizenPoliticsSupportThumb,
-        mCitizenThoughtTitleBackground,
-        mCitizenThoughtTitleText,
-        mCitizenThoughtTexts,
-        mCitizenThoughtDividers,
-        mCitizenActionButtons,
-        mCitizenActionButtonTexts,
-        mCitizenActionButtonIcons,
-        mCitizenFooterText,
-        mPanelWidth,
-        mPanelHeight,
-        mPanelTop,
-        mCitizenPoliticsSatisfactionFillRatios,
-        mCitizenPoliticsSupportRatio,
-        mRequestedScreenPos,
+        State.PanelMode,
+        State.Citizen.SelectedTab,
+        State.Building.SelectedTab,
+        Chrome.PanelImage,
+        Chrome.InnerFrame,
+        Chrome.TitleRibbon,
+        Chrome.SectionRibbon,
+        Chrome.ScrollTrack,
+        Chrome.ScrollThumb,
+        Chrome.TitleIcon,
+        Chrome.TitleText,
+        Chrome.SubtitleText,
+        Chrome.SectionDivider,
+        Chrome.PageTitleText,
+        Chrome.BodyText,
+        Chrome.BudgetText,
+        Chrome.CloseButton,
+        Chrome.TabButtons,
+        Chrome.TabButtonTexts,
+        Chrome.TabButtonIcons,
+        Building.DemolishButton,
+        Building.MoveButton,
+        Building.FocusButton,
+        Building.OverviewCommandButton,
+        Building.OverviewCommandButtonText,
+        Building.BudgetButtons,
+        Building.BudgetButtonTexts,
+        Building.OverviewWorkModeLabel,
+        Building.OverviewWorkModeBackground,
+        Building.OverviewWorkModeButton,
+        Building.OverviewWorkModeText,
+        Building.ResidentialOverviewWorkModeLabel,
+        Building.ResidentialOverviewWorkModeBackground,
+        Building.ResidentialOverviewWorkModeButton,
+        Building.ResidentialOverviewWorkModeText,
+        Building.OverviewBudgetLabel,
+        Building.OverviewBudgetValue,
+        Building.OverviewOccupancyLabel,
+        Building.OverviewOccupancyValue,
+        Building.OverviewResidentIcons,
+        Building.OverviewVisitorIcons,
+        Building.OverviewMetricLabels,
+        Building.OverviewMetricValues,
+        Building.ResidentialOverviewBudgetLabel,
+        Building.ResidentialOverviewBudgetValue,
+        Building.ResidentialOverviewOccupancyLabel,
+        Building.ResidentialOverviewOccupancyValue,
+        Building.ResidentialOverviewResidentIcons,
+        Building.ResidentialOverviewMetricLabels,
+        Building.ResidentialOverviewMetricValues,
+        Building.UpgradeCardBackground,
+        Building.UpgradeCardIcon,
+        Building.UpgradeCardTitle,
+        Building.UpgradeDescriptionText,
+        Building.InformationAccentText,
+        Building.InformationTopText,
+        Building.InformationBottomText,
+        Citizen.PoliticsSectionBackgrounds,
+        Citizen.PoliticsSectionTitles,
+        Citizen.PoliticsSatisfactionLabels,
+        Citizen.PoliticsSatisfactionRails,
+        Citizen.PoliticsSatisfactionFills,
+        Citizen.PoliticsOpinionTexts,
+        Citizen.PoliticsSupportIcons,
+        Citizen.PoliticsSupportRail,
+        Citizen.PoliticsSupportThumb,
+        Citizen.ThoughtTitleBackground,
+        Citizen.ThoughtTitleText,
+        Citizen.ThoughtTexts,
+        Citizen.ThoughtDividers,
+        Citizen.ActionButtons,
+        Citizen.ActionButtonTexts,
+        Citizen.ActionButtonIcons,
+        Citizen.FooterText,
+        State.PanelWidth,
+        State.PanelHeight,
+        State.PanelTop,
+        State.Citizen.PoliticsSatisfactionFillRatios,
+        State.Citizen.PoliticsSupportRatio,
+        State.RequestedScreenPos,
         mWorld
     };
 }
@@ -185,20 +234,21 @@ void CCitizenInfoWidget::RefreshFromState()
     const auto QuerySource =
         CitizenInfoQueryService::CreateWorldQuerySource(mWorld.lock());
 
-    if (mPanelMode == EPanelMode::Citizen)
+    if (mState.PanelMode == EPanelMode::Citizen)
     {
         Snapshot = CitizenInfoDataProvider::BuildTrackedCitizenSnapshot(
             QuerySource,
-            mTrackedCitizenName,
+            mState.Citizen.TrackedCitizenName,
             SelectedTabIndex);
     }
     else
     {
         Snapshot = CitizenInfoDataProvider::BuildTrackedBuildingSnapshot(
             QuerySource,
-            mTrackedBuildingName,
+            mState.Building.TrackedBuildingName,
             SelectedTabIndex,
-            mCustomsModeSelectionOpen);
+            mState.Building.CustomsModeSelectionOpen,
+            mState.Building.OverviewMetricScrollOffset);
     }
 
     if (!Snapshot.Valid)
@@ -210,21 +260,22 @@ void CCitizenInfoWidget::RefreshFromState()
     }
 
     SetEnable(true);
+    SyncOverviewMetricScrollState(Snapshot);
     FCitizenInfoRenderer::ApplySnapshot(*this, Snapshot);
     FCitizenInfoRenderer::RefreshLayout(*this);
 }
 
 int CCitizenInfoWidget::GetSelectedTabIndexForCurrentMode() const
 {
-    if (mPanelMode == EPanelMode::Citizen)
-        return static_cast<int>(mSelectedCitizenTab);
+    if (mState.PanelMode == EPanelMode::Citizen)
+        return static_cast<int>(mState.Citizen.SelectedTab);
 
-    return static_cast<int>(mSelectedBuildingTab);
+    return static_cast<int>(mState.Building.SelectedTab);
 }
 
 bool CCitizenInfoWidget::SelectCurrentModeTab(int TabIndex)
 {
-    if (mPanelMode == EPanelMode::Citizen)
+    if (mState.PanelMode == EPanelMode::Citizen)
     {
         if (TabIndex < 0 || TabIndex >= GCitizenTabCount)
             return false;
@@ -240,49 +291,208 @@ bool CCitizenInfoWidget::SelectCurrentModeTab(int TabIndex)
 
 bool CCitizenInfoWidget::SelectCitizenTab(ECitizenInfoTab Tab)
 {
-    if (mSelectedCitizenTab == Tab)
+    if (mState.Citizen.SelectedTab == Tab)
         return false;
 
-    mCustomsModeSelectionOpen = false;
-    mSelectedCitizenTab = Tab;
+    auto& BuildingState = mState.Building;
+    BuildingState.CustomsModeSelectionOpen = false;
+    BuildingState.OverviewMetricScrollActive = false;
+    BuildingState.OverviewMetricScrollOffset = 0;
+    BuildingState.OverviewMetricScrollVisibleLineCount = 0;
+    BuildingState.OverviewMetricScrollTotalLineCount = 0;
+    BuildingState.OverviewMetricScrollFirstRowIndex = 0;
+    mState.Citizen.SelectedTab = Tab;
     return true;
 }
 
 bool CCitizenInfoWidget::SelectBuildingTab(EBuildingInfoTab Tab)
 {
-    if (mSelectedBuildingTab == Tab)
+    auto& BuildingState = mState.Building;
+
+    if (BuildingState.SelectedTab == Tab)
     {
         if (Tab == EBuildingInfoTab::Overview &&
             IsTrackedCustomsOffice())
         {
-            mCustomsModeSelectionOpen = !mCustomsModeSelectionOpen;
+            BuildingState.OverviewMetricScrollOffset = 0;
+            BuildingState.CustomsModeSelectionOpen =
+                !BuildingState.CustomsModeSelectionOpen;
             return true;
         }
 
         return false;
     }
 
-    mCustomsModeSelectionOpen = false;
-    mSelectedBuildingTab = Tab;
+    BuildingState.CustomsModeSelectionOpen = false;
+    BuildingState.OverviewMetricScrollActive = false;
+    BuildingState.OverviewMetricScrollOffset = 0;
+    BuildingState.OverviewMetricScrollVisibleLineCount = 0;
+    BuildingState.OverviewMetricScrollTotalLineCount = 0;
+    BuildingState.OverviewMetricScrollFirstRowIndex = 0;
+    BuildingState.SelectedTab = Tab;
     return true;
+}
+
+bool CCitizenInfoWidget::HasOverviewMetricScroll() const
+{
+    return mState.Building.OverviewMetricScrollActive;
+}
+
+int CCitizenInfoWidget::GetOverviewMetricScrollOffset() const
+{
+    return mState.Building.OverviewMetricScrollOffset;
+}
+
+int CCitizenInfoWidget::GetOverviewMetricScrollVisibleLineCount() const
+{
+    return mState.Building.OverviewMetricScrollVisibleLineCount;
+}
+
+int CCitizenInfoWidget::GetOverviewMetricScrollTotalLineCount() const
+{
+    return mState.Building.OverviewMetricScrollTotalLineCount;
+}
+
+int CCitizenInfoWidget::GetOverviewMetricScrollFirstRowIndex() const
+{
+    return mState.Building.OverviewMetricScrollFirstRowIndex;
+}
+
+bool CCitizenInfoWidget::IsMouseOverOpenPanel(const FVector2& MousePos) const
+{
+    if (!GetEnable())
+        return false;
+
+    const FVector3 PanelPos = GetPos();
+    const FVector3 PanelSize = GetSize();
+
+    return MousePos.x >= PanelPos.x &&
+        MousePos.x <= PanelPos.x + PanelSize.x &&
+        MousePos.y >= PanelPos.y &&
+        MousePos.y <= PanelPos.y + PanelSize.y;
+}
+
+bool CCitizenInfoWidget::IsMouseOverOverviewMetricArea(
+    const FVector2& MousePos) const
+{
+    if (!HasOverviewMetricScroll())
+        return false;
+
+    float Left = (std::numeric_limits<float>::max)();
+    float Top = (std::numeric_limits<float>::max)();
+    float Right = 0.f;
+    float Bottom = 0.f;
+    bool HasVisibleBounds = false;
+
+    for (int Index = mState.Building.OverviewMetricScrollFirstRowIndex;
+        Index < GOverviewMetricRowCount;
+        ++Index)
+    {
+        if (auto Label =
+            mBuildingPanel.OverviewMetricLabels[static_cast<size_t>(Index)].lock())
+        {
+            if (Label->GetEnable())
+            {
+                const FVector3 Pos = Label->GetPos();
+                const FVector3 Size = Label->GetSize();
+                Left = (std::min)(Left, Pos.x);
+                Top = (std::min)(Top, Pos.y);
+                Right = (std::max)(Right, Pos.x + Size.x);
+                Bottom = (std::max)(Bottom, Pos.y + Size.y);
+                HasVisibleBounds = true;
+            }
+        }
+
+        if (auto Value =
+            mBuildingPanel.OverviewMetricValues[static_cast<size_t>(Index)].lock())
+        {
+            if (Value->GetEnable())
+            {
+                const FVector3 Pos = Value->GetPos();
+                const FVector3 Size = Value->GetSize();
+                Left = (std::min)(Left, Pos.x);
+                Top = (std::min)(Top, Pos.y);
+                Right = (std::max)(Right, Pos.x + Size.x);
+                Bottom = (std::max)(Bottom, Pos.y + Size.y);
+                HasVisibleBounds = true;
+            }
+        }
+    }
+
+    if (!HasVisibleBounds)
+        return IsMouseOverOpenPanel(MousePos);
+
+    const FVector3 PanelPos = GetPos();
+    Left += PanelPos.x;
+    Right += PanelPos.x;
+    Top += PanelPos.y;
+    Bottom += PanelPos.y;
+
+    return MousePos.x >= Left &&
+        MousePos.x <= Right &&
+        MousePos.y >= Top &&
+        MousePos.y <= Bottom;
+}
+
+bool CCitizenInfoWidget::MoveOverviewMetricScroll(int DeltaLines)
+{
+    if (DeltaLines == 0 || !HasOverviewMetricScroll())
+        return false;
+
+    auto& BuildingState = mState.Building;
+    const int MaxOffset = (std::max)(
+        0,
+        BuildingState.OverviewMetricScrollTotalLineCount -
+            BuildingState.OverviewMetricScrollVisibleLineCount);
+    const int NewOffset = (std::max)(
+        0,
+        (std::min)(BuildingState.OverviewMetricScrollOffset + DeltaLines, MaxOffset));
+
+    if (NewOffset == BuildingState.OverviewMetricScrollOffset)
+        return false;
+
+    BuildingState.OverviewMetricScrollOffset = NewOffset;
+    return true;
+}
+
+void CCitizenInfoWidget::SyncOverviewMetricScrollState(
+    const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot)
+{
+    auto& BuildingState = mState.Building;
+    BuildingState.OverviewMetricScrollActive = Snapshot.ShowOverviewMetricScroll;
+    BuildingState.OverviewMetricScrollVisibleLineCount =
+        Snapshot.OverviewMetricScrollVisibleLineCount;
+    BuildingState.OverviewMetricScrollTotalLineCount =
+        Snapshot.OverviewMetricScrollTotalLineCount;
+    BuildingState.OverviewMetricScrollFirstRowIndex =
+        Snapshot.OverviewMetricScrollFirstRowIndex;
+
+    const int MaxOffset = (std::max)(
+        0,
+        Snapshot.OverviewMetricScrollTotalLineCount -
+            Snapshot.OverviewMetricScrollVisibleLineCount);
+    BuildingState.OverviewMetricScrollOffset = (std::max)(
+        0,
+        (std::min)(Snapshot.OverviewMetricScrollOffset, MaxOffset));
 }
 
 bool CCitizenInfoWidget::IsTrackedCustomsOffice() const
 {
-    if (mTrackedBuildingName.empty())
+    if (mState.Building.TrackedBuildingName.empty())
         return false;
 
     const auto InteractionSource =
         CitizenInfoInteractionService::CreateWorldInteractionSource(
             mWorld.lock());
     return InteractionSource &&
-        InteractionSource->IsCustomsOfficeBuilding(mTrackedBuildingName);
+        InteractionSource->IsCustomsOfficeBuilding(
+            mState.Building.TrackedBuildingName);
 }
 
 bool CCitizenInfoWidget::TrySelectCustomsOperationMode(int ModeIndex)
 {
-    if (!mCustomsModeSelectionOpen ||
-        mSelectedBuildingTab != EBuildingInfoTab::Overview ||
+    if (!mState.Building.CustomsModeSelectionOpen ||
+        mState.Building.SelectedTab != EBuildingInfoTab::Overview ||
         !IsTrackedCustomsOffice())
     {
         return false;
@@ -298,7 +508,7 @@ bool CCitizenInfoWidget::TrySelectCustomsOperationMode(int ModeIndex)
     std::wstring FeedbackMessage;
 
     if (!InteractionSource->SetBuildingOperationMode(
-            mTrackedBuildingName,
+            mState.Building.TrackedBuildingName,
             ModeIndex,
             FeedbackMessage))
     {
@@ -318,14 +528,14 @@ bool CCitizenInfoWidget::OpenTradeWidget()
     if (!InteractionSource || !InteractionSource->OpenTradeWidget())
         return false;
 
-    mCustomsModeSelectionOpen = false;
+    mState.Building.CustomsModeSelectionOpen = false;
     SetEnable(false);
     return true;
 }
 
 void CCitizenInfoWidget::SetBuildingBudgetLevel(int Level)
 {
-    if (mTrackedBuildingName.empty())
+    if (mState.Building.TrackedBuildingName.empty())
         return;
 
     const auto InteractionSource =
@@ -333,7 +543,9 @@ void CCitizenInfoWidget::SetBuildingBudgetLevel(int Level)
             mWorld.lock());
 
     if (!InteractionSource ||
-        !InteractionSource->SetBuildingBudgetLevel(mTrackedBuildingName, Level))
+        !InteractionSource->SetBuildingBudgetLevel(
+            mState.Building.TrackedBuildingName,
+            Level))
     {
         return;
     }
@@ -350,7 +562,7 @@ void CCitizenInfoWidget::OnCloseButtonClick()
 
 void CCitizenInfoWidget::OnDemolishButtonClick()
 {
-    if (mTrackedBuildingName.empty())
+    if (mState.Building.TrackedBuildingName.empty())
         return;
 
     const auto InteractionSource =
@@ -358,7 +570,8 @@ void CCitizenInfoWidget::OnDemolishButtonClick()
             mWorld.lock());
 
     if (!InteractionSource ||
-        !InteractionSource->DemolishBuilding(mTrackedBuildingName))
+        !InteractionSource->DemolishBuilding(
+            mState.Building.TrackedBuildingName))
     {
         return;
     }
@@ -369,7 +582,7 @@ void CCitizenInfoWidget::OnDemolishButtonClick()
 
 void CCitizenInfoWidget::OnMoveButtonClick()
 {
-    if (mTrackedBuildingName.empty())
+    if (mState.Building.TrackedBuildingName.empty())
         return;
 
     const auto InteractionSource =
@@ -377,7 +590,8 @@ void CCitizenInfoWidget::OnMoveButtonClick()
             mWorld.lock());
 
     if (!InteractionSource ||
-        !InteractionSource->BeginMoveBuilding(mTrackedBuildingName))
+        !InteractionSource->BeginMoveBuilding(
+            mState.Building.TrackedBuildingName))
     {
         return;
     }
@@ -387,7 +601,7 @@ void CCitizenInfoWidget::OnMoveButtonClick()
 
 void CCitizenInfoWidget::OnFocusButtonClick()
 {
-    if (mTrackedBuildingName.empty())
+    if (mState.Building.TrackedBuildingName.empty())
         return;
 
     const auto InteractionSource =
@@ -397,12 +611,12 @@ void CCitizenInfoWidget::OnFocusButtonClick()
     if (!InteractionSource)
         return;
 
-    InteractionSource->FocusBuilding(mTrackedBuildingName);
+    InteractionSource->FocusBuilding(mState.Building.TrackedBuildingName);
 }
 
 void CCitizenInfoWidget::OnOverviewCommandButtonClick()
 {
-    if (mTrackedBuildingName.empty())
+    if (mState.Building.TrackedBuildingName.empty())
         return;
 
     const auto InteractionSource =
@@ -412,12 +626,13 @@ void CCitizenInfoWidget::OnOverviewCommandButtonClick()
     if (!InteractionSource)
         return;
 
-    if (InteractionSource->IsCustomsOfficeBuilding(mTrackedBuildingName) &&
-        mSelectedBuildingTab == EBuildingInfoTab::Overview)
+    if (InteractionSource->IsCustomsOfficeBuilding(
+            mState.Building.TrackedBuildingName) &&
+        mState.Building.SelectedTab == EBuildingInfoTab::Overview)
     {
-        if (mCustomsModeSelectionOpen)
+        if (mState.Building.CustomsModeSelectionOpen)
         {
-            mCustomsModeSelectionOpen = false;
+            mState.Building.CustomsModeSelectionOpen = false;
             RefreshFromState();
             return;
         }
@@ -429,8 +644,8 @@ void CCitizenInfoWidget::OnOverviewCommandButtonClick()
     std::wstring FeedbackMessage;
 
     if (!InteractionSource->ExecuteBuildingCommand(
-            mTrackedBuildingName,
-            mSelectedBuildingTab,
+            mState.Building.TrackedBuildingName,
+            mState.Building.SelectedTab,
             FeedbackMessage))
     {
         return;

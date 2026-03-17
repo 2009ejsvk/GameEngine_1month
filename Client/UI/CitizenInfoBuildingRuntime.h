@@ -1,7 +1,8 @@
 #pragma once
 
 #include "CitizenInfoDataProvider.h"
-#include "../Building/BuildingCatalog.h"
+#include "../Building/BuildingCatalogFwd.h"
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,8 +17,6 @@ namespace CitizenInfoBuildingRuntime
         std::wstring DisplayName;
         std::wstring CategoryName;
         std::wstring DetailText;
-        std::wstring RequiredPowerText;
-        std::wstring ProducedPowerText;
         std::wstring JobQualityText;
         std::wstring ServiceQualityText;
         std::wstring HousingQualityText;
@@ -31,11 +30,16 @@ namespace CitizenInfoBuildingRuntime
         std::wstring ActiveOperationModeEffectSummary;
         std::wstring ActiveRuntimeUpgradeText;
         std::wstring ActiveRuntimeUpgradeEffectSummary;
+        std::wstring ProductionChainStageText;
+        std::wstring SupplyChainSummaryText;
         std::vector<std::wstring> NarrativeLines;
         std::vector<std::wstring> LogisticsLines;
         std::vector<std::wstring> UpgradeHints;
         std::vector<std::wstring> OperationModes;
         std::vector<std::wstring> WarehouseSlotLines;
+        std::vector<std::wstring> HarborResourceLines;
+        std::array<CitizenInfoDataProvider::FProductionInputSlotView,
+            GProductionInputSlotCount> ProductionInputs = {};
         std::vector<std::wstring> HarborPolicyLines;
         std::vector<std::wstring> HarborPriorityLines;
         std::wstring WarehousePolicySelectionText;
@@ -56,6 +60,7 @@ namespace CitizenInfoBuildingRuntime
         EBuildingCostState ConstructionCostState = EBuildingCostState::None;
         int ConstructionCost = 0;
         int Capacity = 0;
+        int CurrentWorkerOccupancy = 0;
         int HouseholdCapacity = 0;
         int BudgetLevel = 3;
         int DaysInMonth = 30;
@@ -77,6 +82,9 @@ namespace CitizenInfoBuildingRuntime
         int MaxResourceStock = 0;
         EResourceType ProducedResourceType = EResourceType::None;
         int ProducedResourceStock = 0;
+        float CurrentProductionUnitsPerSecond = 0.f;
+        int EstimatedDailyProductionUnits = 0;
+        int EstimatedMonthlyProductionUnits = 0;
         int ProducedPowerMW = 0;
         int RequiredPowerMW = 0;
         int ServiceCapacity = 0;
@@ -89,11 +97,20 @@ namespace CitizenInfoBuildingRuntime
         int TradeRouteImportFulfilledUnits = 0;
         int TradeRouteExportContractUnits = 0;
         int TourismArrivalCount = 0;
+        CitizenInfoDataProvider::EProductionChainStage ChainStage =
+            CitizenInfoDataProvider::EProductionChainStage::None;
         int ActiveOperationModeIndex = 0;
         int ActiveRuntimeUpgradeIndex = -1;
+        int KnowledgePoints = 0;
+        int DailyKnowledgeGeneration = 0;
+        int RepairCost = 0;
+        bool RepairAffordable = false;
+        EBuildingDamageLevel DamageLevel = EBuildingDamageLevel::None;
         float BudgetScale = 1.f;
         float AccessibilityScore = 0.f;
         float PowerSupplyRatio = 1.f;
+        float LastProductionEfficiency = 1.f;
+        float DamageEfficiencyMultiplier = 1.f;
         float HarborShipProgressPercent = 0.f;
         ECitizenEducationLevel RequiredEducationLevel =
             ECitizenEducationLevel::Uneducated;
@@ -108,6 +125,9 @@ namespace CitizenInfoBuildingRuntime
         bool Warehouse = false;
         bool IsRoad = false;
         bool CanGenerateWorkOutput = false;
+        std::vector<bool> OperationModeResearchLocked;
+        std::vector<int> OperationModeResearchCosts;
+        std::vector<std::wstring> OperationModeResearchLabels;
     };
 
     bool BuildBuildingUiSnapshot(

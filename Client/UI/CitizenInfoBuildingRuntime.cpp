@@ -1,6 +1,8 @@
 #include "CitizenInfoBuildingRuntime.h"
 #include "UIStrings.h"
+#include "../Building/BuildingCatalog.h"
 #include "../Economy/ResourceTradePricing.h"
+#include "../StringUtils.h"
 #include <algorithm>
 #include <cmath>
 #include <cwchar>
@@ -66,48 +68,24 @@ namespace
         return Lines;
     }
 
-    std::wstring FormatInteger(long long Value)
-    {
-        const bool Negative = Value < 0;
-        unsigned long long UnsignedValue = Negative ?
-            static_cast<unsigned long long>(-Value) :
-            static_cast<unsigned long long>(Value);
-        std::wstring Digits = std::to_wstring(UnsignedValue);
-        std::wstring Result;
-        int GroupCount = 0;
-
-        for (int Index = static_cast<int>(Digits.size()) - 1; Index >= 0; --Index)
-        {
-            if (GroupCount == 3)
-            {
-                Result.insert(Result.begin(), L',');
-                GroupCount = 0;
-            }
-
-            Result.insert(Result.begin(), Digits[static_cast<size_t>(Index)]);
-            ++GroupCount;
-        }
-
-        if (Negative)
-            Result.insert(Result.begin(), L'-');
-
-        return Result;
-    }
-
     std::wstring FormatMoney(long long Value)
     {
         if (Value < 0)
-            return L"-$" + FormatInteger(-Value);
+            return L"-$" +
+                StringUtils::FormatUnsignedIntegerWithCommas(
+                    StringUtils::AbsToUnsigned(Value));
 
-        return L"$" + FormatInteger(Value);
+        return L"$" + StringUtils::FormatIntegerWithCommas(Value);
     }
 
     std::wstring FormatMoneyDollarFirst(long long Value)
     {
         if (Value < 0)
-            return L"$-" + FormatInteger(-Value);
+            return L"$-" +
+                StringUtils::FormatUnsignedIntegerWithCommas(
+                    StringUtils::AbsToUnsigned(Value));
 
-        return L"$" + FormatInteger(Value);
+        return L"$" + StringUtils::FormatIntegerWithCommas(Value);
     }
 
     std::wstring FormatMegawattValue(int Value)
@@ -142,14 +120,27 @@ namespace
                 AllowedWealthMask;
         switch (EffectiveMask)
         {
+        case GBuildingWealthMaskBroke:
+            return UIStrings::Get(L"citizen.wealth.broke");
         case GBuildingWealthMaskPoor:
             return UIStrings::Get(L"citizen.wealth.poor");
         case GBuildingWealthMaskWellOff:
             return UIStrings::Get(L"citizen.wealth.well_off");
         case GBuildingWealthMaskRich:
             return UIStrings::Get(L"citizen.wealth.rich");
-        case GBuildingWealthMaskWellOff | GBuildingWealthMaskRich:
+        case GBuildingWealthMaskFilthyRich:
+            return UIStrings::Get(L"citizen.wealth.filthy_rich");
+        case GBuildingWealthMaskWellOff |
+            GBuildingWealthMaskRich |
+            GBuildingWealthMaskFilthyRich:
             return UIStrings::Get(L"citizen.wealth.well_off") + L" 이상";
+        case GBuildingWealthMaskRich | GBuildingWealthMaskFilthyRich:
+            return UIStrings::Get(L"citizen.wealth.rich") + L" 이상";
+        case GBuildingWealthMaskPoor |
+            GBuildingWealthMaskWellOff |
+            GBuildingWealthMaskRich |
+            GBuildingWealthMaskFilthyRich:
+            return UIStrings::Get(L"citizen.wealth.poor") + L" 이상";
         default:
             return std::wstring();
         }
@@ -353,13 +344,15 @@ namespace CitizenInfoBuildingRuntime
     {
         const int WorkerCount = (std::max)(
             1,
-            static_cast<int>(Snapshot.AssignedEmployees.size()));
+            (std::max)(
+                static_cast<int>(Snapshot.AssignedEmployees.size()),
+                Snapshot.Capacity));
         const long long WagePerWorker =
             Snapshot.MonthlyWageCost > 0 ?
                 static_cast<long long>(std::llround(
                     static_cast<double>(Snapshot.MonthlyWageCost) /
                     static_cast<double>(WorkerCount))) :
-                21ll;
+                0ll;
         return FormatMoney(WagePerWorker);
     }
 
@@ -436,6 +429,8 @@ namespace CitizenInfoBuildingRuntime
         OutSnapshot.CanGenerateWorkOutput =
             BuildingRecord.CanGenerateWorkOutput;
         OutSnapshot.Capacity = BuildingRecord.Capacity;
+        OutSnapshot.CurrentWorkerOccupancy =
+            BuildingRecord.CurrentWorkerOccupancy;
         OutSnapshot.HouseholdCapacity = OutSnapshot.CatalogEntry ?
             (std::max)(0, OutSnapshot.CatalogEntry->HouseholdCapacity) :
             0;
@@ -469,6 +464,12 @@ namespace CitizenInfoBuildingRuntime
                     EResourceType::None);
         OutSnapshot.ProducedResourceStock =
             BuildingRecord.ProducedResourceStock;
+        OutSnapshot.CurrentProductionUnitsPerSecond =
+            BuildingRecord.CurrentProductionUnitsPerSecond;
+        OutSnapshot.EstimatedDailyProductionUnits =
+            BuildingRecord.EstimatedDailyProductionUnits;
+        OutSnapshot.EstimatedMonthlyProductionUnits =
+            BuildingRecord.EstimatedMonthlyProductionUnits;
         OutSnapshot.ProducedPowerMW = BuildingRecord.ProducedPowerMW;
         OutSnapshot.RequiredPowerMW = BuildingRecord.RequiredPowerMW;
         OutSnapshot.TotalProducedPowerMW =
@@ -487,16 +488,31 @@ namespace CitizenInfoBuildingRuntime
             BuildingRecord.TradeRouteExportContractUnits;
         OutSnapshot.TourismArrivalCount =
             BuildingRecord.TourismArrivalCount;
+        OutSnapshot.ChainStage = BuildingRecord.ChainStage;
         OutSnapshot.BudgetScale = BuildingRecord.BudgetScale;
         OutSnapshot.AccessibilityScore =
             BuildingRecord.AccessibilityScore;
         OutSnapshot.PowerSupplyRatio = BuildingRecord.PowerSupplyRatio;
+        OutSnapshot.LastProductionEfficiency =
+            BuildingRecord.LastProductionEfficiency;
+        OutSnapshot.DamageEfficiencyMultiplier =
+            BuildingRecord.DamageEfficiencyMultiplier;
         OutSnapshot.HarborShipProgressPercent =
             BuildingRecord.HarborShipProgressPercent;
         OutSnapshot.ActiveOperationModeIndex =
             BuildingRecord.ActiveOperationModeIndex;
         OutSnapshot.ActiveRuntimeUpgradeIndex =
             BuildingRecord.ActiveRuntimeUpgradeIndex;
+        OutSnapshot.KnowledgePoints =
+            BuildingRecord.KnowledgePoints;
+        OutSnapshot.DailyKnowledgeGeneration =
+            BuildingRecord.DailyKnowledgeGeneration;
+        OutSnapshot.RepairCost =
+            BuildingRecord.RepairCost;
+        OutSnapshot.RepairAffordable =
+            BuildingRecord.RepairAffordable;
+        OutSnapshot.DamageLevel =
+            BuildingRecord.DamageLevel;
         OutSnapshot.ActiveOperationModeText =
             BuildingRecord.ActiveOperationModeText;
         OutSnapshot.ActiveOperationModeEffectSummary =
@@ -505,7 +521,27 @@ namespace CitizenInfoBuildingRuntime
             BuildingRecord.ActiveRuntimeUpgradeText;
         OutSnapshot.ActiveRuntimeUpgradeEffectSummary =
             BuildingRecord.ActiveRuntimeUpgradeEffectSummary;
+        OutSnapshot.OperationModeResearchLocked =
+            BuildingRecord.OperationModeResearchLocked;
+        OutSnapshot.OperationModeResearchCosts =
+            BuildingRecord.OperationModeResearchCosts;
+        OutSnapshot.OperationModeResearchLabels =
+            BuildingRecord.OperationModeResearchLabels;
+        OutSnapshot.ProductionChainStageText =
+            !BuildingRecord.ProductionChainStageText.empty() ?
+                BuildingRecord.ProductionChainStageText :
+                (OutSnapshot.ChainStage !=
+                        CitizenInfoDataProvider::EProductionChainStage::None ?
+                    std::wstring(
+                        GetProductionChainStageDisplayName(
+                            OutSnapshot.ChainStage)) :
+                    std::wstring());
+        OutSnapshot.SupplyChainSummaryText =
+            !BuildingRecord.SupplyChainSummaryText.empty() ?
+                BuildingRecord.SupplyChainSummaryText :
+                std::wstring();
         OutSnapshot.LogisticsLines = BuildingRecord.LogisticsLines;
+        OutSnapshot.ProductionInputs = BuildingRecord.ProductionInputs;
         OutSnapshot.Residents = BuildingRecord.Residents;
         OutSnapshot.AssignedEmployees = BuildingRecord.AssignedEmployees;
         OutSnapshot.WorkingEmployees = BuildingRecord.WorkingEmployees;
@@ -544,7 +580,8 @@ namespace CitizenInfoBuildingRuntime
                     SlotValue =
                         UIStrings::Get(L"citizen_info.building.warehouse.empty") +
                         L" / " +
-                        FormatInteger(SlotRecord.Capacity);
+                        StringUtils::FormatIntegerWithCommas(
+                            SlotRecord.Capacity);
                 }
                 else
                 {
@@ -552,9 +589,11 @@ namespace CitizenInfoBuildingRuntime
                         std::wstring(GetResourceTypeDisplayName(
                             SlotRecord.Type)) +
                         L" " +
-                        FormatInteger(SlotRecord.Stock) +
+                        StringUtils::FormatIntegerWithCommas(
+                            SlotRecord.Stock) +
                         L" / " +
-                        FormatInteger(SlotRecord.Capacity);
+                        StringUtils::FormatIntegerWithCommas(
+                            SlotRecord.Capacity);
 
                     const std::wstring TradePriceText =
                         FormatTradeUnitPriceInline(SlotRecord.Type);
@@ -577,26 +616,37 @@ namespace CitizenInfoBuildingRuntime
             }
         }
 
-        const int EffectiveRequiredPowerMW =
-            OutSnapshot.RequiredPowerMW > 0 ?
-                OutSnapshot.RequiredPowerMW :
-                (OutSnapshot.CatalogEntry ?
-                    OutSnapshot.CatalogEntry->BaseRequiredPowerMW :
-                    0);
-        const int EffectiveProducedPowerMW =
-            OutSnapshot.ProducedPowerMW > 0 ?
-                OutSnapshot.ProducedPowerMW :
-                (OutSnapshot.CatalogEntry ?
-                    OutSnapshot.CatalogEntry->BaseProducedPowerMW :
-                    0);
-        OutSnapshot.RequiredPowerText =
-            EffectiveRequiredPowerMW > 0 ?
-                FormatMegawattValue(EffectiveRequiredPowerMW) :
-                std::wstring();
-        OutSnapshot.ProducedPowerText =
-            EffectiveProducedPowerMW > 0 ?
-                FormatMegawattValue(EffectiveProducedPowerMW) :
-                std::wstring();
+        if (OutSnapshot.Harbor)
+        {
+            for (size_t SlotIndex = 0;
+                SlotIndex < BuildingRecord.HarborResourceSlots.size();
+                ++SlotIndex)
+            {
+                const CitizenInfoDataProvider::FWarehouseSlotRecord& SlotRecord =
+                    BuildingRecord.HarborResourceSlots[SlotIndex];
+
+                if (SlotRecord.Type == EResourceType::None || SlotRecord.Stock <= 0)
+                    continue;
+
+                std::wstring Line =
+                    std::wstring(GetResourceTypeDisplayName(SlotRecord.Type)) +
+                    L": " +
+                    StringUtils::FormatIntegerWithCommas(SlotRecord.Stock);
+
+                const std::wstring TradePriceText =
+                    FormatTradeUnitPriceInline(SlotRecord.Type);
+
+                if (!TradePriceText.empty())
+                {
+                    Line += L" (";
+                    Line += TradePriceText;
+                    Line += L")";
+                }
+
+                OutSnapshot.HarborResourceLines.push_back(std::move(Line));
+            }
+        }
+
         OutSnapshot.HouseholdCapacityText =
             OutSnapshot.HouseholdCapacity > 0 ?
                 std::to_wstring(OutSnapshot.HouseholdCapacity) :

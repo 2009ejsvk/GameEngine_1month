@@ -1,6 +1,7 @@
 #include "CitizenInfoRenderer.h"
 #include "CitizenInfoRendererInternal.h"
 #include "CitizenInfoWidget.h"
+#include "TropicoUiTheme.h"
 #include "UIStrings.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -93,7 +94,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             TitleText,
             26.f,
-            FVector4(0.37f, 0.26f, 0.10f, 1.f),
+            TropicoUiTheme::GCitizenInfoTitleTint,
             ETextAlignH::Left,
             ETextAlignV::Middle,
             true);
@@ -108,7 +109,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             SubtitleText,
             15.f,
-            FVector4(0.35f, 0.30f, 0.22f, 1.f),
+            TropicoUiTheme::GCitizenInfoSubtitleTint,
             ETextAlignH::Center,
             ETextAlignV::Middle,
             false);
@@ -123,7 +124,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SectionDivider->SetTexture(
             "CitizenInfoSectionDividerTexture",
             GSectionDividerTexture);
-        SectionDivider->SetTint(0.86f, 0.98f, 1.08f, 0.96f);
+        SectionDivider->SetTint(TropicoUiTheme::GCitizenInfoDividerTint);
         Widget.mSectionDivider = SectionDivider;
     }
 
@@ -135,7 +136,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             PageTitleText,
             21.f,
-            FVector4(0.37f, 0.26f, 0.10f, 1.f),
+            TropicoUiTheme::GCitizenInfoTitleTint,
             ETextAlignH::Center,
             ETextAlignV::Middle,
             true);
@@ -149,7 +150,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             BodyText,
             18.f,
-            FVector4(0.22f, 0.22f, 0.22f, 1.f),
+            TropicoUiTheme::GCitizenInfoBodyTint,
             ETextAlignH::Left,
             ETextAlignV::Top,
             false);
@@ -166,7 +167,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             OverviewWorkModeLabel,
             18.f,
-            FVector4(0.24f, 0.24f, 0.24f, 1.f),
+            TropicoUiTheme::GCitizenInfoSectionHeaderTint,
             ETextAlignH::Left,
             ETextAlignV::Middle,
             false);
@@ -187,6 +188,27 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         Widget.mOverviewWorkModeBackground = OverviewWorkModeBackground;
     }
 
+    auto OverviewWorkModeButton =
+        Widget.CreateWidget<CButton>(
+            "CitizenInfo_OverviewWorkModeButton",
+            10).lock();
+
+    if (OverviewWorkModeButton)
+    {
+        ApplyButtonTextureSet(
+            OverviewWorkModeButton,
+            "CitizenInfo_OverviewWorkModeButton_Texture",
+            GMenuDetailFrameTexture);
+        ConfigureDefaultButtonStyle(OverviewWorkModeButton);
+        OverviewWorkModeButton->SetEventCallback(
+            EButtonEventState::Click,
+            [Widget]() mutable
+            {
+                Widget.OnOverviewCommandButtonClick();
+            });
+        Widget.mOverviewWorkModeButton = OverviewWorkModeButton;
+    }
+
     auto OverviewWorkModeText =
         Widget.CreateWidget<CTextBlock>(
             "CitizenInfo_OverviewWorkModeText",
@@ -197,11 +219,84 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             OverviewWorkModeText,
             17.f,
-            FVector4(0.32f, 0.20f, 0.10f, 1.f),
+            TropicoUiTheme::GCitizenInfoStrongValueTint,
             ETextAlignH::Left,
             ETextAlignV::Middle,
             false);
         Widget.mOverviewWorkModeText = OverviewWorkModeText;
+    }
+
+    auto ResidentialOverviewWorkModeLabel =
+        Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_ResidentialOverviewWorkModeLabel",
+            9).lock();
+
+    if (ResidentialOverviewWorkModeLabel)
+    {
+        SetPanelTextStyle(
+            ResidentialOverviewWorkModeLabel,
+            18.f,
+            TropicoUiTheme::GCitizenInfoSectionHeaderTint,
+            ETextAlignH::Left,
+            ETextAlignV::Middle,
+            false);
+        Widget.mResidentialOverviewWorkModeLabel =
+            ResidentialOverviewWorkModeLabel;
+    }
+
+    auto ResidentialOverviewWorkModeBackground =
+        Widget.CreateWidget<CImage>(
+            "CitizenInfo_ResidentialOverviewWorkModeBackground",
+            9).lock();
+
+    if (ResidentialOverviewWorkModeBackground)
+    {
+        ResidentialOverviewWorkModeBackground->SetTexture(
+            "CitizenInfoResidentialOverviewWorkModeBackgroundTexture",
+            GMenuDetailFrameTexture);
+        ResidentialOverviewWorkModeBackground->SetTint(1.f, 1.f, 1.f, 0.96f);
+        Widget.mResidentialOverviewWorkModeBackground =
+            ResidentialOverviewWorkModeBackground;
+    }
+
+    auto ResidentialOverviewWorkModeButton =
+        Widget.CreateWidget<CButton>(
+            "CitizenInfo_ResidentialOverviewWorkModeButton",
+            10).lock();
+
+    if (ResidentialOverviewWorkModeButton)
+    {
+        ApplyButtonTextureSet(
+            ResidentialOverviewWorkModeButton,
+            "CitizenInfo_ResidentialOverviewWorkModeButton_Texture",
+            GMenuDetailFrameTexture);
+        ConfigureDefaultButtonStyle(ResidentialOverviewWorkModeButton);
+        ResidentialOverviewWorkModeButton->SetEventCallback(
+            EButtonEventState::Click,
+            [Widget]() mutable
+            {
+                Widget.OnOverviewCommandButtonClick();
+            });
+        Widget.mResidentialOverviewWorkModeButton =
+            ResidentialOverviewWorkModeButton;
+    }
+
+    auto ResidentialOverviewWorkModeText =
+        Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_ResidentialOverviewWorkModeText",
+            10).lock();
+
+    if (ResidentialOverviewWorkModeText)
+    {
+        SetPanelTextStyle(
+            ResidentialOverviewWorkModeText,
+            17.f,
+            TropicoUiTheme::GCitizenInfoStrongValueTint,
+            ETextAlignH::Left,
+            ETextAlignV::Middle,
+            false);
+        Widget.mResidentialOverviewWorkModeText =
+            ResidentialOverviewWorkModeText;
     }
 
     auto InformationAccentText =
@@ -214,7 +309,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             InformationAccentText,
             28.f,
-            FVector4(0.26f, 0.64f, 0.82f, 1.f),
+            TropicoUiTheme::GCitizenInfoAccentTint,
             ETextAlignH::Left,
             ETextAlignV::Top,
             false);
@@ -231,7 +326,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             InformationTopText,
             17.f,
-            FVector4(0.22f, 0.22f, 0.22f, 1.f),
+            TropicoUiTheme::GCitizenInfoBodyTint,
             ETextAlignH::Left,
             ETextAlignV::Top,
             false);
@@ -248,7 +343,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             InformationBottomText,
             17.f,
-            FVector4(0.22f, 0.22f, 0.22f, 1.f),
+            TropicoUiTheme::GCitizenInfoBodyTint,
             ETextAlignH::Left,
             ETextAlignV::Top,
             false);
@@ -282,7 +377,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
                 "CitizenInfo_CitizenPoliticsSectionTexture_" +
                     std::to_string(Index),
                 GCitizenPoliticsSectionTexture);
-            Background->SetTint(1.f, 0.98f, 0.92f, 0.94f);
+            Background->SetTint(TropicoUiTheme::GCitizenInfoPanelHighlightTint);
             Widget.mCitizenPoliticsSectionBackgrounds[
                 static_cast<size_t>(Index)] = Background;
         }
@@ -292,7 +387,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Title,
                 17.f,
-                FVector4(0.36f, 0.24f, 0.10f, 1.f),
+                TropicoUiTheme::GCitizenInfoTitleTint,
                 ETextAlignH::Center,
                 ETextAlignV::Middle,
                 true);
@@ -326,7 +421,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Label,
                 17.f,
-                FVector4(0.28f, 0.28f, 0.28f, 1.f),
+                TropicoUiTheme::GCitizenInfoMetricLabelTint,
                 ETextAlignH::Left,
                 ETextAlignV::Middle,
                 false);
@@ -340,7 +435,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
                 "CitizenInfo_CitizenPoliticsSatisfactionRailTexture_" +
                     std::to_string(Index),
                 GCitizenPoliticsBarRailTexture);
-            Rail->SetTint(0.90f, 0.89f, 0.82f, 0.92f);
+            Rail->SetTint(TropicoUiTheme::GCitizenInfoProgressRailTint);
             Widget.mCitizenPoliticsSatisfactionRails[
                 static_cast<size_t>(Index)] = Rail;
         }
@@ -351,7 +446,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
                 "CitizenInfo_CitizenPoliticsSatisfactionFillTexture_" +
                     std::to_string(Index),
                 GCitizenPoliticsBarFillTexture);
-            Fill->SetTint(0.22f, 0.53f, 0.90f, 0.95f);
+            Fill->SetTint(TropicoUiTheme::GCitizenInfoProgressFillTint);
             Widget.mCitizenPoliticsSatisfactionFills[
                 static_cast<size_t>(Index)] = Fill;
         }
@@ -371,7 +466,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Text,
                 17.f,
-                FVector4(0.28f, 0.28f, 0.28f, 1.f),
+                TropicoUiTheme::GCitizenInfoMetricLabelTint,
                 ETextAlignH::Left,
                 ETextAlignV::Middle,
                 false);
@@ -398,10 +493,10 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             GCitizenPoliticsSupportIconTexture);
         Icon->SetTint(
             Index == 0 ?
-                FVector4(0.92f, 0.62f, 0.48f, 0.95f) :
+                TropicoUiTheme::GCitizenInfoSupportNegativeTint :
                 (Index == 1 ?
-                    FVector4(0.82f, 0.82f, 0.82f, 0.95f) :
-                    FVector4(0.42f, 0.72f, 0.36f, 0.98f)));
+                    TropicoUiTheme::GCitizenInfoSupportNeutralTint :
+                    TropicoUiTheme::GCitizenInfoSupportPositiveTint));
         Widget.mCitizenPoliticsSupportIcons[static_cast<size_t>(Index)] = Icon;
     }
 
@@ -414,7 +509,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SupportRail->SetTexture(
             "CitizenInfo_CitizenPoliticsSupportRailTexture",
             GCitizenPoliticsBarRailTexture);
-        SupportRail->SetTint(0.90f, 0.89f, 0.82f, 0.92f);
+        SupportRail->SetTint(TropicoUiTheme::GCitizenInfoProgressRailTint);
         Widget.mCitizenPoliticsSupportRail = SupportRail;
     }
 
@@ -427,7 +522,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SupportThumb->SetTexture(
             "CitizenInfo_CitizenPoliticsSupportThumbTexture",
             GCitizenPoliticsBarFillTexture);
-        SupportThumb->SetTint(0.20f, 0.72f, 0.16f, 0.98f);
+        SupportThumb->SetTint(TropicoUiTheme::GCitizenInfoSupportPositiveTint);
         Widget.mCitizenPoliticsSupportThumb = SupportThumb;
     }
 
@@ -440,7 +535,8 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         CitizenThoughtTitleBackground->SetTexture(
             "CitizenInfo_CitizenThoughtTitleBackgroundTexture",
             GCitizenThoughtTitleTexture);
-        CitizenThoughtTitleBackground->SetTint(1.f, 0.98f, 0.92f, 0.94f);
+        CitizenThoughtTitleBackground->SetTint(
+            TropicoUiTheme::GCitizenInfoPanelHighlightTint);
         Widget.mCitizenThoughtTitleBackground = CitizenThoughtTitleBackground;
     }
 
@@ -453,7 +549,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             CitizenThoughtTitleText,
             17.f,
-            FVector4(0.36f, 0.24f, 0.10f, 1.f),
+            TropicoUiTheme::GCitizenInfoTitleTint,
             ETextAlignH::Center,
             ETextAlignV::Middle,
             true);
@@ -477,7 +573,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             Text,
             16.f,
-            FVector4(0.24f, 0.24f, 0.24f, 1.f),
+            TropicoUiTheme::GCitizenInfoSectionHeaderTint,
             ETextAlignH::Left,
             ETextAlignV::Top,
             false);
@@ -500,7 +596,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             "CitizenInfo_CitizenThoughtDividerTexture_" +
                 std::to_string(Index),
             GSectionDividerTexture);
-        Divider->SetTint(0.86f, 0.98f, 1.08f, 0.96f);
+        Divider->SetTint(TropicoUiTheme::GCitizenInfoDividerTint);
         Widget.mCitizenThoughtDividers[static_cast<size_t>(Index)] = Divider;
     }
 
@@ -512,7 +608,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             BudgetText,
             16.f,
-            FVector4(0.24f, 0.24f, 0.24f, 1.f),
+            TropicoUiTheme::GCitizenInfoSectionHeaderTint,
             ETextAlignH::Left,
             ETextAlignV::Middle,
             false);
@@ -529,7 +625,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             OverviewBudgetLabel,
             18.f,
-            FVector4(0.24f, 0.24f, 0.24f, 1.f),
+            TropicoUiTheme::GCitizenInfoSectionHeaderTint,
             ETextAlignH::Left,
             ETextAlignV::Middle,
             false);
@@ -546,7 +642,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             OverviewBudgetValue,
             18.f,
-            FVector4(0.28f, 0.24f, 0.20f, 1.f),
+            TropicoUiTheme::GCitizenInfoValueTint,
             ETextAlignH::Right,
             ETextAlignV::Middle,
             false);
@@ -563,7 +659,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             OverviewOccupancyLabel,
             18.f,
-            FVector4(0.24f, 0.24f, 0.24f, 1.f),
+            TropicoUiTheme::GCitizenInfoSectionHeaderTint,
             ETextAlignH::Left,
             ETextAlignV::Middle,
             false);
@@ -580,7 +676,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             OverviewOccupancyValue,
             18.f,
-            FVector4(0.28f, 0.24f, 0.20f, 1.f),
+            TropicoUiTheme::GCitizenInfoValueTint,
             ETextAlignH::Right,
             ETextAlignV::Middle,
             false);
@@ -633,7 +729,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Label,
                 17.f,
-                FVector4(0.24f, 0.24f, 0.24f, 1.f),
+                TropicoUiTheme::GCitizenInfoSectionHeaderTint,
                 ETextAlignH::Left,
                 ETextAlignV::Middle,
                 false);
@@ -645,11 +741,140 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Value,
                 17.f,
-                FVector4(0.28f, 0.24f, 0.20f, 1.f),
+                TropicoUiTheme::GCitizenInfoValueTint,
                 ETextAlignH::Right,
                 ETextAlignV::Middle,
                 false);
             Widget.mOverviewMetricValues[static_cast<size_t>(Index)] = Value;
+        }
+    }
+
+    auto ResidentialOverviewBudgetLabel =
+        Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_ResidentialOverviewBudgetLabel",
+            9).lock();
+
+    if (ResidentialOverviewBudgetLabel)
+    {
+        SetPanelTextStyle(
+            ResidentialOverviewBudgetLabel,
+            18.f,
+            TropicoUiTheme::GCitizenInfoSectionHeaderTint,
+            ETextAlignH::Left,
+            ETextAlignV::Middle,
+            false);
+        Widget.mResidentialOverviewBudgetLabel =
+            ResidentialOverviewBudgetLabel;
+    }
+
+    auto ResidentialOverviewBudgetValue =
+        Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_ResidentialOverviewBudgetValue",
+            9).lock();
+
+    if (ResidentialOverviewBudgetValue)
+    {
+        SetPanelTextStyle(
+            ResidentialOverviewBudgetValue,
+            18.f,
+            TropicoUiTheme::GCitizenInfoValueTint,
+            ETextAlignH::Right,
+            ETextAlignV::Middle,
+            false);
+        Widget.mResidentialOverviewBudgetValue =
+            ResidentialOverviewBudgetValue;
+    }
+
+    auto ResidentialOverviewOccupancyLabel =
+        Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_ResidentialOverviewOccupancyLabel",
+            9).lock();
+
+    if (ResidentialOverviewOccupancyLabel)
+    {
+        SetPanelTextStyle(
+            ResidentialOverviewOccupancyLabel,
+            18.f,
+            TropicoUiTheme::GCitizenInfoSectionHeaderTint,
+            ETextAlignH::Left,
+            ETextAlignV::Middle,
+            false);
+        Widget.mResidentialOverviewOccupancyLabel =
+            ResidentialOverviewOccupancyLabel;
+    }
+
+    auto ResidentialOverviewOccupancyValue =
+        Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_ResidentialOverviewOccupancyValue",
+            9).lock();
+
+    if (ResidentialOverviewOccupancyValue)
+    {
+        SetPanelTextStyle(
+            ResidentialOverviewOccupancyValue,
+            18.f,
+            TropicoUiTheme::GCitizenInfoValueTint,
+            ETextAlignH::Right,
+            ETextAlignV::Middle,
+            false);
+        Widget.mResidentialOverviewOccupancyValue =
+            ResidentialOverviewOccupancyValue;
+    }
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
+        ++Index)
+    {
+        auto Icon = Widget.CreateWidget<CImage>(
+            "CitizenInfo_ResidentialOverviewResidentIcon_" +
+                std::to_string(Index + 1),
+            9).lock();
+
+        if (!Icon)
+            continue;
+
+        Icon->SetTint(1.f, 1.f, 1.f, 1.f);
+        Widget.mResidentialOverviewResidentIcons[
+            static_cast<size_t>(Index)] = Icon;
+    }
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
+        auto Label = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_ResidentialOverviewMetricLabel_" +
+                std::to_string(Index + 1),
+            9).lock();
+        auto Value = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_ResidentialOverviewMetricValue_" +
+                std::to_string(Index + 1),
+            9).lock();
+
+        if (Label)
+        {
+            SetPanelTextStyle(
+                Label,
+                17.f,
+                TropicoUiTheme::GCitizenInfoSectionHeaderTint,
+                ETextAlignH::Left,
+                ETextAlignV::Middle,
+                false);
+            Widget.mResidentialOverviewMetricLabels[
+                static_cast<size_t>(Index)] = Label;
+        }
+
+        if (Value)
+        {
+            SetPanelTextStyle(
+                Value,
+                17.f,
+                TropicoUiTheme::GCitizenInfoValueTint,
+                ETextAlignH::Right,
+                ETextAlignV::Middle,
+                false);
+            Widget.mResidentialOverviewMetricValues[
+                static_cast<size_t>(Index)] = Value;
         }
     }
 
@@ -688,7 +913,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             UpgradeCardTitle,
             18.f,
-            FVector4(0.26f, 0.24f, 0.20f, 1.f),
+            TropicoUiTheme::GCitizenInfoValueTint,
             ETextAlignH::Left,
             ETextAlignV::Middle,
             false);
@@ -705,7 +930,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             UpgradeDescriptionText,
             16.f,
-            FVector4(0.22f, 0.22f, 0.22f, 1.f),
+            TropicoUiTheme::GCitizenInfoBodyTint,
             ETextAlignH::Left,
             ETextAlignV::Top,
             false);
@@ -742,7 +967,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 CloseText,
                 20.f,
-                FVector4(0.38f, 0.25f, 0.08f, 1.f),
+                TropicoUiTheme::GCitizenInfoTitleTint,
                 ETextAlignH::Center,
                 ETextAlignV::Middle,
                 true);
@@ -791,7 +1016,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Label,
                 14.f,
-                FVector4(0.28f, 0.22f, 0.12f, 1.f),
+                TropicoUiTheme::GCitizenInfoActionTextTint,
                 ETextAlignH::Center,
                 ETextAlignV::Middle,
                 true);
@@ -866,7 +1091,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Label,
                 16.f,
-                FVector4(0.30f, 0.22f, 0.12f, 1.f),
+                TropicoUiTheme::GCitizenInfoBudgetLabelNormalTint,
                 ETextAlignH::Center,
                 ETextAlignV::Middle,
                 true);
@@ -919,7 +1144,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Label,
                 18.f,
-                FVector4(0.29f, 0.22f, 0.12f, 1.f),
+                TropicoUiTheme::GCitizenInfoActionTextTint,
                 ETextAlignH::Center,
                 ETextAlignV::Middle,
                 true);
@@ -985,7 +1210,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Label,
                 18.f,
-                FVector4(0.29f, 0.22f, 0.12f, 1.f),
+                TropicoUiTheme::GCitizenInfoActionTextTint,
                 ETextAlignH::Center,
                 ETextAlignV::Middle,
                 true);
@@ -1025,7 +1250,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             SetPanelTextStyle(
                 Label,
                 17.f,
-                FVector4(0.29f, 0.22f, 0.12f, 1.f),
+                TropicoUiTheme::GCitizenInfoActionTextTint,
                 ETextAlignH::Left,
                 ETextAlignV::Middle,
                 true);
@@ -1060,7 +1285,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         SetPanelTextStyle(
             CitizenFooterText,
             15.f,
-            FVector4(0.58f, 0.84f, 0.88f, 0.92f),
+            TropicoUiTheme::GCitizenInfoFooterTint,
             ETextAlignH::Center,
             ETextAlignV::Middle,
             false);
@@ -1109,3 +1334,5 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             "CitizenInfoFocusAction",
             GFocusActionIcon);
 }
+
+

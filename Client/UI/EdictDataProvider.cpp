@@ -1,11 +1,11 @@
 #include "EdictDataProvider.h"
 #include "EdictConstants.h"
-#include "EdictWidget.h"
+#include "EdictWidgetState.h"
 #include "UIStrings.h"
 #include "../Politics/EdictSystem.h"
 #include "../Politics/EdictSystemSerialization.h"
 #include "../StringUtils.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldUiReadAccess.h"
 #include "Asset/PathManager.h"
 #include "World/World.h"
 #include <algorithm>
@@ -990,28 +990,24 @@ namespace EdictDataProvider
 {
     FEdictSnapshot BuildSnapshot(
         const std::shared_ptr<CWorld>& World,
-        EEdictUiCategory SelectedCategory,
-        int RequestedPage,
-        int PreviewEntryIndex,
-        int SelectedEntryIndex,
-        const std::wstring& FeedbackMessage)
+        const FEdictWidgetState& State)
     {
         FEdictSnapshot Result;
         const auto MainWorld =
-            std::dynamic_pointer_cast<IMainWorldEdictReadAccess>(World);
+            ResolveMainWorldEdictReadAccess(World);
 
         Result.Catalog = BuildCatalogSnapshot(
             MainWorld,
-            SelectedCategory,
-            RequestedPage,
-            PreviewEntryIndex,
-            SelectedEntryIndex);
+            State.SelectedCategory,
+            State.CurrentPage,
+            State.PreviewEntryIndex,
+            State.SelectedEntryIndex);
         Result.Detail = BuildDetailSnapshot(
             World,
             MainWorld,
             Result.Catalog.PreviewEntryIndex,
             Result.Catalog.SelectedEntryIndex,
-            FeedbackMessage);
+            State.FeedbackMessage);
         Result.TaxPolicy = BuildTaxPolicySnapshot(MainWorld);
         return Result;
     }

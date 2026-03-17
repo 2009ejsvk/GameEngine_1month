@@ -102,3 +102,24 @@ const FBuildingCatalogEntry* FindBuildingCatalogEntry(const std::string& EntryId
 
     return It != Catalog.end() ? &(*It) : nullptr;
 }
+
+const FBuildingCatalogRuntimeData* FindBuildingCatalogRuntimeData(
+    const std::string& EntryId)
+{
+    const FBuildingCatalogEntry* const Entry = FindBuildingCatalogEntry(EntryId);
+    return Entry ? static_cast<const FBuildingCatalogRuntimeData*>(Entry) : nullptr;
+}
+
+const FBuildingCatalogCitizenData* FindBuildingCatalogCitizenData(
+    const std::string& EntryId)
+{
+    const FBuildingCatalogEntry* const Entry = FindBuildingCatalogEntry(EntryId);
+    return Entry ? static_cast<const FBuildingCatalogCitizenData*>(Entry) : nullptr;
+}
+
+const FBuildingCatalogPoliticalData* FindBuildingCatalogPoliticalData(
+    const std::string& EntryId)
+{
+    const FBuildingCatalogEntry* const Entry = FindBuildingCatalogEntry(EntryId);
+    return Entry ? static_cast<const FBuildingCatalogPoliticalData*>(Entry) : nullptr;
+}

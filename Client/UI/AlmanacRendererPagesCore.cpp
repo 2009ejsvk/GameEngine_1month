@@ -1,12 +1,13 @@
 #include "AlmanacRenderer.h"
-#include "AlmanacRendererCalc.h"
+#include "AlmanacCalc.h"
 #include "AlmanacRendererInternal.h"
+#include "AlmanacTheme.h"
 #include "../Economy/ResourceTradePricing.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 
-using namespace AlmanacRendererCalc;
+using namespace AlmanacCalc;
 
 namespace
 {
@@ -294,7 +295,7 @@ void FAlmanacRenderer::ApplyOverviewPage(
         Snapshot.ElectionWarningScore >= 0.32;
     const std::wstring ElectionWarningSummary =
         HasAdministrativeData ?
-            BuildElectionWarningSummary(
+            AlmanacCalc::BuildElectionWarningSummary(
                 Snapshot.ElectionStatus.GameLost,
                 Snapshot.DaysUntilNextElection,
                 Snapshot.ElectionWarningScore,
@@ -656,12 +657,12 @@ void FAlmanacRenderer::ApplySatisfactionPage(
             GetSatisfactionLabel(Index),
             std::to_wstring(static_cast<int>(std::round(SatisfactionValues[Index]))),
             static_cast<float>(Clamp01(SatisfactionValues[Index] / 100.0)),
-            GetSatisfactionTint(Index),
+            AlmanacTheme::GetSatisfactionTint(Index),
             Index == SelectedSatisfactionIndex);
     }
 
     const FVector4 SatisfactionAccentTint =
-        GetSatisfactionTint(SelectedSatisfactionIndex);
+        AlmanacTheme::GetSatisfactionTint(SelectedSatisfactionIndex);
     const std::wstring SelectedSatisfactionLabel =
         GetSatisfactionLabel(SelectedSatisfactionIndex);
     bool ShowSatisfactionTooltip = false;

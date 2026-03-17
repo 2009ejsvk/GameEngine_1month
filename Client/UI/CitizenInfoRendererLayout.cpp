@@ -1,7 +1,7 @@
 #include "CitizenInfoRenderer.h"
 #include "CitizenInfoRendererInternal.h"
 #include "CitizenInfoWidget.h"
-#include "UILayoutConfig.h"
+#include "UILayoutValues.h"
 #include "Device.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -92,6 +92,7 @@ struct FCitizenInfoLayoutContext
     float SectionRibbonY = 0.f;
     bool ShowWorkOverview = false;
     bool ShowCustomOverview = false;
+    bool ShowResidentialWorkMode = false;
     bool ShowAnyOverview = false;
     bool ShowCompactRows = false;
     bool ShowUpgradeCard = false;
@@ -113,6 +114,9 @@ struct FCitizenInfoLayoutContext
 namespace
 {
 constexpr float GMinimumTabStartInset = 4.f;
+constexpr float GCustomOverviewMetricRowHeight = 21.f;
+constexpr float GWorkOverviewMetricRowHeight = 20.f;
+constexpr float GCompactMetricRowHeight = 24.f;
 
 template <typename T>
 bool IsEnabled(const std::weak_ptr<T>& Widget)
@@ -241,6 +245,73 @@ FCitizenLayoutMetrics MakeLayoutMetrics(bool IsCitizenMode)
             UIConfig::BuildingBodyBottomInset
     };
 }
+
+void LayoutOverviewMetricScrollWidgets(
+    CCitizenInfoWidget& Owner,
+    const FCitizenInfoLayoutContext& Context,
+    float MetricsTop,
+    float MetricRowH)
+{
+    auto Widget = Owner.GetRendererView();
+    auto ScrollTrack = Widget.mScrollTrack.lock();
+    auto ScrollThumb = Widget.mScrollThumb.lock();
+
+    if (!ScrollTrack || !ScrollThumb)
+        return;
+
+    if (Widget.mPanelMode != CCitizenInfoWidget::EPanelMode::Building ||
+        !Owner.HasOverviewMetricScroll() ||
+        Owner.GetOverviewMetricScrollVisibleLineCount() <= 0 ||
+        Owner.GetOverviewMetricScrollTotalLineCount() <= 0 ||
+        Owner.GetOverviewMetricScrollFirstRowIndex() >=
+            CCitizenInfoWidget::GOverviewMetricRowCount)
+    {
+        ScrollTrack->SetPos(0.f, 0.f);
+        ScrollTrack->SetSize(0.f, 0.f);
+        ScrollTrack->SetEnable(false);
+        ScrollThumb->SetPos(0.f, 0.f);
+        ScrollThumb->SetSize(0.f, 0.f);
+        ScrollThumb->SetEnable(false);
+        return;
+    }
+
+    const int FirstRowIndex = (std::max)(0, Owner.GetOverviewMetricScrollFirstRowIndex());
+    const int VisibleLineCount =
+        Owner.GetOverviewMetricScrollVisibleLineCount();
+    const int TotalLineCount =
+        (std::max)(
+            VisibleLineCount,
+            Owner.GetOverviewMetricScrollTotalLineCount());
+    const int MaxOffset = (std::max)(0, TotalLineCount - VisibleLineCount);
+    const float TrackLeft =
+        Context.InnerMarginX * 0.5f - Context.ScrollTrackWidth * 0.5f;
+    const float TrackTop =
+        MetricsTop + static_cast<float>(FirstRowIndex) * MetricRowH + 2.f;
+    const float TrackHeight = (std::max)(
+        24.f,
+        static_cast<float>(VisibleLineCount) * MetricRowH - 4.f);
+    const float ThumbHeight = (std::max)(
+        18.f,
+        TrackHeight *
+            (static_cast<float>(VisibleLineCount) /
+                static_cast<float>(TotalLineCount)));
+    const float ThumbTravel = (std::max)(0.f, TrackHeight - ThumbHeight);
+    const float ThumbRatio =
+        MaxOffset > 0 ?
+            static_cast<float>(Owner.GetOverviewMetricScrollOffset()) /
+                static_cast<float>(MaxOffset) :
+            0.f;
+
+    ScrollTrack->SetPos(TrackLeft, TrackTop);
+    ScrollTrack->SetSize(Context.ScrollTrackWidth, TrackHeight);
+    ScrollTrack->SetEnable(true);
+
+    ScrollThumb->SetPos(
+        TrackLeft + 0.5f,
+        TrackTop + ThumbTravel * ThumbRatio);
+    ScrollThumb->SetSize(Context.ScrollTrackWidth - 1.f, ThumbHeight);
+    ScrollThumb->SetEnable(true);
+}
 } // namespace
 
 void FCitizenInfoRenderer::RefreshLayout(CCitizenInfoWidget& Owner)
@@ -364,7 +435,10 @@ void FCitizenInfoRenderer::RefreshLayout(CCitizenInfoWidget& Owner)
         Widget.mSelectedBuildingTab ==
             CCitizenInfoWidget::EBuildingInfoTab::Overview &&
         !Layout.ShowWorkOverview &&
-        IsEnabled(Widget.mOverviewBudgetLabel);
+        IsEnabled(Widget.mResidentialOverviewBudgetLabel);
+    Layout.ShowResidentialWorkMode =
+        Layout.ShowCustomOverview &&
+        IsEnabled(Widget.mResidentialOverviewWorkModeLabel);
     Layout.ShowAnyOverview = Layout.ShowCustomOverview || Layout.ShowWorkOverview;
     Layout.ShowCompactRows =
         !Layout.ShowCitizenProfile &&
@@ -384,7 +458,10 @@ void FCitizenInfoRenderer::RefreshLayout(CCitizenInfoWidget& Owner)
         Layout.Metrics.CompactControlHeight :
         UIConfig::BuildingBudgetButtonHeight;
     Layout.BudgetButtonTop = Layout.ShowCustomOverview ?
-        (Layout.BudgetBaseY + Layout.Metrics.BudgetCustomButtonsOffsetY) :
+        (Layout.BudgetBaseY +
+            (Layout.ShowResidentialWorkMode ?
+                Layout.Metrics.BudgetWorkButtonsOffsetY :
+                Layout.Metrics.BudgetCustomButtonsOffsetY)) :
         (Layout.ShowWorkOverview ?
             (Layout.BudgetBaseY + Layout.Metrics.BudgetWorkButtonsOffsetY) :
             (Layout.BudgetBaseY + Layout.Metrics.BudgetDefaultButtonsOffsetY));
@@ -468,6 +545,9 @@ void FCitizenInfoRenderer::ValidateLayoutForDebug(
         Widget.mOverviewResidentIcons.size() ==
         CCitizenInfoWidget::GOverviewResidentSlotCount);
     assert(
+        Widget.mResidentialOverviewResidentIcons.size() ==
+        CCitizenInfoWidget::GOverviewResidentSlotCount);
+    assert(
         Widget.mOverviewVisitorIcons.size() ==
         CCitizenInfoWidget::GOverviewVisitorSlotCount);
     assert(
@@ -475,6 +555,12 @@ void FCitizenInfoRenderer::ValidateLayoutForDebug(
         CCitizenInfoWidget::GOverviewMetricRowCount);
     assert(
         Widget.mOverviewMetricValues.size() ==
+        CCitizenInfoWidget::GOverviewMetricRowCount);
+    assert(
+        Widget.mResidentialOverviewMetricLabels.size() ==
+        CCitizenInfoWidget::GOverviewMetricRowCount);
+    assert(
+        Widget.mResidentialOverviewMetricValues.size() ==
         CCitizenInfoWidget::GOverviewMetricRowCount);
     assert(
         Widget.mCitizenPoliticsSectionBackgrounds.size() ==
@@ -549,6 +635,7 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
     const float SectionRibbonY = Context.SectionRibbonY;
     const bool ShowWorkOverview = Context.ShowWorkOverview;
     const bool ShowCustomOverview = Context.ShowCustomOverview;
+    const bool ShowResidentialWorkMode = Context.ShowResidentialWorkMode;
     const bool ShowAnyOverview = Context.ShowAnyOverview;
     const float TitleIconOffsetY = Context.IsCitizenMode ?
         0.f : UIConfig::BuildingTitleIconOffsetY;
@@ -624,6 +711,10 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         Text->SetFontSize(UIConfig::BuildingOverviewWorkModeLabelFontSize);
     if (auto Text = Widget.mOverviewWorkModeText.lock())
         Text->SetFontSize(UIConfig::BuildingOverviewWorkModeValueFontSize);
+    if (auto Text = Widget.mResidentialOverviewWorkModeLabel.lock())
+        Text->SetFontSize(UIConfig::BuildingOverviewWorkModeLabelFontSize);
+    if (auto Text = Widget.mResidentialOverviewWorkModeText.lock())
+        Text->SetFontSize(UIConfig::BuildingOverviewWorkModeValueFontSize);
     if (auto Text = Widget.mOverviewBudgetLabel.lock())
         Text->SetFontSize(UIConfig::BuildingOverviewBudgetLabelFontSize);
     if (auto Text = Widget.mOverviewBudgetValue.lock())
@@ -631,6 +722,14 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
     if (auto Text = Widget.mOverviewOccupancyLabel.lock())
         Text->SetFontSize(UIConfig::BuildingOverviewOccupancyLabelFontSize);
     if (auto Text = Widget.mOverviewOccupancyValue.lock())
+        Text->SetFontSize(UIConfig::BuildingOverviewOccupancyValueFontSize);
+    if (auto Text = Widget.mResidentialOverviewBudgetLabel.lock())
+        Text->SetFontSize(UIConfig::BuildingOverviewBudgetLabelFontSize);
+    if (auto Text = Widget.mResidentialOverviewBudgetValue.lock())
+        Text->SetFontSize(UIConfig::BuildingOverviewBudgetValueFontSize);
+    if (auto Text = Widget.mResidentialOverviewOccupancyLabel.lock())
+        Text->SetFontSize(UIConfig::BuildingOverviewOccupancyLabelFontSize);
+    if (auto Text = Widget.mResidentialOverviewOccupancyValue.lock())
         Text->SetFontSize(UIConfig::BuildingOverviewOccupancyValueFontSize);
     if (auto Text = Widget.mUpgradeCardTitle.lock())
         Text->SetFontSize(UIConfig::BuildingUpgradeTitleFontSize);
@@ -834,7 +933,10 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
     const float BudgetButtonH   = ShowAnyOverview ? Layout.CompactControlHeight :
         UIConfig::BuildingBudgetButtonHeight;
     const float BudgetButtonTop = ShowCustomOverview ?
-        (BudgetBaseY + Layout.BudgetCustomButtonsOffsetY) :
+        (BudgetBaseY +
+            (ShowResidentialWorkMode ?
+                Layout.BudgetWorkButtonsOffsetY :
+                Layout.BudgetCustomButtonsOffsetY)) :
         (ShowWorkOverview ? (BudgetBaseY + Layout.BudgetWorkButtonsOffsetY) :
         (BudgetBaseY + Layout.BudgetDefaultButtonsOffsetY));
     const float WorkModeTop = BudgetBaseY - Layout.BudgetLabelOffsetY;
@@ -883,6 +985,24 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         }
     }
 
+    if (auto Button = Widget.mOverviewWorkModeButton.lock())
+    {
+        if (ShowWorkOverview)
+        {
+            Button->SetPos(
+                BudgetMargin + WorkModeBackgroundOffsetX,
+                WorkModeBoxTop + WorkModeBackgroundOffsetY);
+            Button->SetSize(
+                PanelWidth - BudgetMargin * 2.f + WorkModeBackgroundWidthAdjust,
+                34.f + WorkModeBackgroundHeightAdjust);
+        }
+        else
+        {
+            Button->SetPos(0.f, 0.f);
+            Button->SetSize(0.f, 0.f);
+        }
+    }
+
     if (auto Text = Widget.mOverviewWorkModeText.lock())
     {
         if (ShowWorkOverview)
@@ -902,9 +1022,82 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         }
     }
 
+    if (auto Text = Widget.mResidentialOverviewWorkModeLabel.lock())
+    {
+        if (ShowResidentialWorkMode)
+        {
+            Text->SetPos(
+                BudgetMargin + WorkModeLabelOffsetX,
+                WorkModeTop + WorkModeLabelOffsetY);
+            Text->SetSize(
+                PanelWidth * 0.5f + WorkModeLabelWidthAdjust,
+                Layout.CompactControlHeight);
+        }
+        else
+        {
+            Text->SetPos(0.f, 0.f);
+            Text->SetSize(0.f, 0.f);
+        }
+    }
+
+    if (auto Background = Widget.mResidentialOverviewWorkModeBackground.lock())
+    {
+        if (ShowResidentialWorkMode)
+        {
+            Background->SetPos(
+                BudgetMargin + WorkModeBackgroundOffsetX,
+                WorkModeBoxTop + WorkModeBackgroundOffsetY);
+            Background->SetSize(
+                PanelWidth - BudgetMargin * 2.f + WorkModeBackgroundWidthAdjust,
+                34.f + WorkModeBackgroundHeightAdjust);
+        }
+        else
+        {
+            Background->SetPos(0.f, 0.f);
+            Background->SetSize(0.f, 0.f);
+        }
+    }
+
+    if (auto Button = Widget.mResidentialOverviewWorkModeButton.lock())
+    {
+        if (ShowResidentialWorkMode)
+        {
+            Button->SetPos(
+                BudgetMargin + WorkModeBackgroundOffsetX,
+                WorkModeBoxTop + WorkModeBackgroundOffsetY);
+            Button->SetSize(
+                PanelWidth - BudgetMargin * 2.f + WorkModeBackgroundWidthAdjust,
+                34.f + WorkModeBackgroundHeightAdjust);
+        }
+        else
+        {
+            Button->SetPos(0.f, 0.f);
+            Button->SetSize(0.f, 0.f);
+        }
+    }
+
+    if (auto Text = Widget.mResidentialOverviewWorkModeText.lock())
+    {
+        if (ShowResidentialWorkMode)
+        {
+            Text->SetPos(
+                BudgetMargin + 12.f + WorkModeTextOffsetX,
+                WorkModeBoxTop + 2.f + WorkModeTextOffsetY);
+            Text->SetSize(
+                PanelWidth - BudgetMargin * 2.f - 24.f +
+                    WorkModeTextWidthAdjust,
+                30.f + WorkModeTextHeightAdjust);
+        }
+        else
+        {
+            Text->SetPos(0.f, 0.f);
+            Text->SetSize(0.f, 0.f);
+        }
+    }
+
     if (auto Text = Widget.mOverviewBudgetLabel.lock())
     {
-        if (ShowAnyOverview)
+        if (ShowWorkOverview)
         {
             Text->SetPos(
                 BudgetMargin + BudgetLabelOffsetX,
@@ -922,7 +1115,7 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
 
     if (auto Text = Widget.mOverviewBudgetValue.lock())
     {
-        if (ShowAnyOverview)
+        if (ShowWorkOverview)
         {
             Text->SetPos(
                 PanelWidth - BudgetMargin - 120.f + BudgetValueOffsetX,
@@ -954,7 +1147,7 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         BudgetButtonTop + BudgetButtonH + Layout.OccupancyGapY;
     if (auto Text = Widget.mOverviewOccupancyLabel.lock())
     {
-        if (ShowAnyOverview)
+        if (ShowWorkOverview)
         {
             Text->SetPos(BudgetMargin, OccupancyTop);
             Text->SetSize(PanelWidth * 0.5f, Layout.CompactControlHeight);
@@ -968,10 +1161,74 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
 
     if (auto Text = Widget.mOverviewOccupancyValue.lock())
     {
-        if (ShowAnyOverview)
+        if (ShowWorkOverview)
         {
             Text->SetPos(PanelWidth - BudgetMargin - 120.f, OccupancyTop);
             Text->SetSize(120.f, Layout.CompactControlHeight);
+        }
+        else
+        {
+            Text->SetPos(0.f, 0.f);
+            Text->SetSize(0.f, 0.f);
+        }
+    }
+
+    if (auto Text = Widget.mResidentialOverviewOccupancyLabel.lock())
+    {
+        if (ShowCustomOverview)
+        {
+            Text->SetPos(BudgetMargin, OccupancyTop);
+            Text->SetSize(PanelWidth * 0.5f, Layout.CompactControlHeight);
+        }
+        else
+        {
+            Text->SetPos(0.f, 0.f);
+            Text->SetSize(0.f, 0.f);
+        }
+    }
+
+    if (auto Text = Widget.mResidentialOverviewOccupancyValue.lock())
+    {
+        if (ShowCustomOverview)
+        {
+            Text->SetPos(PanelWidth - BudgetMargin - 120.f, OccupancyTop);
+            Text->SetSize(120.f, Layout.CompactControlHeight);
+        }
+        else
+        {
+            Text->SetPos(0.f, 0.f);
+            Text->SetSize(0.f, 0.f);
+        }
+    }
+
+    if (auto Text = Widget.mResidentialOverviewBudgetLabel.lock())
+    {
+        if (ShowCustomOverview)
+        {
+            Text->SetPos(
+                BudgetMargin + BudgetLabelOffsetX,
+                BudgetBaseY - Layout.BudgetLabelOffsetY + BudgetLabelOffsetY);
+            Text->SetSize(
+                PanelWidth * 0.5f + BudgetLabelWidthAdjust,
+                Layout.CompactControlHeight);
+        }
+        else
+        {
+            Text->SetPos(0.f, 0.f);
+            Text->SetSize(0.f, 0.f);
+        }
+    }
+
+    if (auto Text = Widget.mResidentialOverviewBudgetValue.lock())
+    {
+        if (ShowCustomOverview)
+        {
+            Text->SetPos(
+                PanelWidth - BudgetMargin - 120.f + BudgetValueOffsetX,
+                BudgetBaseY - Layout.BudgetLabelOffsetY + BudgetValueOffsetY);
+            Text->SetSize(
+                120.f + BudgetValueWidthAdjust,
+                Layout.CompactControlHeight);
         }
         else
         {
@@ -1680,7 +1937,8 @@ void FCitizenInfoRenderer::RefreshBuildingCustomOverviewLayout(
             ++Index)
         {
             auto Icon =
-                Widget.mOverviewResidentIcons[static_cast<size_t>(Index)].lock();
+                Widget.mResidentialOverviewResidentIcons[
+                    static_cast<size_t>(Index)].lock();
 
             if (!Icon)
                 continue;
@@ -1693,30 +1951,32 @@ void FCitizenInfoRenderer::RefreshBuildingCustomOverviewLayout(
             Icon->SetSize(ResidentIconSize, ResidentIconSize);
         }
 
-        const float MetricsTop = ResidentStartY + ResidentGapY * 4.f + 14.f;
-        const float MetricRowH = 24.f;
+        const float MetricsTop = ResidentStartY + ResidentGapY * 4.f + 10.f;
+        const float MetricRowH = GCustomOverviewMetricRowHeight;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewMetricRowCount;
             ++Index)
         {
             auto Label =
-                Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock();
+                Widget.mResidentialOverviewMetricLabels[
+                    static_cast<size_t>(Index)].lock();
             auto Value =
-                Widget.mOverviewMetricValues[static_cast<size_t>(Index)].lock();
+                Widget.mResidentialOverviewMetricValues[
+                    static_cast<size_t>(Index)].lock();
             const float RowTop =
                 MetricsTop + static_cast<float>(Index) * MetricRowH;
 
             if (Label)
             {
                 Label->SetPos(BudgetMargin, RowTop);
-                Label->SetSize(140.f, 22.f);
+                Label->SetSize(140.f, 20.f);
             }
 
             if (Value)
             {
                 Value->SetPos(PanelWidth - BudgetMargin - 160.f, RowTop);
-                Value->SetSize(160.f, 22.f);
+                Value->SetSize(160.f, 20.f);
             }
         }
 }
@@ -1736,7 +1996,7 @@ void FCitizenInfoRenderer::RefreshBuildingWorkOverviewLayout(
     const float ResidentStartY = OccupancyTop + 26.f;
     const float ResidentIconSize = 24.f;
     const float ResidentGapX = 26.f;
-    const float ResidentGapY = 24.f;
+    const float ResidentGapY = 22.f;
     int VisibleResidentCount = 0;
 
     for (int Index = 0;
@@ -1764,8 +2024,8 @@ void FCitizenInfoRenderer::RefreshBuildingWorkOverviewLayout(
         ResidentIconSize +
         static_cast<float>((std::max)(0, ResidentRowCount - 1)) *
             ResidentGapY +
-        18.f;
-    const float MetricRowH = 23.f;
+        12.f;
+    const float MetricRowH = GWorkOverviewMetricRowHeight;
 
     for (int Index = 0;
         Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
@@ -1814,7 +2074,7 @@ void FCitizenInfoRenderer::RefreshBuildingWorkOverviewLayout(
                 SectionHeader ?
                     (PanelWidth - BudgetMargin * 2.f) :
                     160.f,
-                22.f);
+                20.f);
         }
 
         if (Value)
@@ -1827,10 +2087,12 @@ void FCitizenInfoRenderer::RefreshBuildingWorkOverviewLayout(
             else
             {
                 Value->SetPos(PanelWidth - BudgetMargin - 140.f, RowTop);
-                Value->SetSize(140.f, 22.f);
+                Value->SetSize(140.f, 20.f);
             }
         }
     }
+
+    LayoutOverviewMetricScrollWidgets(Owner, Context, MetricsTop, MetricRowH);
 
     const bool ShowVisitorIcons =
         !Widget.mOverviewVisitorIcons[0].expired() &&
@@ -1898,7 +2160,7 @@ void FCitizenInfoRenderer::RefreshBuildingCompactLayout(
 
         const float MetricsTop =
             SectionRibbonY + SectionRibbonH + 12.f;
-        const float MetricRowH = 30.f;
+        const float MetricRowH = GCompactMetricRowHeight;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
@@ -1962,15 +2224,17 @@ void FCitizenInfoRenderer::RefreshBuildingCompactLayout(
             if (Label)
             {
                 Label->SetPos(BudgetMargin, RowTop);
-                Label->SetSize(180.f, 24.f);
+                Label->SetSize(180.f, 20.f);
             }
 
             if (Value)
             {
                 Value->SetPos(PanelWidth - BudgetMargin - 120.f, RowTop);
-                Value->SetSize(120.f, 24.f);
+                Value->SetSize(120.f, 20.f);
             }
         }
+
+        LayoutOverviewMetricScrollWidgets(Owner, Context, MetricsTop, MetricRowH);
 
         if (auto Divider = Widget.mSectionDivider.lock())
         {
@@ -2286,6 +2550,7 @@ void FCitizenInfoRenderer::RefreshUpgradeLayout(
             Text->SetSize(0.f, 0.f);
         }
     }
+
 }
 
 void FCitizenInfoRenderer::RefreshActionLayout(
@@ -2498,7 +2763,7 @@ void FCitizenInfoRenderer::RefreshBodyLayout(
     const float CompactMetricsBottom =
         SectionRibbonY + SectionRibbonH +
         12.f +
-        static_cast<float>(VisibleMetricRowCount) * 30.f;
+        static_cast<float>(VisibleMetricRowCount) * GCompactMetricRowHeight;
     const float InformationBaseTop =
         ShowSectionRibbon ?
             (SectionRibbonY + SectionRibbonH) :

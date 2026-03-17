@@ -6,6 +6,17 @@
 
 namespace TradePolicyRuntime
 {
+    inline bool IsExactOrLegacyBundleImportSelectionMatch(
+        EResourceType SelectedResourceType,
+        EResourceType InputType)
+    {
+        // Runtime still honors legacy family selections as exact bundles, but
+        // UI cycling should stay exact-only through TradePolicy helpers.
+        return TradePolicy::DoesPolicySelectionMatchResourceType(
+            SelectedResourceType,
+            InputType);
+    }
+
     inline int ClampBiasPercent(int Value, int MinValue = -18, int MaxValue = 20)
     {
         return (std::max)(MinValue, (std::min)(MaxValue, Value));
@@ -19,7 +30,7 @@ namespace TradePolicyRuntime
             return 0;
 
         const EResourceMarketClass MarketClass =
-            GetResourceMarketClass(ProducedType);
+            GetPolicyFamilyMarketClass(ProducedType);
         const bool ExportAllowed =
             TradePolicy::IsResourceExportAllowed(ExportPolicy, ProducedType);
         int Bias = 0;
@@ -134,6 +145,29 @@ namespace TradePolicyRuntime
         EResourceType InputType,
         const TradePolicy::FImportTradePolicy& ImportPolicy)
     {
+        if (InputType == EResourceType::FeedCrops)
+        {
+            int BestBias = (std::numeric_limits<int>::min)();
+
+            ForEachFeedCompatibleResourceType(
+                InputType,
+                [&](EResourceType CandidateType)
+                {
+                    if (!IsExportableResourceType(CandidateType))
+                        return;
+
+                    BestBias = (std::max)(
+                        BestBias,
+                        ComputeImportInputBiasPercent(
+                            CandidateType,
+                            ImportPolicy));
+                });
+
+            return BestBias == (std::numeric_limits<int>::min)() ?
+                0 :
+                BestBias;
+        }
+
         if (!IsExportableResourceType(InputType))
             return 0;
 
@@ -145,7 +179,12 @@ namespace TradePolicyRuntime
             Bias -= 8;
             break;
         case TradePolicy::EImportPolicyMode::SingleResource:
-            Bias += InputType == ImportPolicy.SelectedResourceType ? 10 : -6;
+            Bias +=
+                IsExactOrLegacyBundleImportSelectionMatch(
+                    ImportPolicy.SelectedResourceType,
+                    InputType) ?
+                10 :
+                -6;
             break;
         case TradePolicy::EImportPolicyMode::AllResources:
         default:
@@ -192,8 +231,7 @@ namespace TradePolicyRuntime
 
     inline int ComputeBuildingProductionBiasPercent(
         EResourceType ProducedType,
-        EResourceType InputTypeA,
-        EResourceType InputTypeB,
+        const std::array<EResourceType, GProductionInputSlotCount>& InputTypes,
         const TradePolicy::FExportTradePolicy& ExportPolicy,
         const TradePolicy::FImportTradePolicy& ImportPolicy)
     {
@@ -216,8 +254,13 @@ namespace TradePolicyRuntime
             ++InputCount;
         };
 
-        AccumulateInputBias(InputTypeA);
-        AccumulateInputBias(InputTypeB);
+        for (int SlotIndex = 0;
+            SlotIndex < GProductionInputSlotCount;
+            ++SlotIndex)
+        {
+            AccumulateInputBias(
+                InputTypes[static_cast<size_t>(SlotIndex)]);
+        }
 
         if (InputCount > 0)
         {
@@ -233,16 +276,14 @@ namespace TradePolicyRuntime
 
     inline float ComputeBuildingProductionMultiplier(
         EResourceType ProducedType,
-        EResourceType InputTypeA,
-        EResourceType InputTypeB,
+        const std::array<EResourceType, GProductionInputSlotCount>& InputTypes,
         const TradePolicy::FExportTradePolicy& ExportPolicy,
         const TradePolicy::FImportTradePolicy& ImportPolicy)
     {
         const int BiasPercent =
             ComputeBuildingProductionBiasPercent(
                 ProducedType,
-                InputTypeA,
-                InputTypeB,
+                InputTypes,
                 ExportPolicy,
                 ImportPolicy);
         const float Multiplier =

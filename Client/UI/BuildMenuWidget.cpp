@@ -3,6 +3,7 @@
 #include "BuildMenuRenderer.h"
 #include "AlmanacWidget.h"
 #include "EdictWidget.h"
+#include "../Building/BuildingCatalog.h"
 #include "../Map/PlacementController.h"
 #include "../ObjectNames.h"
 #include "World/World.h"

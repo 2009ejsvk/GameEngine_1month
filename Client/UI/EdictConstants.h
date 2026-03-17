@@ -1,6 +1,6 @@
 #pragma once
 
-#include "UILayoutConfig.h"
+#include "UILayoutValues.h"
 
 namespace EdictConstants
 {

@@ -1,6 +1,8 @@
 #pragma once
 
-#include "BuildingCatalog.h"
+#include "BuildingCatalogQuery.h"
+#include "BuildingCatalogFwd.h"
+#include "BuildingTypes.h"
 
 namespace BuildingCatalogData
 {

@@ -27,4 +27,6 @@ constexpr const char* GAlmanacWidgetName        = "AlmanacWidget";
 constexpr const char* GEdictWidgetName          = "EdictWidget";
 constexpr const char* GTradeWidgetName          = "TradeWidget";
 constexpr const char* GTopHudWidgetName         = "TopHudWidget";
+constexpr const char* GEventWidgetName          = "EventWidget";
+constexpr const char* GResultWidgetName         = "ResultWidget";
 constexpr const char* GCitizenInfoWidgetName    = "CitizenInfoWidget";

@@ -1,6 +1,7 @@
 #include "PoliticsSystem.h"
 #include "EdictSystem.h"
-#include "../Building/BuildingCatalog.h"
+#include "../GameBalanceTuning.h"
+#include "../Citizen/CitizenSatisfaction.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
 #include "World/World.h"
@@ -11,11 +12,47 @@
 
 namespace
 {
+    bool IsLowWealthCitizen(ECitizenWealthLevel WealthLevel)
+    {
+        return GetCitizenWealthRank(WealthLevel) <=
+            GetCitizenWealthRank(ECitizenWealthLevel::Poor);
+    }
+
+    bool IsAffluentCitizen(ECitizenWealthLevel WealthLevel)
+    {
+        return GetCitizenWealthRank(WealthLevel) >=
+            GetCitizenWealthRank(ECitizenWealthLevel::Rich);
+    }
+
     struct FPlacedPoliticalSignal
     {
         std::string        BuildingName;
         FPoliticalSignalDef Signal;
     };
+
+    float ClampSatisfactionValue(float Value)
+    {
+        return (std::max)(0.f, (std::min)(100.f, Value));
+    }
+
+    FNpcSatisfaction BuildPoliticalSatisfactionView(
+        const CBuildingMarkerOrb& Citizen,
+        const FConstitutionOptionEffect* ConstitutionEffects)
+    {
+        FNpcSatisfaction Result = Citizen.GetSatisfaction();
+
+        if (!ConstitutionEffects)
+            return Result;
+
+        Result.Freedom = ClampSatisfactionValue(
+            Result.Freedom +
+            static_cast<float>(ConstitutionEffects->LibertyModifier));
+        Result.Security = ClampSatisfactionValue(
+            Result.Security +
+            static_cast<float>(ConstitutionEffects->SecurityModifier));
+        CitizenSatisfaction::RecalculateOverall(Result);
+        return Result;
+    }
 
     float ClampSupportScore(float Value)
     {
@@ -51,38 +88,24 @@ namespace
     float ResolveWealthTaxSensitivity(
         const FCitizenIdentityProfile& Identity)
     {
-        switch (Identity.WealthLevel)
-        {
-        case ECitizenWealthLevel::Rich:
-            return 0.92f;
-        case ECitizenWealthLevel::WellOff:
-            return 1.00f;
-        default:
-            return 1.12f;
-        }
+        return GameBalanceTuning::Politics::GetWealthTier(
+            Identity.WealthLevel).TaxSensitivity;
     }
 
     float ResolveExpectedLivingStandard(
         const FCitizenIdentityProfile& Identity)
     {
-        switch (Identity.WealthLevel)
-        {
-        case ECitizenWealthLevel::Rich:
-            return 76.f;
-        case ECitizenWealthLevel::WellOff:
-            return 67.f;
-        default:
-            return 58.f;
-        }
+        return GameBalanceTuning::Politics::GetWealthTier(
+            Identity.WealthLevel).ExpectedLivingStandard;
     }
 
     float EvaluateFactionMembershipScore(
         const CBuildingMarkerOrb& Citizen,
+        const FNpcSatisfaction& Satisfaction,
         EPoliticalFaction Faction)
     {
         const FNpcPoliticalProfile& PoliticalProfile =
             Citizen.GetPoliticalProfile();
-        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
         const FCitizenIdentityProfile& Identity = Citizen.GetIdentityProfile();
         const bool HasHome = !Citizen.GetHomeBuilding().empty();
         const bool HasWork = !Citizen.GetWorkBuilding().empty();
@@ -104,9 +127,11 @@ namespace
         {
         case EPoliticalFaction::Communists:
             Score +=
+                Identity.WealthLevel == ECitizenWealthLevel::Broke ? 10.f :
                 Identity.WealthLevel == ECitizenWealthLevel::Poor ? 8.f :
                 Identity.WealthLevel == ECitizenWealthLevel::WellOff ? 3.f :
-                -4.f;
+                Identity.WealthLevel == ECitizenWealthLevel::Rich ? -4.f :
+                -7.f;
             Score += (std::max)(0.f, 60.f - Satisfaction.Housing) * 0.14f;
             Score += (std::max)(0.f, 58.f - Satisfaction.Job) * 0.12f;
             if (!HasHome)
@@ -116,9 +141,11 @@ namespace
             break;
         case EPoliticalFaction::Capitalists:
             Score +=
+                Identity.WealthLevel == ECitizenWealthLevel::FilthyRich ? 12.f :
                 Identity.WealthLevel == ECitizenWealthLevel::Rich ? 9.f :
                 Identity.WealthLevel == ECitizenWealthLevel::WellOff ? 4.f :
-                -3.f;
+                Identity.WealthLevel == ECitizenWealthLevel::Poor ? -3.f :
+                -5.f;
             Score += (std::max)(0.f, Satisfaction.Freedom - 52.f) * 0.10f;
             if (HasWork)
                 Score += 3.f;
@@ -166,7 +193,8 @@ namespace
     }
 
     EPoliticalFaction ResolvePrimaryFaction(
-        const CBuildingMarkerOrb& Citizen)
+        const CBuildingMarkerOrb& Citizen,
+        const FNpcSatisfaction& Satisfaction)
     {
         EPoliticalFaction BestFaction = EPoliticalFaction::Communists;
         float BestScore = -1.f;
@@ -178,7 +206,10 @@ namespace
             const EPoliticalFaction Candidate =
                 static_cast<EPoliticalFaction>(FactionIndex);
             const float CandidateScore =
-                EvaluateFactionMembershipScore(Citizen, Candidate);
+                EvaluateFactionMembershipScore(
+                    Citizen,
+                    Satisfaction,
+                    Candidate);
 
             if (FactionIndex == 0 || CandidateScore > BestScore)
             {
@@ -219,9 +250,9 @@ namespace
     float EvaluateFactionIssueScore(
         const CBuildingMarkerOrb& Citizen,
         const FGovernmentProfile& GovernmentProfile,
+        const FNpcSatisfaction& Satisfaction,
         EPoliticalFaction Faction)
     {
-        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
         const FCitizenIdentityProfile& Identity = Citizen.GetIdentityProfile();
         const bool IsWorker = !Citizen.GetWorkBuilding().empty();
         const bool IsResident = !Citizen.GetHomeBuilding().empty();
@@ -247,8 +278,10 @@ namespace
             Score -= (std::max)(0.f, TaxBurden) * 13.f;
             Score += (std::max)(0.f, -GovernmentProfile.WelfareBias) * 6.f;
             Score +=
+                Identity.WealthLevel == ECitizenWealthLevel::FilthyRich ? 6.f :
                 Identity.WealthLevel == ECitizenWealthLevel::Rich ? 4.f :
                 Identity.WealthLevel == ECitizenWealthLevel::Poor ? -2.f :
+                Identity.WealthLevel == ECitizenWealthLevel::Broke ? -4.f :
                 0.f;
             break;
         case EPoliticalFaction::Religious:
@@ -312,9 +345,9 @@ namespace
     }
 
     float CalculateLivingStandardAdjustment(
-        const CBuildingMarkerOrb& Citizen)
+        const CBuildingMarkerOrb& Citizen,
+        const FNpcSatisfaction& Satisfaction)
     {
-        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
         const float LivingAverage =
             Satisfaction.Food * 0.24f +
             Satisfaction.Housing * 0.24f +
@@ -342,9 +375,9 @@ namespace
     }
 
     float CalculateSecurityFreedomPressure(
-        const CBuildingMarkerOrb& Citizen)
+        const CBuildingMarkerOrb& Citizen,
+        const FNpcSatisfaction& Satisfaction)
     {
-        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
         const FNpcPoliticalProfile& PoliticalProfile =
             Citizen.GetPoliticalProfile();
         const FNpcPoliticalChoice& OrderChoice =
@@ -448,21 +481,21 @@ namespace
                 continue;
             }
 
-            const FBuildingCatalogEntry* Entry =
-                FindBuildingCatalogEntry(Building->GetBuildingId());
+            const std::vector<FPoliticalSignalDef>& PoliticalSignals =
+                Building->GetPoliticalSignals();
 
-            if (!Entry || Entry->PoliticalSignals.empty())
+            if (PoliticalSignals.empty())
                 continue;
 
             const float BuildingScale = Building->GetBudgetSatisfactionScale();
 
             for (size_t SignalIndex = 0;
-                SignalIndex < Entry->PoliticalSignals.size();
+                SignalIndex < PoliticalSignals.size();
                 ++SignalIndex)
             {
                 FPlacedPoliticalSignal PlacedSignal;
                 PlacedSignal.BuildingName = Building->GetName();
-                PlacedSignal.Signal = Entry->PoliticalSignals[SignalIndex];
+                PlacedSignal.Signal = PoliticalSignals[SignalIndex];
                 PlacedSignal.Signal.Strength *= BuildingScale;
                 Result.push_back(PlacedSignal);
             }
@@ -525,7 +558,9 @@ namespace
         Score -=
             PropertyTaxStress *
             (IsResident ?
-                (Identity.WealthLevel == ECitizenWealthLevel::Rich ?
+                (Identity.WealthLevel == ECitizenWealthLevel::FilthyRich ?
+                    6.6f :
+                Identity.WealthLevel == ECitizenWealthLevel::Rich ?
                     5.6f :
                     3.5f) :
                 0.8f);
@@ -644,11 +679,15 @@ namespace
         const CBuildingMarkerOrb& Citizen,
         const FGovernmentProfile& GovernmentProfile,
         const std::vector<FPlacedPoliticalSignal>& PlacedSignals,
-        const FTaxPolicyEventStatus* TaxEventStatus)
+        const FTaxPolicyEventStatus* TaxEventStatus,
+        const FConstitutionOptionEffect* ConstitutionEffects)
     {
         FCitizenPoliticalEvaluation Evaluation;
 
-        const FNpcSatisfaction& Satisfaction = Citizen.GetSatisfaction();
+        const FNpcSatisfaction Satisfaction =
+            BuildPoliticalSatisfactionView(
+                Citizen,
+                ConstitutionEffects);
         const FNpcPoliticalProfile& PoliticalProfile =
             Citizen.GetPoliticalProfile();
         const bool HasHome = !Citizen.GetHomeBuilding().empty();
@@ -674,9 +713,9 @@ namespace
             (Satisfaction.Overall - 50.f) * 0.68f;
 
         Evaluation.LifeScore +=
-            CalculateLivingStandardAdjustment(Citizen);
+            CalculateLivingStandardAdjustment(Citizen, Satisfaction);
         Evaluation.LifeScore +=
-            CalculateSecurityFreedomPressure(Citizen);
+            CalculateSecurityFreedomPressure(Citizen, Satisfaction);
         Evaluation.LifeScore -=
             CoreNeedPenalty + ServiceScarcityPenalty + CommutePenalty;
 
@@ -834,11 +873,18 @@ namespace
             Evaluation.ActionScore +
             Evaluation.FearScore);
 
-        Evaluation.PrimaryFaction = ResolvePrimaryFaction(Citizen);
+        Evaluation.PrimaryFaction =
+            ResolvePrimaryFaction(Citizen, Satisfaction);
         Evaluation.FactionAlignmentScore = EvaluateFactionAlignmentScore(
             Citizen,
             GovernmentProfile,
             Evaluation.PrimaryFaction);
+        const float ConstitutionFactionApprovalDelta =
+            ConstitutionEffects ?
+                static_cast<float>(
+                    ConstitutionEffects->FactionApprovalDeltas[
+                        static_cast<size_t>(Evaluation.PrimaryFaction)]) :
+                0.f;
         Evaluation.FactionApprovalScore = ClampSupportScore(
             Evaluation.TotalSupportScore * 0.72f +
             14.f +
@@ -846,12 +892,14 @@ namespace
             EvaluateFactionIssueScore(
                 Citizen,
                 GovernmentProfile,
+                Satisfaction,
                 Evaluation.PrimaryFaction) +
             static_cast<float>(
                 GovernmentProfile.FactionApprovalModifiers[
                     static_cast<size_t>(Evaluation.PrimaryFaction)] +
                 GovernmentProfile.EdictFactionApprovalModifiers[
-                    static_cast<size_t>(Evaluation.PrimaryFaction)]));
+                    static_cast<size_t>(Evaluation.PrimaryFaction)]) +
+            ConstitutionFactionApprovalDelta);
 
         if (Evaluation.TotalSupportScore >= 58.f)
             Evaluation.VoteIntent = EVoteIntent::Incumbent;
@@ -1188,7 +1236,8 @@ namespace PoliticsSystem
         CWorld* World,
         const CBuildingMarkerOrb& Citizen,
         const FGovernmentProfile& GovernmentProfile,
-        const FTaxPolicyEventStatus* TaxEventStatus)
+        const FTaxPolicyEventStatus* TaxEventStatus,
+        const FConstitutionOptionEffect* ConstitutionEffects)
     {
         const std::vector<FPlacedPoliticalSignal> PlacedSignals =
             CollectPlacedSignals(World);
@@ -1197,13 +1246,15 @@ namespace PoliticsSystem
             Citizen,
             GovernmentProfile,
             PlacedSignals,
-            TaxEventStatus);
+            TaxEventStatus,
+            ConstitutionEffects);
     }
 
     FPoliticalWorldSnapshot EvaluateWorld(
         CWorld* World,
         const FGovernmentProfile& GovernmentProfile,
-        const FTaxPolicyEventStatus* TaxEventStatus)
+        const FTaxPolicyEventStatus* TaxEventStatus,
+        const FConstitutionOptionEffect* ConstitutionEffects)
     {
         FPoliticalWorldSnapshot Snapshot;
 
@@ -1242,7 +1293,8 @@ namespace PoliticsSystem
                     *Orb,
                     GovernmentProfile,
                     PlacedSignals,
-                    TaxEventStatus);
+                    TaxEventStatus,
+                    ConstitutionEffects);
 
             ++Snapshot.ActiveCitizenCount;
             LifeScoreSum += Evaluation.LifeScore;

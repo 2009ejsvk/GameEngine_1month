@@ -8,13 +8,15 @@ void FEdictRenderer::ApplySnapshot(
     CEdictWidget& Widget,
     const EdictDataProvider::FEdictSnapshot& Snapshot)
 {
-    Widget.mSelectedCategory = Snapshot.Catalog.SelectedCategory;
-    Widget.mCurrentPage = Snapshot.Catalog.CurrentPage;
-    Widget.mPageCount = Snapshot.Catalog.PageCount;
-    Widget.mPreviewEntryIndex = Snapshot.Catalog.PreviewEntryIndex;
-    Widget.mSelectedEntryIndex = Snapshot.Catalog.SelectedEntryIndex;
-    Widget.mVisibleEntryIndices = Snapshot.Catalog.VisibleEntryIndices;
-    Widget.mShowTaxPolicyPanel = Snapshot.TaxPolicy.ShowPanel;
+    auto& State = Widget.GetMutableState();
+
+    State.SelectedCategory = Snapshot.Catalog.SelectedCategory;
+    State.CurrentPage = Snapshot.Catalog.CurrentPage;
+    State.PageCount = Snapshot.Catalog.PageCount;
+    State.PreviewEntryIndex = Snapshot.Catalog.PreviewEntryIndex;
+    State.SelectedEntryIndex = Snapshot.Catalog.SelectedEntryIndex;
+    State.VisibleEntryIndices = Snapshot.Catalog.VisibleEntryIndices;
+    State.ShowTaxPolicyPanel = Snapshot.TaxPolicy.ShowPanel;
 
     for (int i = 0; i < static_cast<int>(Widget.mCategoryButtons.size()); ++i)
     {
@@ -35,7 +37,7 @@ void FEdictRenderer::ApplySnapshot(
             GCategoryTabTextureHidden);
         ConfigureCategoryTabButtonStyle(CategoryButton, Selected);
         CategoryButton->ButtonEnable(
-            Widget.mOpen &&
+            State.Open &&
             i <= Snapshot.Catalog.MaxUnlockedCategoryIndex);
 
         if (CategoryIcon)
@@ -102,7 +104,7 @@ void FEdictRenderer::ApplySnapshot(
             const int EntryIndex = Slot.EntryIndex >= 0 ? Slot.EntryIndex : i;
 
             Button->ButtonEnable(true);
-            Button->SetEnable(Widget.mOpen);
+            Button->SetEnable(State.Open);
             ConfigureEdictSlotButtonVisual(
                 Button,
                 "EdictSlot_" + std::to_string(EntryIndex),
@@ -143,11 +145,11 @@ void FEdictRenderer::ApplySnapshot(
             StarRight->SetTexture(
                 "EdictSlotStarRightState_" + std::to_string(EntryIndex),
                 Slot.Active ? GStarFullTexture : GStarEmptyTexture);
-            StarLeft->SetEnable(Widget.mOpen);
-            StarRight->SetEnable(Widget.mOpen);
-            ButtonCheck->SetEnable(Widget.mOpen && Slot.Active);
-            ButtonIcon->SetEnable(Widget.mOpen);
-            ButtonText->SetEnable(Widget.mOpen);
+            StarLeft->SetEnable(State.Open);
+            StarRight->SetEnable(State.Open);
+            ButtonCheck->SetEnable(State.Open && Slot.Active);
+            ButtonIcon->SetEnable(State.Open);
+            ButtonText->SetEnable(State.Open);
         }
         else
         {

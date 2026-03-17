@@ -1,4 +1,5 @@
 #include "PlacementBuildingRoleResolver.h"
+#include "../Building/BuildingCatalogEntry.h"
 
 FPlacementBuildingRoleState ResolvePlacementBuildingRoleState(
     const FBuildingCatalogEntry& Entry)

@@ -1,7 +1,8 @@
 #include "TradeWidgetRuntime.h"
 #include "../Economy/ResourceTradePricing.h"
 #include "../Economy/TradeDiplomacyRuntime.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldTradeAccess.h"
+#include "../World/MainWorldUiReadAccess.h"
 #include "../World/MainWorldTradeRuntime.h"
 #include "../World/WorldStatsSnapshot.h"
 #include "World/World.h"
@@ -102,6 +103,8 @@ namespace
             return GetResourceMarketClass(Type) == EResourceMarketClass::LuxuryGoods;
         case ETradeFilterType::Minerals:
             return Type == EResourceType::Ore ||
+                IsMineOutputResourceType(Type) ||
+                Type == EResourceType::Goldnuts ||
                 Type == EResourceType::Oil ||
                 Type == EResourceType::Steel ||
                 Type == EResourceType::Jewelry;
@@ -118,13 +121,22 @@ namespace
                 Type == EResourceType::Fish ||
                 Type == EResourceType::Crops ||
                 Type == EResourceType::AnimalProducts ||
-                Type == EResourceType::Ore;
+                Type == EResourceType::Ore ||
+                Type == EResourceType::Goldnuts ||
+                Type == EResourceType::BS ||
+                IsCropOutputResourceType(Type) ||
+                IsAnimalOutputResourceType(Type) ||
+                IsMineOutputResourceType(Type);
         case ETradeFilterType::PlantationGoods:
             return Type == EResourceType::Coconuts ||
                 Type == EResourceType::Crops ||
+                Type == EResourceType::HydroponicProduce ||
+                Type == EResourceType::BS ||
+                IsCropOutputResourceType(Type) ||
                 Type == EResourceType::Rum ||
                 Type == EResourceType::Cigars ||
                 Type == EResourceType::Chocolate ||
+                Type == EResourceType::SpecialChocolate ||
                 Type == EResourceType::Juice;
         default:
             return true;
@@ -178,6 +190,7 @@ namespace
         int Score,
         int SimulationYear,
         int SimulationMonth,
+        EBuildingEra CurrentEra,
         const std::array<
             TradeDiplomacyRuntime::FForeignPowerWorldState,
             TradeDiplomacyRuntime::GForeignPowerCount>& ForeignPowers)
@@ -198,12 +211,19 @@ namespace
         Result.Score = Score;
 
         double BestScore = -1000000.0;
-        int BestPartner = 0;
+        int BestPartner = -1;
 
         for (int Index = 0;
             Index < TradeDiplomacyRuntime::GForeignPowerCount;
             ++Index)
         {
+            if (!TradeDiplomacyRuntime::IsForeignPowerActiveForEra(
+                    Index,
+                    CurrentEra))
+            {
+                continue;
+            }
+
             const auto& Partner = ForeignPowers[static_cast<size_t>(Index)];
             const double Weight = ResolvePartnerWeight(Result.MarketClass, Index);
             const double CandidateScore =
@@ -219,8 +239,13 @@ namespace
             }
         }
 
+        if (BestPartner < 0)
+            BestPartner = 0;
+
         Result.ForeignPowerIndex = BestPartner;
-        Result.PartnerName = MainWorldTradeRuntime::GetForeignPowerName(BestPartner);
+        Result.PartnerName = MainWorldTradeRuntime::GetForeignPowerName(
+            BestPartner,
+            CurrentEra);
 
         const auto& Partner = ForeignPowers[static_cast<size_t>(BestPartner)];
         Result.Relation = Partner.Relation;
@@ -280,7 +305,7 @@ namespace
                 static_cast<double>(StandardPricePerThousand) *
                 OfferMultiplier / 50.0)) * 50);
         const auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
         const int CustomsModifierPercent =
             TradeAccess ?
                 (ImportRoute ?
@@ -326,7 +351,9 @@ namespace
         const WorldStats::FWorldStatsSnapshot Snapshot =
             WorldStats::BuildSnapshot(World);
         const auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
+        const EBuildingEra CurrentEra =
+            TradeAccess ? TradeAccess->GetCurrentEra() : EBuildingEra::Modern;
         std::array<
             TradeDiplomacyRuntime::FForeignPowerWorldState,
             TradeDiplomacyRuntime::GForeignPowerCount> ForeignPowers = {};
@@ -343,6 +370,7 @@ namespace
                     GovernmentProfile,
                     TaxEventStatus,
                     GovernmentEdictStates,
+                    CurrentEra,
                     std::array<
                         TradeDiplomacyRuntime::FForeignPowerStandingState,
                         TradeDiplomacyRuntime::GForeignPowerCount>());
@@ -364,6 +392,10 @@ namespace
         {
             const EResourceType ResourceType =
                 static_cast<EResourceType>(ResourceIndex);
+
+            if (!IsImmediateProductionScopeResourceType(ResourceType))
+                continue;
+
             const auto& ResourceSnapshot =
                 Snapshot.ResourceTypes[static_cast<size_t>(ResourceType)];
             const int ExportableUnits = RoundDownToThousand(
@@ -431,6 +463,7 @@ namespace
                     ExportMetrics[Index].Score,
                     SimulationYear,
                     SimulationMonth,
+                    CurrentEra,
                     ForeignPowers));
         }
 
@@ -445,6 +478,7 @@ namespace
                     ImportMetrics[Index].Score,
                     SimulationYear,
                     SimulationMonth,
+                    CurrentEra,
                     ForeignPowers));
         }
 
@@ -460,12 +494,13 @@ namespace
             return Result;
 
         auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
 
         if (!TradeAccess)
             return Result;
 
         const auto& Routes = TradeAccess->GetActiveTradeRoutes();
+        const EBuildingEra CurrentEra = TradeAccess->GetCurrentEra();
         Result.reserve(Routes.size());
 
         for (size_t Index = 0; Index < Routes.size(); ++Index)
@@ -490,7 +525,9 @@ namespace
                     ResourceTradePricing::GetExportPricePerStockUnit(
                         Route.ResourceType)) * 1000);
             View.PartnerName =
-                MainWorldTradeRuntime::GetForeignPowerName(Route.ForeignPowerIndex);
+                MainWorldTradeRuntime::GetForeignPowerName(
+                    Route.ForeignPowerIndex,
+                    CurrentEra);
             View.CategoryName =
                 GetResourceMarketClassDisplayName(View.MarketClass);
 
@@ -536,12 +573,13 @@ namespace
             return Result;
 
         auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
 
         if (!TradeAccess)
             return Result;
 
         const auto& Records = TradeAccess->GetCompletedTradeRoutes();
+        const EBuildingEra CurrentEra = TradeAccess->GetCurrentEra();
         Result.reserve(Records.size());
 
         for (size_t Index = 0; Index < Records.size(); ++Index)
@@ -564,7 +602,9 @@ namespace
             View.SecondaryRelationModifier = Record.SecondaryRelationModifier;
             View.StandingModifier = Record.StandingModifier;
             View.PartnerName =
-                MainWorldTradeRuntime::GetForeignPowerName(Record.ForeignPowerIndex);
+                MainWorldTradeRuntime::GetForeignPowerName(
+                    Record.ForeignPowerIndex,
+                    CurrentEra);
             View.CategoryName =
                 GetResourceMarketClassDisplayName(Record.MarketClass);
             Result.push_back(std::move(View));
@@ -596,6 +636,9 @@ namespace
         {
             const EResourceType ResourceType =
                 static_cast<EResourceType>(ResourceIndex);
+
+            if (!IsImmediateProductionScopeResourceType(ResourceType))
+                continue;
 
             if (!MatchesFilter(FilterType, ResourceType))
                 continue;
@@ -746,7 +789,7 @@ namespace
         Snapshot.GeneralExportTotalPercent = GlobalExportModifierPercent;
 
         auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
 
         if (TradeAccess)
         {
@@ -851,6 +894,10 @@ namespace
         {
             const EResourceType ResourceType =
                 static_cast<EResourceType>(ResourceIndex);
+
+            if (!IsImmediateProductionScopeResourceType(ResourceType))
+                continue;
+
             const int DiplomacyPercent =
                 ResourceTradePricing::GetDiplomacyExportBiasPercent(ResourceType);
             const int EdictPercent =
@@ -1129,8 +1176,8 @@ namespace TradeWidgetRuntime
                 L"상품 및 가격" :
                 L"무역로 제안";
 
-        auto ReadAccess = std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World);
-        auto HudAccess = std::dynamic_pointer_cast<IMainWorldHudAccess>(World);
+        auto ReadAccess = ResolveMainWorldAlmanacAccess(World);
+        auto HudAccess = ResolveMainWorldHudAccess(World);
 
         if (!ReadAccess || !HudAccess)
             return Snapshot;
@@ -1330,7 +1377,7 @@ namespace TradeWidgetRuntime
             Result.TitleText = GetResourceTypeDisplayName(SelectedPrice.ResourceType);
 
             auto TradeAccess =
-                std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+                ResolveMainWorldTradeAccess(World);
 
             if (TradeAccess)
             {
@@ -1349,9 +1396,9 @@ namespace TradeWidgetRuntime
             }
 
             auto ReadAccess =
-                std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World);
+                ResolveMainWorldAlmanacAccess(World);
             auto HudAccess =
-                std::dynamic_pointer_cast<IMainWorldHudAccess>(World);
+                ResolveMainWorldHudAccess(World);
 
             if (ReadAccess && HudAccess)
             {

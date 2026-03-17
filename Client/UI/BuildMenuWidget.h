@@ -1,8 +1,7 @@
 #pragma once
 
 #include "UI/WidgetContainer.h"
-#include "../Map/PlacementAreaObject.h"
-#include "../Building/BuildingCatalog.h"
+#include "../Building/BuildingTypes.h"
 #include <string>
 #include <vector>
 

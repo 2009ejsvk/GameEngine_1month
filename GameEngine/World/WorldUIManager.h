@@ -20,6 +20,12 @@ private:
 	std::weak_ptr<CWidget>		mHoveredWidget;
 	std::weak_ptr<CWidget>		mDragWidget;
 	std::shared_ptr<CWidget>		mDragOperatorWidget;
+    std::shared_ptr<class CTextBlock> mInspectorText;
+    bool mInspectorPinned = false;
+    bool mInspectorToggleKeyDown = false;
+    bool mInspectorCopyKeyDown = false;
+    std::string mInspectorStatusText;
+    ULONGLONG mInspectorStatusExpireTick = 0;
 
 public:
 	bool Init();
@@ -34,9 +40,19 @@ public:
         return mWidgetList;
     }
 
+    std::weak_ptr<CWidget> GetHoveredWidget() const
+    {
+        return mHoveredWidget;
+    }
+
+    std::string BuildWidgetPath(const std::shared_ptr<CWidget>& Widget) const;
+
 private:
 	static bool SortRender(const std::shared_ptr<CWidgetContainer>& Src, const std::shared_ptr<CWidgetContainer>& Dest);
 	static bool SortCollision(const std::shared_ptr<CWidgetContainer>& Src, const std::shared_ptr<CWidgetContainer>& Dest);
+    void EnsureInspectorWidget();
+    void UpdateInspectorToggleState();
+    void RenderInspector();
 
 public:
 	template <typename T>

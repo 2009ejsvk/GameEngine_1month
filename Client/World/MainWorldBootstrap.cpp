@@ -4,15 +4,21 @@
 #include "RoadNetwork.h"
 #include "RuntimeConfigRegistry.h"
 #include "../GameConstants.h"
+#include "../GameBalanceTuning.h"
 #include "../ObjectNames.h"
 #include "Asset/AssetManager.h"
-#include "../UI/UILayoutConfig.h"
+#include "../UI/UILayoutLoader.h"
 #include "../UI/AlmanacPageData.h"
+#include "../UI/TropicoUiAssetCatalog.h"
+#include "../UI/TropicoUiTheme.h"
+#include "../UI/EventWidget.h"
+#include "../UI/ResultWidget.h"
 #include "../UI/TopHudWidget.h"
 #include "../UI/TradeWidget.h"
 #include "../UI/BuildMenuWidget.h"
 #include "../UI/AlmanacWidget.h"
 #include "../UI/EdictWidget.h"
+#include "WorldStatsSnapshot.h"
 #include "../Building/BuildingCatalog.h"
 #include "../Economy/ResourceTradePricing.h"
 #include "World/WorldUIManager.h"
@@ -267,92 +273,90 @@ namespace
     }
 }
 
-CMainWorld::CMainWorld()
-{
-    mElectionService.reset(new CMainWorldElectionService());
-    mPoliticalDemandService.reset(new CMainWorldPoliticalDemandService());
-    mWorldCrisisService.reset(new CMainWorldWorldCrisisService());
-}
-
-CMainWorld::~CMainWorld()
-{
-}
-
 void CMainWorld::RebuildRoadNetwork()
 {
-    if (!mRoadNetwork)
-        mRoadNetwork = std::make_shared<CRoadNetwork>();
+    if (!mInfrastructure.RoadNetwork)
+        mInfrastructure.RoadNetwork = std::make_shared<CRoadNetwork>();
 
     auto TileMapObj = FindObject<CTileMapObject>(GTileMapObjectName).lock();
 
     if (!TileMapObj)
     {
-        mRoadNetwork->Rebuild(std::shared_ptr<CTileMapComponent>());
+        mInfrastructure.RoadNetwork->Rebuild(std::shared_ptr<CTileMapComponent>());
         return;
     }
 
-    mRoadNetwork->Rebuild(TileMapObj->GetTileMap().lock());
+    mInfrastructure.RoadNetwork->Rebuild(TileMapObj->GetTileMap().lock());
     RebuildBusRoutes();
 }
 
 void CMainWorld::RebuildBusRoutes()
 {
-    if (!mBusRouteSystem)
-        mBusRouteSystem = std::make_shared<CBusRouteSystem>();
+    if (!mInfrastructure.BusRouteSystem)
+        mInfrastructure.BusRouteSystem = std::make_shared<CBusRouteSystem>();
 
-    mBusRouteSystem->Rebuild(mSelf.lock(), mRoadNetwork.get());
+    mInfrastructure.BusRouteSystem->Rebuild(mSelf.lock(), mInfrastructure.RoadNetwork.get());
 }
 
 void CMainWorld::ResetWorldState()
 {
-    mSpawnedNpcCount = 0;
-    mNpcSpawnAccum = 0.f;
-    mCitizenReassignAccum = 0.f;
-    mNationalBudget = MainWorldConfig::GInitialNationalBudget;
-    mLastDailyWageCost = 0;
-    mLastDailyUpkeepCost = 0;
-    mLastDailyExportIncome = 0;
-    mLastDailyTaxIncome = 0;
-    mLastDailyConsumptionTaxIncome = 0;
-    mLastDailyIncomeTaxIncome = 0;
-    mLastDailyPropertyTaxIncome = 0;
-    mLastDailyEdictCost = 0;
-    mLastDailyImportExpense = 0;
-    mLastDailyNetChange = 0;
-    mLastDailyTaxCollectionEfficiency = 0.0;
-    mSimulationYear = MainWorldConfig::GSimulationStartYear;
-    mSimulationMonth = MainWorldConfig::GSimulationStartMonth;
-    mSimulationDay = MainWorldConfig::GSimulationStartDay;
-    mDayProgressAccum = 0.f;
-    mSecondsPerSimulationDay = MainWorldConfig::GSecondsPerSimulationDay;
-    mSimulationPaused = false;
-    mSimulationSpeedMultiplier = 1;
-    mPoliticalSnapshotAccum = 0.f;
-    mWorkerTaxPressureDays = 0;
-    mPropertyTaxPressureDays = 0;
-    mBudgetCrisisPressureDays = 0;
-    PoliticsSystem::SetDefaultGovernmentProfile(mGovernmentProfile);
-    mPoliticalSnapshot = FPoliticalWorldSnapshot();
-    if (!mElectionService)
-        mElectionService.reset(new CMainWorldElectionService());
-    mElectionService->Reset();
-    mTaxEventStatus = FTaxPolicyEventStatus();
-    mEraProgress = FEraProgressState();
-    EdictSystem::InitializeGovernmentEdictStates(mGovernmentEdicts);
-    mEdictModifiers = FGovernmentEdictModifiers();
+    mPopulation.SpawnedNpcCount = 0;
+    mPopulation.NpcSpawnAccum = 0.f;
+    mPopulation.CitizenReassignAccum = 0.f;
+    mBudget.NationalBudget = MainWorldConfig::GInitialNationalBudget;
+    mBudget.LastDailyWageCost = 0;
+    mBudget.LastDailyUpkeepCost = 0;
+    mBudget.LastDailyExportIncome = 0;
+    mBudget.LastDailyTaxIncome = 0;
+    mBudget.LastDailyConsumptionTaxIncome = 0;
+    mBudget.LastDailyIncomeTaxIncome = 0;
+    mBudget.LastDailyPropertyTaxIncome = 0;
+    mBudget.LastDailyEdictCost = 0;
+    mBudget.LastDailyImportExpense = 0;
+    mBudget.LastDailyNetChange = 0;
+    mBudget.LastDailyTaxCollectionEfficiency = 0.0;
+    mSimulation.Year = MainWorldConfig::GSimulationStartYear;
+    mSimulation.Month = MainWorldConfig::GSimulationStartMonth;
+    mSimulation.Day = MainWorldConfig::GSimulationStartDay;
+    mSimulation.DayProgressAccum = 0.f;
+    mSimulation.SecondsPerSimulationDay = MainWorldConfig::GSecondsPerSimulationDay;
+    mSimulation.Paused = false;
+    mSimulation.SpeedMultiplier = 1;
+    mSimulation.PoliticalSnapshotAccum = 0.f;
+    mResultRuntime.TermStartYear = mSimulation.Year;
+    mResultRuntime.TermStartMonth = mSimulation.Month;
+    mResultRuntime.TermStartDay = mSimulation.Day;
+    mResultRuntime.InitialBuildingCount = 0;
+    mResultRuntime.PeakSupportPercent = 0.0;
+    mResultRuntime.ResultShown = false;
+    mPolicy.WorkerTaxPressureDays = 0;
+    mPolicy.PropertyTaxPressureDays = 0;
+    mPolicy.BudgetCrisisPressureDays = 0;
+    PoliticsSystem::SetDefaultGovernmentProfile(mPolicy.GovernmentProfile);
+    mPolicy.PoliticalSnapshot = FPoliticalWorldSnapshot();
+    if (!mServices.ElectionService)
+        mServices.ElectionService.reset(new CMainWorldElectionService());
+    mServices.ElectionService->Reset();
+    mPolicy.TaxEventStatus = FTaxPolicyEventStatus();
+    mPolicy.EraProgress = FEraProgressState();
+    mPolicy.EraTransition = FEraTransitionState();
+    mPolicy.KnowledgeState.Reset();
+    EdictSystem::InitializeGovernmentEdictStates(mPolicy.GovernmentEdicts);
+    mPolicy.EdictModifiers = FGovernmentEdictModifiers();
     mTradeDiplomacyState.ActiveTradeRoutes.clear();
     mTradeDiplomacyState.CompletedTradeRoutes.clear();
     mTradeDiplomacyState.ForeignPowerStandingStates = {};
     mTradeDiplomacyState.ForeignPowerStates = {};
-    if (!mPoliticalDemandService)
-        mPoliticalDemandService.reset(new CMainWorldPoliticalDemandService());
-    mPoliticalDemandService->Reset();
-    if (!mWorldCrisisService)
-        mWorldCrisisService.reset(new CMainWorldWorldCrisisService());
-    mWorldCrisisService->Reset();
+    if (!mServices.PoliticalDemandService)
+        mServices.PoliticalDemandService.reset(new CMainWorldPoliticalDemandService());
+    mServices.PoliticalDemandService->Reset();
+    if (!mServices.WorldCrisisService)
+        mServices.WorldCrisisService.reset(new CMainWorldWorldCrisisService());
+    mServices.WorldCrisisService->Reset();
     mTradeDiplomacyState.NextTradeRouteId = 1;
     mTradeDiplomacyState.NextTradeRouteCompletionRecordId = 1;
     mTradeDiplomacyState.TradeRouteCompletionNotificationVersion = 0;
+    mScenarioElectionPromptPending = false;
     ResourceTradePricing::ResetWorldMarketPriceState();
 }
 
@@ -363,9 +367,12 @@ bool CMainWorld::Init()
     CRenderManager::GetInst()->SetDebugTarget(false);
     RuntimeConfigRegistry::Reset();
     GameConstants::RegisterRuntimeConfig();
+    GameBalanceTuning::RegisterRuntimeConfig();
     RegisterRuntimeConfig();
     EdictSystem::RegisterRuntimeConfig();
-    UIConfig::RegisterRuntimeConfig();
+    UILayoutLoader::RegisterRuntimeConfig();
+    TropicoUiAssets::RegisterRuntimeConfig();
+    TropicoUiTheme::RegisterRuntimeConfig();
     AlmanacPageData::RegisterRuntimeConfig();
     mLastGameConstantsGeneration =
         GameConstants::GetRuntimeConfigGeneration();
@@ -452,8 +459,8 @@ bool CMainWorld::Init()
     CreateStarterBuilding(
         *this,
         TileMapObj,
-        MainWorldConfig::GStarterRanchObjectName,
-        "build_2_6",
+        MainWorldConfig::GStarterAlfalfaFarmObjectName,
+        "build_2_4",
         12,
         9);
     CreateStarterBuilding(
@@ -466,9 +473,16 @@ bool CMainWorld::Init()
     CreateStarterBuilding(
         *this,
         TileMapObj,
-        MainWorldConfig::GStarterDormitoryObjectName,
-        "build_4_3",
-        0,
+        MainWorldConfig::GStarterTenementAObjectName,
+        "build_4_8",
+        -4,
+        0);
+    CreateStarterBuilding(
+        *this,
+        TileMapObj,
+        MainWorldConfig::GStarterTenementBObjectName,
+        "build_4_8",
+        4,
         0);
     CreateStarterBuilding(
         *this,
@@ -495,8 +509,33 @@ bool CMainWorld::Init()
     RefreshEdictModifiers();
     RefreshForeignTradeDiplomacy(false);
     RefreshWorldMarketPrices();
+    InitializeResultTracking();
+    mScenarioRunner.Init();
 
     return true;
+}
+
+void CMainWorld::InitializeResultTracking()
+{
+    mResultRuntime.TermStartYear = mSimulation.Year;
+    mResultRuntime.TermStartMonth = mSimulation.Month;
+    mResultRuntime.TermStartDay = mSimulation.Day;
+    mResultRuntime.ResultShown = false;
+    mResultRuntime.PeakSupportPercent =
+        (std::max)(0.0, mPolicy.PoliticalSnapshot.AverageSupportScore);
+
+    const std::shared_ptr<CWorld> World = mSelf.lock();
+
+    if (!World)
+    {
+        mResultRuntime.InitialBuildingCount = 0;
+        return;
+    }
+
+    const WorldStats::FWorldStatsSnapshot Snapshot =
+        WorldStats::BuildSnapshot(World);
+    mResultRuntime.InitialBuildingCount =
+        (std::max)(0, Snapshot.TotalBuildingCount);
 }
 
 void CMainWorld::LoadCitizenAnimation2D()
@@ -693,6 +732,10 @@ void CMainWorld::CreateUI()
 {
     mUIManager->CreateWidget<CTopHudWidget>(
         GTopHudWidgetName, 250);
+    mUIManager->CreateWidget<CEventWidget>(
+        GEventWidgetName, 400);
+    mUIManager->CreateWidget<CResultWidget>(
+        GResultWidgetName, 450);
     mUIManager->CreateWidget<CEdictWidget>(
         GEdictWidgetName, 280);
     mUIManager->CreateWidget<CBuildMenuWidget>(
@@ -702,3 +745,4 @@ void CMainWorld::CreateUI()
     mUIManager->CreateWidget<CAlmanacWidget>(
         GAlmanacWidgetName, 320);
 }
+

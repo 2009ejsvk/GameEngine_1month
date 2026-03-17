@@ -2,7 +2,7 @@
 #include "../Map/BuildingMarkerOrb.h"
 #include "../UI/AlmanacDataProvider.h"
 #include "../UI/AlmanacQueryService.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldUiReadAccess.h"
 #include "World/World.h"
 #include <vector>
 
@@ -38,7 +38,7 @@ namespace
             const std::shared_ptr<CWorld>& World)
             : mWorld(World)
             , mBuildMenuAccess(
-                std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World))
+                ResolveMainWorldBuildMenuAccess(World))
             , mAlmanacQuerySource(
                 AlmanacQueryService::CreateWorldQuerySource(World))
         {

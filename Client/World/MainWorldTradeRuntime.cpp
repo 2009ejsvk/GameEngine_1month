@@ -1,5 +1,6 @@
 #include "MainWorldTradeRuntime.h"
 #include "World/World.h"
+#include "../Building/BuildingCatalog.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Economy/ResourceTradePricing.h"
 #include <algorithm>
@@ -24,24 +25,9 @@ namespace
 
 namespace MainWorldTradeRuntime
 {
-    const wchar_t* GetForeignPowerName(int Index)
+    const wchar_t* GetForeignPowerName(int Index, EBuildingEra Era)
     {
-        static const wchar_t* Names[TradeDiplomacyRuntime::GForeignPowerCount] =
-        {
-            L"중국",
-            L"러시아",
-            L"미국",
-            L"중동",
-            L"유럽연합"
-        };
-
-        if (Index < 0 ||
-            Index >= TradeDiplomacyRuntime::GForeignPowerCount)
-        {
-            return L"해외";
-        }
-
-        return Names[Index];
+        return TradeDiplomacyRuntime::GetForeignPowerName(Index, Era);
     }
 
     std::wstring FormatCurrency(long long Value)

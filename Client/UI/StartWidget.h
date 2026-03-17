@@ -20,7 +20,7 @@ public:
 
 private:
     void StartClick();
-    void EditorClick();
+    void SecondButtonClick();
     void ExitClick();
 };
 

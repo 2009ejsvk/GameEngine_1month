@@ -11,6 +11,7 @@ public:
 
 public:
 	virtual bool Init();
+    virtual void Update(float DeltaTime) override;
     virtual void OnUiManagerUpdated() override;
 
 private:

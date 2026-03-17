@@ -4,33 +4,34 @@
 
 void CMainWorld::TickCitizenPopulation(float DeltaTime)
 {
-    mCitizenReassignAccum += DeltaTime;
+    mPopulation.CitizenReassignAccum += DeltaTime;
 
-    while (mCitizenReassignAccum >= MainWorldConfig::GCitizenReassignInterval)
+    while (mPopulation.CitizenReassignAccum >= MainWorldConfig::GCitizenReassignInterval)
     {
-        mCitizenReassignAccum -= MainWorldConfig::GCitizenReassignInterval;
+        mPopulation.CitizenReassignAccum -= MainWorldConfig::GCitizenReassignInterval;
         ReassignCitizenNeeds();
     }
 
-    if (mSpawnedNpcCount >= MainWorldConfig::GMaxNpcCount)
+    if (mPopulation.SpawnedNpcCount >= MainWorldConfig::GMaxNpcCount)
         return;
 
-    mNpcSpawnAccum += DeltaTime;
+    mPopulation.NpcSpawnAccum += DeltaTime;
 
-    while (mNpcSpawnAccum >= MainWorldConfig::GNpcSpawnInterval &&
-        mSpawnedNpcCount < MainWorldConfig::GMaxNpcCount)
+    while (mPopulation.NpcSpawnAccum >= MainWorldConfig::GNpcSpawnInterval &&
+        mPopulation.SpawnedNpcCount < MainWorldConfig::GMaxNpcCount)
     {
-        mNpcSpawnAccum -= MainWorldConfig::GNpcSpawnInterval;
+        mPopulation.NpcSpawnAccum -= MainWorldConfig::GNpcSpawnInterval;
         SpawnCitizenOrb();
     }
 }
 
 void CMainWorld::SpawnCitizenOrb()
 {
-    CitizenSystem::SpawnCitizenOrb(this, mSpawnedNpcCount);
+    CitizenSystem::SpawnCitizenOrb(this, mPopulation.SpawnedNpcCount);
 }
 
 void CMainWorld::ReassignCitizenNeeds()
 {
     CitizenSystem::ReassignCitizenNeeds(this);
 }
+

@@ -6,6 +6,7 @@
 #include "../ObjectNames.h"
 #include "../Player/MainCamera.h"
 #include "../World/GovernmentCommandService.h"
+#include "MainWorldBuildingControlAccess.h"
 #include "World/World.h"
 
 namespace
@@ -100,6 +101,17 @@ namespace
 
             if (!Building)
                 return false;
+
+            if (Tab == EBuildingInfoTab::Statistics &&
+                Building->GetDamageLevel() != EBuildingDamageLevel::None)
+            {
+                const auto BuildingConditionAccess =
+                    ResolveBuildingConditionAccess();
+                return BuildingConditionAccess &&
+                    BuildingConditionAccess->TryRepairBuilding(
+                        BuildingName,
+                        OutMessage);
+            }
 
             if (!Building->IsHarbor())
             {
@@ -203,7 +215,14 @@ namespace
         std::shared_ptr<IGovernmentCommandService> ResolveCommandService() const
         {
             auto World = mWorld.lock();
-            return std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+            return ResolveGovernmentCommandService(World);
+        }
+
+        std::shared_ptr<IMainWorldBuildingConditionAccess>
+            ResolveBuildingConditionAccess() const
+        {
+            auto World = mWorld.lock();
+            return ResolveMainWorldBuildingConditionAccess(World);
         }
 
         std::shared_ptr<CMainCamera> ResolveMainCamera() const

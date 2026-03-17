@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Building/BuildingTypes.h"
+#include "../Citizen/CitizenTypes.h"
 #include <memory>
 #include <vector>
 
@@ -12,6 +13,7 @@ namespace EconomyWorldAccess
     {
         float Security = 0.f;
         float Overall = 0.f;
+        ECitizenWealthLevel WealthLevel = ECitizenWealthLevel::Poor;
         bool HasWorkBuilding = false;
         bool HasHomeBuilding = false;
     };
@@ -30,11 +32,21 @@ namespace EconomyWorldAccess
         virtual bool IsResidential() const = 0;
         virtual bool CanExportStoredResources() const = 0;
         virtual int GetAvailableResourceStock(EResourceType Type) const = 0;
+        virtual int GetAvailableIncomingCapacity(EResourceType Type) const = 0;
         virtual EResourceType GetVisitConsumptionResourceType() const = 0;
+        virtual std::vector<EResourceType>
+            GetRuntimeVisitConsumptionAcceptedResourceTypes() const = 0;
         virtual EResourceType GetProducedResourceType() const = 0;
         virtual int GetResourceStock(EResourceType Type) const = 0;
+        virtual int GetVisitConsumptionCompatibleResourceStock(
+            EResourceType DemandType) const = 0;
         virtual int GetReservedIncomingResourceAmount(
             EResourceType Type) const = 0;
+        virtual int GetVisitConsumptionCompatibleReservedIncomingResourceAmount(
+            EResourceType DemandType) const = 0;
+        virtual bool GetPlacedCenterGridCoords(
+            int& OutGridX,
+            int& OutGridY) const = 0;
         virtual int GetProductionInputCount() const = 0;
         virtual EResourceType GetProductionInputType(int SlotIndex) const = 0;
         virtual int GetTeamsterCargoLossPercent() const = 0;

@@ -2,7 +2,8 @@
 #include "TradeWidgetRuntime.h"
 #include "TropicoUiStyle.h"
 #include "../World/GovernmentCommandService.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldTradeAccess.h"
+#include "../World/MainWorldUiReadAccess.h"
 #include "Device.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -147,6 +148,7 @@ namespace
         int Score,
         int SimulationYear,
         int SimulationMonth,
+        EBuildingEra CurrentEra,
         const std::array<
             TradeDiplomacyRuntime::FForeignPowerWorldState,
             TradeDiplomacyRuntime::GForeignPowerCount>& ForeignPowers)
@@ -167,12 +169,19 @@ namespace
         Result.Score = Score;
 
         double BestScore = -1000000.0;
-        int BestPartner = 0;
+        int BestPartner = -1;
 
         for (int Index = 0;
             Index < TradeDiplomacyRuntime::GForeignPowerCount;
             ++Index)
         {
+            if (!TradeDiplomacyRuntime::IsForeignPowerActiveForEra(
+                    Index,
+                    CurrentEra))
+            {
+                continue;
+            }
+
             const auto& Partner = ForeignPowers[static_cast<size_t>(Index)];
             const double Weight = ResolvePartnerWeight(Result.MarketClass, Index);
             const double CandidateScore =
@@ -188,8 +197,12 @@ namespace
             }
         }
 
+        if (BestPartner < 0)
+            BestPartner = 0;
+
         Result.ForeignPowerIndex = BestPartner;
-        Result.PartnerName = GetForeignPowerName(BestPartner);
+        Result.PartnerName =
+            TradeDiplomacyRuntime::GetForeignPowerName(BestPartner, CurrentEra);
 
         const auto& Partner = ForeignPowers[static_cast<size_t>(BestPartner)];
         Result.Relation = Partner.Relation;
@@ -249,7 +262,7 @@ namespace
                 static_cast<double>(StandardPricePerThousand) *
                 OfferMultiplier / 50.0)) * 50);
         const auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
         const int CustomsModifierPercent =
             TradeAccess ?
                 (ImportRoute ?
@@ -295,7 +308,9 @@ namespace
         const WorldStats::FWorldStatsSnapshot Snapshot =
             WorldStats::BuildSnapshot(World);
         const auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
+        const EBuildingEra CurrentEra =
+            TradeAccess ? TradeAccess->GetCurrentEra() : EBuildingEra::Modern;
         std::array<
             TradeDiplomacyRuntime::FForeignPowerWorldState,
             TradeDiplomacyRuntime::GForeignPowerCount> ForeignPowers = {};
@@ -312,6 +327,7 @@ namespace
                     GovernmentProfile,
                     TaxEventStatus,
                     GovernmentEdictStates,
+                    CurrentEra,
                     std::array<
                         TradeDiplomacyRuntime::FForeignPowerStandingState,
                         TradeDiplomacyRuntime::GForeignPowerCount>());
@@ -400,6 +416,7 @@ namespace
                     ExportMetrics[Index].Score,
                     SimulationYear,
                     SimulationMonth,
+                    CurrentEra,
                     ForeignPowers));
         }
 
@@ -414,6 +431,7 @@ namespace
                     ImportMetrics[Index].Score,
                     SimulationYear,
                     SimulationMonth,
+                    CurrentEra,
                     ForeignPowers));
         }
 
@@ -429,12 +447,13 @@ namespace
             return Result;
 
         auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
 
         if (!TradeAccess)
             return Result;
 
         const auto& Routes = TradeAccess->GetActiveTradeRoutes();
+        const EBuildingEra CurrentEra = TradeAccess->GetCurrentEra();
         Result.reserve(Routes.size());
 
         for (size_t Index = 0; Index < Routes.size(); ++Index)
@@ -458,7 +477,9 @@ namespace
                         Route.ResourceType) :
                     ResourceTradePricing::GetExportPricePerStockUnit(
                         Route.ResourceType)) * 1000);
-            View.PartnerName = GetForeignPowerName(Route.ForeignPowerIndex);
+            View.PartnerName = TradeDiplomacyRuntime::GetForeignPowerName(
+                Route.ForeignPowerIndex,
+                CurrentEra);
             View.CategoryName =
                 GetResourceMarketClassDisplayName(View.MarketClass);
 
@@ -505,12 +526,13 @@ namespace
             return Result;
 
         auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
 
         if (!TradeAccess)
             return Result;
 
         const auto& Records = TradeAccess->GetCompletedTradeRoutes();
+        const EBuildingEra CurrentEra = TradeAccess->GetCurrentEra();
         Result.reserve(Records.size());
 
         for (size_t Index = 0; Index < Records.size(); ++Index)
@@ -532,7 +554,9 @@ namespace
             View.CompletionRewardModifier = Record.CompletionRewardModifier;
             View.SecondaryRelationModifier = Record.SecondaryRelationModifier;
             View.StandingModifier = Record.StandingModifier;
-            View.PartnerName = GetForeignPowerName(Record.ForeignPowerIndex);
+            View.PartnerName = TradeDiplomacyRuntime::GetForeignPowerName(
+                Record.ForeignPowerIndex,
+                CurrentEra);
             View.CategoryName =
                 GetResourceMarketClassDisplayName(Record.MarketClass);
             Result.push_back(std::move(View));
@@ -729,7 +753,7 @@ namespace
         Snapshot.GeneralExportTotalPercent = GlobalExportModifierPercent;
 
         auto TradeAccess =
-            std::dynamic_pointer_cast<IMainWorldTradeAccess>(World);
+            ResolveMainWorldTradeAccess(World);
 
         if (TradeAccess)
         {
@@ -977,8 +1001,8 @@ namespace
                 L"상품 및 가격" :
                 L"무역로 제안";
 
-        auto ReadAccess = std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World);
-        auto HudAccess = std::dynamic_pointer_cast<IMainWorldHudAccess>(World);
+        auto ReadAccess = ResolveMainWorldAlmanacAccess(World);
+        auto HudAccess = ResolveMainWorldHudAccess(World);
 
         if (!ReadAccess || !HudAccess)
             return Snapshot;

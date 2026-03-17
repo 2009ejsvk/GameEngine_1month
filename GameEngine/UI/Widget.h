@@ -228,6 +228,11 @@ public:
         return mName;
     }
 
+    std::weak_ptr<CWidget> GetParent() const
+    {
+        return mParent;
+    }
+
     const FVector4& GetWidgetColor()    const
     {
         return mWidgetColor;

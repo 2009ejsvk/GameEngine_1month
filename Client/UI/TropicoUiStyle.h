@@ -1,58 +1,9 @@
 #pragma once
 
 #include "UI/Button.h"
+#include "TropicoUiAssetCatalog.h"
 #include "TropicoUiTheme.h"
 #include <string>
-
-namespace TropicoUiAssets
-{
-    constexpr const TCHAR* GMainMenuPanelTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\5_MainMenu\\CenterPopUp\\T_center_popUp.png");
-    constexpr const TCHAR* GModernPanelTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\CenterPopUp\\T_center_popUp.png");
-    constexpr const TCHAR* GMenuTitleRibbonTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_title.png");
-    constexpr const TCHAR* GMenuGridFrameTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_frameContent.png");
-    constexpr const TCHAR* GMenuDetailFrameTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\CenterPopUp\\T_center_popUp_frameDescription.png");
-    constexpr const TCHAR* GDetailInfoPanelTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\SmallPopup\\T_small_popUp.png");
-    constexpr const TCHAR* GCategoryTabTextureSelected = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\Tabs\\T_bookmark_standard.png");
-    constexpr const TCHAR* GCategoryTabTextureHidden = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\Tabs\\T_bookmark_hidden.png");
-    constexpr const TCHAR* GSlotCardTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg.png");
-    constexpr const TCHAR* GSlotCardHoverTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_hover.png");
-    constexpr const TCHAR* GSlotCardSelectedTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_selected.png");
-    constexpr const TCHAR* GSlotCardDisabledTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\CardButton\\T_construction_card_bg_disabled.png");
-    constexpr const TCHAR* GBigTextButtonTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_standard.png");
-    constexpr const TCHAR* GBigTextButtonHoverTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_hover.png");
-    constexpr const TCHAR* GBigTextButtonSelectedTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_selected.png");
-    constexpr const TCHAR* GBigTextButtonDisabledTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_big_deactivated.png");
-    constexpr const TCHAR* GRoundButtonTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_standard.png");
-    constexpr const TCHAR* GRoundButtonHoverTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_hover.png");
-    constexpr const TCHAR* GRoundButtonSelectedTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\RoundButton\\T_round_button_selected.png");
-    constexpr const TCHAR* GScrollTrackTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\Sliderthumb\\T_scrollbar_bg.png");
-    constexpr const TCHAR* GScrollThumbTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\Sliderthumb\\T_scrollbar.png");
-    constexpr const TCHAR* GDropdownArrowTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow.png");
-    constexpr const TCHAR* GDropdownArrowHoverTexture = TEXT(
-        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow_hover.png");
-}
 
 namespace TropicoUiStyle
 {

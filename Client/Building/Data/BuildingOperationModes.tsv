@@ -1,4 +1,4 @@
-# BuildingId	ModeIndex	DisplayName	EffectSummary	ProductionMultiplier	InputConsumptionMultiplier	ServiceThroughputMultiplier	PollutionMultiplier	WageMultiplier	UpkeepMultiplier	ExportPriceDeltaPercent	ImportPriceDeltaPercent	CapacityDelta	ServiceCapacityDelta	HousingQualityDelta	JobQualityDelta	ServiceQualityDelta	RequiredResearch	UnlockEra	SourceDisplayName
+# BuildingId	ModeIndex	DisplayName	EffectSummary	ProductionMultiplier	InputConsumptionMultiplier	ServiceThroughputMultiplier	PollutionMultiplier	WageMultiplier	UpkeepMultiplier	ExportPriceDeltaPercent	ImportPriceDeltaPercent	CapacityDelta	ServiceCapacityDelta	HousingQualityDelta	JobQualityDelta	ServiceQualityDelta	RequiredResearch	UnlockEra	SourceDisplayName	ProducedType	Input1Type	Input1Amount	Input2Type	Input2Amount	Input3Type	Input3Amount	Input4Type	Input4Amount	VisitType	VisitAcceptedTypes
 build_1_5	0	안전 하중	기본 설정																운송업자 사무소
 build_1_5	1	느슨한 하중 제한	적하량 +50%, 최대 10% 화물 손실																운송업자 사무소
 build_1_7	0	안전 하중	기본 설정																화물창고
@@ -8,6 +8,44 @@ build_1_12	1	무료 승차	버스 요금 $0, 모든 재산 계층 이용 가능	
 build_2_3	0	선조의 방식																	어선 선착장
 build_2_3	1	유망어업	효율 +75%	1.75														WorldWars	어선 선착장
 build_2_3	2	지역시장 공급	산출량 -25%, 고급 레스토랑 효율 보너스	0.75														ColdWar	어선 선착장
+build_2_4	0	바나나																	플랜테이션	Banana
+build_2_4	1	코코아																	플랜테이션	Cocoa
+build_2_4	2	커피																	플랜테이션	Coffee
+build_2_4	3	옥수수																	플랜테이션	Corn
+build_2_4	4	면화																	플랜테이션	Cotton
+build_2_4	5	파인애플																	플랜테이션	Pineapple
+build_2_4	6	고무																	플랜테이션	Rubber
+build_2_4	7	설탕																	플랜테이션	Sugar
+build_2_4	8	담배																	플랜테이션	Tobacco
+build_2_6	0	고기																	목장	Meat
+build_2_6	1	우유																	목장	Milk
+build_2_6	2	생가죽																	목장	Hides
+build_2_6	3	양모																	목장	Wool
+build_2_7	0	석탄																	광산	Coal
+build_2_7	1	철																	광산	Iron
+build_2_7	2	금																	광산	Gold
+build_2_7	3	니켈																	광산	Nickel
+build_2_7	4	알루미늄																	광산	Aluminum
+build_2_7	5	우라늄																	광산	Uranium
+build_2_11	0	바나나																	수경 플랜테이션	Banana
+build_2_11	1	코코아																	수경 플랜테이션	Cocoa
+build_2_11	2	커피																	수경 플랜테이션	Coffee
+build_2_11	3	옥수수																	수경 플랜테이션	Corn
+build_2_11	4	면화																	수경 플랜테이션	Cotton
+build_2_11	5	파인애플																	수경 플랜테이션	Pineapple
+build_2_11	6	고무																	수경 플랜테이션	Rubber
+build_2_11	7	설탕																	수경 플랜테이션	Sugar
+build_2_11	8	담배																	수경 플랜테이션	Tobacco
+build_2_12	0	고기																	공장식 목장	Meat
+build_2_12	1	우유																	공장식 목장	Milk
+build_2_12	2	생가죽																	공장식 목장	Hides
+build_2_12	3	양모																	공장식 목장	Wool
+build_3_1	0	석탄																	자동 광산	Coal
+build_3_1	1	철																	자동 광산	Iron
+build_3_1	2	금																	자동 광산	Gold
+build_3_1	3	니켈																	자동 광산	Nickel
+build_3_1	4	알루미늄																	자동 광산	Aluminum
+build_3_1	5	우라늄																	자동 광산	Uranium
 build_3_3	0	수출용 진품 혼합물																	럼주 증류소
 build_3_3	1	지역시장 공급	산출량 -25%, 나이트클럽/경기장 효율 보너스	0.75															럼주 증류소
 build_3_7	0	말고, 말고 또 말고																	시가 공장
@@ -15,11 +53,25 @@ build_3_7	1	지역시장 공급	산출량 -25%, 요트 클럽/은행 효율 보�
 build_3_9	0	표준 공정																	제철소
 build_3_9	1	노정 가스 재순환	효율 -10%, 공해 -20%	0.90			0.80												제철소
 build_3_9	2	열간 압연	효율 +20%, 유지비 +20%	1.20					1.20										제철소
+# Input-only mode overrides are intentional: leave ProducedType blank when the
+# workmode changes the recipe but not the final product.
+# Future/DLC special goods such as Goldnuts, Special Chocolate, BS, Vertical
+# Farm, and Synthetic Food Lab outputs stay out of the immediate vanilla-core
+# scope until their full economy loops are source-backed end to end.
+# Textile Mill stays dye-only here until source-backed Cotton/Wool workmode
+# data exists; Juicery and Pharmaceutical Company are the current exact-input
+# reference cases.
 build_3_10	0	재래식 염료																	방직소
 build_3_10	1	아크릴 염료	효율 +15%, 공해 +50%	1.15			1.50												방직소
 build_3_10	2	유기농 염료	공해 -50%, 효율 -20%	0.80			0.50										연구 필요	ModernTimes	방직소
+build_3_12	0	일반 초콜릿																	초콜릿 공장	Chocolate
 build_3_16	0	자동차 회사																	자동차 공장
 build_3_16	1	회사 자동차	전 직원 차량 이용, 유지비 +$2/직원, 직업 품질 +5												5				자동차 공장
+build_3_19	0	기본 처방	석유 사용																	Pharmaceutical Company		Oil	1
+build_3_19	1	강력한 위약	설탕 사용																	Pharmaceutical Company		Sugar	1
+build_3_20	0	바나나-코코넛 풍미	바나나 + 코코넛 사용																	Juicery		Banana	1	Coconuts	1
+build_3_20	1	바나나-파인애플 풍미	바나나 + 파인애플 사용																	Juicery		Banana	1	Pineapple	1
+build_3_20	2	코코넛-파인애플 풍미	코코넛 + 파인애플 사용																	Juicery		Coconuts	1	Pineapple	1
 build_8_14	0	수출 부양	수출 가격 +10%							10									세관
 build_8_14	1	수입세 감소	수입 가격 -10%								-10								세관
 build_8_14	2	특별세	수출 수익 1%가 스위스 은행 계좌로 이체																세관

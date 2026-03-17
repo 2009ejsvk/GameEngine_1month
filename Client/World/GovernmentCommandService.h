@@ -3,6 +3,7 @@
 #include "../Economy/TradeRouteRuntimeState.h"
 #include "../Building/BuildingTypes.h"
 #include "../Politics/PoliticalTypes.h"
+#include <memory>
 #include <string>
 
 class IGovernmentCommandService
@@ -43,3 +44,12 @@ public:
         bool Accept,
         std::wstring& OutMessage) = 0;
 };
+
+class CMainWorld;
+class CWorld;
+
+std::shared_ptr<IGovernmentCommandService> CreateGovernmentCommandServiceAdapter(
+    CMainWorld* Owner);
+std::shared_ptr<IGovernmentCommandService> ResolveGovernmentCommandService(
+    const std::shared_ptr<CWorld>& World);
+IGovernmentCommandService* ResolveGovernmentCommandService(CWorld* World);

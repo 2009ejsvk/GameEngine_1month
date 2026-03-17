@@ -1,5 +1,5 @@
 #include "AlmanacRenderer.h"
-#include "AlmanacRendererCalc.h"
+#include "AlmanacCalc.h"
 #include "AlmanacRendererInternal.h"
 #include "../Building/BuildingTypes.h"
 #include <algorithm>
@@ -7,7 +7,7 @@
 #include <cmath>
 #include <vector>
 
-using namespace AlmanacRendererCalc;
+using namespace AlmanacCalc;
 void FAlmanacRenderer::ApplyEconomyPage(
     CAlmanacWidget& Widget,
     const AlmanacDataProvider::FAlmanacSnapshot& Snapshot)

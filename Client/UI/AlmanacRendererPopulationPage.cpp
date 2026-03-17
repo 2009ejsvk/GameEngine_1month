@@ -1,13 +1,13 @@
 #include "AlmanacRenderer.h"
 #include "AlmanacRendererPopulationPage.h"
-#include "AlmanacRendererCalc.h"
+#include "AlmanacCalc.h"
 #include "AlmanacRendererInternal.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <vector>
 
-using namespace AlmanacRendererCalc;
+using namespace AlmanacCalc;
 void AlmanacRendererPopulationPage::Apply(
     CAlmanacWidget& Widget,
     const AlmanacDataProvider::FAlmanacSnapshot& Snapshot)

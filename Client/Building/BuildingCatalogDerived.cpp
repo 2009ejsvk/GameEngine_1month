@@ -1,4 +1,5 @@
 #include "BuildingCatalogDerived.h"
+#include "BuildingCatalog.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -246,29 +247,89 @@ namespace
         }
 
         unsigned int Mask = GBuildingWealthMaskNone;
+        std::wstring RichParseText = TrimmedValue;
+        bool HasBroke = false;
+        bool HasPoor = false;
+        bool HasWellOff = false;
+        bool HasRich = false;
+        bool HasFilthyRich = false;
 
         if (TrimmedValue.find(L"파산") != std::wstring::npos ||
-            TrimmedValue.find(L"가난") != std::wstring::npos)
+            TrimmedValue.find(L"무일푼") != std::wstring::npos)
         {
-            Mask |= GBuildingWealthMaskPoor;
+            HasBroke = true;
         }
+
+        if (TrimmedValue.find(L"가난") != std::wstring::npos)
+            HasPoor = true;
 
         if (TrimmedValue.find(L"유복") != std::wstring::npos)
-            Mask |= GBuildingWealthMaskWellOff;
+            HasWellOff = true;
 
-        if (TrimmedValue.find(L"부유") != std::wstring::npos ||
-            TrimmedValue.find(L"더럽게 부유") != std::wstring::npos)
+        const size_t FilthyRichPos = TrimmedValue.find(L"더럽게 부유");
+        if (FilthyRichPos != std::wstring::npos)
         {
-            Mask |= GBuildingWealthMaskRich;
+            HasFilthyRich = true;
+            RichParseText.erase(FilthyRichPos, wcslen(L"더럽게 부유"));
         }
+
+        if (RichParseText.find(L"부유") != std::wstring::npos)
+            HasRich = true;
 
         if (TrimmedValue.find(L"이상") != std::wstring::npos)
         {
-            if (Mask & GBuildingWealthMaskPoor)
-                Mask |= GBuildingWealthMaskWellOff | GBuildingWealthMaskRich;
-            else if (Mask & GBuildingWealthMaskWellOff)
-                Mask |= GBuildingWealthMaskRich;
+            if (HasBroke)
+            {
+                HasPoor = true;
+                HasWellOff = true;
+                HasRich = true;
+                HasFilthyRich = true;
+            }
+            else if (HasPoor)
+            {
+                HasWellOff = true;
+                HasRich = true;
+                HasFilthyRich = true;
+            }
+            else if (HasWellOff)
+            {
+                HasRich = true;
+                HasFilthyRich = true;
+            }
+            else if (HasRich)
+            {
+                HasFilthyRich = true;
+            }
         }
+
+        // Single-tier requirements are treated as minimum wealth bands,
+        // except "파산", which remains a strict lowest-tier requirement.
+        if (!HasBroke && HasPoor && !HasWellOff && !HasRich && !HasFilthyRich)
+        {
+            HasWellOff = true;
+            HasRich = true;
+            HasFilthyRich = true;
+        }
+        else if (HasWellOff && !HasRich && !HasFilthyRich)
+        {
+            HasRich = true;
+            HasFilthyRich = true;
+        }
+        else if (HasRich && !HasFilthyRich)
+        {
+            HasFilthyRich = true;
+        }
+
+        if (HasBroke)
+            Mask |= GBuildingWealthMaskBroke;
+        if (HasPoor)
+            Mask |= GBuildingWealthMaskPoor;
+        if (HasWellOff)
+            Mask |= GBuildingWealthMaskWellOff;
+        if (HasRich)
+            Mask |= GBuildingWealthMaskRich;
+        if (HasFilthyRich)
+            Mask |= GBuildingWealthMaskFilthyRich;
 
         return Mask == GBuildingWealthMaskNone ?
             GBuildingWealthMaskAll :
@@ -906,7 +967,20 @@ namespace
             return EResourceType::Crops;
         }
 
-        return Entry.ProductionInputTypes[0];
+        for (int SlotIndex = 0;
+            SlotIndex < GProductionInputSlotCount;
+            ++SlotIndex)
+        {
+            const size_t Index = static_cast<size_t>(SlotIndex);
+
+            if (Entry.ProductionInputTypes[Index] != EResourceType::None &&
+                Entry.ProductionInputAmounts[Index] > 0)
+            {
+                return Entry.ProductionInputTypes[Index];
+            }
+        }
+
+        return EResourceType::None;
     }
 
     void AssignPoliticalSignals(FBuildingCatalogEntry& Entry)
@@ -1158,6 +1232,65 @@ namespace
         return InputLabels;
     }
 
+    std::vector<std::wstring> BuildAcceptedResourceDisplayLabels(
+        const std::vector<EResourceType>& AcceptedTypes)
+    {
+        std::vector<std::wstring> AcceptedLabels;
+
+        for (size_t Index = 0; Index < AcceptedTypes.size(); ++Index)
+        {
+            const EResourceType AcceptedType = AcceptedTypes[Index];
+
+            if (AcceptedType == EResourceType::None ||
+                AcceptedType == EResourceType::Count ||
+                IsSummaryResourceType(AcceptedType))
+            {
+                continue;
+            }
+
+            const std::wstring Label =
+                std::wstring(GetResourceTypeDisplayName(AcceptedType));
+
+            if (Label.empty())
+                continue;
+
+            if (std::find(
+                    AcceptedLabels.begin(),
+                    AcceptedLabels.end(),
+                    Label) == AcceptedLabels.end())
+            {
+                AcceptedLabels.push_back(Label);
+            }
+        }
+
+        return AcceptedLabels;
+    }
+
+    std::wstring BuildVisitConsumptionDemandLabel(
+        EResourceType VisitType,
+        const std::vector<EResourceType>& AcceptedTypes)
+    {
+        const std::vector<std::wstring> AcceptedLabels =
+            BuildAcceptedResourceDisplayLabels(AcceptedTypes);
+
+        if (!AcceptedLabels.empty())
+        {
+            std::wstring JoinedAcceptedLabels;
+
+            for (size_t Index = 0; Index < AcceptedLabels.size(); ++Index)
+            {
+                if (!JoinedAcceptedLabels.empty())
+                    JoinedAcceptedLabels += L"/";
+
+                JoinedAcceptedLabels += AcceptedLabels[Index];
+            }
+
+            return L"소비 품목(" + JoinedAcceptedLabels + L")";
+        }
+
+        return std::wstring(GetResourceTypeDisplayName(VisitType));
+    }
+
     std::vector<std::wstring> BuildProductionDemandDisplayLabels(
         const FBuildingCatalogEntry& Entry)
     {
@@ -1168,8 +1301,9 @@ namespace
             Entry.VisitConsumptionResourceType != EResourceType::None)
         {
             const std::wstring VisitLabel =
-                GetResourceTypeDisplayName(
-                    Entry.VisitConsumptionResourceType);
+                BuildVisitConsumptionDemandLabel(
+                    Entry.VisitConsumptionResourceType,
+                    Entry.VisitConsumptionAcceptedResourceTypes);
 
             if (!VisitLabel.empty() &&
                 std::find(
@@ -1855,17 +1989,42 @@ std::vector<FBuildingOperationModeDef> ExtractOperationModeDefsFromEntry(
 
         const std::vector<std::wstring> Clauses =
             SplitCommaClauses(ModeDef.EffectSummary);
+        std::vector<std::wstring> EffectClauses;
 
         for (size_t ClauseIndex = 0;
             ClauseIndex < Clauses.size();
             ++ClauseIndex)
         {
+            const std::wstring Clause = Trim(Clauses[ClauseIndex]);
+
+            if (Clause.empty())
+                continue;
+
+            EBuildingEra ParsedUnlockEra = EBuildingEra::Colonial;
+
+            if (TryParseUpgradeUnlockEraClause(Clause, ParsedUnlockEra))
+            {
+                ModeDef.HasUnlockEra = true;
+                ModeDef.UnlockEra = ParsedUnlockEra;
+                continue;
+            }
+
+            if (Clause.find(L"연구 필요") != std::wstring::npos)
+            {
+                if (ModeDef.RequiredResearch.empty())
+                    ModeDef.RequiredResearch = L"연구 필요";
+
+                continue;
+            }
+
+            EffectClauses.push_back(Clause);
             ApplyOperationModeEffectClause(
                 Entry,
-                Clauses[ClauseIndex],
+                Clause,
                 ModeDef.Effect);
         }
 
+        ModeDef.EffectSummary = JoinLabels(EffectClauses, L", ");
         Result.push_back(std::move(ModeDef));
     }
 
@@ -2016,18 +2175,20 @@ void PopulateProductionChainMetadata(
 
         auto AppendDownstreamDemand = [&](EResourceType ResourceType)
         {
-            if (ResourceType == EResourceType::None)
-                return;
+            ForEachSupplyChainDemandKeyResourceType(
+                ResourceType,
+                [&](EResourceType KeyType)
+                {
+                    const size_t ResourceIndex =
+                        static_cast<size_t>(KeyType);
 
-            const size_t ResourceIndex =
-                static_cast<size_t>(ResourceType);
+                    if (ResourceIndex >= DownstreamResourceLabels.size())
+                        return;
 
-            if (ResourceIndex >= DownstreamResourceLabels.size())
-                return;
-
-            AppendUniqueLabel(
-                DownstreamResourceLabels[ResourceIndex],
-                ConsumerLabel);
+                    AppendUniqueLabel(
+                        DownstreamResourceLabels[ResourceIndex],
+                        ConsumerLabel);
+                });
         };
 
         if (ConsumerEntry.VisitConsumptionResourceType !=
@@ -2035,8 +2196,34 @@ void PopulateProductionChainMetadata(
             ConsumerEntry.VisitConsumptionResourceType !=
                 ConsumerEntry.ProducedResourceType)
         {
-            AppendDownstreamDemand(
-                ConsumerEntry.VisitConsumptionResourceType);
+            const EResourceType VisitType =
+                ConsumerEntry.VisitConsumptionResourceType;
+
+            if (!ConsumerEntry.VisitConsumptionAcceptedResourceTypes.empty())
+            {
+                for (size_t AcceptedIndex = 0;
+                    AcceptedIndex <
+                        ConsumerEntry.VisitConsumptionAcceptedResourceTypes.size();
+                    ++AcceptedIndex)
+                {
+                    AppendDownstreamDemand(
+                        ConsumerEntry.VisitConsumptionAcceptedResourceTypes[
+                            AcceptedIndex]);
+                }
+            }
+            else if (ConsumerEntry.FoodProvider &&
+                IsSummaryResourceType(VisitType))
+            {
+                ForEachFoodVisitCompatibleResourceType(
+                    ConsumerEntry.Id,
+                    ConsumerEntry.ProducedResourceType,
+                    VisitType,
+                    AppendDownstreamDemand);
+            }
+            else
+            {
+                AppendDownstreamDemand(VisitType);
+            }
         }
 
         for (int SlotIndex = 0;
@@ -2054,14 +2241,28 @@ void PopulateProductionChainMetadata(
                 continue;
             }
 
-            AppendDownstreamDemand(InputType);
+            const bool FeedInput =
+                IsFeedInputDemandResourceType(InputType);
+
+            if (FeedInput)
+            {
+                ForEachFeedCompatibleResourceType(
+                    InputType,
+                    AppendDownstreamDemand);
+            }
+            else
+            {
+                ForEachIndustrialInputCompatibleResourceType(
+                    InputType,
+                    AppendDownstreamDemand);
+            }
         }
     }
 
     for (FBuildingCatalogEntry& Entry : Entries)
     {
         Entry.ProductionChainStage =
-            FBuildingCatalogEntry::EProductionChainStage::None;
+            EBuildingProductionChainStage::None;
         Entry.SupplyChainSummary.clear();
 
         const std::wstring OutputLabel =
@@ -2090,17 +2291,17 @@ void PopulateProductionChainMetadata(
         if (!EntryHasInputs)
         {
             Entry.ProductionChainStage =
-                FBuildingCatalogEntry::EProductionChainStage::Primary;
+                EBuildingProductionChainStage::Primary;
         }
         else if (!DownstreamLabels.empty())
         {
             Entry.ProductionChainStage =
-                FBuildingCatalogEntry::EProductionChainStage::Intermediate;
+                EBuildingProductionChainStage::Intermediate;
         }
         else
         {
             Entry.ProductionChainStage =
-                FBuildingCatalogEntry::EProductionChainStage::Final;
+                EBuildingProductionChainStage::Final;
         }
 
         std::wstring Summary;
@@ -2113,16 +2314,19 @@ void PopulateProductionChainMetadata(
 
         Summary += OutputLabel;
 
-        if (!DownstreamLabels.empty())
+        if (EntryHasInputs && !DownstreamLabels.empty())
         {
             Summary += L" -> ";
             Summary += JoinLabels(DownstreamLabels, L", ");
         }
         else if (!EntryHasInputs)
         {
+            // 1차 생산자는 하류 공정을 직접 수행하는 것처럼 보이지 않도록
+            // 산출물만 요약하고 "생산"으로 마무리한다.
             Summary += L" 생산";
         }
 
         Entry.SupplyChainSummary = std::move(Summary);
     }
 }
+

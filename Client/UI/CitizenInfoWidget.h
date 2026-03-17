@@ -1,14 +1,17 @@
 #pragma once
 
 #include "CitizenInfoConstants.h"
+#include "CitizenInfoState.h"
 #include "UI/WidgetContainer.h"
-#include <array>
-#include <string>
 
 struct FNpcSatisfaction;
 struct FNpcPoliticalProfile;
 struct FCitizenIdentityProfile;
 struct FBuildingCatalogEntry;
+namespace CitizenInfoDataProvider
+{
+    struct FCitizenInfoSnapshot;
+}
 
 class FCitizenInfoRenderer;
 
@@ -24,12 +27,7 @@ public:
     virtual ~CCitizenInfoWidget();
 
 public:
-    enum class EPanelMode
-    {
-        Citizen,
-        Building
-    };
-
+    using EPanelMode = ECitizenInfoPanelMode;
     using ECitizenInfoTab = CitizenInfoConstants::ECitizenInfoTab;
     using EBuildingInfoTab = CitizenInfoConstants::EBuildingInfoTab;
     static constexpr int GCitizenTabCount = CitizenInfoConstants::GCitizenTabCount;
@@ -83,7 +81,12 @@ public:
         std::array<WText, GBudgetLevelCount> BudgetButtonTexts;
         WText OverviewWorkModeLabel;
         WImage OverviewWorkModeBackground;
+        WButton OverviewWorkModeButton;
         WText OverviewWorkModeText;
+        WText ResidentialOverviewWorkModeLabel;
+        WImage ResidentialOverviewWorkModeBackground;
+        WButton ResidentialOverviewWorkModeButton;
+        WText ResidentialOverviewWorkModeText;
         WText OverviewBudgetLabel;
         WText OverviewBudgetValue;
         WText OverviewOccupancyLabel;
@@ -92,6 +95,16 @@ public:
         std::array<WImage, GOverviewVisitorSlotCount> OverviewVisitorIcons;
         std::array<WText, GOverviewMetricRowCount> OverviewMetricLabels;
         std::array<WText, GOverviewMetricRowCount> OverviewMetricValues;
+        WText ResidentialOverviewBudgetLabel;
+        WText ResidentialOverviewBudgetValue;
+        WText ResidentialOverviewOccupancyLabel;
+        WText ResidentialOverviewOccupancyValue;
+        std::array<WImage, GOverviewResidentSlotCount>
+            ResidentialOverviewResidentIcons;
+        std::array<WText, GOverviewMetricRowCount>
+            ResidentialOverviewMetricLabels;
+        std::array<WText, GOverviewMetricRowCount>
+            ResidentialOverviewMetricValues;
         WImage UpgradeCardBackground;
         WImage UpgradeCardIcon;
         WText UpgradeCardTitle;
@@ -129,33 +142,6 @@ public:
         WText FooterText;
     };
 
-    struct FCitizenModeState
-    {
-        ECitizenInfoTab SelectedTab = ECitizenInfoTab::Overview;
-        std::string TrackedCitizenName;
-        std::array<float, GCitizenPoliticsSatisfactionCount>
-            PoliticsSatisfactionFillRatios = {};
-        float PoliticsSupportRatio = 0.f;
-    };
-
-    struct FBuildingModeState
-    {
-        EBuildingInfoTab SelectedTab = EBuildingInfoTab::Overview;
-        std::string TrackedBuildingName;
-        bool CustomsModeSelectionOpen = false;
-    };
-
-    struct FPanelState
-    {
-        EPanelMode PanelMode = EPanelMode::Citizen;
-        FCitizenModeState Citizen;
-        FBuildingModeState Building;
-        float PanelWidth = 360.f;
-        float PanelHeight = 720.f;
-        float PanelTop = 56.f;
-        FVector2 RequestedScreenPos = FVector2(0.f, 0.f);
-    };
-
     struct FRendererView
     {
         CCitizenInfoWidget& Owner;
@@ -188,7 +174,12 @@ public:
         std::array<WText, GBudgetLevelCount>& mBudgetButtonTexts;
         WText& mOverviewWorkModeLabel;
         WImage& mOverviewWorkModeBackground;
+        WButton& mOverviewWorkModeButton;
         WText& mOverviewWorkModeText;
+        WText& mResidentialOverviewWorkModeLabel;
+        WImage& mResidentialOverviewWorkModeBackground;
+        WButton& mResidentialOverviewWorkModeButton;
+        WText& mResidentialOverviewWorkModeText;
         WText& mOverviewBudgetLabel;
         WText& mOverviewBudgetValue;
         WText& mOverviewOccupancyLabel;
@@ -197,6 +188,16 @@ public:
         std::array<WImage, GOverviewVisitorSlotCount>& mOverviewVisitorIcons;
         std::array<WText, GOverviewMetricRowCount>& mOverviewMetricLabels;
         std::array<WText, GOverviewMetricRowCount>& mOverviewMetricValues;
+        WText& mResidentialOverviewBudgetLabel;
+        WText& mResidentialOverviewBudgetValue;
+        WText& mResidentialOverviewOccupancyLabel;
+        WText& mResidentialOverviewOccupancyValue;
+        std::array<WImage, GOverviewResidentSlotCount>&
+            mResidentialOverviewResidentIcons;
+        std::array<WText, GOverviewMetricRowCount>&
+            mResidentialOverviewMetricLabels;
+        std::array<WText, GOverviewMetricRowCount>&
+            mResidentialOverviewMetricValues;
         WImage& mUpgradeCardBackground;
         WImage& mUpgradeCardIcon;
         WText& mUpgradeCardTitle;
@@ -320,113 +321,24 @@ public:
     };
 
 private:
-
-    // Primary ownership is grouped by mode/concern; aliases below keep
-    // existing renderer code working while callers migrate gradually.
+    // Primary ownership stays grouped by mode/concern.
     FPanelChromeWidgets mChrome;
     FBuildingPanelWidgets mBuildingPanel;
     FCitizenPanelWidgets mCitizenPanel;
-    FPanelState mState;
-
-    // Compatibility aliases for existing renderer/data-provider code.
-    EPanelMode& mPanelMode = mState.PanelMode;
-    ECitizenInfoTab& mSelectedCitizenTab = mState.Citizen.SelectedTab;
-    EBuildingInfoTab& mSelectedBuildingTab = mState.Building.SelectedTab;
-
-    WImage& mPanelImage = mChrome.PanelImage;
-    WImage& mInnerFrame = mChrome.InnerFrame;
-    WImage& mTitleRibbon = mChrome.TitleRibbon;
-    WImage& mSectionRibbon = mChrome.SectionRibbon;
-    WImage& mScrollTrack = mChrome.ScrollTrack;
-    WImage& mScrollThumb = mChrome.ScrollThumb;
-    WImage& mTitleIcon = mChrome.TitleIcon;
-    WText& mTitleText = mChrome.TitleText;
-    WText& mSubtitleText = mChrome.SubtitleText;
-    WImage& mSectionDivider = mChrome.SectionDivider;
-    WText& mPageTitleText = mChrome.PageTitleText;
-    WText& mBodyText = mChrome.BodyText;
-    WText& mBudgetText = mChrome.BudgetText;
-    WButton& mCloseButton = mChrome.CloseButton;
-    std::array<WButton, GTabButtonCount>& mTabButtons = mChrome.TabButtons;
-    std::array<WText, GTabButtonCount>& mTabButtonTexts = mChrome.TabButtonTexts;
-    std::array<WImage, GTabButtonCount>& mTabButtonIcons = mChrome.TabButtonIcons;
-
-    WButton& mDemolishButton = mBuildingPanel.DemolishButton;
-    WButton& mMoveButton = mBuildingPanel.MoveButton;
-    WButton& mFocusButton = mBuildingPanel.FocusButton;
-    WButton& mOverviewCommandButton = mBuildingPanel.OverviewCommandButton;
-    WText& mOverviewCommandButtonText = mBuildingPanel.OverviewCommandButtonText;
-    std::array<WButton, GBudgetLevelCount>& mBudgetButtons = mBuildingPanel.BudgetButtons;
-    std::array<WText, GBudgetLevelCount>& mBudgetButtonTexts = mBuildingPanel.BudgetButtonTexts;
-    WText& mOverviewWorkModeLabel = mBuildingPanel.OverviewWorkModeLabel;
-    WImage& mOverviewWorkModeBackground = mBuildingPanel.OverviewWorkModeBackground;
-    WText& mOverviewWorkModeText = mBuildingPanel.OverviewWorkModeText;
-    WText& mOverviewBudgetLabel = mBuildingPanel.OverviewBudgetLabel;
-    WText& mOverviewBudgetValue = mBuildingPanel.OverviewBudgetValue;
-    WText& mOverviewOccupancyLabel = mBuildingPanel.OverviewOccupancyLabel;
-    WText& mOverviewOccupancyValue = mBuildingPanel.OverviewOccupancyValue;
-    std::array<WImage, GOverviewResidentSlotCount>& mOverviewResidentIcons =
-        mBuildingPanel.OverviewResidentIcons;
-    std::array<WImage, GOverviewVisitorSlotCount>& mOverviewVisitorIcons =
-        mBuildingPanel.OverviewVisitorIcons;
-    std::array<WText, GOverviewMetricRowCount>& mOverviewMetricLabels =
-        mBuildingPanel.OverviewMetricLabels;
-    std::array<WText, GOverviewMetricRowCount>& mOverviewMetricValues =
-        mBuildingPanel.OverviewMetricValues;
-    WImage& mUpgradeCardBackground = mBuildingPanel.UpgradeCardBackground;
-    WImage& mUpgradeCardIcon = mBuildingPanel.UpgradeCardIcon;
-    WText& mUpgradeCardTitle = mBuildingPanel.UpgradeCardTitle;
-    WText& mUpgradeDescriptionText = mBuildingPanel.UpgradeDescriptionText;
-    WText& mInformationAccentText = mBuildingPanel.InformationAccentText;
-    WText& mInformationTopText = mBuildingPanel.InformationTopText;
-    WText& mInformationBottomText = mBuildingPanel.InformationBottomText;
-
-    std::array<WImage, GCitizenPoliticsSectionCount>& mCitizenPoliticsSectionBackgrounds =
-        mCitizenPanel.PoliticsSectionBackgrounds;
-    std::array<WText, GCitizenPoliticsSectionCount>& mCitizenPoliticsSectionTitles =
-        mCitizenPanel.PoliticsSectionTitles;
-    std::array<WText, GCitizenPoliticsSatisfactionCount>& mCitizenPoliticsSatisfactionLabels =
-        mCitizenPanel.PoliticsSatisfactionLabels;
-    std::array<WImage, GCitizenPoliticsSatisfactionCount>& mCitizenPoliticsSatisfactionRails =
-        mCitizenPanel.PoliticsSatisfactionRails;
-    std::array<WImage, GCitizenPoliticsSatisfactionCount>& mCitizenPoliticsSatisfactionFills =
-        mCitizenPanel.PoliticsSatisfactionFills;
-    std::array<WText, GCitizenPoliticsOpinionCount>& mCitizenPoliticsOpinionTexts =
-        mCitizenPanel.PoliticsOpinionTexts;
-    std::array<WImage, GCitizenPoliticsSupportIconCount>& mCitizenPoliticsSupportIcons =
-        mCitizenPanel.PoliticsSupportIcons;
-    WImage& mCitizenPoliticsSupportRail = mCitizenPanel.PoliticsSupportRail;
-    WImage& mCitizenPoliticsSupportThumb = mCitizenPanel.PoliticsSupportThumb;
-    WImage& mCitizenThoughtTitleBackground = mCitizenPanel.ThoughtTitleBackground;
-    WText& mCitizenThoughtTitleText = mCitizenPanel.ThoughtTitleText;
-    std::array<WText, GCitizenThoughtCount>& mCitizenThoughtTexts =
-        mCitizenPanel.ThoughtTexts;
-    std::array<WImage, GCitizenThoughtDividerCount>& mCitizenThoughtDividers =
-        mCitizenPanel.ThoughtDividers;
-    std::array<WButton, GCitizenActionButtonCount>& mCitizenActionButtons =
-        mCitizenPanel.ActionButtons;
-    std::array<WText, GCitizenActionButtonCount>& mCitizenActionButtonTexts =
-        mCitizenPanel.ActionButtonTexts;
-    std::array<WImage, GCitizenActionButtonCount>& mCitizenActionButtonIcons =
-        mCitizenPanel.ActionButtonIcons;
-    WText& mCitizenFooterText = mCitizenPanel.FooterText;
-
-    std::string& mTrackedCitizenName = mState.Citizen.TrackedCitizenName;
-    std::string& mTrackedBuildingName = mState.Building.TrackedBuildingName;
-    float& mPanelWidth = mState.PanelWidth;
-    float& mPanelHeight = mState.PanelHeight;
-    float& mPanelTop = mState.PanelTop;
-    std::array<float, GCitizenPoliticsSatisfactionCount>&
-        mCitizenPoliticsSatisfactionFillRatios =
-            mState.Citizen.PoliticsSatisfactionFillRatios;
-    float& mCitizenPoliticsSupportRatio = mState.Citizen.PoliticsSupportRatio;
-    FVector2& mRequestedScreenPos = mState.RequestedScreenPos;
-    bool& mCustomsModeSelectionOpen = mState.Building.CustomsModeSelectionOpen;
+    FCitizenInfoState mState;
 
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
     virtual void Render();
+    const FCitizenInfoState& GetState() const
+    {
+        return mState;
+    }
+    FCitizenInfoState& GetMutableState()
+    {
+        return mState;
+    }
 
 public:
     void OpenCitizen(
@@ -450,10 +362,20 @@ public:
     void RefreshFromState();
     int GetSelectedTabIndexForCurrentMode() const;
     bool SelectCurrentModeTab(int TabIndex);
+    bool HasOverviewMetricScroll() const;
+    int GetOverviewMetricScrollOffset() const;
+    int GetOverviewMetricScrollVisibleLineCount() const;
+    int GetOverviewMetricScrollTotalLineCount() const;
+    int GetOverviewMetricScrollFirstRowIndex() const;
+    bool IsMouseOverOpenPanel(const FVector2& MousePos) const;
 
 private:
     bool SelectCitizenTab(ECitizenInfoTab Tab);
     bool SelectBuildingTab(EBuildingInfoTab Tab);
+    bool IsMouseOverOverviewMetricArea(const FVector2& MousePos) const;
+    bool MoveOverviewMetricScroll(int DeltaLines);
+    void SyncOverviewMetricScrollState(
+        const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot);
     bool IsTrackedCustomsOffice() const;
     bool TrySelectCustomsOperationMode(int ModeIndex);
     bool OpenTradeWidget();

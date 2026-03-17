@@ -23,6 +23,7 @@ namespace TopHudDataProvider
         FVector4 EventTextColor = FVector4(1.f, 1.f, 1.f, 1.f);
         std::wstring NpcText = L"0";
         std::wstring SupportText = L"0%";
+        std::wstring ResearchText = L"0";
         std::wstring GameOverTitleText =
             UIStrings::Get(L"top_hud.game_over.title");
         std::wstring GameOverBodyText;
@@ -31,6 +32,14 @@ namespace TopHudDataProvider
         bool CanUseButtons = true;
         bool GamePaused = false;
         int GameSpeedMultiplier = 1;
+        bool EraTransitionButtonEnabled = false;
+        bool EraTransitionAvailable = false;
+        std::wstring EraTransitionTitle;
+        std::wstring EraTransitionBody =
+            UIStrings::Get(L"top_hud.era_transition.unavailable");
+        std::wstring EraTransitionConfirmText;
+        std::wstring EraTransitionCancelText =
+            UIStrings::Get(L"top_hud.era_transition.cancel");
     };
 
     FTopHudSnapshot BuildSnapshot(const std::shared_ptr<CWorld>& World);

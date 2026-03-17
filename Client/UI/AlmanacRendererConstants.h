@@ -64,18 +64,18 @@ namespace
     constexpr int GConflictDetailCount = 8;
     constexpr int GConflictMetricCount = 3;
 
-    constexpr const TCHAR* GPanelTexture = GMainMenuPanelTexture;
-    constexpr const TCHAR* GContentFrameTexture = GMenuGridFrameTexture;
-    constexpr const TCHAR* GTitleRibbonTexture = GMenuTitleRibbonTexture;
+    const auto& GPanelTexture = GMainMenuPanelTexture;
+    const auto& GContentFrameTexture = GMenuGridFrameTexture;
+    const auto& GTitleRibbonTexture = GMenuTitleRibbonTexture;
     constexpr const TCHAR* GTabTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Buttons\\IconBackground\\T_icon_background.png");
-    constexpr const TCHAR* GTabMarkerTexture = GDropdownArrowTexture;
-    constexpr const TCHAR* GRowTexture = GBigTextButtonTexture;
-    constexpr const TCHAR* GRowTextureSelected = GBigTextButtonSelectedTexture;
-    constexpr const TCHAR* GCardTexture = GSlotCardTexture;
-    constexpr const TCHAR* GCardTextureSelected = GSlotCardSelectedTexture;
-    constexpr const TCHAR* GRailTrackTexture = GScrollTrackTexture;
-    constexpr const TCHAR* GRailThumbTexture = GScrollThumbTexture;
+    const auto& GTabMarkerTexture = GDropdownArrowTexture;
+    const auto& GRowTexture = GBigTextButtonTexture;
+    const auto& GRowTextureSelected = GBigTextButtonSelectedTexture;
+    const auto& GCardTexture = GSlotCardTexture;
+    const auto& GCardTextureSelected = GSlotCardSelectedTexture;
+    const auto& GRailTrackTexture = GScrollTrackTexture;
+    const auto& GRailThumbTexture = GScrollThumbTexture;
     constexpr const TCHAR* GBarBackTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Gamespeed\\T_gamespeed_timeBar_bg.png");
     constexpr const TCHAR* GBarFillTexture = TEXT(

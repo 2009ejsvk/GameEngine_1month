@@ -1,5 +1,5 @@
 #include "AlmanacRenderer.h"
-#include "AlmanacRendererCalc.h"
+#include "AlmanacCalc.h"
 
 void FAlmanacRenderer::ApplySnapshot(
     CAlmanacWidget& Widget,
@@ -16,5 +16,5 @@ void FAlmanacRenderer::ApplySnapshot(
     ApplyConflictPage(
         Widget,
         Snapshot,
-        AlmanacRendererCalc::BuildConflictPageComputedData(Snapshot));
+        AlmanacCalc::BuildConflictPageComputedData(Snapshot));
 }

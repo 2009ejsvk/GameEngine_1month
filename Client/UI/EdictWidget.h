@@ -1,20 +1,12 @@
 #pragma once
 
 #include "EdictConstants.h"
+#include "EdictWidgetState.h"
 #include "../Politics/PoliticalTypes.h"
 #include "UI/WidgetContainer.h"
-#include <string>
 #include <vector>
 
 class FEdictRenderer;
-
-enum class EEdictUiCategory : int
-{
-    Colonial = 0,
-    WorldWars,
-    ColdWar,
-    Modern
-};
 
 class CEdictWidget :
     public CWidgetContainer
@@ -64,25 +56,36 @@ private:
     std::vector<std::weak_ptr<class CImage>>     mEdictButtonChecks;
     std::vector<std::weak_ptr<class CTextBlock>> mEdictButtonTexts;
     std::vector<std::weak_ptr<class CTextBlock>> mTaxPolicyRowTexts;
-    std::vector<int> mVisibleEntryIndices;
-    bool  mOpen = false;
-    EEdictUiCategory mSelectedCategory = EEdictUiCategory::Colonial;
-    int   mPreviewEntryIndex = -1;
-    int   mSelectedEntryIndex = -1;
-    int   mCurrentPage = 0;
-    int   mPageCount = 1;
-    float mPanelWidth = 1120.f;
-    float mPanelHeight = 760.f;
-    bool  mShowTaxPolicyPanel = false;
-    std::wstring mFeedbackMessage;
-    int   mLastLayoutWidth = 0;
-    int   mLastLayoutHeight = 0;
-    int   mLastClickedEntryIndex = -1;
-    float mDoubleClickTimer = 0.f;
+    FEdictWidgetState mState;
+
+    // Compatibility aliases for existing renderer/layout code.
+    std::vector<int>& mVisibleEntryIndices = mState.VisibleEntryIndices;
+    bool& mOpen = mState.Open;
+    EEdictUiCategory& mSelectedCategory = mState.SelectedCategory;
+    int& mPreviewEntryIndex = mState.PreviewEntryIndex;
+    int& mSelectedEntryIndex = mState.SelectedEntryIndex;
+    int& mCurrentPage = mState.CurrentPage;
+    int& mPageCount = mState.PageCount;
+    float& mPanelWidth = mState.PanelWidth;
+    float& mPanelHeight = mState.PanelHeight;
+    bool& mShowTaxPolicyPanel = mState.ShowTaxPolicyPanel;
+    std::wstring& mFeedbackMessage = mState.FeedbackMessage;
+    int& mLastLayoutWidth = mState.LastLayoutWidth;
+    int& mLastLayoutHeight = mState.LastLayoutHeight;
+    int& mLastClickedEntryIndex = mState.LastClickedEntryIndex;
+    float& mDoubleClickTimer = mState.DoubleClickTimer;
 
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
+    const FEdictWidgetState& GetState() const
+    {
+        return mState;
+    }
+    FEdictWidgetState& GetMutableState()
+    {
+        return mState;
+    }
     void ToggleOpen();
     void SetOpen(bool Open);
     bool IsOpen() const

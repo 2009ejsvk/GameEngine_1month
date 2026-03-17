@@ -5,10 +5,13 @@
 #include "../GameConstants.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
+#include "../Politics/EdictSystem.h"
 #include "../StringUtils.h"
 #include "../World/MainWorldAccess.h"
+#include "../World/MainWorldConfig.h"
 #include "World/World.h"
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <cmath>
 #include <cwchar>
@@ -86,18 +89,7 @@ namespace
     std::wstring BuildAutoImportSelectionText(
         const TradePolicy::FImportTradePolicy& Policy)
     {
-        switch (Policy.Mode)
-        {
-        case TradePolicy::EImportPolicyMode::None:
-            return L"없음";
-        case TradePolicy::EImportPolicyMode::SingleResource:
-            if (Policy.SelectedResourceType != EResourceType::None)
-                return GetResourceTypeDisplayName(Policy.SelectedResourceType);
-            return L"없음";
-        case TradePolicy::EImportPolicyMode::AllResources:
-        default:
-            return L"전체";
-        }
+        return TradePolicy::BuildImportPolicySelectionDisplayText(Policy);
     }
 
     std::wstring BuildImportCapSelectionText(
@@ -161,6 +153,7 @@ namespace
                 static_cast<EResourceType>(ResourceIndex);
 
             if (!IsExportableResourceType(ResourceType) ||
+                !IsImmediateProductionScopeResourceType(ResourceType) ||
                 TradePolicy::IsResourceExportAllowed(Policy, ResourceType))
             {
                 continue;
@@ -513,6 +506,253 @@ namespace
             State == ECitizenState::GoingToTeamsterOffice;
     }
 
+    float ResolveTaxEventProductionMultiplier(
+        const FTaxPolicyEventStatus* TaxEventStatus)
+    {
+        if (!TaxEventStatus ||
+            !TaxEventStatus->Active ||
+            TaxEventStatus->Type == ETaxPolicyEventType::None)
+        {
+            return 1.f;
+        }
+
+        const float Severity = (std::max)(
+            0.f,
+            (std::min)(
+                1.f,
+                static_cast<float>(TaxEventStatus->DaysActive + 1) / 6.f));
+
+        switch (TaxEventStatus->Type)
+        {
+        case ETaxPolicyEventType::WorkerTaxStrike:
+            return 0.74f - 0.30f * Severity;
+        case ETaxPolicyEventType::BudgetCrisis:
+            return 0.92f - 0.18f * Severity;
+        default:
+            return 1.f;
+        }
+    }
+
+    float ResolveWorldCrisisProductionMultiplier(
+        const FWorldCrisisStatus* WorldCrisisStatus)
+    {
+        if (!WorldCrisisStatus ||
+            !WorldCrisisStatus->Active ||
+            WorldCrisisStatus->Type == EWorldCrisisType::None)
+        {
+            return 1.f;
+        }
+
+        const float Severity = (std::max)(
+            0.f,
+            (std::min)(
+                1.f,
+                static_cast<float>(WorldCrisisStatus->DaysActive + 1) / 6.f));
+
+        switch (WorldCrisisStatus->Type)
+        {
+        case EWorldCrisisType::Raid:
+            return 0.90f - 0.14f * Severity;
+        case EWorldCrisisType::LaborStrike:
+            return 0.78f - 0.24f * Severity;
+        case EWorldCrisisType::CrimeWave:
+            return 0.92f - 0.12f * Severity;
+        case EWorldCrisisType::FiscalEmergency:
+            return 0.94f - 0.10f * Severity;
+        case EWorldCrisisType::None:
+        default:
+            return 1.f;
+        }
+    }
+
+    float ResolveBaseProductionUnitsPerSecond(
+        const CPlacementAreaObject& Building)
+    {
+        return ResolveBuildingBaseProductionUnitsPerSecond(
+            Building.GetBuildingId(),
+            Building.GetBuildingCategory(),
+            Building.GetProducedResourceType());
+    }
+
+    bool HasCatalogProductionIdentity(const FBuildingCatalogEntry* CatalogEntry)
+    {
+        if (!CatalogEntry)
+            return false;
+
+        if (CatalogEntry->ProducedResourceType != EResourceType::None ||
+            CatalogEntry->UsesRecipeTable ||
+            CatalogEntry->ProductionChainStage !=
+                EBuildingProductionChainStage::None)
+        {
+            return true;
+        }
+
+        for (int SlotIndex = 0;
+            SlotIndex < GProductionInputSlotCount;
+            ++SlotIndex)
+        {
+            if (CatalogEntry->ProductionInputTypes[
+                    static_cast<size_t>(SlotIndex)] != EResourceType::None &&
+                CatalogEntry->ProductionInputAmounts[
+                    static_cast<size_t>(SlotIndex)] > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool IsValidProductionInputSlot(
+        const CitizenInfoDataProvider::FProductionInputSlotView& InputSlot)
+    {
+        return InputSlot.Type != EResourceType::None &&
+            InputSlot.RequiredAmount > 0;
+    }
+
+    bool HasProductionInputSlots(
+        const std::array<CitizenInfoDataProvider::FProductionInputSlotView,
+            GProductionInputSlotCount>& InputSlots)
+    {
+        for (size_t Index = 0; Index < InputSlots.size(); ++Index)
+        {
+            if (IsValidProductionInputSlot(InputSlots[Index]))
+                return true;
+        }
+
+        return false;
+    }
+
+    void PopulateProductionResourceView(
+        const CPlacementAreaObject& Building,
+        const FBuildingCatalogEntry* CatalogEntry,
+        CitizenInfoDataProvider::FCitizenInfoBuildingRecord& OutRecord)
+    {
+        OutRecord.ProducedResourceType =
+            Building.GetProducedResourceType() != EResourceType::None ?
+                Building.GetProducedResourceType() :
+                (CatalogEntry ?
+                    CatalogEntry->ProducedResourceType :
+                    EResourceType::None);
+        OutRecord.ProducedResourceStock =
+            OutRecord.ProducedResourceType == EResourceType::None ?
+                0 :
+                Building.GetResourceStock(OutRecord.ProducedResourceType);
+
+        for (int SlotIndex = 0;
+            SlotIndex < GProductionInputSlotCount;
+            ++SlotIndex)
+        {
+            CitizenInfoDataProvider::FProductionInputSlotView& InputRecord =
+                OutRecord.ProductionInputs[static_cast<size_t>(SlotIndex)];
+            InputRecord = CitizenInfoDataProvider::FProductionInputSlotView();
+
+            EResourceType InputType = Building.GetProductionInputType(SlotIndex);
+            int RequiredAmount = Building.GetProductionInputAmount(SlotIndex);
+
+            if ((InputType == EResourceType::None || RequiredAmount <= 0) &&
+                CatalogEntry)
+            {
+                InputType =
+                    CatalogEntry->ProductionInputTypes[
+                        static_cast<size_t>(SlotIndex)];
+                RequiredAmount =
+                    CatalogEntry->ProductionInputAmounts[
+                        static_cast<size_t>(SlotIndex)];
+            }
+
+            InputRecord.Type = InputType;
+            InputRecord.RequiredAmount = (std::max)(0, RequiredAmount);
+
+            if (!IsValidProductionInputSlot(InputRecord))
+                continue;
+
+            InputRecord.CurrentStock =
+                Building.GetResourceStock(InputRecord.Type);
+            InputRecord.MaxStock =
+                Building.GetResourceTypeCapacity(InputRecord.Type);
+        }
+    }
+
+    FBuildingOperationModeEffect ResolveCatalogRuntimeEffect(
+        const FBuildingCatalogEntry* CatalogEntry,
+        int ActiveOperationModeIndex,
+        int ActiveRuntimeUpgradeIndex)
+    {
+        FBuildingOperationModeEffect Result;
+
+        if (!CatalogEntry)
+            return Result;
+
+        if (ActiveOperationModeIndex >= 0 &&
+            ActiveOperationModeIndex <
+                static_cast<int>(CatalogEntry->OperationModeDefs.size()))
+        {
+            Result =
+                CatalogEntry->OperationModeDefs[
+                    static_cast<size_t>(ActiveOperationModeIndex)].Effect;
+        }
+
+        if (ActiveRuntimeUpgradeIndex >= 0 &&
+            ActiveRuntimeUpgradeIndex <
+                static_cast<int>(CatalogEntry->RuntimeUpgradeDefs.size()))
+        {
+            const FBuildingOperationModeEffect& UpgradeEffect =
+                CatalogEntry->RuntimeUpgradeDefs[
+                    static_cast<size_t>(ActiveRuntimeUpgradeIndex)].Effect;
+
+            if (UpgradeEffect.HasProducedResourceTypeOverride)
+            {
+                Result.HasProducedResourceTypeOverride = true;
+                Result.ProducedResourceTypeOverride =
+                    UpgradeEffect.ProducedResourceTypeOverride;
+            }
+
+            if (UpgradeEffect.HasProductionInputTypesOverride)
+            {
+                Result.HasProductionInputTypesOverride = true;
+                Result.ProductionInputTypesOverride =
+                    UpgradeEffect.ProductionInputTypesOverride;
+                Result.ProductionInputAmountsOverride =
+                    UpgradeEffect.ProductionInputAmountsOverride;
+            }
+
+            if (UpgradeEffect.HasVisitConsumptionTypeOverride)
+            {
+                Result.HasVisitConsumptionTypeOverride = true;
+                Result.VisitConsumptionTypeOverride =
+                    UpgradeEffect.VisitConsumptionTypeOverride;
+            }
+
+            if (UpgradeEffect.HasVisitConsumptionAcceptedTypesOverride)
+            {
+                Result.HasVisitConsumptionAcceptedTypesOverride = true;
+                Result.VisitConsumptionAcceptedTypesOverride =
+                    UpgradeEffect.VisitConsumptionAcceptedTypesOverride;
+            }
+
+            Result.ProductionMultiplier *= UpgradeEffect.ProductionMultiplier;
+            Result.InputConsumptionMultiplier *=
+                UpgradeEffect.InputConsumptionMultiplier;
+        }
+
+        return Result;
+    }
+
+    float ResolveUiPowerOperationalMultiplier(
+        const CPlacementAreaObject& Building)
+    {
+        if (Building.GetRequiredPowerMW() <= 0)
+            return 1.f;
+
+        if (Building.GetPowerSupplyRatio() <= 0.05f)
+            return 0.f;
+
+        return (std::max)(
+            0.f,
+            (std::min)(1.f, Building.GetPowerSupplyRatio()));
+    }
+
     class CWorldCitizenInfoQuerySource final :
         public CitizenInfoDataProvider::ICitizenInfoQuerySource
     {
@@ -521,11 +761,13 @@ namespace
             const std::shared_ptr<CWorld>& World)
             : mWorld(World)
             , mMainWorldAccess(
-                std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World))
+                ResolveMainWorldBuildMenuAccess(World))
             , mMainWorldPolicyAccess(
-                std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World))
+                ResolveMainWorldAlmanacAccess(World))
             , mMainWorldTradeAccess(
-                std::dynamic_pointer_cast<IMainWorldTradeAccess>(World))
+                ResolveMainWorldTradeAccess(World))
+            , mMainWorldKnowledgeAccess(
+                ResolveMainWorldKnowledgeAccess(World))
         {
         }
 
@@ -549,6 +791,8 @@ namespace
             OutRecord.CategoryName =
                 Utf8ToWide(Building->GetBuildingCategoryName());
             OutRecord.BuildingId = Building->GetBuildingId();
+            const FBuildingCatalogEntry* const CatalogEntry =
+                FindBuildingCatalogEntry(OutRecord.BuildingId);
             OutRecord.Residential = Building->IsResidential();
             OutRecord.WorkProvider =
                 !OutRecord.Residential &&
@@ -585,21 +829,35 @@ namespace
             OutRecord.ExportableStock =
                 Building->GetExportableResourceStock();
             OutRecord.MaxResourceStock = Building->GetMaxResourceStock();
-            OutRecord.ProducedResourceType =
-                Building->GetProducedResourceType();
-            OutRecord.ProducedResourceStock =
-                OutRecord.ProducedResourceType == EResourceType::None ?
-                    0 :
-                    Building->GetResourceStock(OutRecord.ProducedResourceType);
+            PopulateProductionResourceView(*Building, CatalogEntry, OutRecord);
+            const CitizenInfoDataProvider::EProductionChainStage RuntimeChainStage =
+                CatalogEntry ?
+                    BuildRuntimeProductionChainStage(
+                        *Building,
+                        *CatalogEntry) :
+                    CitizenInfoDataProvider::EProductionChainStage::None;
+            OutRecord.ChainStage =
+                RuntimeChainStage;
             OutRecord.ProducedPowerMW = Building->GetProducedPowerMW();
             OutRecord.RequiredPowerMW = Building->GetRequiredPowerMW();
             OutRecord.PowerSupplyRatio = Building->GetPowerSupplyRatio();
+            OutRecord.LastProductionEfficiency =
+                Building->GetLastProductionEfficiency();
+            OutRecord.DamageEfficiencyMultiplier =
+                Building->GetDamageEfficiencyMultiplier();
             OutRecord.HarborShipProgressPercent =
                 Building->GetHarborShipProgressPercent();
             OutRecord.ActiveOperationModeIndex =
                 Building->GetActiveOperationModeIndex();
             OutRecord.ActiveRuntimeUpgradeIndex =
                 Building->GetActiveRuntimeUpgradeIndex();
+            OutRecord.DamageLevel = Building->GetDamageLevel();
+            OutRecord.RepairCost = Building->GetRepairCost();
+            OutRecord.RepairAffordable =
+                OutRecord.RepairCost <= 0 ||
+                (mMainWorldAccess &&
+                    static_cast<long long>(OutRecord.RepairCost) <=
+                        mMainWorldAccess->GetNationalBudget());
             OutRecord.ActiveOperationModeText =
                 Building->GetActiveOperationModeDisplayName();
             OutRecord.ActiveOperationModeEffectSummary =
@@ -608,11 +866,48 @@ namespace
                 Building->GetActiveRuntimeUpgradeDisplayName();
             OutRecord.ActiveRuntimeUpgradeEffectSummary =
                 Building->GetActiveRuntimeUpgradeEffectSummary();
+            OutRecord.KnowledgePoints =
+                mMainWorldKnowledgeAccess ?
+                    mMainWorldKnowledgeAccess->GetKnowledgePoints() :
+                    0;
+            OutRecord.DailyKnowledgeGeneration =
+                mMainWorldKnowledgeAccess ?
+                    mMainWorldKnowledgeAccess->GetDailyKnowledgeGeneration() :
+                    0;
+
+            const int OperationModeCount = Building->GetOperationModeCount();
+
+            for (int ModeIndex = 0; ModeIndex < OperationModeCount; ++ModeIndex)
+            {
+                OutRecord.OperationModeResearchLocked.push_back(
+                    Building->IsOperationModeResearchLocked(ModeIndex));
+                OutRecord.OperationModeResearchCosts.push_back(
+                    Building->GetOperationModeResearchCost(ModeIndex));
+                OutRecord.OperationModeResearchLabels.push_back(
+                    Building->GetOperationModeResearchLabel(ModeIndex));
+            }
+
+            OutRecord.ProductionChainStageText =
+                RuntimeChainStage !=
+                    CitizenInfoDataProvider::EProductionChainStage::None ?
+                    std::wstring(
+                        GetProductionChainStageDisplayName(
+                            RuntimeChainStage)) :
+                    std::wstring();
+            OutRecord.SupplyChainSummaryText =
+                CatalogEntry ?
+                    BuildRuntimeProductionChainSummary(
+                        *Building,
+                        *CatalogEntry) :
+                    std::wstring();
             OutRecord.RequiredEducationLevel =
                 Building->GetRequiredEducationLevel();
             OutRecord.UsesResourceStock =
                 OutRecord.ResourceStock > 0 ||
                 OutRecord.CanGenerateWorkOutput ||
+                OutRecord.ProducedResourceType != EResourceType::None ||
+                HasProductionInputSlots(OutRecord.ProductionInputs) ||
+                HasCatalogProductionIdentity(CatalogEntry) ||
                 OutRecord.FoodProvider ||
                 OutRecord.Harbor ||
                 OutRecord.Warehouse;
@@ -625,6 +920,7 @@ namespace
                 Building->GetDailyWageCost(OutRecord.DaysInMonth);
             OutRecord.DailyUpkeepCost =
                 Building->GetDailyUpkeepCost(OutRecord.DaysInMonth);
+            PopulateProductionFlowMetrics(Building, CatalogEntry, OutRecord);
 
             if (OutRecord.Warehouse)
             {
@@ -660,7 +956,28 @@ namespace
             PopulateLogisticsLines(Building, OutRecord);
 
             if (OutRecord.Harbor)
+            {
                 PopulateHarborTradePolicy(*Building, OutRecord);
+
+                for (int TypeIndex = 1;
+                    TypeIndex < static_cast<int>(EResourceType::Count);
+                    ++TypeIndex)
+                {
+                    const EResourceType ResourceType =
+                        static_cast<EResourceType>(TypeIndex);
+                    const int Stock =
+                        Building->GetResourceStock(ResourceType);
+
+                    if (Stock <= 0)
+                        continue;
+
+                    CitizenInfoDataProvider::FWarehouseSlotRecord Slot;
+                    Slot.Type = ResourceType;
+                    Slot.Stock = Stock;
+                    Slot.Capacity = 0;
+                    OutRecord.HarborResourceSlots.push_back(Slot);
+                }
+            }
 
             if (IsCustomsOfficeBuildingId(OutRecord.BuildingId))
             {
@@ -722,6 +1039,171 @@ namespace
         }
 
     private:
+        int CountActiveCitizenOrbs() const
+        {
+            if (!mWorld)
+                return 0;
+
+            std::vector<std::weak_ptr<CBuildingMarkerOrb>> OrbList;
+
+            if (!mWorld->FindObjectListByType<CBuildingMarkerOrb>(OrbList))
+                return 0;
+
+            int Count = 0;
+
+            for (size_t Index = 0; Index < OrbList.size(); ++Index)
+            {
+                const auto Orb = OrbList[Index].lock();
+
+                if (!Orb || !Orb->GetAlive() || !Orb->GetEnable())
+                    continue;
+
+                ++Count;
+            }
+
+            return Count;
+        }
+
+        void PopulateProductionFlowMetrics(
+            const std::shared_ptr<CPlacementAreaObject>& Building,
+            const FBuildingCatalogEntry* CatalogEntry,
+            CitizenInfoDataProvider::FCitizenInfoBuildingRecord& OutRecord)
+            const
+        {
+            if (!Building)
+                return;
+
+            OutRecord.CurrentWorkerOccupancy = (std::max)(
+                0,
+                Building->GetCurrentWorkerOccupancy());
+
+            if (!Building->CanGenerateWorkOutput() ||
+                Building->GetProducedResourceType() == EResourceType::None)
+            {
+                return;
+            }
+
+            const float BaseUnitsPerSecond =
+                ResolveBaseProductionUnitsPerSecond(*Building);
+
+            if (BaseUnitsPerSecond <= 0.f)
+                return;
+
+            std::array<EResourceType, GProductionInputSlotCount> InputTypes = {};
+            const FBuildingOperationModeEffect RuntimeEffect =
+                ResolveCatalogRuntimeEffect(
+                    CatalogEntry,
+                    Building->GetActiveOperationModeIndex(),
+                    Building->GetActiveRuntimeUpgradeIndex());
+
+            for (int SlotIndex = 0;
+                SlotIndex < GProductionInputSlotCount;
+                ++SlotIndex)
+            {
+                InputTypes[static_cast<size_t>(SlotIndex)] =
+                    SlotIndex < Building->GetProductionInputCount() ?
+                        Building->GetProductionInputType(SlotIndex) :
+                        EResourceType::None;
+            }
+
+            FGovernmentEdictModifiers EdictModifiers;
+            const FGovernmentProfile* const GovernmentProfile =
+                mMainWorldPolicyAccess ?
+                    &mMainWorldPolicyAccess->GetGovernmentProfile() :
+                    nullptr;
+            const FTaxPolicyEventStatus* const TaxEventStatus =
+                mMainWorldPolicyAccess ?
+                    &mMainWorldPolicyAccess->GetTaxPolicyEventStatus() :
+                    nullptr;
+            const FWorldCrisisStatus* const WorldCrisisStatus =
+                mMainWorldPolicyAccess ?
+                    &mMainWorldPolicyAccess->GetWorldCrisisStatus() :
+                    nullptr;
+
+            if (mMainWorldPolicyAccess)
+            {
+                EdictModifiers =
+                    EdictSystem::CalculateEdictModifiers(
+                        mMainWorldPolicyAccess->GetGovernmentEdictStates(),
+                        CountActiveCitizenOrbs());
+            }
+
+            const float TradePolicyProductionMultiplier =
+                GovernmentProfile ?
+                    TradePolicyRuntime::ComputeBuildingProductionMultiplier(
+                        Building->GetProducedResourceType(),
+                        InputTypes,
+                        GovernmentProfile->ExportTradePolicy,
+                        GovernmentProfile->ImportTradePolicy) :
+                    1.f;
+            const float NominalUnitsPerSecond =
+                BaseUnitsPerSecond *
+                (std::max)(0.f, EdictModifiers.ProductionMultiplier) *
+                ResolveTaxEventProductionMultiplier(TaxEventStatus) *
+                ResolveWorldCrisisProductionMultiplier(WorldCrisisStatus) *
+                TradePolicyProductionMultiplier *
+                (std::max)(0.f, RuntimeEffect.ProductionMultiplier) *
+                (std::max)(0.f, Building->GetBudgetSatisfactionScale()) *
+                Building->GetDamageEfficiencyMultiplier() *
+                ResolveUiPowerOperationalMultiplier(*Building);
+            const float EffectiveProductionEfficiency =
+                (OutRecord.CurrentWorkerOccupancy > 0 &&
+                    OutRecord.Capacity > 0) ?
+                    (std::max)(
+                        0.f,
+                        (std::min)(
+                            1.f,
+                            Building->GetLastProductionEfficiency())) :
+                    0.f;
+
+            OutRecord.CurrentProductionUnitsPerSecond =
+                NominalUnitsPerSecond * EffectiveProductionEfficiency;
+            const float DailyProductionUnits =
+                OutRecord.CurrentProductionUnitsPerSecond *
+                MainWorldConfig::GSecondsPerSimulationDay;
+            OutRecord.EstimatedDailyProductionUnits = (std::max)(
+                0,
+                static_cast<int>(roundf(DailyProductionUnits)));
+            OutRecord.EstimatedMonthlyProductionUnits = (std::max)(
+                0,
+                static_cast<int>(roundf(
+                    DailyProductionUnits *
+                    static_cast<float>((std::max)(1, OutRecord.DaysInMonth)))));
+
+            const float EffectiveInputConsumptionMultiplier = (std::max)(
+                0.f,
+                RuntimeEffect.InputConsumptionMultiplier);
+
+            for (size_t Index = 0; Index < OutRecord.ProductionInputs.size();
+                ++Index)
+            {
+                CitizenInfoDataProvider::FProductionInputSlotView& InputRecord =
+                    OutRecord.ProductionInputs[Index];
+                if (!IsValidProductionInputSlot(InputRecord))
+                    continue;
+                const float ConsumptionUnitsPerSecond =
+                    OutRecord.CurrentProductionUnitsPerSecond *
+                    static_cast<float>((std::max)(1, InputRecord.RequiredAmount)) *
+                    EffectiveInputConsumptionMultiplier;
+
+                InputRecord.ConsumptionUnitsPerSecond =
+                    ConsumptionUnitsPerSecond;
+                InputRecord.EstimatedDailyConsumptionUnits = (std::max)(
+                    0,
+                    static_cast<int>(roundf(
+                        ConsumptionUnitsPerSecond *
+                        MainWorldConfig::GSecondsPerSimulationDay)));
+                InputRecord.EstimatedMonthlyConsumptionUnits = (std::max)(
+                    0,
+                    static_cast<int>(roundf(
+                        static_cast<float>(
+                            InputRecord.EstimatedDailyConsumptionUnits) *
+                        static_cast<float>((std::max)(
+                            1,
+                            OutRecord.DaysInMonth)))));
+            }
+        }
+
         void PopulateCustomsTradeSummary(
             CitizenInfoDataProvider::FCitizenInfoBuildingRecord& OutRecord)
             const
@@ -911,12 +1393,13 @@ namespace
                 break;
             case TradePolicy::EImportPolicyMode::SingleResource:
                 ProductionFocusLine += L" / ";
-                ProductionFocusLine +=
-                    ActiveImportPolicy.SelectedResourceType !=
-                        EResourceType::None ?
-                        GetResourceTypeDisplayName(
-                            ActiveImportPolicy.SelectedResourceType) :
-                        L"선택 자원";
+                {
+                    const std::wstring SelectionText =
+                        TradePolicy::BuildImportPolicySelectionDisplayText(
+                            ActiveImportPolicy);
+                    ProductionFocusLine +=
+                        SelectionText == L"없음" ? L"선택 자원" : SelectionText;
+                }
                 ProductionFocusLine += L" 투입 산업 우대";
                 break;
             case TradePolicy::EImportPolicyMode::AllResources:
@@ -1201,9 +1684,26 @@ namespace
                 if (!Prefix || Type == EResourceType::None)
                     return;
 
+                const bool VisitConsumptionDemand =
+                    Type == Building->GetVisitConsumptionResourceType();
+                const bool CompatibleProductionInputDemand =
+                    !VisitConsumptionDemand &&
+                    Type == EResourceType::FeedCrops;
                 const int CoveredStock =
-                    Building->GetResourceStock(Type) +
-                    Building->GetReservedIncomingResourceAmount(Type);
+                    VisitConsumptionDemand ?
+                        Building->GetVisitConsumptionCompatibleResourceStock(
+                            Type) +
+                            Building
+                                ->GetVisitConsumptionCompatibleReservedIncomingResourceAmount(
+                                    Type) :
+                    CompatibleProductionInputDemand ?
+                        Building->GetProductionInputCompatibleResourceStock(
+                            Type) +
+                            Building
+                                ->GetProductionInputCompatibleReservedIncomingResourceAmount(
+                                    Type) :
+                        Building->GetResourceStock(Type) +
+                            Building->GetReservedIncomingResourceAmount(Type);
                 const int ShortageAmount = (std::max)(
                     0,
                     GameConstants::Orb::TeamsterConsumerTargetStock -
@@ -1773,6 +2273,7 @@ namespace
         std::shared_ptr<IMainWorldBuildMenuAccess> mMainWorldAccess;
         std::shared_ptr<IMainWorldAlmanacAccess> mMainWorldPolicyAccess;
         std::shared_ptr<IMainWorldTradeAccess> mMainWorldTradeAccess;
+        std::shared_ptr<IMainWorldKnowledgeAccess> mMainWorldKnowledgeAccess;
     };
 }
 
@@ -1787,3 +2288,4 @@ namespace CitizenInfoWorldQuerySource
         return std::make_shared<CWorldCitizenInfoQuerySource>(World);
     }
 }
+

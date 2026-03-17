@@ -317,7 +317,7 @@ void CAlmanacWidget::OnPoliticsDemandAcceptClick()
 {
     auto World = mWorld.lock();
     auto CommandService =
-        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+        ResolveGovernmentCommandService(World);
 
     if (!CommandService)
         return;
@@ -335,7 +335,7 @@ void CAlmanacWidget::OnPoliticsDemandRejectClick()
 {
     auto World = mWorld.lock();
     auto CommandService =
-        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+        ResolveGovernmentCommandService(World);
 
     if (!CommandService)
         return;
@@ -353,7 +353,7 @@ void CAlmanacWidget::OnForeignDemandAcceptClick()
 {
     auto World = mWorld.lock();
     auto CommandService =
-        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+        ResolveGovernmentCommandService(World);
 
     if (!CommandService)
         return;
@@ -371,7 +371,7 @@ void CAlmanacWidget::OnForeignDemandRejectClick()
 {
     auto World = mWorld.lock();
     auto CommandService =
-        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+        ResolveGovernmentCommandService(World);
 
     if (!CommandService)
         return;

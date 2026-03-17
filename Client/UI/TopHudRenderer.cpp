@@ -2,7 +2,7 @@
 #include "TopHudWidget.h"
 #include "UIStrings.h"
 #include "TropicoUiStyle.h"
-#include "UILayoutConfig.h"
+#include "UILayoutValues.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
@@ -21,6 +21,7 @@ namespace
     constexpr int GMenuButtonCount = 8;
     constexpr int GMenuConstructionIndex = 1;
     constexpr int GMenuEdictsIndex = 2;
+    constexpr int GMenuEraTransitionIndex = 3;
     constexpr int GMenuTradeIndex = 4;
     constexpr int GMenuAlmanacIndex = 7;
 
@@ -42,6 +43,8 @@ namespace
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_population.png");
     constexpr const TCHAR* GStatusSupportIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_political_approval.png");
+    constexpr const TCHAR* GStatusResearchIconTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_Research.png");
 
     const TCHAR* const GSpeedStateIcons[] =
     {
@@ -76,7 +79,7 @@ namespace
         L"top_hud.menu.mission",
         L"top_hud.menu.construction",
         L"top_hud.menu.edict",
-        L"top_hud.menu.constitution",
+        L"top_hud.menu.era_transition",
         L"top_hud.menu.trade",
         L"top_hud.menu.raid",
         L"top_hud.menu.research",
@@ -299,6 +302,18 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         Widget.mStatusSupportIcon = StatusSupportIcon;
     }
 
+    auto StatusResearchIcon =
+        Widget.CreateWidget<CImage>("TopHud_StatusResearchIcon", 20).lock();
+
+    if (StatusResearchIcon)
+    {
+        StatusResearchIcon->SetTexture(
+            "TopHudStatusResearchIcon",
+            GStatusResearchIconTexture);
+        StatusResearchIcon->SetTint(1.f, 1.f, 1.f, 1.f);
+        Widget.mStatusResearchIcon = StatusResearchIcon;
+    }
+
     auto NpcText =
         Widget.CreateWidget<CTextBlock>("TopHud_StatusNpcText", 20).lock();
 
@@ -361,6 +376,38 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         SupportLabelText->SetShadowOffset(1.f, 1.f);
         SupportLabelText->SetShadowTextColor(22, 18, 12, 180);
         Widget.mSupportLabelText = SupportLabelText;
+    }
+
+    auto ResearchText =
+        Widget.CreateWidget<CTextBlock>("TopHud_StatusResearchText", 20).lock();
+
+    if (ResearchText)
+    {
+        ResearchText->SetText(TEXT("0"));
+        ResearchText->SetFontSize(20.f);
+        ResearchText->SetAlignH(ETextAlignH::Left);
+        ResearchText->SetAlignV(ETextAlignV::Middle);
+        ResearchText->SetTextColor(245, 235, 210, 255);
+        ResearchText->EnableShadow(true);
+        ResearchText->SetShadowOffset(1.f, 1.f);
+        ResearchText->SetShadowTextColor(16, 16, 16, 220);
+        Widget.mResearchText = ResearchText;
+    }
+
+    auto ResearchLabelText =
+        Widget.CreateWidget<CTextBlock>("TopHud_StatusResearchLabelText", 20).lock();
+
+    if (ResearchLabelText)
+    {
+        ResearchLabelText->SetText(UIStrings::Get(L"top_hud.label.knowledge").c_str());
+        ResearchLabelText->SetFontSize(12.f);
+        ResearchLabelText->SetAlignH(ETextAlignH::Left);
+        ResearchLabelText->SetAlignV(ETextAlignV::Middle);
+        ResearchLabelText->SetTextColor(172, 146, 98, 255);
+        ResearchLabelText->EnableShadow(true);
+        ResearchLabelText->SetShadowOffset(1.f, 1.f);
+        ResearchLabelText->SetShadowTextColor(22, 18, 12, 180);
+        Widget.mResearchLabelText = ResearchLabelText;
     }
 
     auto ElectionText =
@@ -453,6 +500,151 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         Widget.mGameOverBodyText = GameOverBodyText;
     }
 
+    auto EraTransitionDim =
+        Widget.CreateWidget<CImage>("TopHud_EraTransitionDim", 94).lock();
+
+    if (EraTransitionDim)
+    {
+        EraTransitionDim->SetTexture("TopHudEraTransitionDim", GStatusBarTexture);
+        EraTransitionDim->SetTint(0.03f, 0.03f, 0.03f, 0.70f);
+        EraTransitionDim->SetEnable(false);
+        Widget.mEraTransitionDim = EraTransitionDim;
+    }
+
+    auto EraTransitionPanel =
+        Widget.CreateWidget<CImage>("TopHud_EraTransitionPanel", 95).lock();
+
+    if (EraTransitionPanel)
+    {
+        EraTransitionPanel->SetTexture(
+            "TopHudEraTransitionPanel",
+            GCenterPopupTexture);
+        EraTransitionPanel->SetTint(1.f, 1.f, 1.f, 1.f);
+        EraTransitionPanel->SetEnable(false);
+        Widget.mEraTransitionPanel = EraTransitionPanel;
+    }
+
+    auto EraTransitionTitleText =
+        Widget.CreateWidget<CTextBlock>(
+            "TopHud_EraTransitionTitleText",
+            96).lock();
+
+    if (EraTransitionTitleText)
+    {
+        EraTransitionTitleText->SetText(TEXT("시대 전환"));
+        EraTransitionTitleText->SetFontSize(24.f);
+        EraTransitionTitleText->SetAlignH(ETextAlignH::Center);
+        EraTransitionTitleText->SetAlignV(ETextAlignV::Middle);
+        EraTransitionTitleText->SetTextColor(244, 229, 201, 255);
+        EraTransitionTitleText->EnableShadow(true);
+        EraTransitionTitleText->SetShadowOffset(1.f, 1.f);
+        EraTransitionTitleText->SetShadowTextColor(20, 18, 16, 220);
+        EraTransitionTitleText->SetEnable(false);
+        Widget.mEraTransitionTitleText = EraTransitionTitleText;
+    }
+
+    auto EraTransitionBodyText =
+        Widget.CreateWidget<CTextBlock>(
+            "TopHud_EraTransitionBodyText",
+            96).lock();
+
+    if (EraTransitionBodyText)
+    {
+        EraTransitionBodyText->SetText(TEXT(""));
+        EraTransitionBodyText->SetFontSize(15.f);
+        EraTransitionBodyText->SetAlignH(ETextAlignH::Left);
+        EraTransitionBodyText->SetAlignV(ETextAlignV::Top);
+        EraTransitionBodyText->SetTextColor(236, 225, 198, 255);
+        EraTransitionBodyText->EnableShadow(true);
+        EraTransitionBodyText->SetShadowOffset(1.f, 1.f);
+        EraTransitionBodyText->SetShadowTextColor(16, 16, 16, 200);
+        EraTransitionBodyText->SetEnable(false);
+        Widget.mEraTransitionBodyText = EraTransitionBodyText;
+    }
+
+    auto EraTransitionConfirmButton =
+        Widget.CreateWidget<CButton>(
+            "TopHud_EraTransitionConfirmButton",
+            96).lock();
+
+    if (EraTransitionConfirmButton)
+    {
+        ApplyButtonTextureSet(
+            EraTransitionConfirmButton,
+            "TopHudEraTransitionConfirmButton",
+            GBigTextButtonTexture,
+            GBigTextButtonHoverTexture,
+            GBigTextButtonSelectedTexture,
+            GBigTextButtonDisabledTexture);
+        ConfigureHighlightedButtonStyle(EraTransitionConfirmButton);
+        EraTransitionConfirmButton->SetEnable(false);
+        EraTransitionConfirmButton->SetEventCallback<CTopHudWidget>(
+            EButtonEventState::Click,
+            &Widget,
+            &CTopHudWidget::OnEraTransitionConfirmButtonClick);
+        Widget.mEraTransitionConfirmButton = EraTransitionConfirmButton;
+
+        auto ConfirmText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_EraTransitionConfirmButtonText",
+            97).lock();
+
+        if (ConfirmText)
+        {
+            ConfirmText->SetText(TEXT("승인"));
+            ConfirmText->SetFontSize(18.f);
+            ConfirmText->SetAlignH(ETextAlignH::Center);
+            ConfirmText->SetAlignV(ETextAlignV::Middle);
+            ConfirmText->SetTextColor(76, 56, 28, 255);
+            ConfirmText->EnableShadow(true);
+            ConfirmText->SetShadowOffset(1.f, 1.f);
+            ConfirmText->SetShadowTextColor(245, 234, 208, 140);
+            EraTransitionConfirmButton->SetChild(ConfirmText);
+            Widget.mEraTransitionConfirmButtonText = ConfirmText;
+        }
+    }
+
+    auto EraTransitionCancelButton =
+        Widget.CreateWidget<CButton>(
+            "TopHud_EraTransitionCancelButton",
+            96).lock();
+
+    if (EraTransitionCancelButton)
+    {
+        ApplyButtonTextureSet(
+            EraTransitionCancelButton,
+            "TopHudEraTransitionCancelButton",
+            GBigTextButtonTexture,
+            GBigTextButtonHoverTexture,
+            GBigTextButtonSelectedTexture,
+            GBigTextButtonDisabledTexture);
+        ConfigureDefaultButtonStyle(EraTransitionCancelButton);
+        EraTransitionCancelButton->SetEnable(false);
+        EraTransitionCancelButton->SetEventCallback<CTopHudWidget>(
+            EButtonEventState::Click,
+            &Widget,
+            &CTopHudWidget::OnEraTransitionCancelButtonClick);
+        Widget.mEraTransitionCancelButton = EraTransitionCancelButton;
+
+        auto CancelText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_EraTransitionCancelButtonText",
+            97).lock();
+
+        if (CancelText)
+        {
+            CancelText->SetText(UIStrings::Get(
+                L"top_hud.era_transition.cancel").c_str());
+            CancelText->SetFontSize(18.f);
+            CancelText->SetAlignH(ETextAlignH::Center);
+            CancelText->SetAlignV(ETextAlignV::Middle);
+            CancelText->SetTextColor(76, 56, 28, 255);
+            CancelText->EnableShadow(true);
+            CancelText->SetShadowOffset(1.f, 1.f);
+            CancelText->SetShadowTextColor(245, 234, 208, 140);
+            EraTransitionCancelButton->SetChild(CancelText);
+            Widget.mEraTransitionCancelButtonText = CancelText;
+        }
+    }
+
     Widget.mSpeedButtons.resize(GSpeedButtonCount);
     Widget.mSpeedButtonIcons.resize(GSpeedButtonCount);
 
@@ -539,6 +731,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
             MenuCallback = &CTopHudWidget::OnConstructionButtonClick;
         else if (i == GMenuEdictsIndex)
             MenuCallback = &CTopHudWidget::OnEdictsButtonClick;
+        else if (i == GMenuEraTransitionIndex)
+            MenuCallback = &CTopHudWidget::OnEraTransitionButtonClick;
         else if (i == GMenuTradeIndex)
             MenuCallback = &CTopHudWidget::OnTradeButtonClick;
         else if (i == GMenuAlmanacIndex)
@@ -588,13 +782,16 @@ void FTopHudRenderer::ApplySnapshot(
     CTopHudWidget& Widget,
     const TopHudDataProvider::FTopHudSnapshot& Snapshot)
 {
-    Widget.mMonthProgress = Snapshot.MonthProgress;
-    Widget.mGameLost = Snapshot.GameLost;
+    auto& State = Widget.GetMutableState();
+
+    State.MonthProgress = Snapshot.MonthProgress;
+    State.GameLost = Snapshot.GameLost;
 
     auto DateText = Widget.mDateText.lock();
     auto BudgetText = Widget.mBudgetText.lock();
     auto NpcText = Widget.mNpcText.lock();
     auto SupportText = Widget.mSupportText.lock();
+    auto ResearchText = Widget.mResearchText.lock();
     auto ElectionText = Widget.mElectionText.lock();
     auto TaxPolicyText = Widget.mTaxPolicyText.lock();
     auto EventText = Widget.mEventText.lock();
@@ -602,6 +799,19 @@ void FTopHudRenderer::ApplySnapshot(
     auto GameOverPanel = Widget.mGameOverPanel.lock();
     auto GameOverTitleText = Widget.mGameOverTitleText.lock();
     auto GameOverBodyText = Widget.mGameOverBodyText.lock();
+    auto EraTransitionDim = Widget.mEraTransitionDim.lock();
+    auto EraTransitionPanel = Widget.mEraTransitionPanel.lock();
+    auto EraTransitionTitleText = Widget.mEraTransitionTitleText.lock();
+    auto EraTransitionBodyText = Widget.mEraTransitionBodyText.lock();
+    auto EraTransitionConfirmButton = Widget.mEraTransitionConfirmButton.lock();
+    auto EraTransitionCancelButton = Widget.mEraTransitionCancelButton.lock();
+    auto EraTransitionConfirmButtonText =
+        Widget.mEraTransitionConfirmButtonText.lock();
+    auto EraTransitionCancelButtonText =
+        Widget.mEraTransitionCancelButtonText.lock();
+    const bool ShowEraTransitionPopup =
+        Widget.GetState().EraTransitionPopupOpen &&
+        !Snapshot.GameLost;
 
     if (DateText)
         DateText->SetText(Snapshot.DateText.c_str());
@@ -614,6 +824,9 @@ void FTopHudRenderer::ApplySnapshot(
 
     if (SupportText)
         SupportText->SetText(Snapshot.SupportText.c_str());
+
+    if (ResearchText)
+        ResearchText->SetText(Snapshot.ResearchText.c_str());
 
     if (ElectionText)
     {
@@ -635,7 +848,10 @@ void FTopHudRenderer::ApplySnapshot(
         auto Button = Widget.mSpeedButtons[i].lock();
 
         if (Button)
-            Button->ButtonEnable(Snapshot.CanUseButtons);
+        {
+            Button->ButtonEnable(
+                Snapshot.CanUseButtons && !ShowEraTransitionPopup);
+        }
     }
 
     if (Widget.mSpeedButtonIcons.size() > GSpeedStateButtonIndex)
@@ -676,7 +892,64 @@ void FTopHudRenderer::ApplySnapshot(
         auto Button = Widget.mMenuButtons[i].lock();
 
         if (Button)
-            Button->ButtonEnable(Snapshot.CanUseButtons);
+        {
+            const bool EraTransitionButton =
+                static_cast<int>(i) == GMenuEraTransitionIndex;
+            const bool Enabled =
+                Snapshot.CanUseButtons &&
+                !ShowEraTransitionPopup &&
+                (!EraTransitionButton || Snapshot.EraTransitionButtonEnabled);
+            Button->ButtonEnable(Enabled);
+        }
+    }
+
+    if (EraTransitionDim)
+        EraTransitionDim->SetEnable(ShowEraTransitionPopup);
+
+    if (EraTransitionPanel)
+        EraTransitionPanel->SetEnable(ShowEraTransitionPopup);
+
+    if (EraTransitionTitleText)
+    {
+        EraTransitionTitleText->SetText(Snapshot.EraTransitionTitle.c_str());
+        EraTransitionTitleText->SetEnable(ShowEraTransitionPopup);
+    }
+
+    if (EraTransitionBodyText)
+    {
+        EraTransitionBodyText->SetText(Snapshot.EraTransitionBody.c_str());
+        EraTransitionBodyText->SetEnable(ShowEraTransitionPopup);
+    }
+
+    if (EraTransitionConfirmButton)
+    {
+        EraTransitionConfirmButton->SetEnable(ShowEraTransitionPopup);
+        EraTransitionConfirmButton->ButtonEnable(
+            ShowEraTransitionPopup &&
+            Snapshot.CanUseButtons &&
+            Snapshot.EraTransitionAvailable);
+    }
+
+    if (EraTransitionCancelButton)
+    {
+        EraTransitionCancelButton->SetEnable(ShowEraTransitionPopup);
+        EraTransitionCancelButton->ButtonEnable(
+            ShowEraTransitionPopup &&
+            Snapshot.CanUseButtons);
+    }
+
+    if (EraTransitionConfirmButtonText)
+    {
+        EraTransitionConfirmButtonText->SetText(
+            Snapshot.EraTransitionConfirmText.c_str());
+        EraTransitionConfirmButtonText->SetEnable(ShowEraTransitionPopup);
+    }
+
+    if (EraTransitionCancelButtonText)
+    {
+        EraTransitionCancelButtonText->SetText(
+            Snapshot.EraTransitionCancelText.c_str());
+        EraTransitionCancelButtonText->SetEnable(ShowEraTransitionPopup);
     }
 
     if (GameOverDim)
@@ -714,10 +987,13 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     auto StatusMoneyIcon = Widget.mStatusMoneyIcon.lock();
     auto StatusNpcIcon = Widget.mStatusNpcIcon.lock();
     auto StatusSupportIcon = Widget.mStatusSupportIcon.lock();
+    auto StatusResearchIcon = Widget.mStatusResearchIcon.lock();
     auto NpcLabelText = Widget.mNpcLabelText.lock();
     auto NpcText = Widget.mNpcText.lock();
     auto SupportLabelText = Widget.mSupportLabelText.lock();
     auto SupportText = Widget.mSupportText.lock();
+    auto ResearchLabelText = Widget.mResearchLabelText.lock();
+    auto ResearchText = Widget.mResearchText.lock();
     auto ElectionText = Widget.mElectionText.lock();
     auto TaxPolicyText = Widget.mTaxPolicyText.lock();
     auto EventText = Widget.mEventText.lock();
@@ -725,6 +1001,16 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     auto GameOverPanel = Widget.mGameOverPanel.lock();
     auto GameOverTitleText = Widget.mGameOverTitleText.lock();
     auto GameOverBodyText = Widget.mGameOverBodyText.lock();
+    auto EraTransitionDim = Widget.mEraTransitionDim.lock();
+    auto EraTransitionPanel = Widget.mEraTransitionPanel.lock();
+    auto EraTransitionTitleText = Widget.mEraTransitionTitleText.lock();
+    auto EraTransitionBodyText = Widget.mEraTransitionBodyText.lock();
+    auto EraTransitionConfirmButton = Widget.mEraTransitionConfirmButton.lock();
+    auto EraTransitionCancelButton = Widget.mEraTransitionCancelButton.lock();
+    auto EraTransitionConfirmButtonText =
+        Widget.mEraTransitionConfirmButtonText.lock();
+    auto EraTransitionCancelButtonText =
+        Widget.mEraTransitionCancelButtonText.lock();
     const float TopHudScale =
         (std::max)(0.72f, (std::min)(1.05f, ScreenWidth / 1920.f));
     const float TopHudPanelX = UIConfig::SpeedPanelX;
@@ -743,12 +1029,15 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     const float StatusMoneyBlockW = UIConfig::StatusBudgetBlockWidth * StatusScale;
     const float StatusNpcBlockW = UIConfig::StatusNpcBlockWidth * StatusScale;
     const float StatusSupportBlockW = UIConfig::StatusSupportBlockWidth * StatusScale;
+    const float StatusResearchBlockW =
+        UIConfig::StatusSupportBlockWidth * StatusScale;
     const float StatusW =
         StatusPaddingX * 2.f +
         StatusMoneyBlockW +
         StatusNpcBlockW +
         StatusSupportBlockW +
-        StatusBlockGap * 2.f;
+        StatusResearchBlockW +
+        StatusBlockGap * 3.f;
     const float StatusH = UIConfig::StatusBarHeight * StatusScale;
     const float StatusIconSize = UIConfig::StatusIconSize * StatusScale;
     const float StatusLabelY = StatusY + UIConfig::StatusLabelOffsetY * StatusScale;
@@ -758,6 +1047,8 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
         StatusBlockMoneyX + StatusMoneyBlockW + StatusBlockGap;
     const float StatusBlockSupportX =
         StatusBlockNpcX + StatusNpcBlockW + StatusBlockGap;
+    const float StatusBlockResearchX =
+        StatusBlockSupportX + StatusSupportBlockW + StatusBlockGap;
 
     if (StatusBar)
     {
@@ -820,6 +1111,11 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
         StatusBlockSupportX, StatusSupportBlockW,
         UIConfig::SupportBlockOffsetX * StatusScale,
         UIConfig::SupportBlockOffsetY * StatusScale);
+    LayoutStatusBlock(
+        StatusResearchIcon, ResearchLabelText, ResearchText,
+        StatusBlockResearchX, StatusResearchBlockW,
+        UIConfig::SupportBlockOffsetX * StatusScale,
+        UIConfig::SupportBlockOffsetY * StatusScale);
 
     const float InfoTextX = StatusX + 16.f * StatusScale;
     const float InfoTextTop = StatusY + StatusH + 8.f * StatusScale;
@@ -868,7 +1164,9 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     if (TimeBarFill)
     {
         TimeBarFill->SetPos(TimeBarX, TimeBarY);
-        TimeBarFill->SetSize(TimeBarW * Widget.mMonthProgress, TimeBarH);
+        TimeBarFill->SetSize(
+            TimeBarW * Widget.GetState().MonthProgress,
+            TimeBarH);
     }
 
     if (DateText)
@@ -1033,5 +1331,81 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
         GameOverBodyText->SetSize(
             PanelWidth - UIConfig::GameOverBodyPaddingX * 2.f * PanelScale,
             PanelHeight - UIConfig::GameOverBodyBottomPadding * PanelScale);
+    }
+
+    const float EraPanelWidth =
+        (std::min)(ScreenWidth * 0.72f, (std::max)(560.f, PanelWidth * 1.12f));
+    const float EraPanelHeight =
+        (std::min)(ScreenHeight * 0.62f, (std::max)(340.f, PanelHeight * 1.14f));
+    const float EraPanelX = (ScreenWidth - EraPanelWidth) * 0.5f;
+    const float EraPanelY = (ScreenHeight - EraPanelHeight) * 0.5f;
+    const float EraHorizontalPadding = 38.f * PanelScale;
+    const float EraButtonWidth = 200.f * PanelScale;
+    const float EraButtonHeight = 54.f * PanelScale;
+    const float EraButtonGap = 20.f * PanelScale;
+    const float EraButtonY = EraPanelY + EraPanelHeight - 78.f * PanelScale;
+    const float EraCancelButtonX =
+        EraPanelX + EraPanelWidth * 0.5f - EraButtonGap * 0.5f - EraButtonWidth;
+    const float EraConfirmButtonX =
+        EraPanelX + EraPanelWidth * 0.5f + EraButtonGap * 0.5f;
+
+    if (EraTransitionDim)
+    {
+        EraTransitionDim->SetPos(0.f, 0.f);
+        EraTransitionDim->SetSize(OverlayWidth, OverlayHeight);
+    }
+
+    if (EraTransitionPanel)
+    {
+        EraTransitionPanel->SetPos(EraPanelX, EraPanelY);
+        EraTransitionPanel->SetSize(EraPanelWidth, EraPanelHeight);
+    }
+
+    if (EraTransitionTitleText)
+    {
+        EraTransitionTitleText->SetPos(
+            EraPanelX + EraHorizontalPadding,
+            EraPanelY + 28.f * PanelScale);
+        EraTransitionTitleText->SetSize(
+            EraPanelWidth - EraHorizontalPadding * 2.f,
+            40.f * PanelScale);
+    }
+
+    if (EraTransitionBodyText)
+    {
+        EraTransitionBodyText->SetPos(
+            EraPanelX + EraHorizontalPadding,
+            EraPanelY + 82.f * PanelScale);
+        EraTransitionBodyText->SetSize(
+            EraPanelWidth - EraHorizontalPadding * 2.f,
+            EraPanelHeight - 164.f * PanelScale);
+    }
+
+    if (EraTransitionCancelButton)
+    {
+        EraTransitionCancelButton->SetPos(EraCancelButtonX, EraButtonY);
+        EraTransitionCancelButton->SetSize(EraButtonWidth, EraButtonHeight);
+    }
+
+    if (EraTransitionConfirmButton)
+    {
+        EraTransitionConfirmButton->SetPos(EraConfirmButtonX, EraButtonY);
+        EraTransitionConfirmButton->SetSize(EraButtonWidth, EraButtonHeight);
+    }
+
+    if (EraTransitionCancelButtonText)
+    {
+        EraTransitionCancelButtonText->SetPos(0.f, 0.f);
+        EraTransitionCancelButtonText->SetSize(
+            EraButtonWidth,
+            EraButtonHeight);
+    }
+
+    if (EraTransitionConfirmButtonText)
+    {
+        EraTransitionConfirmButtonText->SetPos(0.f, 0.f);
+        EraTransitionConfirmButtonText->SetSize(
+            EraButtonWidth,
+            EraButtonHeight);
     }
 }

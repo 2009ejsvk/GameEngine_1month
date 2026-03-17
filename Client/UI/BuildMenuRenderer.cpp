@@ -17,8 +17,8 @@ namespace
     constexpr int GSlotsPerPage = 15;
     constexpr int GSlotColumnCount = 5;
     constexpr int GSlotRowCount = 3;
-    constexpr const TCHAR* GBuildMenuPanelTexture = GMainMenuPanelTexture;
-    constexpr const TCHAR* GYearbookPanelTexture = GModernPanelTexture;
+    const auto& GBuildMenuPanelTexture = GMainMenuPanelTexture;
+    const auto& GYearbookPanelTexture = GModernPanelTexture;
     constexpr const TCHAR* GBlueprintCostIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_blueprint_cost.png");
     constexpr const TCHAR* GConstructionCostIconTexture = TEXT(

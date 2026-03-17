@@ -23,7 +23,7 @@ build_2_1	Colonial	FoodResource	DA_T6CoconutHarvester	Coconut Harvester
 build_2_2	Colonial	FoodResource	DA_T6LoggingCampBP	Logging Camp
 build_2_3	Colonial	FoodResource	DA_T6FishermensWharf	Fishermens Wharf
 build_2_4	Colonial	FoodResource	DA_Building_Plantation	Plantation
-build_2_5	Colonial	FoodResource	DA_T6SmallGardenBP	Small Garden
+build_2_5	Colonial	Infrastructure	DA_T6SmallGardenBP	Small Garden
 build_2_6	Colonial	FoodResource	DA_T6Ranch	Ranch
 build_2_7	Colonial	FoodResource	DA_T6Mine	Mine
 build_2_8	WorldWars	FoodResource	DA_OilWell	Oil Well

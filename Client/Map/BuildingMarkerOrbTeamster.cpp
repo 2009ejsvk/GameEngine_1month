@@ -1,12 +1,70 @@
 #include "BuildingMarkerOrb.h"
 #include "PlacementAreaObject.h"
-#include "../World/MainWorldAccess.h"
+#include "../StringUtils.h"
+#include "../World/MainWorldUiReadAccess.h"
 #include "World/World.h"
+#include <cstdarg>
+#include <cstdio>
 #include <cfloat>
 #include <limits>
 
 namespace
 {
+#ifdef _DEBUG
+    void DebugTeamsterLog(const char* Format, ...)
+    {
+        char Text[768] = {};
+
+        va_list Args;
+        va_start(Args, Format);
+        vsprintf_s(Text, Format, Args);
+        va_end(Args);
+
+        OutputDebugStringA(Text);
+    }
+
+    std::string DebugResourceName(EResourceType Type)
+    {
+        return Type == EResourceType::None ?
+            std::string("None") :
+            StringUtils::WideToUtf8(GetResourceTypeDisplayName(Type));
+    }
+
+    const char* DebugExportPriorityBucketName(int PriorityBucket)
+    {
+        switch (PriorityBucket)
+        {
+        case 0:
+            return "warehouse_to_harbor_staging";
+        case 1:
+            return "producer_to_warehouse_reserve";
+        case 2:
+            return "producer_to_harbor_staging";
+        case 3:
+            return "producer_to_warehouse_overflow";
+        default:
+            break;
+        }
+
+        return "unknown";
+    }
+
+    const char* DebugExportDropoffKind(
+        const std::shared_ptr<CPlacementAreaObject>& Building)
+    {
+        if (!Building)
+            return "unknown";
+
+        if (Building->CanExportStoredResources())
+            return "harbor";
+
+        if (Building->IsWarehouse())
+            return "warehouse";
+
+        return "building";
+    }
+#endif
+
     bool IsOperationalBuilding(
         const std::shared_ptr<CPlacementAreaObject>& Building)
     {
@@ -92,14 +150,32 @@ namespace
         auto ConsiderNeed = [&](EResourceType Type)
         {
             if (Type == EResourceType::None ||
-                Type == Building->GetProducedResourceType())
+                Type == Building->GetProducedResourceType() ||
+                (Type == Building->GetVisitConsumptionResourceType() &&
+                    ShouldVisitConsumptionUseSelfProducedFoodOnly(
+                        Building->GetBuildingId())))
             {
                 return;
             }
 
+            const bool VisitConsumptionDemand =
+                Type == Building->GetVisitConsumptionResourceType();
+            const bool CompatibleProductionInputDemand =
+                !VisitConsumptionDemand &&
+                Type == EResourceType::FeedCrops;
             const int CurrentStock =
-                Building->GetResourceStock(Type) +
-                Building->GetReservedIncomingResourceAmount(Type);
+                VisitConsumptionDemand ?
+                    Building->GetVisitConsumptionCompatibleResourceStock(Type) +
+                        Building
+                            ->GetVisitConsumptionCompatibleReservedIncomingResourceAmount(
+                                Type) :
+                CompatibleProductionInputDemand ?
+                    Building->GetProductionInputCompatibleResourceStock(Type) +
+                        Building
+                            ->GetProductionInputCompatibleReservedIncomingResourceAmount(
+                                Type) :
+                    Building->GetResourceStock(Type) +
+                        Building->GetReservedIncomingResourceAmount(Type);
 
             if (CurrentStock >=
                 GameConstants::Orb::TeamsterConsumerRestockThreshold)
@@ -134,26 +210,89 @@ namespace
         return FoundNeed;
     }
 
-    int ResolveConsumerSupplyAmount(
+    bool TryResolveConsumerSupply(
         const std::shared_ptr<CPlacementAreaObject>& Building,
-        EResourceType Type)
+        EResourceType DemandType,
+        EResourceType& OutSupplyType,
+        int& OutAvailableAmount)
     {
+        OutSupplyType = EResourceType::None;
+        OutAvailableAmount = 0;
+
         if (!IsOperationalBuilding(Building) ||
-            Type == EResourceType::None)
+            DemandType == EResourceType::None)
         {
-            return 0;
+            return false;
         }
 
-        if (Building->IsWarehouse() || Building->IsHarbor())
-            return Building->GetAvailableResourceStock(Type);
-
-        if (!Building->SupportsTeamsterPickup() ||
-            Building->GetProducedResourceType() != Type)
+        auto ConsiderSupplyType = [&](EResourceType CandidateType)
         {
-            return 0;
+            if (CandidateType == EResourceType::None ||
+                CandidateType == EResourceType::Count)
+            {
+                return;
+            }
+
+            int AvailableAmount = 0;
+
+            if (Building->IsWarehouse() || Building->IsHarbor())
+            {
+                AvailableAmount =
+                    Building->GetAvailableResourceStock(CandidateType);
+            }
+            else if (Building->SupportsTeamsterPickup() &&
+                Building->GetProducedResourceType() == CandidateType)
+            {
+                AvailableAmount =
+                    Building->GetAvailableResourceStock(CandidateType);
+            }
+
+            if (AvailableAmount <= 0)
+                return;
+
+            if (OutSupplyType == EResourceType::None ||
+                AvailableAmount > OutAvailableAmount)
+            {
+                OutSupplyType = CandidateType;
+                OutAvailableAmount = AvailableAmount;
+            }
+        };
+
+        if (DemandType == Building->GetVisitConsumptionResourceType() &&
+            IsSummaryResourceType(DemandType))
+        {
+            const std::vector<EResourceType> AcceptedTypes =
+                Building->GetRuntimeVisitConsumptionAcceptedResourceTypes();
+
+            if (!AcceptedTypes.empty())
+            {
+                for (size_t Index = 0; Index < AcceptedTypes.size(); ++Index)
+                    ConsiderSupplyType(AcceptedTypes[Index]);
+            }
+            else
+            {
+                ForEachFoodVisitCompatibleResourceType(
+                    Building->GetBuildingId(),
+                    Building->GetProducedResourceType(),
+                    DemandType,
+                    ConsiderSupplyType);
+            }
+        }
+        else
+        {
+            if (DemandType == EResourceType::FeedCrops)
+            {
+                ForEachFeedCompatibleResourceType(
+                    DemandType,
+                    ConsiderSupplyType);
+            }
+            else
+            {
+                ConsiderSupplyType(DemandType);
+            }
         }
 
-        return Building->GetAvailableResourceStock(Type);
+        return OutSupplyType != EResourceType::None;
     }
 
     struct FTeamsterResourcePressure
@@ -163,6 +302,26 @@ namespace
         int TotalAvailableStock = 0;
         int WarehouseBufferedStock = 0;
         int WarehouseFreeCapacity = 0;
+    };
+
+    struct FTeamsterExportHubPressure
+    {
+        int ExportHubCount = 0;
+        int HarborBufferedStock = 0;
+        int HarborFreeCapacity = 0;
+        int IslandExportHeadroom = 0;
+        int HarborStagingTarget = 0;
+        int PendingStagingDemand = 0;
+    };
+
+    struct FTeamsterExportTriggerInfo
+    {
+        bool Triggered = false;
+        EResourceType Type = EResourceType::None;
+        int AvailableAmount = 0;
+        int RequestedAmount = 0;
+        int PendingStagingDemand = 0;
+        std::string HarborName;
     };
 
     bool BuildingConsumesResource(
@@ -244,9 +403,16 @@ namespace
 
             ++Pressure.ConsumerCount;
 
+            const bool VisitConsumptionDemand =
+                Type == Building->GetVisitConsumptionResourceType();
             const int CurrentStock =
-                Building->GetResourceStock(Type) +
-                Building->GetReservedIncomingResourceAmount(Type);
+                VisitConsumptionDemand ?
+                    Building->GetVisitConsumptionCompatibleResourceStock(Type) +
+                        Building
+                            ->GetVisitConsumptionCompatibleReservedIncomingResourceAmount(
+                                Type) :
+                    Building->GetResourceStock(Type) +
+                        Building->GetReservedIncomingResourceAmount(Type);
             Pressure.GlobalShortage += (std::max)(
                 0,
                 GameConstants::Orb::TeamsterConsumerTargetStock -
@@ -260,7 +426,7 @@ namespace
         const std::shared_ptr<CWorld>& World)
     {
         auto MainWorldAccess =
-            std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World);
+            ResolveMainWorldAlmanacAccess(World);
 
         if (!MainWorldAccess)
             return nullptr;
@@ -291,6 +457,150 @@ namespace
 
         return Pressure.WarehouseBufferedStock <
             ResolveDomesticReserveAmount(Pressure, ExportPolicy);
+    }
+
+    int ResolveRequestedTransferAmount(
+        int AvailableAmount,
+        int TransferUnit,
+        int DesiredAmount = (std::numeric_limits<int>::max)())
+    {
+        if (AvailableAmount <= 0 ||
+            TransferUnit <= 0 ||
+            DesiredAmount <= 0)
+        {
+            return 0;
+        }
+
+        return (std::max)(
+            0,
+            (std::min)(
+                AvailableAmount,
+                (std::min)(TransferUnit, DesiredAmount)));
+    }
+
+    FTeamsterExportHubPressure BuildTeamsterExportHubPressure(
+        const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
+        const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList,
+        EResourceType Type,
+        const FTeamsterResourcePressure& ResourcePressure,
+        const TradePolicy::FExportTradePolicy* ExportPolicy)
+    {
+        FTeamsterExportHubPressure Pressure;
+
+        if (!OfficeBuilding || !IsExportableResourceType(Type))
+            return Pressure;
+
+        for (size_t i = 0; i < BuildingList.size(); ++i)
+        {
+            auto Building = BuildingList[i].lock();
+
+            if (!IsOperationalBuilding(Building) ||
+                !Building->CanExportStoredResources() ||
+                !IsWithinTeamsterCoverage(OfficeBuilding, Building))
+            {
+                continue;
+            }
+
+            ++Pressure.ExportHubCount;
+            Pressure.HarborBufferedStock +=
+                Building->GetResourceStock(Type) +
+                Building->GetReservedIncomingResourceAmount(Type);
+            Pressure.HarborFreeCapacity +=
+                Building->GetAvailableIncomingCapacity(Type);
+        }
+
+        if (Pressure.ExportHubCount <= 0)
+            return Pressure;
+
+        // Keep island-wide export headroom separate from current harbor stock.
+        // The first answers "may we export this nationally?", while the second
+        // answers "how much should teamsters stage at export hubs right now?".
+        const int DomesticReserveAmount =
+            ResolveDomesticReserveAmount(ResourcePressure, ExportPolicy);
+        const int IslandExportHeadroom = (std::max)(
+            0,
+            ResourcePressure.TotalAvailableStock - DomesticReserveAmount);
+        const int ShipCapacity = ExportPolicy ?
+            TradePolicy::GetHarborExportShipCapacityUnits(*ExportPolicy) :
+            TradePolicy::GDefaultHarborExportShipCapacityUnits;
+
+        Pressure.IslandExportHeadroom = IslandExportHeadroom;
+
+        if (IslandExportHeadroom <= 0 || ShipCapacity <= 0)
+            return Pressure;
+
+        const long long TargetStock = (std::min)(
+            static_cast<long long>(IslandExportHeadroom),
+            static_cast<long long>(ShipCapacity) *
+                static_cast<long long>(Pressure.ExportHubCount));
+        Pressure.HarborStagingTarget = static_cast<int>((std::min)(
+            TargetStock,
+            static_cast<long long>((std::numeric_limits<int>::max)())));
+        Pressure.PendingStagingDemand = (std::min)(
+            Pressure.HarborFreeCapacity,
+            (std::max)(
+                0,
+                Pressure.HarborStagingTarget - Pressure.HarborBufferedStock));
+        return Pressure;
+    }
+
+    std::string FindBestExportHubDropoffName(
+        const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
+        const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList,
+        EResourceType CargoType,
+        int CargoAmount)
+    {
+        if (!OfficeBuilding ||
+            CargoType == EResourceType::None ||
+            CargoAmount <= 0)
+        {
+            return std::string();
+        }
+
+        std::string BestName;
+        int BestBufferedStock = (std::numeric_limits<int>::max)();
+        int BestIncomingCapacity = -1;
+        float BestDistSq = FLT_MAX;
+
+        for (size_t i = 0; i < BuildingList.size(); ++i)
+        {
+            auto Building = BuildingList[i].lock();
+
+            if (!IsOperationalBuilding(Building) ||
+                !Building->CanExportStoredResources() ||
+                !IsWithinTeamsterCoverage(OfficeBuilding, Building) ||
+                Building->GetAvailableIncomingCapacity(CargoType) < CargoAmount)
+            {
+                continue;
+            }
+
+            float DistSq = FLT_MAX;
+
+            if (!TryGetCoverageDistanceSq(OfficeBuilding, Building, DistSq))
+                continue;
+
+            const int BufferedStock =
+                Building->GetResourceStock(CargoType) +
+                Building->GetReservedIncomingResourceAmount(CargoType);
+            const int IncomingCapacity =
+                Building->GetAvailableIncomingCapacity(CargoType);
+
+            if (BestName.empty() ||
+                BufferedStock < BestBufferedStock ||
+                (BufferedStock == BestBufferedStock &&
+                 IncomingCapacity > BestIncomingCapacity) ||
+                (BufferedStock == BestBufferedStock &&
+                 IncomingCapacity == BestIncomingCapacity &&
+                 DistSq < BestDistSq))
+            {
+                BestName = Building->GetName();
+                BestBufferedStock = BufferedStock;
+                BestIncomingCapacity = IncomingCapacity;
+                BestDistSq = DistSq;
+            }
+        }
+
+        return BestName;
     }
 
     std::string FindBestWarehouseDropoffName(
@@ -362,6 +672,75 @@ namespace
         }
 
         return BestName;
+    }
+
+    FTeamsterExportTriggerInfo TryResolveExportTrigger(
+        const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
+        const std::shared_ptr<CPlacementAreaObject>& Building,
+        const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList,
+        const std::array<FTeamsterExportHubPressure,
+            static_cast<size_t>(EResourceType::Count)>& ExportHubPressure,
+        const TradePolicy::FExportTradePolicy* ExportPolicy,
+        int TransferUnit)
+    {
+        FTeamsterExportTriggerInfo Result;
+
+        if (!OfficeBuilding ||
+            !IsOperationalBuilding(Building) ||
+            !IsWithinTeamsterCoverage(OfficeBuilding, Building) ||
+            !Building->SupportsTeamsterPickup())
+        {
+            return Result;
+        }
+
+        const EResourceType ProducedType = Building->GetProducedResourceType();
+        if (!IsExportableResourceType(ProducedType))
+            return Result;
+
+        if (ExportPolicy &&
+            !TradePolicy::IsResourceExportAllowed(
+                *ExportPolicy,
+                ProducedType))
+        {
+            return Result;
+        }
+
+        const size_t ResourceIndex = static_cast<size_t>(ProducedType);
+        if (ResourceIndex >= static_cast<size_t>(EResourceType::Count))
+            return Result;
+
+        const int AvailableAmount =
+            Building->GetAvailableResourceStock(ProducedType);
+        if (AvailableAmount <= 0)
+            return Result;
+
+        const FTeamsterExportHubPressure& HubPressure =
+            ExportHubPressure[ResourceIndex];
+        if (HubPressure.PendingStagingDemand <= 0)
+            return Result;
+
+        const int RequestedAmount = ResolveRequestedTransferAmount(
+            AvailableAmount,
+            TransferUnit,
+            HubPressure.PendingStagingDemand);
+        if (RequestedAmount <= 0)
+            return Result;
+
+        const std::string HarborName = FindBestExportHubDropoffName(
+            OfficeBuilding,
+            BuildingList,
+            ProducedType,
+            RequestedAmount);
+        if (HarborName.empty())
+            return Result;
+
+        Result.Triggered = true;
+        Result.Type = ProducedType;
+        Result.AvailableAmount = AvailableAmount;
+        Result.RequestedAmount = RequestedAmount;
+        Result.PendingStagingDemand = HubPressure.PendingStagingDemand;
+        Result.HarborName = HarborName;
+        return Result;
     }
 }
 
@@ -743,8 +1122,7 @@ void CBuildingMarkerOrb::ReleaseTeamsterReservations()
 
     if (World &&
         Delivery.DestinationReservationActive &&
-        Delivery.RequestedAmount > 0 &&
-        Delivery.RequestedType != EResourceType::None &&
+        Delivery.HasDestinationReservation() &&
         !Delivery.DestinationName.empty())
     {
         auto DestinationBuilding =
@@ -754,14 +1132,14 @@ void CBuildingMarkerOrb::ReleaseTeamsterReservations()
         if (DestinationBuilding)
         {
             DestinationBuilding->ReleaseIncomingResource(
-                Delivery.RequestedType,
-                Delivery.RequestedAmount);
+                Delivery.ReservedDestinationType,
+                Delivery.ReservedDestinationAmount);
         }
     }
 
     Delivery.SourceReservationKind =
         FTeamsterDeliveryState::ESourceReservationKind::None;
-    Delivery.DestinationReservationActive = false;
+    Delivery.ClearDestinationReservation();
 }
 
 bool CBuildingMarkerOrb::TryStartTeamsterDelivery()
@@ -823,13 +1201,37 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
         return false;
 
+    const TradePolicy::FExportTradePolicy* const ExportPolicy =
+        ResolveExportTradePolicy(World);
+    std::array<FTeamsterResourcePressure,
+        static_cast<size_t>(EResourceType::Count)> ResourcePressure = {};
+    std::array<FTeamsterExportHubPressure,
+        static_cast<size_t>(EResourceType::Count)> ExportHubPressure = {};
+
+    for (size_t ResourceIndex = 1;
+         ResourceIndex < static_cast<size_t>(EResourceType::Count);
+         ++ResourceIndex)
+    {
+        ResourcePressure[ResourceIndex] = BuildTeamsterResourcePressure(
+            BuildingList,
+            static_cast<EResourceType>(ResourceIndex));
+        ExportHubPressure[ResourceIndex] = BuildTeamsterExportHubPressure(
+            OfficeBuilding,
+            BuildingList,
+            static_cast<EResourceType>(ResourceIndex),
+            ResourcePressure[ResourceIndex],
+            ExportPolicy);
+    }
+
     auto TryFindConsumerSource = [&](
         EResourceType ResourceType,
         const std::string& ConsumerName,
+        EResourceType& OutSupplyType,
         std::string& OutSourceName,
         int& OutAvailableAmount,
         float& OutSourceDistSq) -> bool
     {
+        OutSupplyType = EResourceType::None;
         OutSourceName.clear();
         OutAvailableAmount = 0;
         OutSourceDistSq = FLT_MAX;
@@ -851,8 +1253,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
                 return;
 
             if (RequireProducer &&
-                (!Building->SupportsTeamsterPickup() ||
-                 Building->GetProducedResourceType() != ResourceType))
+                !Building->SupportsTeamsterPickup())
             {
                 return;
             }
@@ -860,8 +1261,17 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
             if (RequireHarbor && !Building->CanExportStoredResources())
                 return;
 
-            const int AvailableAmount =
-                ResolveConsumerSupplyAmount(Building, ResourceType);
+            EResourceType SupplyType = EResourceType::None;
+            int AvailableAmount = 0;
+
+            if (!TryResolveConsumerSupply(
+                    Building,
+                    ResourceType,
+                    SupplyType,
+                    AvailableAmount))
+            {
+                return;
+            }
 
             if (AvailableAmount <= 0)
                 return;
@@ -876,6 +1286,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
                 (DistSq == OutSourceDistSq &&
                  AvailableAmount > OutAvailableAmount))
             {
+                OutSupplyType = SupplyType;
                 OutSourceName = Building->GetName();
                 OutAvailableAmount = AvailableAmount;
                 OutSourceDistSq = DistSq;
@@ -914,16 +1325,57 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     int BestRequestedAmount = 0;
     float BestConsumerDistSq = FLT_MAX;
     float BestSourceDistSq = FLT_MAX;
+    std::string BestDeferredExportSourceName;
+    float BestDeferredExportDistSq = FLT_MAX;
+    FTeamsterExportTriggerInfo BestDeferredExportTrigger;
 
     for (size_t i = 0; i < BuildingList.size(); ++i)
     {
         auto Building = BuildingList[i].lock();
         EResourceType ConsumerType = EResourceType::None;
         int CurrentStock = 0;
+        FTeamsterExportTriggerInfo DeferredExportTrigger;
 
         if (!TryResolveConsumerNeed(Building, ConsumerType, CurrentStock) ||
             !IsWithinTeamsterCoverage(OfficeBuilding, Building))
         {
+            // No restock target here: see if this producer should explicitly
+            // stage cargo toward a harbor export hub instead.
+            DeferredExportTrigger = TryResolveExportTrigger(
+                OfficeBuilding,
+                Building,
+                BuildingList,
+                ExportHubPressure,
+                ExportPolicy,
+                TransferUnit);
+
+            if (DeferredExportTrigger.Triggered)
+            {
+                float ExportDistSq = FLT_MAX;
+
+                if (TryGetCoverageDistanceSq(
+                        OfficeBuilding,
+                        Building,
+                        ExportDistSq) &&
+                    (BestDeferredExportSourceName.empty() ||
+                     DeferredExportTrigger.PendingStagingDemand >
+                        BestDeferredExportTrigger.PendingStagingDemand ||
+                     (DeferredExportTrigger.PendingStagingDemand ==
+                        BestDeferredExportTrigger.PendingStagingDemand &&
+                      DeferredExportTrigger.RequestedAmount >
+                        BestDeferredExportTrigger.RequestedAmount) ||
+                     (DeferredExportTrigger.PendingStagingDemand ==
+                        BestDeferredExportTrigger.PendingStagingDemand &&
+                      DeferredExportTrigger.RequestedAmount ==
+                        BestDeferredExportTrigger.RequestedAmount &&
+                      ExportDistSq < BestDeferredExportDistSq)))
+                {
+                    BestDeferredExportSourceName = Building->GetName();
+                    BestDeferredExportDistSq = ExportDistSq;
+                    BestDeferredExportTrigger = DeferredExportTrigger;
+                }
+            }
+
             continue;
         }
 
@@ -933,12 +1385,14 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
             continue;
 
         std::string SourceName;
+        EResourceType SupplyType = EResourceType::None;
         int AvailableAmount = 0;
         float SourceDistSq = FLT_MAX;
 
         if (!TryFindConsumerSource(
                 ConsumerType,
                 Building->GetName(),
+                SupplyType,
                 SourceName,
                 AvailableAmount,
                 SourceDistSq))
@@ -968,7 +1422,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
         {
             BestConsumerName = Building->GetName();
             BestSourceName = SourceName;
-            BestResourceType = ConsumerType;
+            BestResourceType = SupplyType;
             BestCurrentStock = CurrentStock;
             BestRequestedAmount = RequestedAmount;
             BestConsumerDistSq = ConsumerDistSq;
@@ -981,6 +1435,21 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
         BestResourceType == EResourceType::None ||
         BestRequestedAmount <= 0)
     {
+#ifdef _DEBUG
+        if (!BestDeferredExportSourceName.empty())
+        {
+            DebugTeamsterLog(
+                "[Teamster][ExportTrigger] office=%s source=%s resource=%s "
+                "available=%d requested=%d pending_harbor_staging=%d harbor=%s\n",
+                OfficeBuilding ? OfficeBuilding->GetName().c_str() : "",
+                BestDeferredExportSourceName.c_str(),
+                DebugResourceName(BestDeferredExportTrigger.Type).c_str(),
+                BestDeferredExportTrigger.AvailableAmount,
+                BestDeferredExportTrigger.RequestedAmount,
+                BestDeferredExportTrigger.PendingStagingDemand,
+                BestDeferredExportTrigger.HarborName.c_str());
+        }
+#endif
         return false;
     }
 
@@ -1015,7 +1484,9 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     OutDelivery.DestinationName = BestConsumerName;
     OutDelivery.RequestedType = BestResourceType;
     OutDelivery.RequestedAmount = BestRequestedAmount;
-    OutDelivery.DestinationReservationActive = true;
+    OutDelivery.SetDestinationReservation(
+        BestResourceType,
+        BestRequestedAmount);
     return true;
 }
 
@@ -1041,6 +1512,8 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
         ResolveExportTradePolicy(World);
     std::array<FTeamsterResourcePressure,
         static_cast<size_t>(EResourceType::Count)> ResourcePressure = {};
+    std::array<FTeamsterExportHubPressure,
+        static_cast<size_t>(EResourceType::Count)> ExportHubPressure = {};
 
     for (size_t ResourceIndex = 1;
          ResourceIndex < static_cast<size_t>(EResourceType::Count);
@@ -1049,18 +1522,24 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
         ResourcePressure[ResourceIndex] = BuildTeamsterResourcePressure(
             BuildingList,
             static_cast<EResourceType>(ResourceIndex));
+        ExportHubPressure[ResourceIndex] = BuildTeamsterExportHubPressure(
+            OfficeBuilding,
+            BuildingList,
+            static_cast<EResourceType>(ResourceIndex),
+            ResourcePressure[ResourceIndex],
+            ExportPolicy);
     }
-
-    const std::string HarborName = FindHarborName();
 
     std::string BestSourceName;
     std::string BestDropoffName;
     EResourceType BestCargoType = EResourceType::None;
     int BestPriorityBucket = (std::numeric_limits<int>::max)();
-    int BestAvailableAmount = 0;
+    int BestRequestedAmount = 0;
     float BestSourceDistSq = FLT_MAX;
     float BestDropoffDistSq = FLT_MAX;
     bool BestReserveIncoming = false;
+    int BestPendingStagingDemand = 0;
+    int BestWarehouseBufferNeed = 0;
 
     for (size_t i = 0; i < BuildingList.size(); ++i)
     {
@@ -1100,50 +1579,83 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
                 SourceBuilding->GetAvailableResourceStock(CargoType);
 
             if (!IsExportableResourceType(CargoType) ||
-                AvailableAmount < TransferUnit)
+                AvailableAmount <= 0)
             {
                 continue;
             }
 
             const FTeamsterResourcePressure& Pressure =
                 ResourcePressure[ResourceIndex];
-            const int DomesticReserveAmount =
-                ResolveDomesticReserveAmount(Pressure, ExportPolicy);
+            const FTeamsterExportHubPressure& HubPressure =
+                ExportHubPressure[ResourceIndex];
             const bool HarborExportAllowed =
                 (!ExportPolicy ||
                     TradePolicy::IsResourceExportAllowed(
                         *ExportPolicy,
                         CargoType)) &&
-                !HarborName.empty() &&
-                Pressure.TotalAvailableStock -
-                    TransferUnit >=
-                    DomesticReserveAmount;
+                HubPressure.PendingStagingDemand > 0;
 
             std::string DropoffName;
             bool ReserveIncoming = false;
             int PriorityBucket = 0;
+            int RequestedAmount = 0;
+            int CandidatePendingStagingDemand = 0;
+            int CandidateWarehouseBufferNeed = 0;
 
             if (SourceIsWarehouse)
             {
                 if (!HarborExportAllowed)
                     continue;
 
-                DropoffName = HarborName;
+                RequestedAmount = ResolveRequestedTransferAmount(
+                    AvailableAmount,
+                    TransferUnit,
+                    HubPressure.PendingStagingDemand);
+
+                if (RequestedAmount <= 0)
+                    continue;
+
+                DropoffName = FindBestExportHubDropoffName(
+                    OfficeBuilding,
+                    BuildingList,
+                    CargoType,
+                    RequestedAmount);
+
+                if (DropoffName.empty())
+                    continue;
+
                 PriorityBucket = 0;
+                CandidatePendingStagingDemand =
+                    HubPressure.PendingStagingDemand;
             }
             else
             {
+                const int DomesticReserveAmount =
+                    ResolveDomesticReserveAmount(Pressure, ExportPolicy);
+                const int WarehouseBufferNeed = (std::max)(
+                    0,
+                    DomesticReserveAmount - Pressure.WarehouseBufferedStock);
+                CandidateWarehouseBufferNeed = WarehouseBufferNeed;
+
                 if (ShouldPreferWarehouseBuffer(
                         Pressure,
-                        TransferUnit,
+                        (std::min)(TransferUnit, AvailableAmount),
                         ExportPolicy))
                 {
-                    DropoffName = FindBestWarehouseDropoffName(
-                        OfficeBuilding,
-                        BuildingList,
-                        SourceBuilding->GetName(),
-                        CargoType,
-                        TransferUnit);
+                    RequestedAmount = ResolveRequestedTransferAmount(
+                        AvailableAmount,
+                        TransferUnit,
+                        WarehouseBufferNeed);
+
+                    if (RequestedAmount > 0)
+                    {
+                        DropoffName = FindBestWarehouseDropoffName(
+                            OfficeBuilding,
+                            BuildingList,
+                            SourceBuilding->GetName(),
+                            CargoType,
+                            RequestedAmount);
+                    }
 
                     if (!DropoffName.empty())
                     {
@@ -1154,18 +1666,43 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
 
                 if (DropoffName.empty() && HarborExportAllowed)
                 {
-                    DropoffName = HarborName;
-                    PriorityBucket = 2;
+                    RequestedAmount = ResolveRequestedTransferAmount(
+                        AvailableAmount,
+                        TransferUnit,
+                        HubPressure.PendingStagingDemand);
+
+                    if (RequestedAmount > 0)
+                    {
+                        DropoffName = FindBestExportHubDropoffName(
+                            OfficeBuilding,
+                            BuildingList,
+                            CargoType,
+                            RequestedAmount);
+                    }
+
+                    if (!DropoffName.empty())
+                    {
+                        PriorityBucket = 2;
+                        CandidatePendingStagingDemand =
+                            HubPressure.PendingStagingDemand;
+                    }
                 }
 
                 if (DropoffName.empty())
                 {
-                    DropoffName = FindBestWarehouseDropoffName(
-                        OfficeBuilding,
-                        BuildingList,
-                        SourceBuilding->GetName(),
-                        CargoType,
+                    RequestedAmount = ResolveRequestedTransferAmount(
+                        AvailableAmount,
                         TransferUnit);
+
+                    if (RequestedAmount > 0)
+                    {
+                        DropoffName = FindBestWarehouseDropoffName(
+                            OfficeBuilding,
+                            BuildingList,
+                            SourceBuilding->GetName(),
+                            CargoType,
+                            RequestedAmount);
+                    }
 
                     if (!DropoffName.empty())
                     {
@@ -1175,7 +1712,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
                 }
             }
 
-            if (DropoffName.empty())
+            if (DropoffName.empty() || RequestedAmount <= 0)
                 continue;
 
             auto DropoffBuilding =
@@ -1197,12 +1734,12 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
             if (BestSourceName.empty() ||
                 PriorityBucket < BestPriorityBucket ||
                 (PriorityBucket == BestPriorityBucket &&
-                 AvailableAmount > BestAvailableAmount) ||
+                 RequestedAmount > BestRequestedAmount) ||
                 (PriorityBucket == BestPriorityBucket &&
-                 AvailableAmount == BestAvailableAmount &&
+                 RequestedAmount == BestRequestedAmount &&
                  SourceDistSq < BestSourceDistSq) ||
                 (PriorityBucket == BestPriorityBucket &&
-                 AvailableAmount == BestAvailableAmount &&
+                 RequestedAmount == BestRequestedAmount &&
                  SourceDistSq == BestSourceDistSq &&
                  DropoffDistSq < BestDropoffDistSq))
             {
@@ -1210,17 +1747,21 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
                 BestDropoffName = DropoffName;
                 BestCargoType = CargoType;
                 BestPriorityBucket = PriorityBucket;
-                BestAvailableAmount = AvailableAmount;
+                BestRequestedAmount = RequestedAmount;
                 BestSourceDistSq = SourceDistSq;
                 BestDropoffDistSq = DropoffDistSq;
                 BestReserveIncoming = ReserveIncoming;
+                BestPendingStagingDemand =
+                    CandidatePendingStagingDemand;
+                BestWarehouseBufferNeed = CandidateWarehouseBufferNeed;
             }
         }
     }
 
     if (BestSourceName.empty() ||
         BestDropoffName.empty() ||
-        BestCargoType == EResourceType::None)
+        BestCargoType == EResourceType::None ||
+        BestRequestedAmount <= 0)
     {
         return false;
     }
@@ -1230,11 +1771,27 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
     auto DropoffBuilding =
         World->FindObject<CPlacementAreaObject>(BestDropoffName).lock();
 
+#ifdef _DEBUG
+    DebugTeamsterLog(
+        "[Teamster][PlanExport] office=%s source=%s dropoff=%s "
+        "dropoff_kind=%s resource=%s amount=%d reason=%s "
+        "pending_harbor_staging=%d warehouse_buffer_need=%d\n",
+        OfficeBuilding ? OfficeBuilding->GetName().c_str() : "",
+        BestSourceName.c_str(),
+        BestDropoffName.c_str(),
+        DebugExportDropoffKind(DropoffBuilding),
+        DebugResourceName(BestCargoType).c_str(),
+        BestRequestedAmount,
+        DebugExportPriorityBucketName(BestPriorityBucket),
+        BestPendingStagingDemand,
+        BestWarehouseBufferNeed);
+#endif
+
     if (!SourceBuilding ||
         !DropoffBuilding ||
         !SourceBuilding->ReserveTeamsterPickup(
             BestCargoType,
-            TransferUnit))
+            BestRequestedAmount))
     {
         return false;
     }
@@ -1242,11 +1799,11 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
     if (BestReserveIncoming &&
         !DropoffBuilding->ReserveIncomingResource(
             BestCargoType,
-            TransferUnit))
+            BestRequestedAmount))
     {
         SourceBuilding->ReleaseTeamsterPickup(
             BestCargoType,
-            TransferUnit);
+            BestRequestedAmount);
         return false;
     }
 
@@ -1255,9 +1812,18 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
         FTeamsterDeliveryState::ESourceReservationKind::Typed;
     OutDelivery.SourceName = BestSourceName;
     OutDelivery.DestinationName = BestDropoffName;
-    OutDelivery.RequestedAmount = TransferUnit;
+    OutDelivery.RequestedAmount = BestRequestedAmount;
     OutDelivery.RequestedType = BestCargoType;
-    OutDelivery.DestinationReservationActive = BestReserveIncoming;
+    if (BestReserveIncoming)
+    {
+        OutDelivery.SetDestinationReservation(
+            BestCargoType,
+            BestRequestedAmount);
+    }
+    else
+    {
+        OutDelivery.ClearDestinationReservation();
+    }
     return true;
 }
 
@@ -1434,15 +2000,30 @@ std::string CBuildingMarkerOrb::FindTeamsterExportDropoffName(
         ResolveExportTradePolicy(World);
     const FTeamsterResourcePressure Pressure =
         BuildTeamsterResourcePressure(BuildingList, CargoType);
+    const FTeamsterExportHubPressure HubPressure =
+        BuildTeamsterExportHubPressure(
+            OfficeBuilding,
+            BuildingList,
+            CargoType,
+            Pressure,
+            ExportPolicy);
     const int DomesticReserveAmount =
         ResolveDomesticReserveAmount(Pressure, ExportPolicy);
-    const bool HarborExportAllowed =
+    const std::string HarborName = FindBestExportHubDropoffName(
+        OfficeBuilding,
+        BuildingList,
+        CargoType,
+        CargoAmount);
+    const bool HarborRouteAvailable =
         (!ExportPolicy ||
             TradePolicy::IsResourceExportAllowed(
                 *ExportPolicy,
                 CargoType)) &&
-        Pressure.TotalAvailableStock - CargoAmount >= DomesticReserveAmount;
-    const std::string HarborName = FindHarborName();
+        !HarborName.empty();
+    const bool HarborExportPreferred =
+        HarborRouteAvailable &&
+        (HubPressure.PendingStagingDemand > 0 ||
+         Pressure.TotalAvailableStock - CargoAmount >= DomesticReserveAmount);
 
     if (!SourceIsWarehouse)
     {
@@ -1462,7 +2043,10 @@ std::string CBuildingMarkerOrb::FindTeamsterExportDropoffName(
                 return WarehouseName;
         }
 
-        if (HarborExportAllowed && !HarborName.empty())
+        if (HarborExportPreferred)
+            return HarborName;
+
+        if (HarborRouteAvailable)
             return HarborName;
 
         return FindBestWarehouseDropoffName(
@@ -1473,7 +2057,7 @@ std::string CBuildingMarkerOrb::FindTeamsterExportDropoffName(
             CargoAmount);
     }
 
-    if (HarborExportAllowed && !HarborName.empty())
+    if (HarborRouteAvailable)
         return HarborName;
 
     return std::string();

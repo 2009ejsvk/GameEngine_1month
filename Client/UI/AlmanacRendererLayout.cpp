@@ -1,6 +1,6 @@
 #include "AlmanacRenderer.h"
 #include "AlmanacRendererInternal.h"
-#include "UILayoutConfig.h"
+#include "UILayoutValues.h"
 #include "Device.h"
 #include <algorithm>
 #include <cassert>

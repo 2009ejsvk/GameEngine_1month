@@ -1,12 +1,34 @@
-#include "AlmanacRendererCalc.h"
+#include "AlmanacCalc.h"
+#include "AlmanacTheme.h"
 #include "UIStrings.h"
-#include "../Citizen/CitizenTypes.h"
+#include "../GameBalanceTuning.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 
 namespace
 {
+    float Clamp01(float Value)
+    {
+        return (std::max)(0.f, (std::min)(1.f, Value));
+    }
+
+    double Clamp01(double Value)
+    {
+        return (std::max)(0.0, (std::min)(1.0, Value));
+    }
+
+    const wchar_t* GetElectionWarningTierLabel(double Score)
+    {
+        if (Score >= 0.78)
+            return UIStrings::Get(L"almanac.warning.high").c_str();
+        if (Score >= 0.52)
+            return UIStrings::Get(L"almanac.warning.caution").c_str();
+        if (Score >= 0.32)
+            return UIStrings::Get(L"almanac.warning.check").c_str();
+        return UIStrings::Get(L"almanac.warning.stable").c_str();
+    }
+
     std::wstring ResolveTaxEventWorldEffectSummary(
         const FTaxPolicyEventStatus& TaxEventStatus)
     {
@@ -38,11 +60,59 @@ namespace
     }
 }
 
-namespace AlmanacRendererCalc
+namespace AlmanacCalc
 {
     double ClampSatisfactionValue(double Value)
     {
-        return (std::max)(18.0, (std::min)(96.0, Value));
+        return (std::max)(
+            GameBalanceTuning::Almanac::SatisfactionClampMin,
+            (std::min)(
+                GameBalanceTuning::Almanac::SatisfactionClampMax,
+                Value));
+    }
+
+    std::wstring BuildElectionWarningSummary(
+        bool GameLost,
+        int DaysUntilNextElection,
+        double ElectionWarningScore,
+        const FTaxPolicyEventStatus& TaxEventStatus)
+    {
+        if (GameLost)
+            return UIStrings::Get(L"almanac.warning.game_lost");
+
+        if (DaysUntilNextElection < 0)
+            return UIStrings::Get(L"almanac.warning.no_schedule");
+
+        if (DaysUntilNextElection > 180 && ElectionWarningScore < 0.32)
+            return UIStrings::Get(L"almanac.warning.stable");
+
+        std::wstring Summary =
+            std::wstring(GetElectionWarningTierLabel(ElectionWarningScore)) +
+            L" / " +
+            std::to_wstring(DaysUntilNextElection) +
+            UIStrings::Get(L"almanac.warning.days_remaining_suffix");
+
+        if (TaxEventStatus.Active && !TaxEventStatus.Title.empty())
+        {
+            Summary += L" / " + TaxEventStatus.Title;
+        }
+        else if (ElectionWarningScore >= 0.78)
+        {
+            Summary += UIStrings::Get(
+                L"almanac.warning.fragment.support_collapse");
+        }
+        else if (ElectionWarningScore >= 0.52)
+        {
+            Summary += UIStrings::Get(
+                L"almanac.warning.fragment.opposition_rally");
+        }
+        else if (DaysUntilNextElection <= 90)
+        {
+            Summary += UIStrings::Get(
+                L"almanac.warning.fragment.close_race");
+        }
+
+        return Summary;
     }
 
     std::array<float, GSatisfactionGraphPointCount> BuildSatisfactionTrend(
@@ -54,22 +124,38 @@ namespace AlmanacRendererCalc
         const double ClampedCurrent =
             ClampSatisfactionValue(CurrentValue);
         const double Lift =
-            (std::max)(1.0,
+            (std::max)(
+                GameBalanceTuning::Almanac::SatisfactionLiftMin,
                 (std::min)(
-                    6.0,
-                    (60.0 - ClampedCurrent) * 0.08 + 2.0 + LiftBias));
+                    GameBalanceTuning::Almanac::SatisfactionLiftMax,
+                    (GameBalanceTuning::Almanac::SatisfactionLiftReferenceValue -
+                        ClampedCurrent) *
+                        GameBalanceTuning::Almanac::SatisfactionLiftScale +
+                    GameBalanceTuning::Almanac::SatisfactionLiftBase +
+                    LiftBias));
         const double BaselinePull =
-            (std::max)(-3.0,
+            (std::max)(
+                GameBalanceTuning::Almanac::SatisfactionBaselinePullMin,
                 (std::min)(
-                    3.0,
-                    (BaselineValue - ClampedCurrent) * 0.08));
+                    GameBalanceTuning::Almanac::SatisfactionBaselinePullMax,
+                    (BaselineValue - ClampedCurrent) *
+                        GameBalanceTuning::Almanac::SatisfactionBaselinePullScale));
 
         Points[0] = static_cast<float>(ClampSatisfactionValue(
-            ClampedCurrent - Lift * 1.35 + BaselinePull * 0.35));
+            ClampedCurrent -
+            Lift * GameBalanceTuning::Almanac::SatisfactionPoint0LiftMultiplier +
+            BaselinePull *
+                GameBalanceTuning::Almanac::SatisfactionPoint0BaselineMultiplier));
         Points[1] = static_cast<float>(ClampSatisfactionValue(
-            ClampedCurrent - Lift * 0.82 + BaselinePull * 0.20));
+            ClampedCurrent -
+            Lift * GameBalanceTuning::Almanac::SatisfactionPoint1LiftMultiplier +
+            BaselinePull *
+                GameBalanceTuning::Almanac::SatisfactionPoint1BaselineMultiplier));
         Points[2] = static_cast<float>(ClampSatisfactionValue(
-            ClampedCurrent - Lift * 0.34 + BaselinePull * 0.10));
+            ClampedCurrent -
+            Lift * GameBalanceTuning::Almanac::SatisfactionPoint2LiftMultiplier +
+            BaselinePull *
+                GameBalanceTuning::Almanac::SatisfactionPoint2BaselineMultiplier));
         Points[3] = static_cast<float>(ClampedCurrent);
         return Points;
     }
@@ -97,33 +183,6 @@ namespace AlmanacRendererCalc
         return GraphTop + GraphHeight * (1.f - Normalized);
     }
 
-    FVector4 GetSatisfactionTint(int Index)
-    {
-        switch (Index)
-        {
-        case 0:
-            return FVector4(0.96f, 0.80f, 0.12f, 0.98f);
-        case 1:
-            return FVector4(0.94f, 0.66f, 0.16f, 0.98f);
-        case 2:
-            return FVector4(0.48f, 0.74f, 0.40f, 0.98f);
-        case 3:
-            return FVector4(0.86f, 0.56f, 0.18f, 0.98f);
-        case 4:
-            return FVector4(0.72f, 0.56f, 0.78f, 0.98f);
-        case 5:
-            return FVector4(0.74f, 0.64f, 0.34f, 0.98f);
-        case 6:
-            return FVector4(0.64f, 0.46f, 0.22f, 0.98f);
-        case 7:
-            return FVector4(0.62f, 0.72f, 0.92f, 0.98f);
-        case 8:
-            return FVector4(0.86f, 0.72f, 0.24f, 0.98f);
-        default:
-            return FVector4(0.90f, 0.72f, 0.18f, 0.95f);
-        }
-    }
-
     int RoundToInt(double Value)
     {
         return static_cast<int>(std::lround(Value));
@@ -131,13 +190,13 @@ namespace AlmanacRendererCalc
 
     int ResolvePopulationSatisfactionTier(double Value)
     {
-        if (Value < 20.0)
+        if (Value < GameBalanceTuning::Almanac::SatisfactionTierThreshold0)
             return 0;
-        if (Value < 40.0)
+        if (Value < GameBalanceTuning::Almanac::SatisfactionTierThreshold1)
             return 1;
-        if (Value < 55.0)
+        if (Value < GameBalanceTuning::Almanac::SatisfactionTierThreshold2)
             return 2;
-        if (Value < 75.0)
+        if (Value < GameBalanceTuning::Almanac::SatisfactionTierThreshold3)
             return 3;
         return 4;
     }
@@ -170,7 +229,9 @@ namespace AlmanacRendererCalc
             if (Index == 0)
                 Value = StartPopulation;
             else
-                Value = (std::max)(Value, Points[static_cast<size_t>(Index - 1)] - 2.5f);
+                Value = (std::max)(
+                    Value,
+                    Points[static_cast<size_t>(Index - 1)] - 2.5f);
 
             Points[static_cast<size_t>(Index)] = Value;
         }
@@ -363,13 +424,16 @@ namespace AlmanacRendererCalc
 
     std::array<int, 5> BuildHomelessFamilyWealthBuckets(
         int HomelessFamilyCount,
-        const int HomelessWealthCount[3])
+        const int HomelessWealthCount[GCitizenWealthLevelCount])
     {
         std::array<int, 5> Buckets = {};
 
         if (HomelessFamilyCount <= 0)
             return Buckets;
 
+        const int BrokeCount =
+            (std::max)(0,
+                HomelessWealthCount[static_cast<int>(ECitizenWealthLevel::Broke)]);
         const int PoorCount =
             (std::max)(0,
                 HomelessWealthCount[static_cast<int>(ECitizenWealthLevel::Poor)]);
@@ -379,8 +443,16 @@ namespace AlmanacRendererCalc
         const int RichCount =
             (std::max)(0,
                 HomelessWealthCount[static_cast<int>(ECitizenWealthLevel::Rich)]);
+        const int FilthyRichCount =
+            (std::max)(0,
+                HomelessWealthCount[
+                    static_cast<int>(ECitizenWealthLevel::FilthyRich)]);
         const int TotalHomelessCitizens =
-            PoorCount + WellOffCount + RichCount;
+            BrokeCount +
+            PoorCount +
+            WellOffCount +
+            RichCount +
+            FilthyRichCount;
 
         std::array<float, 5> DerivedWeights =
         {
@@ -389,6 +461,9 @@ namespace AlmanacRendererCalc
 
         if (TotalHomelessCitizens > 0)
         {
+            const float BrokeShare =
+                static_cast<float>(BrokeCount) /
+                static_cast<float>(TotalHomelessCitizens);
             const float PoorShare =
                 static_cast<float>(PoorCount) /
                 static_cast<float>(TotalHomelessCitizens);
@@ -398,13 +473,16 @@ namespace AlmanacRendererCalc
             const float RichShare =
                 static_cast<float>(RichCount) /
                 static_cast<float>(TotalHomelessCitizens);
+            const float FilthyRichShare =
+                static_cast<float>(FilthyRichCount) /
+                static_cast<float>(TotalHomelessCitizens);
             const std::array<float, 5> SnapshotWeights =
             {
-                PoorShare * 0.35f,
-                PoorShare * 0.65f,
+                BrokeShare,
+                PoorShare,
                 WellOffShare,
-                RichShare * 0.85f,
-                RichShare * 0.15f
+                RichShare,
+                FilthyRichShare
             };
 
             for (int Index = 0; Index < 5; ++Index)
@@ -441,13 +519,16 @@ namespace AlmanacRendererCalc
 
     std::array<int, 5> BuildCitizenWealthBuckets(
         int CitizenCount,
-        const int CitizenWealthCount[3])
+        const int CitizenWealthCount[GCitizenWealthLevelCount])
     {
         std::array<int, 5> Buckets = {};
 
         if (CitizenCount <= 0)
             return Buckets;
 
+        const int BrokeCount =
+            (std::max)(0,
+                CitizenWealthCount[static_cast<int>(ECitizenWealthLevel::Broke)]);
         const int PoorCount =
             (std::max)(0,
                 CitizenWealthCount[static_cast<int>(ECitizenWealthLevel::Poor)]);
@@ -457,8 +538,16 @@ namespace AlmanacRendererCalc
         const int RichCount =
             (std::max)(0,
                 CitizenWealthCount[static_cast<int>(ECitizenWealthLevel::Rich)]);
+        const int FilthyRichCount =
+            (std::max)(0,
+                CitizenWealthCount[
+                    static_cast<int>(ECitizenWealthLevel::FilthyRich)]);
         const int TotalCitizens =
-            PoorCount + WellOffCount + RichCount;
+            BrokeCount +
+            PoorCount +
+            WellOffCount +
+            RichCount +
+            FilthyRichCount;
 
         std::array<float, 5> DerivedWeights =
         {
@@ -467,6 +556,9 @@ namespace AlmanacRendererCalc
 
         if (TotalCitizens > 0)
         {
+            const float BrokeShare =
+                static_cast<float>(BrokeCount) /
+                static_cast<float>(TotalCitizens);
             const float PoorShare =
                 static_cast<float>(PoorCount) /
                 static_cast<float>(TotalCitizens);
@@ -476,13 +568,16 @@ namespace AlmanacRendererCalc
             const float RichShare =
                 static_cast<float>(RichCount) /
                 static_cast<float>(TotalCitizens);
+            const float FilthyRichShare =
+                static_cast<float>(FilthyRichCount) /
+                static_cast<float>(TotalCitizens);
             const std::array<float, 5> SnapshotWeights =
             {
-                PoorShare * 0.24f,
-                PoorShare * 0.76f,
+                BrokeShare,
+                PoorShare,
                 WellOffShare,
-                RichShare * 0.94f,
-                RichShare * 0.06f
+                RichShare,
+                FilthyRichShare
             };
 
             for (int Index = 0; Index < 5; ++Index)
@@ -497,7 +592,7 @@ namespace AlmanacRendererCalc
             CitizenCount,
             DerivedWeights);
 
-        if (PoorCount > 0 &&
+        if (BrokeCount > 0 &&
             Buckets[0] <= 0 &&
             Buckets[1] > 1)
         {
@@ -505,7 +600,7 @@ namespace AlmanacRendererCalc
             ++Buckets[0];
         }
 
-        if (RichCount > 0 &&
+        if (FilthyRichCount > 0 &&
             Buckets[4] <= 0 &&
             Buckets[3] > 1)
         {
@@ -557,7 +652,8 @@ namespace AlmanacRendererCalc
         const int ActiveCitizenCount =
             (std::max)(1, Snapshot.ActiveCitizenCount);
         const double MonthlyBuildingCost =
-            static_cast<double>(Snapshot.MonthlyWageCost + Snapshot.MonthlyUpkeepCost);
+            static_cast<double>(
+                Snapshot.MonthlyWageCost + Snapshot.MonthlyUpkeepCost);
         const double MonthlyPolicyCost =
             (std::max)(0.0, static_cast<double>(Snapshot.DailyEdictCost) * 30.0);
         const double MonthlyImportCost =
@@ -596,7 +692,8 @@ namespace AlmanacRendererCalc
             Snapshot.DaysUntilNextElection <= 180 &&
             Snapshot.ElectionWarningScore >= 0.32;
         Result.ElectionWarningTint =
-            ResolveElectionWarningTint(Snapshot.ElectionWarningScore);
+            AlmanacTheme::GetElectionWarningTint(
+                Snapshot.ElectionWarningScore);
         return Result;
     }
 }

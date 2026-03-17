@@ -25,7 +25,10 @@ struct FBuildingServiceProfile
         ECitizenEducationLevel::Uneducated;
     unsigned int AllowedWealthMask = GBuildingWealthMaskAll;
     int Capacity = 0;
+    int HouseholdCapacity = 0;
     int ServiceCapacity = 0;
+    EBuildingLeisureClass LeisureClass = EBuildingLeisureClass::None;
+    ETouristPreference PrimaryTouristPreference = ETouristPreference::None;
 
     static int ClampCapToPercent(int Value)
     {
@@ -81,6 +84,12 @@ struct FBuildingOperationsState
     static constexpr int WarehouseSlotCount = 3;
     static constexpr int WarehouseSlotCapacity =
         MaxResourceStock / WarehouseSlotCount;
+    static constexpr long long ProductionAccumScale = 1000000ll;
+    static constexpr long long ProductionAccumFractionalCap =
+        95ll * ProductionAccumScale / 100ll;
+    static constexpr long long StorageLossPercentScale = 1000000ll;
+    static constexpr long long StorageLossAccumUnitScale =
+        100ll * StorageLossPercentScale;
 
     int BudgetLevel = 3;
     int BaseMonthlyWage = 0;
@@ -89,11 +98,7 @@ struct FBuildingOperationsState
     EResourceType ProducedResourceType = EResourceType::None;
     EResourceType VisitConsumptionResourceType = EResourceType::None;
     std::array<EResourceType, GProductionInputSlotCount>
-        ProductionInputTypes =
-        {
-            EResourceType::None,
-            EResourceType::None
-        };
+        ProductionInputTypes = {};
     std::array<int, GProductionInputSlotCount> ProductionInputAmounts = {};
     bool SupportsTeamsterPickup = false;
     bool CanExportStoredResources = false;
@@ -103,9 +108,10 @@ struct FBuildingOperationsState
         EWarehouseStoragePolicy::Balanced;
     EResourceType PreferredWarehouseResourceType =
         EResourceType::None;
-    float ResourceProductionAccum = 0.f;
+    long long ResourceProductionAccumScaled = 0ll;
     float LastProductionEfficiency = 1.f;
     int LastDailyStorageLoss = 0;
+    int CurrentWorkerOccupancy = 0;
     std::array<int, GBuildingServiceTypeCount> ActiveServiceVisitors = {};
     std::array<int, GBuildingServiceTypeCount> ServiceVisitCaps = {};
     std::array<int, GBuildingServiceTypeCount> ServiceStocks = {};
@@ -123,7 +129,7 @@ struct FBuildingOperationsState
         ReservedResourcePickupAmounts = {};
     std::array<int, static_cast<size_t>(EResourceType::Count)>
         ReservedIncomingResourceAmounts = {};
-    std::array<float, static_cast<size_t>(EResourceType::Count)>
+    std::array<long long, static_cast<size_t>(EResourceType::Count)>
         StorageLossAccums = {};
 
     void SetBudgetLevel(int Level)
@@ -156,6 +162,49 @@ struct FBuildingOperationsState
         const float Scaled =
             static_cast<float>(BaseCost) * GetBudgetSatisfactionScale();
         return (std::max)(0, static_cast<int>(roundf(Scaled)));
+    }
+
+    static long long ResolveScaledStorageLossRate(float LossPercent)
+    {
+        if (LossPercent <= 0.f)
+            return 0;
+
+        return static_cast<long long>(std::llround(
+            static_cast<double>(LossPercent) *
+            static_cast<double>(StorageLossPercentScale)));
+    }
+
+    static long long ResolveScaledProductionUnits(double Units)
+    {
+        if (Units <= 0.0)
+            return 0ll;
+
+        const double ScaledUnits =
+            Units * static_cast<double>(ProductionAccumScale);
+        const double MaxScaledUnits = static_cast<double>(
+            (std::numeric_limits<long long>::max)());
+
+        if (ScaledUnits >= MaxScaledUnits)
+            return (std::numeric_limits<long long>::max)();
+
+        return static_cast<long long>(std::llround(ScaledUnits));
+    }
+
+    static long long ResolveScaledProductionBufferCap()
+    {
+        return ResolveScaledProductionUnits(
+            static_cast<double>((std::max)(
+                0.f,
+                GameConstants::Economy::ProductionMaxBufferedUnits)));
+    }
+
+    void ClampResourceProductionAccumToFractional()
+    {
+        ResourceProductionAccumScaled = (std::max)(
+            0ll,
+            (std::min)(
+                ResourceProductionAccumScaled,
+                ProductionAccumFractionalCap));
     }
 
     static constexpr size_t GetServiceIndex(EBuildingServiceType Type)
@@ -294,11 +343,7 @@ struct FBuildingOperationsState
         bool InSupportsTeamsterPickup,
         bool InCanExportStoredResources,
         const std::array<EResourceType, GProductionInputSlotCount>&
-            InProductionInputTypes =
-            {
-                EResourceType::None,
-                EResourceType::None
-            },
+            InProductionInputTypes = {},
         const std::array<int, GProductionInputSlotCount>&
             InProductionInputAmounts = {})
     {
@@ -411,7 +456,7 @@ struct FBuildingOperationsState
         WarehouseStoragePolicy = EWarehouseStoragePolicy::Balanced;
         PreferredWarehouseResourceType = EResourceType::None;
         LastDailyStorageLoss = 0;
-        StorageLossAccums.fill(0.f);
+        StorageLossAccums.fill(0ll);
 
         if (!UsesWarehouseSlots)
         {
@@ -809,6 +854,22 @@ struct FBuildingOperationsState
         return ProductionInputTypes[SlotIndex];
     }
 
+    int GetProductionInputCompatibleResourceStock(
+        EResourceType DemandType) const
+    {
+        if (DemandType == EResourceType::None ||
+            DemandType == EResourceType::Count)
+        {
+            return 0;
+        }
+
+        if (DemandType != EResourceType::FeedCrops)
+            return GetResourceStock(DemandType);
+
+        return GetResourceStock(EResourceType::Corn) +
+            GetResourceStock(EResourceType::Sugar);
+    }
+
     int GetProductionInputAmount(int SlotIndex) const
     {
         if (SlotIndex < 0 || SlotIndex >= GProductionInputSlotCount)
@@ -839,6 +900,55 @@ struct FBuildingOperationsState
     float GetLastProductionEfficiency() const
     {
         return LastProductionEfficiency;
+    }
+
+    bool TryConsumeProductionInputCompatibleResource(
+        EResourceType DemandType,
+        int Amount)
+    {
+        if (Amount <= 0)
+            return true;
+
+        if (DemandType != EResourceType::FeedCrops)
+            return TryConsumeResource(DemandType, Amount);
+
+        const int CornStock = GetResourceStock(EResourceType::Corn);
+        const int SugarStock = GetResourceStock(EResourceType::Sugar);
+
+        if (CornStock + SugarStock < Amount)
+            return false;
+
+        const EResourceType PrimaryType =
+            CornStock >= SugarStock ?
+                EResourceType::Corn :
+                EResourceType::Sugar;
+        const EResourceType SecondaryType =
+            PrimaryType == EResourceType::Corn ?
+                EResourceType::Sugar :
+                EResourceType::Corn;
+        const int PrimaryAmount = (std::min)(
+            Amount,
+            GetResourceStock(PrimaryType));
+
+        if (PrimaryAmount > 0 &&
+            !TryConsumeResource(PrimaryType, PrimaryAmount))
+        {
+            return false;
+        }
+
+        const int RemainingAmount = Amount - PrimaryAmount;
+        return RemainingAmount <= 0 ||
+            TryConsumeResource(SecondaryType, RemainingAmount);
+    }
+
+    void SetCurrentWorkerOccupancy(int Occupancy)
+    {
+        CurrentWorkerOccupancy = (std::max)(0, Occupancy);
+    }
+
+    int GetCurrentWorkerOccupancy() const
+    {
+        return (std::max)(0, CurrentWorkerOccupancy);
     }
 
     int GetServiceVisitCapacity(
@@ -934,7 +1044,7 @@ struct FBuildingOperationsState
         if (VisitConsumptionResourceType != EResourceType::None)
             return VisitConsumptionResourceType;
 
-        return EResourceType::Crops;
+        return EResourceType::None;
     }
 
     static float GetBaseWarehouseStorageLossPercent(EResourceType Type)
@@ -947,11 +1057,18 @@ struct FBuildingOperationsState
         case EResourceType::HydroponicProduce:
         case EResourceType::Juice:
             return 0.40f;
+        case EResourceType::Banana:
+        case EResourceType::Corn:
+        case EResourceType::Pineapple:
+        case EResourceType::Meat:
+        case EResourceType::Milk:
         case EResourceType::Coconuts:
         case EResourceType::Crops:
         case EResourceType::AnimalProducts:
         case EResourceType::FactoryLivestock:
             return 0.30f;
+        case EResourceType::BS:
+            return 0.12f;
         case EResourceType::Cheese:
             return 0.12f;
         case EResourceType::CannedGoods:
@@ -991,21 +1108,26 @@ struct FBuildingOperationsState
 
             if (CurrentStock <= 0)
             {
-                StorageLossAccums[Index] = 0.f;
+                StorageLossAccums[Index] = 0ll;
                 continue;
             }
 
             const float DailyLossPercent =
                 GetBaseWarehouseStorageLossPercent(Type) *
                 SafeLossMultiplier;
+            const long long ScaledLossRate =
+                ResolveScaledStorageLossRate(DailyLossPercent);
 
-            if (DailyLossPercent <= 0.f)
+            if (ScaledLossRate <= 0)
                 continue;
 
             StorageLossAccums[Index] +=
-                static_cast<float>(CurrentStock) * DailyLossPercent / 100.f;
-            const int WholeLoss =
-                static_cast<int>(floorf(StorageLossAccums[Index]));
+                static_cast<long long>(CurrentStock) * ScaledLossRate;
+            const long long WholeLossLong =
+                StorageLossAccums[Index] / StorageLossAccumUnitScale;
+            const int WholeLoss = static_cast<int>((std::min)(
+                WholeLossLong,
+                static_cast<long long>((std::numeric_limits<int>::max)())));
 
             if (WholeLoss <= 0)
                 continue;
@@ -1017,7 +1139,9 @@ struct FBuildingOperationsState
 
             if (ResourceInventory.Consume(Type, AppliedLoss))
             {
-                StorageLossAccums[Index] -= static_cast<float>(AppliedLoss);
+                StorageLossAccums[Index] -=
+                    static_cast<long long>(AppliedLoss) *
+                    StorageLossAccumUnitScale;
                 LastDailyStorageLoss += AppliedLoss;
             }
         }
@@ -1063,11 +1187,29 @@ struct FBuildingOperationsState
     void AddProduction(
         float UnitsPerSec,
         float DeltaTime,
+        int CurrentWorkers,
+        int WorkerCapacity,
         float ProductionMultiplier = 1.f,
         float InputConsumptionMultiplier = 1.f)
     {
+        const int SafeCurrentWorkers = (std::max)(0, CurrentWorkers);
+        const int SafeWorkerCapacity = (std::max)(0, WorkerCapacity);
+
+        if (SafeCurrentWorkers <= 0 || SafeWorkerCapacity <= 0)
+        {
+            LastProductionEfficiency = 0.f;
+            return;
+        }
+
+        const float WorkforceCoverage = (std::min)(
+            1.f,
+            static_cast<float>(SafeCurrentWorkers) /
+                static_cast<float>(SafeWorkerCapacity));
         const float EffectiveOutputPerSec =
-            UnitsPerSec * (std::max)(0.f, ProductionMultiplier);
+            UnitsPerSec *
+            (std::max)(0.f, ProductionMultiplier) *
+            WorkforceCoverage /
+            static_cast<float>(SafeCurrentWorkers);
 
         if (EffectiveOutputPerSec <= 0.f ||
             ProducedResourceType == EResourceType::None)
@@ -1108,7 +1250,7 @@ struct FBuildingOperationsState
                     RequiredPerSecond *
                         GameConstants::Economy::ProductionInputBufferSeconds);
                 const float AvailableStock = static_cast<float>(
-                    GetResourceStock(InputType));
+                    GetProductionInputCompatibleResourceStock(InputType));
                 const float Coverage = (std::max)(
                     0.f,
                     (std::min)(1.f, AvailableStock / BufferDemand));
@@ -1116,11 +1258,11 @@ struct FBuildingOperationsState
             }
         }
 
-        LastProductionEfficiency = SupplyCoverage;
+        LastProductionEfficiency = SupplyCoverage * WorkforceCoverage;
 
         if (SupplyCoverage <= 0.f)
         {
-            ResourceProductionAccum = (std::min)(ResourceProductionAccum, 0.95f);
+            ClampResourceProductionAccumToFractional();
             return;
         }
 
@@ -1131,16 +1273,21 @@ struct FBuildingOperationsState
 
         if (OutputCapacityLeft <= 0)
         {
-            ResourceProductionAccum = (std::min)(ResourceProductionAccum, 0.95f);
+            ClampResourceProductionAccumToFractional();
             LastProductionEfficiency = 0.f;
             return;
         }
 
-        ResourceProductionAccum = (std::min)(
-            ResourceProductionAccum +
-                EffectiveOutputPerSec * DeltaTime * SupplyCoverage,
-            GameConstants::Economy::ProductionMaxBufferedUnits);
-        int Whole = static_cast<int>(ResourceProductionAccum);
+        ResourceProductionAccumScaled = (std::min)(
+            ResourceProductionAccumScaled +
+                ResolveScaledProductionUnits(
+                    static_cast<double>(EffectiveOutputPerSec) *
+                    static_cast<double>(DeltaTime) *
+                    static_cast<double>(SupplyCoverage)),
+            ResolveScaledProductionBufferCap());
+        int Whole = static_cast<int>((std::min)(
+            ResourceProductionAccumScaled / ProductionAccumScale,
+            static_cast<long long>((std::numeric_limits<int>::max)())));
 
         if (Whole <= 0)
             return;
@@ -1170,7 +1317,9 @@ struct FBuildingOperationsState
                 MaxUnitsByInputs = (std::min)(
                     MaxUnitsByInputs,
                     static_cast<int>(floorf(
-                        static_cast<float>(GetResourceStock(InputType)) /
+                        static_cast<float>(
+                            GetProductionInputCompatibleResourceStock(
+                                InputType)) /
                         EffectiveInputAmount)));
             }
 
@@ -1181,7 +1330,7 @@ struct FBuildingOperationsState
 
         if (Whole <= 0)
         {
-            ResourceProductionAccum = (std::min)(ResourceProductionAccum, 0.95f);
+            ClampResourceProductionAccumToFractional();
             LastProductionEfficiency = 0.f;
             return;
         }
@@ -1207,15 +1356,20 @@ struct FBuildingOperationsState
                 continue;
             }
 
-            if (!TryConsumeResource(InputType, RequiredAmount))
+            if (!TryConsumeProductionInputCompatibleResource(
+                    InputType,
+                    RequiredAmount))
             {
-                ResourceProductionAccum = (std::min)(ResourceProductionAccum, 0.95f);
+                ClampResourceProductionAccumToFractional();
                 LastProductionEfficiency = 0.f;
                 return;
             }
         }
 
-        ResourceProductionAccum -= static_cast<float>(Whole);
+        ResourceProductionAccumScaled = (std::max)(
+            0ll,
+            ResourceProductionAccumScaled -
+                static_cast<long long>(Whole) * ProductionAccumScale);
         AddResourceStock(ProducedResourceType, Whole);
     }
 

@@ -4,7 +4,7 @@
 
 class CAlmanacWidget;
 struct FAlmanacLayoutContext;
-namespace AlmanacRendererCalc
+namespace AlmanacCalc
 {
     struct FConflictPageComputedData;
 }
@@ -96,7 +96,7 @@ private:
     static void ApplyConflictPage(
         CAlmanacWidget& Widget,
         const AlmanacDataProvider::FAlmanacSnapshot& Snapshot,
-        const AlmanacRendererCalc::FConflictPageComputedData& ComputedData);
+        const AlmanacCalc::FConflictPageComputedData& ComputedData);
     static void ValidateLayoutForDebug(
         CAlmanacWidget& Widget,
         const FAlmanacLayoutContext& Layout);

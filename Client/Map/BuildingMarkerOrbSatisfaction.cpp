@@ -2,9 +2,11 @@
 #include "PlacementAreaObject.h"
 #include "../Citizen/CitizenCommuteCalc.h"
 #include "../Economy/TradePolicyRuntime.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldInfrastructureAccess.h"
+#include "../World/MainWorldSystemAccess.h"
 #include "World/World.h"
 #include <algorithm>
+#include <array>
 
 namespace
 {
@@ -110,11 +112,11 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         mCitizenProfileState.FaithServiceAvailableThisVisit;
     auto World = mWorld.lock();
     const IMainWorldCitizenPolicyAccess* MainWorld =
-        World ? dynamic_cast<IMainWorldCitizenPolicyAccess*>(World.get()) : nullptr;
+        ResolveMainWorldCitizenPolicyAccess(World.get());
     const IMainWorldRoadNetworkAccess* RoadNetworkAccess =
-        World ? dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()) : nullptr;
+        ResolveMainWorldRoadNetworkAccess(World.get());
     const IMainWorldTransitAccess* TransitAccess =
-        World ? dynamic_cast<IMainWorldTransitAccess*>(World.get()) : nullptr;
+        ResolveMainWorldTransitAccess(World.get());
     const FGovernmentEdictModifiers* EdictModifiers =
         MainWorld ? &MainWorld->GetEdictModifiers() : nullptr;
     const FGovernmentProfile* GovernmentProfile =
@@ -402,59 +404,34 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             float ProductionPerSec = 0.f;
             const EResourceType ProducedType =
                 WorkBuilding->GetProducedResourceType();
-            const EResourceType InputTypeA =
-                WorkBuilding->GetProductionInputCount() > 0 ?
-                    WorkBuilding->GetProductionInputType(0) :
-                    EResourceType::None;
-            const EResourceType InputTypeB =
-                WorkBuilding->GetProductionInputCount() > 1 ?
-                    WorkBuilding->GetProductionInputType(1) :
-                    EResourceType::None;
+            std::array<EResourceType, GProductionInputSlotCount> InputTypes = {};
+
+            for (int SlotIndex = 0;
+                SlotIndex < GProductionInputSlotCount;
+                ++SlotIndex)
+            {
+                InputTypes[static_cast<size_t>(SlotIndex)] =
+                    SlotIndex < WorkBuilding->GetProductionInputCount() ?
+                        WorkBuilding->GetProductionInputType(SlotIndex) :
+                        EResourceType::None;
+            }
+
             const float TradePolicyProductionMultiplier =
                 GovernmentProfile ?
                     TradePolicyRuntime::ComputeBuildingProductionMultiplier(
                         ProducedType,
-                        InputTypeA,
-                        InputTypeB,
+                        InputTypes,
                         GovernmentProfile->ExportTradePolicy,
                         GovernmentProfile->ImportTradePolicy) :
                     1.f;
-            switch (GetResourceMarketClass(ProducedType))
-            {
-            case EResourceMarketClass::Food:
-                ProductionPerSec =
-                    (WorkBuilding->GetBuildingCategory() ==
-                        EBuildingCategory::FoodResource ?
-                        40.f :
-                        8.f) *
-                    ProductionMultiplier *
-                    TaxEventProductionMultiplier *
-                    WorldCrisisProductionMultiplier;
-                break;
-            case EResourceMarketClass::RawGoods:
-                ProductionPerSec =
-                    10.f *
-                    ProductionMultiplier *
-                    TaxEventProductionMultiplier *
-                    WorldCrisisProductionMultiplier;
-                break;
-            case EResourceMarketClass::ManufacturedGoods:
-                ProductionPerSec =
-                    6.f *
-                    ProductionMultiplier *
-                    TaxEventProductionMultiplier *
-                    WorldCrisisProductionMultiplier;
-                break;
-            case EResourceMarketClass::LuxuryGoods:
-                ProductionPerSec =
-                    4.f *
-                    ProductionMultiplier *
-                    TaxEventProductionMultiplier *
-                    WorldCrisisProductionMultiplier;
-                break;
-            default:
-                break;
-            }
+            ProductionPerSec =
+                ResolveBuildingBaseProductionUnitsPerSecond(
+                    WorkBuilding->GetBuildingId(),
+                    WorkBuilding->GetBuildingCategory(),
+                    ProducedType) *
+                ProductionMultiplier *
+                TaxEventProductionMultiplier *
+                WorldCrisisProductionMultiplier;
 
             ProductionPerSec *=
                 CommuteProfile.ProductivityMultiplier *
@@ -480,15 +457,9 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 
             if (FoodBuilding)
             {
-                const EResourceType FoodType =
-                    FoodBuilding->GetVisitConsumptionResourceType();
                 FoodStockAvailableThisVisit =
-                    FoodType != EResourceType::None ?
-                        FoodBuilding->TryConsumeResource(
-                            FoodType,
-                            FoodConsumptionPerVisit) :
-                        FoodBuilding->TryConsumeResource(
-                            FoodConsumptionPerVisit);
+                    FoodBuilding->TryConsumeVisitConsumptionResource(
+                        FoodConsumptionPerVisit);
             }
         }
 

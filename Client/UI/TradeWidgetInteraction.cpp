@@ -1,7 +1,7 @@
 #include "TradeWidget.h"
 #include "TradeWidgetRuntime.h"
 #include "../World/GovernmentCommandService.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldTradeAccess.h"
 #include "Device.h"
 #include "World/World.h"
 
@@ -12,7 +12,7 @@ void CTradeWidget::Update(float DeltaTime)
     CWidgetContainer::Update(DeltaTime);
 
     auto TradeAccess =
-        std::dynamic_pointer_cast<IMainWorldTradeAccess>(mWorld.lock());
+        ResolveMainWorldTradeAccess(mWorld.lock());
 
     if (TradeAccess)
     {
@@ -199,7 +199,7 @@ void CTradeWidget::OnActionButtonClick()
 
         auto World = mWorld.lock();
         auto CommandService =
-            std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+            ResolveGovernmentCommandService(World);
 
         if (!CommandService)
         {
@@ -239,7 +239,7 @@ void CTradeWidget::OnActionButtonClick()
 
     auto World = mWorld.lock();
     auto CommandService =
-        std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+        ResolveGovernmentCommandService(World);
 
     if (!CommandService)
     {

@@ -14,6 +14,7 @@ public:
     struct FContext
     {
         std::shared_ptr<CWorld> World;
+        EBuildingEra CurrentEra = EBuildingEra::Modern;
         const FPoliticalWorldSnapshot& PoliticalSnapshot;
         FGovernmentProfile& GovernmentProfile;
         long long LastDailyExportIncome = 0;
@@ -35,10 +36,12 @@ public:
         bool RefreshPoliticalSnapshot = false;
         bool RefreshForeignTradeDiplomacy = false;
         bool RefreshWorldMarketPrices = false;
+        std::array<bool, GPoliticalFactionCount> TriggerFactionRevolts = {};
     };
 
 public:
     void Reset();
+    bool InjectScenarioDemand(FPoliticalDemandState Demand);
     bool RespondPoliticalDemand(
         EPoliticalDemandIssuerType IssuerType,
         int IssuerIndex,
@@ -59,6 +62,12 @@ public:
         return mFactionDemands;
     }
 
+    const std::array<int, GPoliticalFactionCount>&
+        GetFactionPressureDays() const
+    {
+        return mFactionPressureDays;
+    }
+
     const std::array<
         FPoliticalDemandState,
         TradeDiplomacyRuntime::GForeignPowerCount>&
@@ -71,6 +80,7 @@ private:
     FPoliticalDemandNotice mPoliticalDemandNotice;
     std::array<FPoliticalDemandState, GPoliticalFactionCount>
         mFactionDemands = {};
+    std::array<int, GPoliticalFactionCount> mFactionPressureDays = {};
     std::array<int, GPoliticalFactionCount> mFactionDemandCooldownDays = {};
     std::array<int, GPoliticalFactionCount> mFactionDemandModifierDays = {};
     std::array<

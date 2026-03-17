@@ -1,6 +1,8 @@
 #include "EditorWorld.h"
 #include "../ObjectNames.h"
-#include "../UI/UILayoutConfig.h"
+#include "../UI/UILayoutApplier.h"
+#include "../UI/TropicoUiAssetCatalog.h"
+#include "../UI/TropicoUiTheme.h"
 #include "World/WorldUIManager.h"
 #include "World/WorldManager.h"
 #include "../Map/TileMapMain.h"
@@ -17,7 +19,9 @@ CEditorWorld::~CEditorWorld()
 
 bool CEditorWorld::Init()
 {
-	CWorld::Init();
+    CWorld::Init();
+    TropicoUiAssets::RegisterRuntimeConfig();
+    TropicoUiTheme::RegisterRuntimeConfig();
 
 	LoadAnimation2D();
 
@@ -40,12 +44,14 @@ bool CEditorWorld::Init()
 
 void CEditorWorld::Update(float DeltaTime)
 {
+    TropicoUiAssets::ReloadIfChanged(DeltaTime);
+    TropicoUiTheme::ReloadIfChanged(DeltaTime);
 	CWorld::Update(DeltaTime);
 }
 
 void CEditorWorld::OnUiManagerUpdated()
 {
-    UIConfig::ApplyWidgetOverrides(GetUIManager().lock());
+    UILayoutApplier::ApplyWidgetOverrides(GetUIManager().lock());
 }
 
 void CEditorWorld::LoadAnimation2D()

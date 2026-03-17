@@ -46,12 +46,12 @@ namespace CitizenInfoRendererInternal
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_population.png");
     constexpr const TCHAR* GSectionDividerTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\4_Modern\\InfoPopUp\\T_agent_deco.png");
-    constexpr const TCHAR* GCitizenPoliticsSectionTexture = GMenuDetailFrameTexture;
-    constexpr const TCHAR* GCitizenPoliticsBarRailTexture = GScrollTrackTexture;
-    constexpr const TCHAR* GCitizenPoliticsBarFillTexture = GScrollThumbTexture;
+    static const auto& GCitizenPoliticsSectionTexture = GMenuDetailFrameTexture;
+    static const auto& GCitizenPoliticsBarRailTexture = GScrollTrackTexture;
+    static const auto& GCitizenPoliticsBarFillTexture = GScrollThumbTexture;
     constexpr const TCHAR* GCitizenPoliticsSupportIconTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_political_approval.png");
-    constexpr const TCHAR* GCitizenThoughtTitleTexture = GMenuDetailFrameTexture;
+    static const auto& GCitizenThoughtTitleTexture = GMenuDetailFrameTexture;
     constexpr std::array<const TCHAR*, 4> GOverviewResidentPortraits =
     {
         TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\TropicanIcons\\T_CW_formalWorker1_m_1.png"),

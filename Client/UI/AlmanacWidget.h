@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AlmanacState.h"
 #include "UI/WidgetContainer.h"
 #include "../Building/BuildingTypes.h"
 #include "../Politics/PoliticalTypes.h"
@@ -20,20 +21,6 @@ namespace AlmanacRendererPopulationPage
         CAlmanacWidget& Widget,
         const AlmanacDataProvider::FAlmanacSnapshot& Snapshot);
 }
-
-enum class EAlmanacPage
-{
-    Overview = 0,
-    Satisfaction,
-    Population,
-    Economy,
-    Resources,
-    Politics,
-    Foreign,
-    Buildings,
-    Conflict,
-    Count
-};
 
 class CAlmanacWidget :
     public CWidgetContainer
@@ -299,26 +286,6 @@ private:
         std::vector<FMetricRowWidgets> Metrics;
     };
 
-    struct FWidgetState
-    {
-        bool Open = false;
-        EAlmanacPage SelectedPage = EAlmanacPage::Overview;
-        int SelectedSatisfactionIndex = 0;
-        int SelectedPopulationIndex = 0;
-        int SelectedEconomyIndex = 0;
-        int SelectedResourceIndex = 0;
-        int VisibleResourceRowOffset = 0;
-        int SelectedPoliticsFactionIndex = 0;
-        int SelectedForeignPowerIndex = 0;
-        int SelectedBuildingCategoryIndex = 0;
-        float PanelWidth = 1060.f;
-        float PanelHeight = 744.f;
-        float DataRefreshAccum = 0.f;
-        bool LayoutDirty = true;
-        int LastResolutionWidth = 0;
-        int LastResolutionHeight = 0;
-    };
-
     // Primary ownership is grouped by page/concern; aliases below keep
     // existing renderer code working while callers migrate gradually.
     FChromeWidgets mChrome;
@@ -331,7 +298,7 @@ private:
     FForeignPageWidgets mForeignPage;
     FBuildingPageWidgets mBuildingPage;
     FConflictPageWidgets mConflictPage;
-    FWidgetState mState;
+    FAlmanacState mState;
 
     // Compatibility aliases for existing renderer/data-provider code.
     WImage& mPanelBackground = mChrome.PanelBackground;
@@ -520,6 +487,14 @@ private:
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
+    const FAlmanacState& GetState() const
+    {
+        return mState;
+    }
+    FAlmanacState& GetMutableState()
+    {
+        return mState;
+    }
     void ToggleOpen();
     void SetOpen(bool Open);
     void SelectSatisfactionRow(int Index);

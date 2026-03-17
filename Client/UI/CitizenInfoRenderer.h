@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CitizenInfoDataProvider.h"
+#include "CitizenInfoSnapshot.h"
 
 class CCitizenInfoWidget;
 struct FCitizenInfoLayoutContext;

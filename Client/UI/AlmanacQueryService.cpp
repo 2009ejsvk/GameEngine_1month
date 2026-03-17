@@ -1,5 +1,5 @@
 #include "AlmanacQueryService.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldUiReadAccess.h"
 #include "../World/WorldStatsSnapshot.h"
 #include "World/World.h"
 
@@ -13,7 +13,7 @@ namespace
             const std::shared_ptr<CWorld>& World)
             : mWorld(World)
             , mMainWorldAccess(
-                std::dynamic_pointer_cast<IMainWorldAlmanacAccess>(World))
+                ResolveMainWorldAlmanacAccess(World))
         {
         }
 

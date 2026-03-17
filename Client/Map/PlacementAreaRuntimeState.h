@@ -9,6 +9,13 @@ struct FPlacementBuildingRoleState
     bool BusStop = false;
 };
 
+enum class EBuildingDamageLevel
+{
+    None = 0,
+    Damaged,
+    Critical
+};
+
 struct FPlacementAreaRuntimeState
 {
     int ActiveOperationModeIndex = 0;
@@ -22,6 +29,8 @@ struct FPlacementAreaRuntimeState
     int LocalFreedomSupport = 0;
     int LocalSecuritySupport = 0;
     float AccessibilityScore = 0.f;
+    EBuildingDamageLevel DamageLevel = EBuildingDamageLevel::None;
+    int RepairCost = 0;
     FPlacementBuildingRoleState Roles;
 
     void ResetForCatalog(const FPlacementBuildingRoleState& InRoles)
@@ -36,5 +45,7 @@ struct FPlacementAreaRuntimeState
         LocalFreedomSupport = 0;
         LocalSecuritySupport = 0;
         AccessibilityScore = 0.f;
+        DamageLevel = EBuildingDamageLevel::None;
+        RepairCost = 0;
     }
 };

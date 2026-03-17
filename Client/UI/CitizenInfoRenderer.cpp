@@ -1,7 +1,8 @@
 #include "CitizenInfoRenderer.h"
 #include "CitizenInfoRendererInternal.h"
 #include "CitizenInfoWidget.h"
-#include "UILayoutConfig.h"
+#include "TropicoUiTheme.h"
+#include "UILayoutValues.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
@@ -35,6 +36,13 @@ void FCitizenInfoRenderer::ValidateSnapshotForDebug(
     assert(Snapshot.OverviewResidentCapacity >= 0);
     assert(Snapshot.OverviewVisitorCount >= 0);
     assert(Snapshot.OverviewVisitorCapacity >= 0);
+    assert(Snapshot.OverviewMetricScrollOffset >= 0);
+    assert(Snapshot.OverviewMetricScrollVisibleLineCount >= 0);
+    assert(Snapshot.OverviewMetricScrollTotalLineCount >= 0);
+    assert(Snapshot.OverviewMetricScrollFirstRowIndex >= 0);
+    assert(
+        Snapshot.OverviewMetricScrollFirstRowIndex <=
+            CCitizenInfoWidget::GOverviewMetricRowCount);
     assert(Snapshot.CitizenPortraitSlotCount >= 0);
     assert(
         Snapshot.CitizenPortraitSlotCount <=
@@ -66,17 +74,25 @@ void FCitizenInfoRenderer::ApplySnapshot(
     const bool ShowCitizenProfile = Snapshot.ShowCitizenProfileOverview;
     const bool ShowCitizenPolitics = Snapshot.ShowCitizenPoliticsOverview;
     const bool ShowCitizenThoughts = Snapshot.ShowCitizenThoughtsOverview;
-    const bool ShowMetricRows =
+    const bool ShowResidentialOverview =
+        Snapshot.ShowBuildingOverview;
+    const bool ShowWorkOverview =
+        Snapshot.ShowBuildingWorkOverview;
+    const bool ShowResidentialWorkMode =
+        ShowResidentialOverview &&
+        !Snapshot.OverviewWorkModeLabel.empty() &&
+        !Snapshot.OverviewWorkModeValue.empty();
+    const bool ShowSharedMetricRows =
         ShowCitizenProfile ||
-        Snapshot.ShowBuildingOverview ||
-        Snapshot.ShowBuildingWorkOverview ||
+        ShowWorkOverview ||
         Snapshot.ShowBuildingMetricRows;
+    const bool ShowResidentialMetricRows = ShowResidentialOverview;
     const bool ShowUpgradeCard = Snapshot.ShowBuildingUpgradeCard;
     const bool ShowInformationParagraphs =
         Snapshot.ShowBuildingInformationParagraphs;
     const bool ShowOverviewLayout =
-        Snapshot.ShowBuildingOverview ||
-        Snapshot.ShowBuildingWorkOverview;
+        ShowResidentialOverview ||
+        ShowWorkOverview;
 
     auto TitleText = Widget.mTitleText.lock();
     auto SubtitleText = Widget.mSubtitleText.lock();
@@ -84,6 +100,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
     auto BodyText = Widget.mBodyText.lock();
     auto BudgetText = Widget.mBudgetText.lock();
     auto SectionRibbon = Widget.mSectionRibbon.lock();
+    auto ScrollTrack = Widget.mScrollTrack.lock();
+    auto ScrollThumb = Widget.mScrollThumb.lock();
     auto TitleIcon = Widget.mTitleIcon.lock();
 
     if (TitleText)
@@ -96,7 +114,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
             SubtitleText->SetText(Snapshot.HeaderNoteText.c_str());
             SubtitleText->SetAlignH(ETextAlignH::Left);
             SubtitleText->SetAlignV(ETextAlignV::Middle);
-            SubtitleText->SetTextColor(FVector4(0.24f, 0.24f, 0.24f, 1.f));
+            SubtitleText->SetTextColor(
+                TropicoUiTheme::GCitizenInfoSectionHeaderTint);
             SubtitleText->EnableShadow(false);
             SubtitleText->SetEnable(!Snapshot.HeaderNoteText.empty());
         }
@@ -105,7 +124,7 @@ void FCitizenInfoRenderer::ApplySnapshot(
             SubtitleText->SetText(Snapshot.BuildingSubtitleText.c_str());
             SubtitleText->SetAlignH(ETextAlignH::Center);
             SubtitleText->SetAlignV(ETextAlignV::Middle);
-            SubtitleText->SetTextColor(FVector4(0.26f, 0.62f, 0.82f, 1.f));
+            SubtitleText->SetTextColor(Snapshot.BuildingSubtitleColor);
             SubtitleText->EnableShadow(false);
             SubtitleText->SetEnable(!Snapshot.BuildingSubtitleText.empty());
         }
@@ -114,7 +133,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
             SubtitleText->SetText(Snapshot.Subtitle.c_str());
             SubtitleText->SetAlignH(ETextAlignH::Center);
             SubtitleText->SetAlignV(ETextAlignV::Middle);
-            SubtitleText->SetTextColor(FVector4(0.35f, 0.30f, 0.22f, 1.f));
+            SubtitleText->SetTextColor(
+                TropicoUiTheme::GCitizenInfoSubtitleTint);
             SubtitleText->EnableShadow(false);
             SubtitleText->SetEnable(
                 IsCitizenMode &&
@@ -150,6 +170,12 @@ void FCitizenInfoRenderer::ApplySnapshot(
 
     if (SectionRibbon)
         SectionRibbon->SetEnable(Snapshot.ShowSectionRibbon);
+
+    if (ScrollTrack)
+        ScrollTrack->SetEnable(Snapshot.ShowOverviewMetricScroll);
+
+    if (ScrollThumb)
+        ScrollThumb->SetEnable(Snapshot.ShowOverviewMetricScroll);
 
     if (TitleIcon)
     {
@@ -198,8 +224,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
 
             Label->SetTextColor(
                 Selected ?
-                    FVector4(0.27f, 0.17f, 0.06f, 1.f) :
-                    FVector4(0.22f, 0.20f, 0.17f, 1.f));
+                    TropicoUiTheme::GCitizenInfoTabLabelSelectedTint :
+                    TropicoUiTheme::GCitizenInfoTabLabelNormalTint);
             Label->SetEnable(!IsCitizenMode);
         }
 
@@ -225,8 +251,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
                 !IsCitizenMode);
             Icon->SetTint(
                 Selected ?
-                    FVector4(1.f, 1.f, 1.f, 1.f) :
-                    FVector4(0.92f, 0.92f, 0.92f, 0.95f));
+                    TropicoUiTheme::GCitizenInfoTabIconSelectedTint :
+                    TropicoUiTheme::GCitizenInfoTabIconNormalTint);
         }
 
         if (Button)
@@ -290,8 +316,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
                 Snapshot.BudgetButtonLabels[static_cast<size_t>(Index)].c_str());
             Label->SetTextColor(
                 Selected ?
-                    FVector4(0.36f, 0.22f, 0.08f, 1.f) :
-                    FVector4(0.30f, 0.22f, 0.12f, 1.f));
+                    TropicoUiTheme::GCitizenInfoBudgetLabelSelectedTint :
+                    TropicoUiTheme::GCitizenInfoBudgetLabelNormalTint);
             Label->SetEnable(
                 !ShowOverviewLayout &&
                 Snapshot.BudgetButtonEnabled[static_cast<size_t>(Index)] &&
@@ -306,7 +332,14 @@ void FCitizenInfoRenderer::ApplySnapshot(
     }
 
     if (auto Background = Widget.mOverviewWorkModeBackground.lock())
-        Background->SetEnable(Snapshot.ShowBuildingWorkOverview);
+    {
+        Background->SetEnable(
+            Snapshot.ShowBuildingWorkOverview &&
+            !Snapshot.ShowOverviewWorkModeButton);
+    }
+
+    if (auto Button = Widget.mOverviewWorkModeButton.lock())
+        Button->SetEnable(Snapshot.ShowOverviewWorkModeButton);
 
     if (auto Text = Widget.mOverviewWorkModeText.lock())
     {
@@ -316,23 +349,49 @@ void FCitizenInfoRenderer::ApplySnapshot(
             !Snapshot.OverviewWorkModeValue.empty());
     }
 
+    if (auto Text = Widget.mResidentialOverviewWorkModeLabel.lock())
+    {
+        Text->SetText(Snapshot.OverviewWorkModeLabel.c_str());
+        Text->SetEnable(ShowResidentialWorkMode);
+    }
+
+    if (auto Background = Widget.mResidentialOverviewWorkModeBackground.lock())
+    {
+        Background->SetEnable(
+            ShowResidentialWorkMode &&
+            !Snapshot.ShowOverviewWorkModeButton);
+    }
+
+    if (auto Button = Widget.mResidentialOverviewWorkModeButton.lock())
+    {
+        Button->SetEnable(
+            ShowResidentialWorkMode &&
+            Snapshot.ShowOverviewWorkModeButton);
+    }
+
+    if (auto Text = Widget.mResidentialOverviewWorkModeText.lock())
+    {
+        Text->SetText(Snapshot.OverviewWorkModeValue.c_str());
+        Text->SetEnable(ShowResidentialWorkMode);
+    }
+
     if (auto Text = Widget.mOverviewBudgetLabel.lock())
     {
         Text->SetText(Snapshot.OverviewBudgetLabel.c_str());
-        Text->SetEnable(ShowOverviewLayout);
+        Text->SetEnable(ShowWorkOverview);
     }
 
     if (auto Text = Widget.mOverviewBudgetValue.lock())
     {
         Text->SetText(Snapshot.OverviewBudgetValue.c_str());
-        Text->SetEnable(ShowOverviewLayout);
+        Text->SetEnable(ShowWorkOverview);
     }
 
     if (auto Text = Widget.mOverviewOccupancyLabel.lock())
     {
         Text->SetText(Snapshot.OverviewOccupancyLabel.c_str());
         Text->SetEnable(
-            ShowOverviewLayout &&
+            ShowWorkOverview &&
             Snapshot.OverviewResidentCapacity > 0);
     }
 
@@ -340,7 +399,35 @@ void FCitizenInfoRenderer::ApplySnapshot(
     {
         Text->SetText(Snapshot.OverviewOccupancyValue.c_str());
         Text->SetEnable(
-            ShowOverviewLayout &&
+            ShowWorkOverview &&
+            Snapshot.OverviewResidentCapacity > 0);
+    }
+
+    if (auto Text = Widget.mResidentialOverviewBudgetLabel.lock())
+    {
+        Text->SetText(Snapshot.OverviewBudgetLabel.c_str());
+        Text->SetEnable(ShowResidentialOverview);
+    }
+
+    if (auto Text = Widget.mResidentialOverviewBudgetValue.lock())
+    {
+        Text->SetText(Snapshot.OverviewBudgetValue.c_str());
+        Text->SetEnable(ShowResidentialOverview);
+    }
+
+    if (auto Text = Widget.mResidentialOverviewOccupancyLabel.lock())
+    {
+        Text->SetText(Snapshot.OverviewOccupancyLabel.c_str());
+        Text->SetEnable(
+            ShowResidentialOverview &&
+            Snapshot.OverviewResidentCapacity > 0);
+    }
+
+    if (auto Text = Widget.mResidentialOverviewOccupancyValue.lock())
+    {
+        Text->SetText(Snapshot.OverviewOccupancyValue.c_str());
+        Text->SetEnable(
+            ShowResidentialOverview &&
             Snapshot.OverviewResidentCapacity > 0);
     }
 
@@ -353,7 +440,7 @@ void FCitizenInfoRenderer::ApplySnapshot(
         auto Value =
             Widget.mOverviewMetricValues[static_cast<size_t>(Index)].lock();
         const bool LabelEnabled =
-            ShowMetricRows &&
+            ShowSharedMetricRows &&
             !Snapshot.OverviewMetricLabels[static_cast<size_t>(Index)].empty();
         const bool ValueEnabled =
             LabelEnabled &&
@@ -373,10 +460,10 @@ void FCitizenInfoRenderer::ApplySnapshot(
                         UIConfig::BuildingOverviewMetricLabelFontSize));
             Label->SetTextColor(
                 ShowCitizenProfile ?
-                    FVector4(0.33f, 0.30f, 0.26f, 1.f) :
+                    TropicoUiTheme::GCitizenInfoMetricProfileTint :
                     (SectionHeader ?
-                        FVector4(0.24f, 0.24f, 0.24f, 1.f) :
-                        FVector4(0.28f, 0.28f, 0.28f, 1.f)));
+                        TropicoUiTheme::GCitizenInfoMetricHeaderTint :
+                        TropicoUiTheme::GCitizenInfoMetricLabelTint));
             Label->SetEnable(LabelEnabled);
         }
 
@@ -388,10 +475,61 @@ void FCitizenInfoRenderer::ApplySnapshot(
                 Value->SetFontSize(UIConfig::BuildingOverviewMetricValueFontSize);
             Value->SetTextColor(
                 Snapshot.OverviewMetricAccentValues[static_cast<size_t>(Index)] ?
-                    FVector4(0.33f, 0.62f, 0.88f, 1.f) :
+                    TropicoUiTheme::GCitizenInfoMetricAccentTint :
                     (ShowCitizenProfile ?
-                        FVector4(0.27f, 0.27f, 0.27f, 1.f) :
-                        FVector4(0.28f, 0.24f, 0.20f, 1.f)));
+                        TropicoUiTheme::GCitizenInfoMetricValueTint :
+                        TropicoUiTheme::GCitizenInfoValueTint));
+            Value->SetEnable(ValueEnabled);
+        }
+    }
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
+        auto Label =
+            Widget.mResidentialOverviewMetricLabels[
+                static_cast<size_t>(Index)].lock();
+        auto Value =
+            Widget.mResidentialOverviewMetricValues[
+                static_cast<size_t>(Index)].lock();
+        const bool LabelEnabled =
+            ShowResidentialMetricRows &&
+            !Snapshot.OverviewMetricLabels[static_cast<size_t>(Index)].empty();
+        const bool ValueEnabled =
+            LabelEnabled &&
+            !Snapshot.OverviewMetricValues[static_cast<size_t>(Index)].empty();
+        const bool SectionHeader =
+            LabelEnabled &&
+            !ValueEnabled;
+
+        if (Label)
+        {
+            Label->SetText(
+                Snapshot.OverviewMetricLabels[
+                    static_cast<size_t>(Index)].c_str());
+            Label->SetFontSize(
+                SectionHeader ?
+                    UIConfig::BuildingOverviewMetricSectionHeaderFontSize :
+                    UIConfig::BuildingOverviewMetricLabelFontSize);
+            Label->SetTextColor(
+                SectionHeader ?
+                    TropicoUiTheme::GCitizenInfoMetricHeaderTint :
+                    TropicoUiTheme::GCitizenInfoMetricLabelTint);
+            Label->SetEnable(LabelEnabled);
+        }
+
+        if (Value)
+        {
+            Value->SetText(
+                Snapshot.OverviewMetricValues[
+                    static_cast<size_t>(Index)].c_str());
+            Value->SetFontSize(UIConfig::BuildingOverviewMetricValueFontSize);
+            Value->SetTextColor(
+                Snapshot.OverviewMetricAccentValues[
+                    static_cast<size_t>(Index)] ?
+                    TropicoUiTheme::GCitizenInfoMetricAccentTint :
+                    TropicoUiTheme::GCitizenInfoValueTint);
             Value->SetEnable(ValueEnabled);
         }
     }
@@ -409,7 +547,7 @@ void FCitizenInfoRenderer::ApplySnapshot(
         const bool Enabled =
             ShowCitizenProfile ?
                 (Index < Snapshot.CitizenPortraitSlotCount) :
-                (ShowOverviewLayout &&
+                (ShowWorkOverview &&
                     Index < Snapshot.OverviewResidentCapacity &&
                     Index < CCitizenInfoWidget::GOverviewResidentSlotCount);
 
@@ -437,7 +575,7 @@ void FCitizenInfoRenderer::ApplySnapshot(
                 Icon->SetTexture(
                     "CitizenInfoCitizenPortraitEmpty_" + std::to_string(Index),
                     GMenuDetailFrameTexture);
-                Icon->SetTint(0.94f, 0.92f, 0.86f, 0.92f);
+                Icon->SetTint(TropicoUiTheme::GCitizenInfoPanelHighlightTint);
             }
         }
         else if (Index < Snapshot.OverviewResidentCount)
@@ -454,7 +592,51 @@ void FCitizenInfoRenderer::ApplySnapshot(
             Icon->SetTexture(
                 "CitizenInfoOverviewResidentEmpty_" + std::to_string(Index),
                 GOverviewEmptyResidentIcon);
-            Icon->SetTint(1.00f, 0.90f, 0.35f, 0.85f);
+            Icon->SetTint(TropicoUiTheme::GCitizenInfoEmptyResidentTint);
+        }
+
+        Icon->SetEnable(true);
+    }
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
+        ++Index)
+    {
+        auto Icon =
+            Widget.mResidentialOverviewResidentIcons[
+                static_cast<size_t>(Index)].lock();
+
+        if (!Icon)
+            continue;
+
+        const bool Enabled =
+            ShowResidentialOverview &&
+            Index < Snapshot.OverviewResidentCapacity &&
+            Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
+
+        if (!Enabled)
+        {
+            Icon->SetEnable(false);
+            continue;
+        }
+
+        if (Index < Snapshot.OverviewResidentCount)
+        {
+            const size_t PortraitIndex =
+                static_cast<size_t>(Index) % GOverviewResidentPortraits.size();
+            Icon->SetTexture(
+                "CitizenInfoResidentialOverviewResidentOccupied_" +
+                    std::to_string(Index),
+                GOverviewResidentPortraits[PortraitIndex]);
+            Icon->SetTint(1.f, 1.f, 1.f, 1.f);
+        }
+        else
+        {
+            Icon->SetTexture(
+                "CitizenInfoResidentialOverviewResidentEmpty_" +
+                    std::to_string(Index),
+                GOverviewEmptyResidentIcon);
+            Icon->SetTint(TropicoUiTheme::GCitizenInfoEmptyResidentTint);
         }
 
         Icon->SetEnable(true);
@@ -488,8 +670,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
             GOverviewResidentPortraits[PortraitIndex]);
         Icon->SetTint(
             Index < Snapshot.OverviewVisitorCount ?
-                FVector4(1.f, 1.f, 1.f, 1.f) :
-                FVector4(0.72f, 0.72f, 0.72f, 0.65f));
+                TropicoUiTheme::GCitizenInfoTabIconSelectedTint :
+                TropicoUiTheme::GCitizenInfoDisabledVisitorTint);
         Icon->SetEnable(true);
     }
 

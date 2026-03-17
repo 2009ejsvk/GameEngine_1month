@@ -30,11 +30,13 @@ namespace CitizenInfoPresentation
         CitizenInfoDataProvider::FCitizenInfoSnapshot& Result);
     void PopulateGenericWorkOverview(
         const FBuildingUiSnapshot& Snapshot,
-        CitizenInfoDataProvider::FCitizenInfoSnapshot& Result);
+        CitizenInfoDataProvider::FCitizenInfoSnapshot& Result,
+        int OverviewMetricScrollOffset = 0);
     void PopulateBuildingStatisticsMetrics(
         const FBuildingUiSnapshot& Snapshot,
         bool IsCustomsOffice,
-        CitizenInfoDataProvider::FCitizenInfoSnapshot& Result);
+        CitizenInfoDataProvider::FCitizenInfoSnapshot& Result,
+        int OverviewMetricScrollOffset = 0);
     void PopulateBuildingEfficiencyMetrics(
         const FBuildingUiSnapshot& Snapshot,
         bool IsCustomsOffice,
@@ -46,6 +48,9 @@ namespace CitizenInfoPresentation
     bool HasOverviewMetrics(
         const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot);
     bool PopulateBuildingInformationPanel(
+        const FBuildingUiSnapshot& Snapshot,
+        CitizenInfoDataProvider::FCitizenInfoSnapshot& Result);
+    bool PopulateOverviewStageBadge(
         const FBuildingUiSnapshot& Snapshot,
         CitizenInfoDataProvider::FCitizenInfoSnapshot& Result);
     bool PopulateBuildingUpgradeCard(

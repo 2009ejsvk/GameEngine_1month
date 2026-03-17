@@ -17,7 +17,7 @@ namespace MainWorldTradeRuntime
         int ImportPricePercent = 0;
     };
 
-    const wchar_t* GetForeignPowerName(int Index);
+    const wchar_t* GetForeignPowerName(int Index, EBuildingEra Era);
     std::wstring FormatCurrency(long long Value);
     std::wstring FormatUnits(int Value);
     int CountActiveTradeRoutesForPower(

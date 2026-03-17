@@ -319,7 +319,8 @@ namespace
         switch (EraProgress.NextEra)
         {
         case EBuildingEra::WorldWars:
-            return
+        {
+            std::wstring Result =
                 L"시대 진행: 인구 " +
                 std::to_wstring(EraProgress.Population) +
                 L"/" +
@@ -332,8 +333,13 @@ namespace
                 std::to_wstring(EraProgress.FoodProviders) +
                 L"/" +
                 std::to_wstring(Requirement.MinFoodProviders);
+            if (EraProgress.NextEraReady)
+                Result += L" | 전환 승인 가능";
+            return Result;
+        }
         case EBuildingEra::ColdWar:
-            return
+        {
+            std::wstring Result =
                 L"시대 진행: 인구 " +
                 std::to_wstring(EraProgress.Population) +
                 L"/" +
@@ -351,8 +357,13 @@ namespace
                 L"/" +
                 std::to_wstring(Requirement.MinPowerMW) +
                 L"MW";
+            if (EraProgress.NextEraReady)
+                Result += L" | 전환 승인 가능";
+            return Result;
+        }
         case EBuildingEra::Modern:
-            return
+        {
+            std::wstring Result =
                 L"시대 진행: 인구 " +
                 std::to_wstring(EraProgress.Population) +
                 L"/" +
@@ -374,6 +385,10 @@ namespace
                 L"/" +
                 std::to_wstring(Requirement.MinPowerMW) +
                 L"MW";
+            if (EraProgress.NextEraReady)
+                Result += L" | 전환 승인 가능";
+            return Result;
+        }
         case EBuildingEra::Colonial:
         default:
             break;

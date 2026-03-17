@@ -2,7 +2,7 @@
 
 #include "Object/GameObject.h"
 #include "../Map/PlacementAreaObject.h"
-#include "../Building/BuildingCatalog.h"
+#include "../Building/BuildingCatalogEntry.h"
 #include <string>
 #include <vector>
 

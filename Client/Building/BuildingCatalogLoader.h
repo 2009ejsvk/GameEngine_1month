@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BuildingCatalog.h"
+#include "BuildingCatalogEntry.h"
 #include <string>
 #include <vector>
 

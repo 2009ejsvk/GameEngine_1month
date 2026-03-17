@@ -1,4 +1,5 @@
 #include "MainWorldWorldCrisisService.h"
+#include "MainWorldBuildingControlAccess.h"
 #include "WorldStatsSnapshot.h"
 #include "../GameConstants.h"
 #include "../Map/BuildingMarkerOrb.h"
@@ -773,6 +774,109 @@ namespace
 
         return StolenAmount;
     }
+
+    bool IsRaidPriorityBuilding(const std::shared_ptr<CPlacementAreaObject>& Building)
+    {
+        return Building &&
+            (Building->IsHarbor() ||
+                Building->IsWarehouse() ||
+                Building->CanGenerateWorkOutput());
+    }
+
+    int ApplyRaidBuildingDamage(
+        const std::shared_ptr<CWorld>& World,
+        double Severity,
+        double ChainIntensity)
+    {
+        if (!World)
+            return 0;
+
+        auto DamageAccess =
+            ResolveMainWorldBuildingConditionAccess(World);
+
+        if (!DamageAccess)
+            return 0;
+
+        std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+        if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+            return 0;
+
+        std::vector<std::shared_ptr<CPlacementAreaObject>> PriorityBuildings;
+        std::vector<std::shared_ptr<CPlacementAreaObject>> SecondaryBuildings;
+
+        for (size_t Index = 0; Index < BuildingList.size(); ++Index)
+        {
+            auto Building = BuildingList[Index].lock();
+
+            if (!IsOperationalBuilding(Building) ||
+                Building->IsRoad() ||
+                Building->GetDamageLevel() == EBuildingDamageLevel::Critical)
+            {
+                continue;
+            }
+
+            if (IsRaidPriorityBuilding(Building))
+                PriorityBuildings.push_back(Building);
+            else
+                SecondaryBuildings.push_back(Building);
+        }
+
+        auto ApplySingleHit =
+            [&](std::vector<std::shared_ptr<CPlacementAreaObject>>& Targets)
+            {
+                if (Targets.empty())
+                    return false;
+
+                const size_t PickIndex =
+                    static_cast<size_t>(rand() % static_cast<int>(Targets.size()));
+                const auto Target = Targets[PickIndex];
+                Targets.erase(Targets.begin() + static_cast<int>(PickIndex));
+
+                if (!Target)
+                    return false;
+
+                const EBuildingDamageLevel NextLevel =
+                    Target->GetDamageLevel() == EBuildingDamageLevel::None ?
+                        EBuildingDamageLevel::Damaged :
+                        EBuildingDamageLevel::Critical;
+                return DamageAccess->DamageBuilding(Target->GetName(), NextLevel);
+            };
+
+        int TargetHits = 1;
+
+        if (Severity >= 0.35 || ChainIntensity >= 1.1)
+            ++TargetHits;
+
+        if (Severity >= 0.72 || ChainIntensity >= 1.28)
+            ++TargetHits;
+
+        int AppliedHits = 0;
+
+        for (int HitIndex = 0; HitIndex < TargetHits; ++HitIndex)
+        {
+            if (ApplySingleHit(PriorityBuildings) ||
+                ApplySingleHit(SecondaryBuildings))
+            {
+                ++AppliedHits;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if (AppliedHits > 0)
+        {
+            if (auto RefreshAccess =
+                    ResolveMainWorldRuntimeRefreshAccess(World))
+            {
+                RefreshAccess->RefreshRuntimeBuildingState();
+            }
+        }
+
+        return AppliedHits;
+    }
 } // namespace
 
 void CMainWorldWorldCrisisService::Reset()
@@ -787,6 +891,76 @@ void CMainWorldWorldCrisisService::Reset()
     mQueuedWorldCrisisDelayDays = 0;
     mQueuedWorldCrisisChainDepth = 0;
     mWorldCrisisStatus = FWorldCrisisStatus();
+}
+
+void CMainWorldWorldCrisisService::TriggerForcedCrisis(
+    EWorldCrisisType Type,
+    const FTickContext& Context)
+{
+    if (!Context.World || Type == EWorldCrisisType::None)
+        return;
+
+    const double ForcedRisk =
+        Type == EWorldCrisisType::FiscalEmergency ? 0.84 :
+        Type == EWorldCrisisType::Raid ? 0.82 :
+        Type == EWorldCrisisType::LaborStrike ? 0.80 :
+        Type == EWorldCrisisType::CrimeWave ? 0.78 :
+        0.76;
+
+    if (mWorldCrisisStatus.Active)
+    {
+        if (mWorldCrisisStatus.Type == Type)
+        {
+            mWorldCrisisStatus.NotificationDays = (std::max)(
+                mWorldCrisisStatus.NotificationDays,
+                MWWorldCrisis::StartNotificationDays);
+            mWorldCrisisStatus.RemainingDays = (std::max)(
+                mWorldCrisisStatus.RemainingDays,
+                3);
+            mWorldCrisisStatus.Summary =
+                BuildWorldCrisisWarningSummary(Type, 0);
+            return;
+        }
+
+        mQueuedWorldCrisisType = Type;
+        mQueuedWorldCrisisRisk = (std::max)(
+            Clamp<double>(mQueuedWorldCrisisRisk, 0.0, 1.0),
+            ForcedRisk);
+        mQueuedWorldCrisisDelayDays = 1;
+        mQueuedWorldCrisisChainDepth =
+            (std::max)(1, mActiveWorldCrisisChainDepth + 1);
+        return;
+    }
+
+    const long long ImmediateBudgetDelta =
+        ResolveWorldCrisisImmediateBudgetDelta(
+            Type,
+            ForcedRisk);
+    mQueuedWorldCrisisType = EWorldCrisisType::None;
+    mQueuedWorldCrisisRisk = 0.0;
+    mQueuedWorldCrisisDelayDays = 0;
+    mQueuedWorldCrisisChainDepth = 0;
+    StartWorldCrisis(
+        mWorldCrisisStatus,
+        Type,
+        Context.SimulationYear,
+        Context.SimulationMonth,
+        Context.SimulationDay,
+        ImmediateBudgetDelta,
+        Context.NationalBudget,
+        Context.LastDailyNetChange,
+        mRaidPressureDays,
+        mLaborStrikePressureDays,
+        mCrimeWavePressureDays,
+        mFiscalEmergencyPressureDays,
+        true);
+    mActiveWorldCrisisChainDepth = 0;
+}
+
+void CMainWorldWorldCrisisService::TriggerForcedRaid(
+    const FTickContext& Context)
+{
+    TriggerForcedCrisis(EWorldCrisisType::Raid, Context);
 }
 
 void CMainWorldWorldCrisisService::ApplyDailyEffects(
@@ -930,11 +1104,14 @@ void CMainWorldWorldCrisisService::ApplyDailyEffects(
             8 + static_cast<int>(std::round(10.0 * Severity));
         const int StolenAmount =
             ApplyRaidResourceTheft(Context.World.get(), TargetAmount);
+        const int DamagedBuildingCount =
+            ApplyRaidBuildingDamage(Context.World, Severity, ChainIntensity);
         const long long BudgetDamage =
             -(1200LL +
                 static_cast<long long>(std::llround(
                     1800.0 * Severity * ChainIntensity)) +
-                static_cast<long long>(StolenAmount) * 42LL);
+                static_cast<long long>(StolenAmount) * 42LL +
+                static_cast<long long>(DamagedBuildingCount) * 180LL);
         ApplyBudgetDelta(BudgetDamage);
         break;
     }

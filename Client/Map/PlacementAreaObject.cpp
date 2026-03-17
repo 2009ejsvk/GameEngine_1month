@@ -2,7 +2,9 @@
 #include "PlacementBuildingRoleResolver.h"
 #include "../Building/BuildingCatalog.h"
 #include "../StringUtils.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldBuildingControlAccess.h"
+#include "../World/MainWorldInfrastructureAccess.h"
+#include "../World/MainWorldSystemAccess.h"
 #include "Component/SceneComponent.h"
 #include "Object/TileMapObject.h"
 #include "World/Input.h"
@@ -34,18 +36,157 @@ namespace PlacementAreaObjectInternal
         }
 
         if (auto RoadNetworkAccess =
-                dynamic_cast<IMainWorldRoadNetworkAccess*>(World.get()))
+                ResolveMainWorldRoadNetworkAccess(World.get()))
         {
             RoadNetworkAccess->RebuildRoadNetwork();
         }
 
         if (auto RefreshAccess =
-                dynamic_cast<IMainWorldRuntimeRefreshAccess*>(World.get()))
+                ResolveMainWorldRuntimeRefreshAccess(World.get()))
         {
             RefreshAccess->RefreshRuntimeBuildingState();
         }
     }
 } // namespace PlacementAreaObjectInternal
+
+namespace
+{
+    struct FOperationModeResearchMetadata
+    {
+        bool Valid = false;
+        std::wstring Key;
+        std::wstring Label;
+        int Cost = 0;
+    };
+
+    int ResolveOperationModeResearchCost(EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::WorldWars:
+            return 60;
+        case EBuildingEra::ColdWar:
+            return 90;
+        case EBuildingEra::Modern:
+            return 130;
+        case EBuildingEra::Colonial:
+        default:
+            return 40;
+        }
+    }
+
+    std::shared_ptr<IMainWorldKnowledgeAccess> ResolveKnowledgeAccess(
+        const std::shared_ptr<CWorld>& World)
+    {
+        return ResolveMainWorldKnowledgeAccess(World);
+    }
+
+    bool TryBuildOperationModeResearchMetadata(
+        const CPlacementAreaObject& Building,
+        int ModeIndex,
+        FOperationModeResearchMetadata& OutMetadata)
+    {
+        OutMetadata = FOperationModeResearchMetadata();
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(Building.GetBuildingId());
+
+        if (!Entry ||
+            ModeIndex < 0 ||
+            ModeIndex >= static_cast<int>(Entry->OperationModeDefs.size()))
+        {
+            return false;
+        }
+
+        const FBuildingOperationModeDef& ModeDef =
+            Entry->OperationModeDefs[static_cast<size_t>(ModeIndex)];
+
+        if (ModeDef.RequiredResearch.empty())
+            return false;
+
+        const EBuildingEra ResearchEra =
+            ModeDef.HasUnlockEra ?
+                ModeDef.UnlockEra :
+                Entry->UnlockEra;
+        const bool GenericResearchLabel =
+            ModeDef.RequiredResearch == L"연구 필요";
+        OutMetadata.Valid = true;
+        OutMetadata.Label =
+            GenericResearchLabel ?
+                (!ModeDef.DisplayName.empty() ?
+                    ModeDef.DisplayName + L" 연구" :
+                    std::wstring(L"운영 모드 연구")) :
+                ModeDef.RequiredResearch;
+        OutMetadata.Key =
+            GenericResearchLabel ?
+                (L"operation_mode:" +
+                    StringUtils::Utf8ToWide(Building.GetBuildingId()) +
+                    L":" +
+                    std::to_wstring(ModeIndex)) :
+                (L"research:" + ModeDef.RequiredResearch);
+        OutMetadata.Cost = ResolveOperationModeResearchCost(ResearchEra);
+        return true;
+    }
+
+    void BuildOperationModeSelectionMessage(
+        const CPlacementAreaObject& Building,
+        const FBuildingCatalogEntry& Entry,
+        bool UnlockedResearchNow,
+        const FOperationModeResearchMetadata* ResearchMetadata,
+        std::wstring& OutMessage)
+    {
+        std::wstring ModeLabel = Building.GetActiveOperationModeDisplayName();
+
+        if (ModeLabel.empty())
+            ModeLabel = L"-";
+
+        OutMessage =
+            StringUtils::Utf8ToWide(Building.GetBuildingDisplayName()) +
+            L": " +
+            ModeLabel;
+
+        const std::wstring EffectSummary =
+            Building.GetActiveOperationModeEffectSummary();
+
+        if (!EffectSummary.empty())
+        {
+            OutMessage += L" (";
+            OutMessage += EffectSummary;
+            OutMessage += L")";
+        }
+
+        if (UnlockedResearchNow && ResearchMetadata)
+        {
+            OutMessage += L"\n연구 해금: ";
+            OutMessage += ResearchMetadata->Label;
+            OutMessage += L" (-";
+            OutMessage += std::to_wstring((std::max)(0, ResearchMetadata->Cost));
+            OutMessage += L" 지식)";
+        }
+
+        const std::wstring TransitionNotice =
+            GetOperationModeTransitionNotice(Entry);
+
+        if (!TransitionNotice.empty())
+        {
+            OutMessage += L"\n";
+            OutMessage += TransitionNotice;
+        }
+    }
+
+    void BuildOperationModeResearchFailureMessage(
+        const CPlacementAreaObject& Building,
+        const FOperationModeResearchMetadata& ResearchMetadata,
+        std::wstring& OutMessage)
+    {
+        OutMessage =
+            StringUtils::Utf8ToWide(Building.GetBuildingDisplayName()) +
+            L": " +
+            ResearchMetadata.Label +
+            L" 해금에 지식 " +
+            std::to_wstring((std::max)(0, ResearchMetadata.Cost)) +
+            L" 필요";
+    }
+}
 
 using StringUtils::Utf8ToWide;
 using StringUtils::WideToUtf8;
@@ -154,6 +295,10 @@ void CPlacementAreaObject::ApplyCatalogEntry(
 {
     SetBuildingId(Entry.Id);
     SetBuildingCategory(Entry.Category);
+    SetHouseholdCapacity(Entry.HouseholdCapacity);
+    SetLeisureClass(Entry.LeisureClass);
+    SetPrimaryTouristPreference(Entry.PrimaryTouristPreference);
+    SetPoliticalSignals(Entry.PoliticalSignals);
     SetBuildingKind(Entry.BuildingKind);
     mRuntime.ResetForCatalog(ResolvePlacementBuildingRoleState(Entry));
     mOperations.ConfigureStorageBehavior(IsWarehouse());
@@ -177,13 +322,7 @@ void CPlacementAreaObject::ApplyCatalogEntry(
         Entry.FaithSatisfactionCap,
         Entry.ServiceCapacity);
     SetPlacementTemplateType(Entry.TemplateType);
-    SetResourceBehavior(
-        Entry.ProducedResourceType,
-        Entry.VisitConsumptionResourceType,
-        Entry.SupportsTeamsterPickup,
-        Entry.CanExportStoredResources,
-        Entry.ProductionInputTypes,
-        Entry.ProductionInputAmounts);
+    ApplyRuntimeResourceBehavior();
 }
 
 bool CPlacementAreaObject::Init()
@@ -202,7 +341,8 @@ void CPlacementAreaObject::Update(float DeltaTime)
         mOperations.TickServiceStock(
             DeltaTime,
             ResolveOperationModeServiceThroughputMultiplier() *
-                ResolvePowerOperationalMultiplier(),
+                ResolvePowerOperationalMultiplier() *
+                ResolveDamageOperationalMultiplier(),
             ResolveEffectiveServiceCapacityDelta());
     }
 
@@ -249,38 +389,93 @@ bool CPlacementAreaObject::CycleOperationMode(std::wstring& OutMessage)
         return false;
 
     const int ModeCount = static_cast<int>(Entry->OperationModeDefs.size());
-    mRuntime.ActiveOperationModeIndex =
-        (ResolveActiveOperationModeIndex(Entry) + 1) % ModeCount;
-    RefreshWarehouseStorageRuntime();
+    const int CurrentModeIndex = ResolveActiveOperationModeIndex(Entry);
+    const auto World = mWorld.lock();
+    const auto KnowledgeAccess = ResolveKnowledgeAccess(World);
+    bool FoundBlockedResearch = false;
+    FOperationModeResearchMetadata BlockedResearchMetadata;
 
-    if (auto World = mWorld.lock())
+    for (int Offset = 1; Offset < ModeCount; ++Offset)
     {
-        auto RefreshAccess =
-            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+        const int CandidateModeIndex = (CurrentModeIndex + Offset) % ModeCount;
+        FOperationModeResearchMetadata ResearchMetadata;
+        bool UnlockedResearchNow = false;
 
-        if (RefreshAccess)
+        if (TryBuildOperationModeResearchMetadata(
+                *this,
+                CandidateModeIndex,
+                ResearchMetadata) &&
+            !ResearchMetadata.Key.empty())
+        {
+            if (!KnowledgeAccess)
+            {
+                if (!FoundBlockedResearch)
+                {
+                    FoundBlockedResearch = true;
+                    BlockedResearchMetadata = ResearchMetadata;
+                }
+
+                continue;
+            }
+
+            if (!KnowledgeAccess->IsResearchUnlocked(ResearchMetadata.Key))
+            {
+                if (!KnowledgeAccess->TryUnlockResearch(
+                        ResearchMetadata.Key,
+                        ResearchMetadata.Cost))
+                {
+                    if (!FoundBlockedResearch)
+                    {
+                        FoundBlockedResearch = true;
+                        BlockedResearchMetadata = ResearchMetadata;
+                    }
+
+                    continue;
+                }
+
+                UnlockedResearchNow = true;
+            }
+        }
+
+        mRuntime.ActiveOperationModeIndex = CandidateModeIndex;
+        ApplyRuntimeResourceBehavior();
+        RefreshWarehouseStorageRuntime();
+
+        if (auto RefreshAccess =
+                ResolveMainWorldRuntimeRefreshAccess(World))
+        {
             RefreshAccess->RefreshRuntimeBuildingState();
+        }
+
+        BuildOperationModeSelectionMessage(
+            *this,
+            *Entry,
+            UnlockedResearchNow,
+            ResearchMetadata.Valid ? &ResearchMetadata : nullptr,
+            OutMessage);
+        return true;
     }
 
-    std::wstring ModeLabel = GetActiveOperationModeDisplayName();
-
-    if (ModeLabel.empty())
-        ModeLabel = L"-";
-
-    OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
-        L": " +
-        ModeLabel;
-
-    const std::wstring EffectSummary = GetActiveOperationModeEffectSummary();
-
-    if (!EffectSummary.empty())
+    if (ModeCount <= 1)
     {
-        OutMessage += L" (";
-        OutMessage += EffectSummary;
-        OutMessage += L")";
+        BuildOperationModeSelectionMessage(
+            *this,
+            *Entry,
+            false,
+            nullptr,
+            OutMessage);
+        return true;
     }
 
-    return true;
+    if (FoundBlockedResearch)
+    {
+        BuildOperationModeResearchFailureMessage(
+            *this,
+            BlockedResearchMetadata,
+            OutMessage);
+    }
+
+    return false;
 }
 
 bool CPlacementAreaObject::SetActiveOperationMode(
@@ -303,43 +498,102 @@ bool CPlacementAreaObject::SetActiveOperationMode(
 
     if (SafeModeIndex == ModeIndex)
     {
-        OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
-            L": " +
-            GetActiveOperationModeDisplayName();
+        BuildOperationModeSelectionMessage(
+            *this,
+            *Entry,
+            false,
+            nullptr,
+            OutMessage);
         return true;
     }
 
+    const auto World = mWorld.lock();
+    const auto KnowledgeAccess = ResolveKnowledgeAccess(World);
+    FOperationModeResearchMetadata ResearchMetadata;
+    bool UnlockedResearchNow = false;
+
+    if (TryBuildOperationModeResearchMetadata(*this, ModeIndex, ResearchMetadata) &&
+        !ResearchMetadata.Key.empty())
+    {
+        if (!KnowledgeAccess)
+        {
+            BuildOperationModeResearchFailureMessage(
+                *this,
+                ResearchMetadata,
+                OutMessage);
+            return false;
+        }
+
+        if (!KnowledgeAccess->IsResearchUnlocked(ResearchMetadata.Key))
+        {
+            if (!KnowledgeAccess->TryUnlockResearch(
+                    ResearchMetadata.Key,
+                    ResearchMetadata.Cost))
+            {
+                BuildOperationModeResearchFailureMessage(
+                    *this,
+                    ResearchMetadata,
+                    OutMessage);
+                return false;
+            }
+
+            UnlockedResearchNow = true;
+        }
+    }
+
     mRuntime.ActiveOperationModeIndex = ModeIndex;
+    ApplyRuntimeResourceBehavior();
     RefreshWarehouseStorageRuntime();
 
-    if (auto World = mWorld.lock())
+    if (auto RefreshAccess =
+            ResolveMainWorldRuntimeRefreshAccess(World))
     {
-        auto RefreshAccess =
-            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
-
-        if (RefreshAccess)
-            RefreshAccess->RefreshRuntimeBuildingState();
+        RefreshAccess->RefreshRuntimeBuildingState();
     }
 
-    std::wstring ModeLabel = GetActiveOperationModeDisplayName();
-
-    if (ModeLabel.empty())
-        ModeLabel = L"-";
-
-    OutMessage = Utf8ToWide(GetBuildingDisplayName()) +
-        L": " +
-        ModeLabel;
-
-    const std::wstring EffectSummary = GetActiveOperationModeEffectSummary();
-
-    if (!EffectSummary.empty())
-    {
-        OutMessage += L" (";
-        OutMessage += EffectSummary;
-        OutMessage += L")";
-    }
-
+    BuildOperationModeSelectionMessage(
+        *this,
+        *Entry,
+        UnlockedResearchNow,
+        ResearchMetadata.Valid ? &ResearchMetadata : nullptr,
+        OutMessage);
     return true;
+}
+
+bool CPlacementAreaObject::IsOperationModeResearchLocked(int ModeIndex) const
+{
+    FOperationModeResearchMetadata ResearchMetadata;
+
+    if (!TryBuildOperationModeResearchMetadata(*this, ModeIndex, ResearchMetadata) ||
+        ResearchMetadata.Key.empty())
+    {
+        return false;
+    }
+
+    const auto KnowledgeAccess = ResolveKnowledgeAccess(mWorld.lock());
+    return !KnowledgeAccess ||
+        !KnowledgeAccess->IsResearchUnlocked(ResearchMetadata.Key);
+}
+
+bool CPlacementAreaObject::IsOperationModeResearchUnlocked(int ModeIndex) const
+{
+    return !IsOperationModeResearchLocked(ModeIndex);
+}
+
+int CPlacementAreaObject::GetOperationModeResearchCost(int ModeIndex) const
+{
+    FOperationModeResearchMetadata ResearchMetadata;
+    return TryBuildOperationModeResearchMetadata(*this, ModeIndex, ResearchMetadata) ?
+        (std::max)(0, ResearchMetadata.Cost) :
+        0;
+}
+
+std::wstring CPlacementAreaObject::GetOperationModeResearchLabel(int ModeIndex) const
+{
+    FOperationModeResearchMetadata ResearchMetadata;
+    return TryBuildOperationModeResearchMetadata(*this, ModeIndex, ResearchMetadata) ?
+        ResearchMetadata.Label :
+        std::wstring();
 }
 
 bool CPlacementAreaObject::CycleRuntimeUpgrade(std::wstring& OutMessage)
@@ -356,12 +610,13 @@ bool CPlacementAreaObject::CycleRuntimeUpgrade(std::wstring& OutMessage)
     mRuntime.ActiveRuntimeUpgradeIndex =
         CurrentIndex < 0 ? 0 :
         (CurrentIndex + 1 < UpgradeCount ? CurrentIndex + 1 : -1);
+    ApplyRuntimeResourceBehavior();
     RefreshWarehouseStorageRuntime();
 
     if (auto World = mWorld.lock())
     {
         auto RefreshAccess =
-            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+            ResolveMainWorldRuntimeRefreshAccess(World);
 
         if (RefreshAccess)
             RefreshAccess->RefreshRuntimeBuildingState();
@@ -402,7 +657,7 @@ bool CPlacementAreaObject::CycleWarehouseStoragePolicy(std::wstring& OutMessage)
     if (auto World = mWorld.lock())
     {
         auto RefreshAccess =
-            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+            ResolveMainWorldRuntimeRefreshAccess(World);
 
         if (RefreshAccess)
             RefreshAccess->RefreshRuntimeBuildingState();
@@ -440,7 +695,7 @@ bool CPlacementAreaObject::CycleWarehousePriority(std::wstring& OutMessage)
     if (auto World = mWorld.lock())
     {
         auto RefreshAccess =
-            std::dynamic_pointer_cast<IMainWorldRuntimeRefreshAccess>(World);
+            ResolveMainWorldRuntimeRefreshAccess(World);
 
         if (RefreshAccess)
             RefreshAccess->RefreshRuntimeBuildingState();

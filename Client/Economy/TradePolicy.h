@@ -3,6 +3,7 @@
 #include "../Building/BuildingTypes.h"
 #include <algorithm>
 #include <array>
+#include <string>
 
 namespace TradePolicy
 {
@@ -135,11 +136,149 @@ namespace TradePolicy
             const EResourceType ResourceType =
                 static_cast<EResourceType>(ResourceIndex);
 
-            if (IsExportableResourceType(ResourceType))
+            if (IsExportableResourceType(ResourceType) &&
+                IsImmediateProductionScopeResourceType(ResourceType))
+            {
                 return ResourceType;
+            }
         }
 
         return EResourceType::None;
+    }
+
+    inline bool IsPolicyResourceBundleSelectionType(EResourceType Type)
+    {
+        // Legacy save compatibility only. New UI cycling should stay on exact
+        // exportable resources and never land on these family aliases.
+        switch (Type)
+        {
+        case EResourceType::Crops:
+        case EResourceType::AnimalProducts:
+        case EResourceType::Ore:
+        case EResourceType::HydroponicProduce:
+        case EResourceType::FactoryLivestock:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    template <typename TVisitor>
+    inline void ForEachPolicySelectionResourceType(
+        EResourceType SelectionType,
+        const TVisitor& Visitor);
+
+    inline EResourceType GetFirstExactResourceTypeInPolicySelection(
+        EResourceType SelectionType)
+    {
+        if (IsExportableResourceType(SelectionType) &&
+            IsImmediateProductionScopeResourceType(SelectionType))
+        {
+            return SelectionType;
+        }
+
+        EResourceType FirstExactType = EResourceType::None;
+        ForEachPolicySelectionResourceType(
+            SelectionType,
+            [&](EResourceType CandidateType)
+            {
+                if (FirstExactType == EResourceType::None &&
+                    IsExportableResourceType(CandidateType) &&
+                    IsImmediateProductionScopeResourceType(CandidateType))
+                {
+                    FirstExactType = CandidateType;
+                }
+            });
+        return FirstExactType;
+    }
+
+    template <typename TVisitor>
+    inline void ForEachPolicySelectionResourceType(
+        EResourceType SelectionType,
+        const TVisitor& Visitor)
+    {
+        if (SelectionType == EResourceType::None ||
+            SelectionType == EResourceType::Count)
+        {
+            return;
+        }
+
+        switch (SelectionType)
+        {
+        case EResourceType::Crops:
+        case EResourceType::HydroponicProduce:
+            ForEachCropOutputResourceType(Visitor);
+            return;
+        case EResourceType::AnimalProducts:
+        case EResourceType::FactoryLivestock:
+            ForEachAnimalOutputResourceType(Visitor);
+            return;
+        case EResourceType::Ore:
+            ForEachMineOutputResourceType(Visitor);
+            return;
+        default:
+            if (IsExportableResourceType(SelectionType) &&
+                IsImmediateProductionScopeResourceType(SelectionType))
+            {
+                Visitor(SelectionType);
+            }
+            return;
+        }
+    }
+
+    inline bool DoesPolicySelectionMatchResourceType(
+        EResourceType SelectionType,
+        EResourceType ResourceType)
+    {
+        if (!IsExportableResourceType(ResourceType) ||
+            !IsImmediateProductionScopeResourceType(ResourceType))
+        {
+            return false;
+        }
+
+        bool Matches = false;
+        ForEachPolicySelectionResourceType(
+            SelectionType,
+            [&](EResourceType CandidateType)
+            {
+                if (CandidateType == ResourceType)
+                    Matches = true;
+            });
+        return Matches;
+    }
+
+    inline std::wstring BuildImportPolicySelectionDisplayText(
+        const FImportTradePolicy& Policy)
+    {
+        switch (Policy.Mode)
+        {
+        case EImportPolicyMode::None:
+            return L"없음";
+        case EImportPolicyMode::SingleResource:
+            if (Policy.SelectedResourceType == EResourceType::None)
+                return L"없음";
+
+            if (IsPolicyResourceBundleSelectionType(
+                    Policy.SelectedResourceType))
+            {
+                return std::wstring(
+                           GetResourceTypeDisplayName(
+                               Policy.SelectedResourceType)) +
+                    L" 묶음";
+            }
+
+            {
+                const EResourceType VisibleType =
+                    GetFirstExactResourceTypeInPolicySelection(
+                        Policy.SelectedResourceType);
+                return VisibleType != EResourceType::None ?
+                    std::wstring(GetResourceTypeDisplayName(VisibleType)) :
+                    L"없음";
+            }
+        case EImportPolicyMode::AllResources:
+        default:
+            return L"전체";
+        }
     }
 
     inline int GetImportMaxUnitsPerResource(
@@ -230,6 +369,7 @@ namespace TradePolicy
                 static_cast<EResourceType>(ResourceIndex);
 
             if (!IsExportableResourceType(ResourceType) ||
+                !IsImmediateProductionScopeResourceType(ResourceType) ||
                 IsResourceExportAllowed(Policy, ResourceType))
             {
                 continue;
@@ -244,6 +384,12 @@ namespace TradePolicy
     inline EResourceType GetNextImportableResourceType(
         EResourceType CurrentType)
     {
+        if (!IsExportableResourceType(CurrentType) ||
+            !IsImmediateProductionScopeResourceType(CurrentType))
+        {
+            return GetFirstImportableResourceType();
+        }
+
         for (int ResourceIndex = static_cast<int>(CurrentType) + 1;
             ResourceIndex < static_cast<int>(EResourceType::Count);
             ++ResourceIndex)
@@ -251,8 +397,11 @@ namespace TradePolicy
             const EResourceType ResourceType =
                 static_cast<EResourceType>(ResourceIndex);
 
-            if (IsExportableResourceType(ResourceType))
+            if (IsExportableResourceType(ResourceType) &&
+                IsImmediateProductionScopeResourceType(ResourceType))
+            {
                 return ResourceType;
+            }
         }
 
         return EResourceType::None;
@@ -275,8 +424,11 @@ namespace TradePolicy
             const EResourceType ResourceType =
                 static_cast<EResourceType>(ResourceIndex);
 
-            if (!IsExportableResourceType(ResourceType))
+            if (!IsExportableResourceType(ResourceType) ||
+                !IsImmediateProductionScopeResourceType(ResourceType))
+            {
                 continue;
+            }
 
             InOutPolicy.ExportAllowedByType[
                 static_cast<size_t>(ResourceType)] = Allowed;
@@ -306,15 +458,20 @@ namespace TradePolicy
         const FImportTradePolicy& Policy,
         EResourceType Type)
     {
-        if (!IsExportableResourceType(Type))
+        if (!IsExportableResourceType(Type) ||
+            !IsImmediateProductionScopeResourceType(Type))
+        {
             return false;
+        }
 
         switch (Policy.Mode)
         {
         case EImportPolicyMode::None:
             return false;
         case EImportPolicyMode::SingleResource:
-            return Type == Policy.SelectedResourceType;
+            return DoesPolicySelectionMatchResourceType(
+                Policy.SelectedResourceType,
+                Type);
         case EImportPolicyMode::AllResources:
         default:
             return true;

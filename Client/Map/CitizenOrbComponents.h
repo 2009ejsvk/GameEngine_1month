@@ -172,12 +172,67 @@ struct FTeamsterDeliveryState
         ESourceReservationKind::None;
     std::string SourceName;
     std::string DestinationName;
+    // Requested* tracks the exact resource/amount reserved before pickup.
+    // Cargo* tracks the exact resource/amount already loaded on the teamster.
     int RequestedAmount = 0;
     EResourceType RequestedType = EResourceType::None;
     int CarryAmount = 0;
     EResourceType CargoType = EResourceType::None;
     bool DestinationReservationActive = false;
+    int ReservedDestinationAmount = 0;
+    EResourceType ReservedDestinationType = EResourceType::None;
     bool SpeedBoostActive = false;
+
+    bool HasPendingPickupRequest() const
+    {
+        return RequestedAmount > 0 &&
+            RequestedType != EResourceType::None &&
+            !HasLoadedCargo();
+    }
+
+    bool HasLoadedCargo() const
+    {
+        return CarryAmount > 0 &&
+            CargoType != EResourceType::None;
+    }
+
+    bool HasDestinationReservation() const
+    {
+        return DestinationReservationActive &&
+            ReservedDestinationAmount > 0 &&
+            ReservedDestinationType != EResourceType::None;
+    }
+
+    void MarkCargoLoadedFromRequest(int LoadedAmount)
+    {
+        CarryAmount = (std::max)(0, LoadedAmount);
+        CargoType =
+            CarryAmount > 0 ?
+                RequestedType :
+                EResourceType::None;
+    }
+
+    void SetDestinationReservation(
+        EResourceType Type,
+        int Amount)
+    {
+        if (Type == EResourceType::None || Amount <= 0)
+        {
+            ClearDestinationReservation();
+            return;
+        }
+
+        DestinationReservationActive = true;
+        ReservedDestinationType = Type;
+        ReservedDestinationAmount = Amount;
+    }
+
+    void ClearDestinationReservation()
+    {
+        DestinationReservationActive = false;
+        ReservedDestinationAmount = 0;
+        ReservedDestinationType = EResourceType::None;
+    }
 
     void ClearCargo()
     {
@@ -185,6 +240,7 @@ struct FTeamsterDeliveryState
         RequestedType = EResourceType::None;
         CarryAmount = 0;
         CargoType = EResourceType::None;
+        ClearDestinationReservation();
     }
 
     void ClearRoute()
@@ -193,7 +249,6 @@ struct FTeamsterDeliveryState
         SourceReservationKind = ESourceReservationKind::None;
         SourceName.clear();
         DestinationName.clear();
-        DestinationReservationActive = false;
         ClearCargo();
     }
 };

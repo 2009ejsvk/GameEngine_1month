@@ -106,11 +106,7 @@ void CEdictWidget::RefreshFromState()
 {
     const auto Snapshot = EdictDataProvider::BuildSnapshot(
         mWorld.lock(),
-        mSelectedCategory,
-        mCurrentPage,
-        mPreviewEntryIndex,
-        mSelectedEntryIndex,
-        mFeedbackMessage);
+        mState);
 
     FEdictRenderer::ApplySnapshot(*this, Snapshot);
     FEdictRenderer::RefreshLayout(*this);
@@ -203,7 +199,7 @@ void CEdictWidget::SelectOrApplySlot(int SlotIndex)
 void CEdictWidget::AdjustTaxPolicy(ETaxPolicyType Type, int DeltaPercent)
 {
     auto World = mWorld.lock();
-    auto MainWorld = std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+    auto MainWorld = ResolveGovernmentCommandService(World);
 
     if (!MainWorld)
     {
@@ -248,7 +244,7 @@ void CEdictWidget::OnApplyButtonClick()
     }
 
     auto World = mWorld.lock();
-    auto MainWorld = std::dynamic_pointer_cast<IGovernmentCommandService>(World);
+    auto MainWorld = ResolveGovernmentCommandService(World);
 
     if (!MainWorld)
     {

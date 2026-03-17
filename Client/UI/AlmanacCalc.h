@@ -1,9 +1,12 @@
 #pragma once
 
 #include "AlmanacDataProvider.h"
-#include "AlmanacRendererInternal.h"
+#include "AlmanacRendererConstants.h"
+#include "Vector4.h"
+#include <array>
+#include <string>
 
-namespace AlmanacRendererCalc
+namespace AlmanacCalc
 {
     struct FConflictPageComputedData
     {
@@ -12,12 +15,17 @@ namespace AlmanacRendererCalc
         double Stability = 0.0;
         double ControlStrength = 0.0;
         bool ElectionWarningActive = false;
-        FVector4 ElectionWarningTint = FVector4(0.31f, 0.27f, 0.21f, 1.f);
+        FVector4 ElectionWarningTint = FVector4(0.f, 0.f, 0.f, 0.f);
         std::wstring ElectionWarningSummary;
         std::wstring TaxEventWorldEffectSummary;
     };
 
     double ClampSatisfactionValue(double Value);
+    std::wstring BuildElectionWarningSummary(
+        bool GameLost,
+        int DaysUntilNextElection,
+        double ElectionWarningScore,
+        const FTaxPolicyEventStatus& TaxEventStatus);
     std::array<float, GSatisfactionGraphPointCount> BuildSatisfactionTrend(
         double CurrentValue,
         double BaselineValue,
@@ -32,7 +40,6 @@ namespace AlmanacRendererCalc
         float Value,
         float MinValue,
         float MaxValue);
-    FVector4 GetSatisfactionTint(int Index);
     int RoundToInt(double Value);
     int ResolvePopulationSatisfactionTier(double Value);
     std::array<float, GPopulationTrendPointCount> BuildPopulationTrend(
@@ -62,10 +69,10 @@ namespace AlmanacRendererCalc
         const std::array<float, 5>& Weights);
     std::array<int, 5> BuildHomelessFamilyWealthBuckets(
         int HomelessFamilyCount,
-        const int HomelessWealthCount[3]);
+        const int HomelessWealthCount[GCitizenWealthLevelCount]);
     std::array<int, 5> BuildCitizenWealthBuckets(
         int CitizenCount,
-        const int CitizenWealthCount[3]);
+        const int CitizenWealthCount[GCitizenWealthLevelCount]);
     std::array<float, GPopulationDistributionBarCount>
         BuildPopulationHistoricalLayer(
             float StartValue,

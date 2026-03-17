@@ -6,9 +6,10 @@
 
 void FEdictRenderer::CreateWidgets(CEdictWidget& Widget)
 {
-    Widget.mVisibleEntryIndices.assign(GEdictSlotsPerPage, -1);
-    Widget.mPanelWidth = 1120.f;
-    Widget.mPanelHeight = 760.f;
+    auto& State = Widget.GetMutableState();
+    State.VisibleEntryIndices.assign(GEdictSlotsPerPage, -1);
+    State.PanelWidth = 1120.f;
+    State.PanelHeight = 760.f;
 
     auto MenuBackground =
         Widget.CreateWidget<CImage>("EdictMenu_Background", 6).lock();
@@ -110,7 +111,7 @@ void FEdictRenderer::CreateWidgets(CEdictWidget& Widget)
     {
         const int CategoryIndex =
             (std::max)(0, (std::min)(GEdictCategoryCount - 1,
-                static_cast<int>(Widget.mSelectedCategory)));
+                static_cast<int>(State.SelectedCategory)));
         TitleText->SetText(GetCategoryLabelText(CategoryIndex).c_str());
         TitleText->SetFontSize(32.f);
         TitleText->SetAlignH(ETextAlignH::Center);

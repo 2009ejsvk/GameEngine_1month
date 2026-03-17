@@ -1,26 +1,10 @@
 #pragma once
 
-#include "../Citizen/CitizenTypes.h"
+#include "PoliticalSignalTypes.h"
 #include "../Economy/TradePolicy.h"
 #include <array>
 #include <string>
 #include <vector>
-
-enum class EPoliticalScope
-{
-    Global = 0,
-    Worker,
-    Resident,
-    Visitor
-};
-
-struct FPoliticalSignalDef
-{
-    EPoliticalAxis   Axis = EPoliticalAxis::Economy;
-    EPoliticalStance FavoredStance = EPoliticalStance::Neutral;
-    float            Strength = 0.f;
-    EPoliticalScope  Scope = EPoliticalScope::Global;
-};
 
 enum class EPoliticalFaction
 {
@@ -499,6 +483,14 @@ enum class EPoliticalDemandStatus
     Failed
 };
 
+enum class EPoliticalDemandStage
+{
+    Warning = 0,
+    Demand,
+    Ultimatum,
+    Revolt
+};
+
 struct FPoliticalDemandState
 {
     bool Active = false;
@@ -507,6 +499,7 @@ struct FPoliticalDemandState
     int IssuerIndex = -1;
     EPoliticalDemandObjectiveType ObjectiveType =
         EPoliticalDemandObjectiveType::None;
+    EPoliticalDemandStage Stage = EPoliticalDemandStage::Demand;
     EPoliticalDemandStatus Status = EPoliticalDemandStatus::None;
     int RemainingDays = 0;
     int DurationDays = 0;
@@ -580,6 +573,8 @@ struct FPoliticalFactionSnapshot
     double AverageActionScore = 0.0;
     double AverageAlignmentScore = 0.0;
     double ApprovalModifier = 0.0;
+    int PressureDays = 0;
+    EPoliticalDemandStage DemandStage = EPoliticalDemandStage::Demand;
 };
 
 struct FPoliticalWorldSnapshot

@@ -65,11 +65,26 @@ namespace EconomyWorldAccess
                 return mBuilding ? mBuilding->GetAvailableResourceStock(Type) : 0;
             }
 
+            int GetAvailableIncomingCapacity(EResourceType Type) const override
+            {
+                return mBuilding ?
+                    mBuilding->GetAvailableIncomingCapacity(Type) :
+                    0;
+            }
+
             EResourceType GetVisitConsumptionResourceType() const override
             {
                 return mBuilding ?
                     mBuilding->GetVisitConsumptionResourceType() :
                     EResourceType::None;
+            }
+
+            std::vector<EResourceType>
+            GetRuntimeVisitConsumptionAcceptedResourceTypes() const override
+            {
+                return mBuilding ?
+                    mBuilding->GetRuntimeVisitConsumptionAcceptedResourceTypes() :
+                    std::vector<EResourceType>();
             }
 
             EResourceType GetProducedResourceType() const override
@@ -84,12 +99,39 @@ namespace EconomyWorldAccess
                 return mBuilding ? mBuilding->GetResourceStock(Type) : 0;
             }
 
+            int GetVisitConsumptionCompatibleResourceStock(
+                EResourceType DemandType) const override
+            {
+                return mBuilding ?
+                    mBuilding->GetVisitConsumptionCompatibleResourceStock(
+                        DemandType) :
+                    0;
+            }
+
             int GetReservedIncomingResourceAmount(
                 EResourceType Type) const override
             {
                 return mBuilding ?
                     mBuilding->GetReservedIncomingResourceAmount(Type) :
                     0;
+            }
+
+            int GetVisitConsumptionCompatibleReservedIncomingResourceAmount(
+                EResourceType DemandType) const override
+            {
+                return mBuilding ?
+                    mBuilding
+                        ->GetVisitConsumptionCompatibleReservedIncomingResourceAmount(
+                            DemandType) :
+                    0;
+            }
+
+            bool GetPlacedCenterGridCoords(
+                int& OutGridX,
+                int& OutGridY) const override
+            {
+                return mBuilding &&
+                    mBuilding->GetPlacedCenterGridCoords(OutGridX, OutGridY);
             }
 
             int GetProductionInputCount() const override
@@ -180,6 +222,8 @@ namespace EconomyWorldAccess
                     mCitizen->GetSatisfaction();
                 Snapshot.Security = Satisfaction.Security;
                 Snapshot.Overall = Satisfaction.Overall;
+                Snapshot.WealthLevel =
+                    mCitizen->GetIdentityProfile().WealthLevel;
                 Snapshot.HasWorkBuilding = !mCitizen->GetWorkBuilding().empty();
                 Snapshot.HasHomeBuilding = !mCitizen->GetHomeBuilding().empty();
                 return Snapshot;

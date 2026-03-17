@@ -1,5 +1,8 @@
 #include "LoadingWorld.h"
-#include "../UI/UILayoutConfig.h"
+#include "../UI/UILayoutApplier.h"
+#include "../UI/UILayoutLoader.h"
+#include "../UI/TropicoUiAssetCatalog.h"
+#include "../UI/TropicoUiTheme.h"
 #include "../UI/LoadingWidget.h"
 #include "World/WorldUIManager.h"
 #include "ThreadManager.h"
@@ -19,6 +22,9 @@ CLoadingWorld::~CLoadingWorld()
 bool CLoadingWorld::Init()
 {
 	CWorld::Init();
+    UILayoutLoader::RegisterRuntimeConfig();
+    TropicoUiAssets::RegisterRuntimeConfig();
+    TropicoUiTheme::RegisterRuntimeConfig();
 
 	LoadAnimation2D();
 
@@ -31,6 +37,9 @@ bool CLoadingWorld::Init()
 
 void CLoadingWorld::Update(float DeltaTime)
 {
+    UILayoutLoader::ReloadIfChanged(DeltaTime);
+    TropicoUiAssets::ReloadIfChanged(DeltaTime);
+    TropicoUiTheme::ReloadIfChanged(DeltaTime);
 	CWorld::Update(DeltaTime);
 
 	if (mThread->GetComplete())
@@ -46,7 +55,7 @@ void CLoadingWorld::Update(float DeltaTime)
 
 void CLoadingWorld::OnUiManagerUpdated()
 {
-    UIConfig::ApplyWidgetOverrides(GetUIManager().lock());
+    UILayoutApplier::ApplyWidgetOverrides(GetUIManager().lock());
 }
 
 void CLoadingWorld::Load(EWorldType WorldType)

@@ -2,7 +2,7 @@
 
 #include "Object/GameObject.h"
 #include "PlacementAreaRuntimeState.h"
-#include "../Building/BuildingCatalog.h"
+#include "../Building/BuildingCatalogQuery.h"
 #include "../Building/BuildingTypes.h"
 #include "../Citizen/CitizenTypes.h"
 #include <algorithm>
@@ -78,14 +78,110 @@ private:
     EPlacementBuildingKind mBuildingKind = EPlacementBuildingKind::Structure;
     FPlacementTemplate mTemplate;
     std::vector<int> mMarkerTileIndices;
+    std::vector<FPoliticalSignalDef> mPoliticalSignals;
+
+    const FBuildingCatalogRuntimeData* ResolveCatalogRuntimeData() const
+    {
+        return FindBuildingCatalogRuntimeData(mBuildingId);
+    }
 
     const FBuildingCatalogEntry* ResolveCatalogEntry() const
     {
         return FindBuildingCatalogEntry(mBuildingId);
     }
 
+    template <typename TVisitor>
+    void ForEachRuntimeVisitConsumptionAcceptedResourceType(
+        EResourceType VisitConsumptionType,
+        const TVisitor& Visitor) const
+    {
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
+        const FBuildingOperationModeEffect Effect = ResolveRuntimeEffect();
+        const std::vector<EResourceType>* AcceptedTypes = nullptr;
+
+        if (Effect.HasVisitConsumptionAcceptedTypesOverride)
+        {
+            AcceptedTypes = &Effect.VisitConsumptionAcceptedTypesOverride;
+        }
+        else if (Entry)
+        {
+            AcceptedTypes = &Entry->VisitConsumptionAcceptedResourceTypes;
+        }
+
+        const EResourceType EffectiveVisitConsumptionType =
+            Effect.HasVisitConsumptionTypeOverride ?
+                Effect.VisitConsumptionTypeOverride :
+                VisitConsumptionType;
+
+        if (AcceptedTypes && !AcceptedTypes->empty())
+        {
+            if (ShouldVisitConsumptionUseSelfProducedFoodOnly(GetBuildingId()))
+            {
+                const EResourceType ProducedType = GetProducedResourceType();
+
+                if (!IsEdibleResourceType(ProducedType))
+                    return;
+
+                for (size_t Index = 0;
+                    Index < AcceptedTypes->size();
+                    ++Index)
+                {
+                    if ((*AcceptedTypes)[Index] == ProducedType)
+                    {
+                        Visitor(ProducedType);
+                        break;
+                    }
+                }
+
+                return;
+            }
+
+            for (size_t Index = 0;
+                Index < AcceptedTypes->size();
+                ++Index)
+            {
+                const EResourceType AcceptedType = (*AcceptedTypes)[Index];
+
+                if (AcceptedType == EResourceType::None ||
+                    AcceptedType == EResourceType::Count)
+                {
+                    continue;
+                }
+
+                Visitor(AcceptedType);
+            }
+            return;
+        }
+
+        ForEachFoodVisitCompatibleResourceType(
+            GetBuildingId(),
+            GetProducedResourceType(),
+            EffectiveVisitConsumptionType,
+            Visitor);
+    }
+
+    std::vector<EResourceType> BuildRuntimeVisitConsumptionAcceptedResourceTypes()
+        const
+    {
+        std::vector<EResourceType> Result;
+
+        ForEachRuntimeVisitConsumptionAcceptedResourceType(
+            GetVisitConsumptionResourceType(),
+            [&](EResourceType AcceptedType)
+            {
+                if (std::find(Result.begin(), Result.end(), AcceptedType) ==
+                    Result.end())
+                {
+                    Result.push_back(AcceptedType);
+                }
+            });
+
+        return Result;
+    }
+
     int ResolveActiveOperationModeIndex(
-        const FBuildingCatalogEntry* Entry) const
+        const FBuildingCatalogRuntimeData* Entry) const
     {
         if (!Entry || Entry->OperationModeDefs.empty())
             return 0;
@@ -99,7 +195,8 @@ private:
 
     const FBuildingOperationModeDef* ResolveActiveOperationModeDef() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
 
         if (!Entry || Entry->OperationModeDefs.empty())
             return nullptr;
@@ -117,7 +214,7 @@ private:
     }
 
     int ResolveActiveRuntimeUpgradeIndex(
-        const FBuildingCatalogEntry* Entry) const
+        const FBuildingCatalogRuntimeData* Entry) const
     {
         if (!Entry || Entry->RuntimeUpgradeDefs.empty())
             return -1;
@@ -132,7 +229,8 @@ private:
 
     const FBuildingRuntimeUpgradeDef* ResolveActiveRuntimeUpgradeDef() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         const int UpgradeIndex = ResolveActiveRuntimeUpgradeIndex(Entry);
 
         if (!Entry || UpgradeIndex < 0)
@@ -155,6 +253,36 @@ private:
             ResolveActiveOperationModeEffect();
         const FBuildingOperationModeEffect& UpgradeEffect =
             ResolveActiveRuntimeUpgradeEffect();
+
+        if (UpgradeEffect.HasProducedResourceTypeOverride)
+        {
+            Result.HasProducedResourceTypeOverride = true;
+            Result.ProducedResourceTypeOverride =
+                UpgradeEffect.ProducedResourceTypeOverride;
+        }
+
+        if (UpgradeEffect.HasProductionInputTypesOverride)
+        {
+            Result.HasProductionInputTypesOverride = true;
+            Result.ProductionInputTypesOverride =
+                UpgradeEffect.ProductionInputTypesOverride;
+            Result.ProductionInputAmountsOverride =
+                UpgradeEffect.ProductionInputAmountsOverride;
+        }
+
+        if (UpgradeEffect.HasVisitConsumptionTypeOverride)
+        {
+            Result.HasVisitConsumptionTypeOverride = true;
+            Result.VisitConsumptionTypeOverride =
+                UpgradeEffect.VisitConsumptionTypeOverride;
+        }
+
+        if (UpgradeEffect.HasVisitConsumptionAcceptedTypesOverride)
+        {
+            Result.HasVisitConsumptionAcceptedTypesOverride = true;
+            Result.VisitConsumptionAcceptedTypesOverride =
+                UpgradeEffect.VisitConsumptionAcceptedTypesOverride;
+        }
 
         Result.ProductionMultiplier *= UpgradeEffect.ProductionMultiplier;
         Result.InputConsumptionMultiplier *=
@@ -243,6 +371,51 @@ private:
             mRuntime.PreferredWarehouseResourceType);
     }
 
+    void ApplyRuntimeResourceBehavior()
+    {
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
+
+        if (!Entry)
+            return;
+
+        EResourceType ProducedResourceType = Entry->ProducedResourceType;
+        const FBuildingOperationModeEffect Effect = ResolveRuntimeEffect();
+
+        if (Effect.HasProducedResourceTypeOverride)
+            ProducedResourceType = Effect.ProducedResourceTypeOverride;
+
+        EResourceType VisitConsumptionResourceType =
+            Entry->VisitConsumptionResourceType;
+
+        if (Effect.HasVisitConsumptionTypeOverride)
+        {
+            VisitConsumptionResourceType =
+                Effect.VisitConsumptionTypeOverride;
+        }
+
+        // Input-only operation modes are first-class runtime recipes: keep the
+        // current output if needed, but swap the active input slots exactly.
+        const std::array<EResourceType, GProductionInputSlotCount>&
+            ProductionInputTypes =
+                Effect.HasProductionInputTypesOverride ?
+                    Effect.ProductionInputTypesOverride :
+                    Entry->ProductionInputTypes;
+        const std::array<int, GProductionInputSlotCount>&
+            ProductionInputAmounts =
+                Effect.HasProductionInputTypesOverride ?
+                    Effect.ProductionInputAmountsOverride :
+                    Entry->ProductionInputAmounts;
+
+        SetResourceBehavior(
+            ProducedResourceType,
+            VisitConsumptionResourceType,
+            Entry->SupportsTeamsterPickup,
+            Entry->CanExportStoredResources,
+            ProductionInputTypes,
+            ProductionInputAmounts);
+    }
+
     int ApplyOperationModeCapEffect(
         int BaseCap,
         float Multiplier,
@@ -273,7 +446,7 @@ private:
         const FBuildingOperationModeEffect& Effect =
             ResolveRuntimeEffect();
         return Effect.ServiceCapacityDelta +
-            Effect.PerWorkerServiceCapacityDelta * GetCapacity();
+            Effect.PerWorkerServiceCapacityDelta * GetCurrentWorkerOccupancy();
     }
 
     int ResolveEffectiveServiceCapacityDelta() const
@@ -337,6 +510,11 @@ private:
             2.f - ResolveRuntimeEffect().PollutionMultiplier);
     }
 
+    float ResolveDamageOperationalMultiplier() const
+    {
+        return GetDamageEfficiencyMultiplier();
+    }
+
     float ResolvePowerOperationalMultiplier() const
     {
         if (GetRequiredPowerMW() <= 0)
@@ -376,6 +554,26 @@ public:
     void SetBuildingCategory(EBuildingCategory Category)
     {
         mServiceProfile.Category = Category;
+    }
+
+    void SetHouseholdCapacity(int Capacity)
+    {
+        mServiceProfile.HouseholdCapacity = (std::max)(0, Capacity);
+    }
+
+    void SetLeisureClass(EBuildingLeisureClass LeisureClass)
+    {
+        mServiceProfile.LeisureClass = LeisureClass;
+    }
+
+    void SetPrimaryTouristPreference(ETouristPreference Preference)
+    {
+        mServiceProfile.PrimaryTouristPreference = Preference;
+    }
+
+    void SetPoliticalSignals(const std::vector<FPoliticalSignalDef>& Signals)
+    {
+        mPoliticalSignals = Signals;
     }
 
     void SetBuildingId(const std::string& Id)
@@ -435,11 +633,7 @@ public:
         bool SupportsTeamsterPickup,
         bool CanExportStoredResources,
         const std::array<EResourceType, GProductionInputSlotCount>&
-            ProductionInputTypes =
-            {
-                EResourceType::None,
-                EResourceType::None
-            },
+            ProductionInputTypes = {},
         const std::array<int, GProductionInputSlotCount>&
             ProductionInputAmounts = {})
     {
@@ -454,13 +648,15 @@ public:
 
     bool HasOperationModes() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         return Entry && !Entry->OperationModeDefs.empty();
     }
 
     int GetOperationModeCount() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         return Entry ?
             static_cast<int>(Entry->OperationModeDefs.size()) :
             0;
@@ -468,12 +664,13 @@ public:
 
     int GetActiveOperationModeIndex() const
     {
-        return ResolveActiveOperationModeIndex(ResolveCatalogEntry());
+        return ResolveActiveOperationModeIndex(ResolveCatalogRuntimeData());
     }
 
     std::wstring GetOperationModeDisplayName(int ModeIndex) const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         return Entry ?
             ::GetOperationModeDisplayName(*Entry, ModeIndex) :
             std::wstring();
@@ -486,7 +683,8 @@ public:
 
     std::wstring GetActiveOperationModeEffectSummary() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         return Entry ?
             ::GetOperationModeEffectSummary(
                 *Entry,
@@ -494,18 +692,24 @@ public:
             std::wstring();
     }
 
+    bool IsOperationModeResearchLocked(int ModeIndex) const;
+    bool IsOperationModeResearchUnlocked(int ModeIndex) const;
+    int GetOperationModeResearchCost(int ModeIndex) const;
+    std::wstring GetOperationModeResearchLabel(int ModeIndex) const;
     bool SetActiveOperationMode(int ModeIndex, std::wstring& OutMessage);
     bool CycleOperationMode(std::wstring& OutMessage);
 
     bool HasRuntimeUpgrades() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         return Entry && !Entry->RuntimeUpgradeDefs.empty();
     }
 
     int GetRuntimeUpgradeCount() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         return Entry ?
             static_cast<int>(Entry->RuntimeUpgradeDefs.size()) :
             0;
@@ -513,12 +717,13 @@ public:
 
     int GetActiveRuntimeUpgradeIndex() const
     {
-        return ResolveActiveRuntimeUpgradeIndex(ResolveCatalogEntry());
+        return ResolveActiveRuntimeUpgradeIndex(ResolveCatalogRuntimeData());
     }
 
     std::wstring GetRuntimeUpgradeDisplayName(int UpgradeIndex) const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         return Entry ?
             ::GetRuntimeUpgradeDisplayName(*Entry, UpgradeIndex) :
             std::wstring();
@@ -531,7 +736,8 @@ public:
 
     std::wstring GetRuntimeUpgradeEffectSummary(int UpgradeIndex) const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
         return Entry ?
             ::GetRuntimeUpgradeEffectSummary(*Entry, UpgradeIndex) :
             std::wstring();
@@ -577,7 +783,8 @@ public:
 
     int GetProducedPowerMW() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
 
         if (!Entry)
             return 0;
@@ -587,12 +794,17 @@ public:
         const int ScaledValue = static_cast<int>(roundf(
             static_cast<float>(Entry->BaseProducedPowerMW) *
             ResolveOperationModeProducedPowerMultiplier()));
-        return (std::max)(0, ScaledValue + Effect.ProducedPowerDeltaMW);
+        return static_cast<int>(roundf(
+            static_cast<float>((std::max)(
+                0,
+                ScaledValue + Effect.ProducedPowerDeltaMW)) *
+            ResolveDamageOperationalMultiplier()));
     }
 
     int GetRequiredPowerMW() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
 
         if (!Entry)
             return 0;
@@ -602,7 +814,11 @@ public:
         const int ScaledValue = static_cast<int>(roundf(
             static_cast<float>(Entry->BaseRequiredPowerMW) *
             ResolveOperationModeRequiredPowerMultiplier()));
-        return (std::max)(0, ScaledValue + Effect.RequiredPowerDeltaMW);
+        return static_cast<int>(roundf(
+            static_cast<float>((std::max)(
+                0,
+                ScaledValue + Effect.RequiredPowerDeltaMW)) *
+            ResolveDamageOperationalMultiplier()));
     }
 
     float GetPowerSupplyRatio() const
@@ -618,9 +834,49 @@ public:
             (std::max)(0.f, (std::min)(1.f, Ratio));
     }
 
+    EBuildingDamageLevel GetDamageLevel() const
+    {
+        return mRuntime.DamageLevel;
+    }
+
+    void SetDamageLevel(EBuildingDamageLevel Level)
+    {
+        mRuntime.DamageLevel = Level;
+    }
+
+    bool HasBuildingDamage() const
+    {
+        return mRuntime.DamageLevel != EBuildingDamageLevel::None;
+    }
+
+    float GetDamageEfficiencyMultiplier() const
+    {
+        switch (mRuntime.DamageLevel)
+        {
+        case EBuildingDamageLevel::Damaged:
+            return 0.5f;
+        case EBuildingDamageLevel::Critical:
+            return 0.f;
+        case EBuildingDamageLevel::None:
+        default:
+            return 1.f;
+        }
+    }
+
+    int GetRepairCost() const
+    {
+        return (std::max)(0, mRuntime.RepairCost);
+    }
+
+    void SetRepairCost(int Cost)
+    {
+        mRuntime.RepairCost = (std::max)(0, Cost);
+    }
+
     int GetPollutionOutput() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
 
         if (!Entry)
             return 0;
@@ -641,12 +897,15 @@ public:
                 ResolveOperationModePollutionMultiplier())) :
             BaseOutput;
         const int Delta = PollutionDominant ? Effect.PollutionFlatDelta : 0;
-        return (std::max)(0, ScaledValue + Delta);
+        return static_cast<int>(roundf(
+            static_cast<float>((std::max)(0, ScaledValue + Delta)) *
+            ResolveDamageOperationalMultiplier()));
     }
 
     int GetPollutionMitigation() const
     {
-        const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
 
         if (!Entry)
             return 0;
@@ -667,7 +926,9 @@ public:
                 ResolveOperationModePollutionMitigationMultiplier())) :
             BaseMitigation;
         const int Delta = MitigationDominant ? -Effect.PollutionFlatDelta : 0;
-        return (std::max)(0, ScaledValue + Delta);
+        return static_cast<int>(roundf(
+            static_cast<float>((std::max)(0, ScaledValue + Delta)) *
+            ResolveDamageOperationalMultiplier()));
     }
 
     int GetLocalPollutionExposure() const
@@ -768,6 +1029,26 @@ public:
         return mServiceProfile.Category;
     }
 
+    int GetHouseholdCapacity() const
+    {
+        return mServiceProfile.HouseholdCapacity;
+    }
+
+    EBuildingLeisureClass GetLeisureClass() const
+    {
+        return mServiceProfile.LeisureClass;
+    }
+
+    ETouristPreference GetPrimaryTouristPreference() const
+    {
+        return mServiceProfile.PrimaryTouristPreference;
+    }
+
+    const std::vector<FPoliticalSignalDef>& GetPoliticalSignals() const
+    {
+        return mPoliticalSignals;
+    }
+
     void SetBuildingSpriteTexturePath(const std::string& TexturePath)
     {
         mBuildingSpriteTexturePath = TexturePath;
@@ -850,6 +1131,18 @@ public:
         return (std::max)(
             0,
             mServiceProfile.Capacity + ResolveOperationModeCapacityDelta());
+    }
+
+    int GetCurrentWorkerOccupancy() const
+    {
+        return (std::min)(
+            GetCapacity(),
+            mOperations.GetCurrentWorkerOccupancy());
+    }
+
+    void SetCurrentWorkerOccupancy(int Occupancy)
+    {
+        mOperations.SetCurrentWorkerOccupancy(Occupancy);
     }
 
     int GetHousingSatisfactionCap() const
@@ -976,6 +1269,23 @@ public:
         return mOperations.VisitConsumptionResourceType;
     }
 
+    const std::vector<EResourceType>&
+    GetVisitConsumptionAcceptedResourceTypes() const
+    {
+        static const std::vector<EResourceType> GEmptyAcceptedTypes;
+        const FBuildingCatalogRuntimeData* const Entry =
+            ResolveCatalogRuntimeData();
+        return Entry ?
+            Entry->VisitConsumptionAcceptedResourceTypes :
+            GEmptyAcceptedTypes;
+    }
+
+    std::vector<EResourceType>
+    GetRuntimeVisitConsumptionAcceptedResourceTypes() const
+    {
+        return BuildRuntimeVisitConsumptionAcceptedResourceTypes();
+    }
+
     int GetProductionInputCount() const
     {
         return mOperations.GetProductionInputCount();
@@ -984,6 +1294,13 @@ public:
     EResourceType GetProductionInputType(int SlotIndex) const
     {
         return mOperations.GetProductionInputType(SlotIndex);
+    }
+
+    int GetProductionInputCompatibleResourceStock(
+        EResourceType DemandType) const
+    {
+        return mOperations.GetProductionInputCompatibleResourceStock(
+            DemandType);
     }
 
     int GetProductionInputAmount(int SlotIndex) const
@@ -1006,7 +1323,8 @@ public:
         return mOperations.GetServiceVisitCapacity(
             Type,
             ResolveOperationModeServiceThroughputMultiplier() *
-                ResolvePowerOperationalMultiplier(),
+                ResolvePowerOperationalMultiplier() *
+                ResolveDamageOperationalMultiplier(),
             ResolveEffectiveServiceCapacityDelta());
     }
 
@@ -1037,7 +1355,8 @@ public:
         return mOperations.TryBeginServiceVisit(
             Type,
             ResolveOperationModeServiceThroughputMultiplier() *
-                ResolvePowerOperationalMultiplier(),
+                ResolvePowerOperationalMultiplier() *
+                ResolveDamageOperationalMultiplier(),
             ResolveEffectiveServiceCapacityDelta());
     }
 
@@ -1106,10 +1425,11 @@ public:
     int GetTeamsterTransferUnits() const
     {
         return (std::max)(
-            1,
+            0,
             static_cast<int>(roundf(
                 static_cast<float>(GameConstants::Orb::TeamsterTransferUnit) *
-                (std::max)(0.f, ResolveOperationModeTeamsterTransferMultiplier()))));
+                (std::max)(0.f, ResolveOperationModeTeamsterTransferMultiplier()) *
+                ResolveDamageOperationalMultiplier())));
     }
 
     int GetTeamsterCargoLossPercent() const
@@ -1133,7 +1453,8 @@ public:
             CanExportStoredResources(),
             DaysInMonth,
             ResolveOperationModeHarborProgressMultiplier() *
-                ResolvePowerOperationalMultiplier());
+                ResolvePowerOperationalMultiplier() *
+                ResolveDamageOperationalMultiplier());
     }
 
     float GetHarborShipProgressPercent() const
@@ -1146,6 +1467,30 @@ public:
     int GetResourceStock(EResourceType Type) const
     {
         return mOperations.GetResourceStock(Type);
+    }
+    int GetVisitConsumptionCompatibleResourceStock(
+        EResourceType DemandType) const
+    {
+        if (DemandType == EResourceType::None ||
+            DemandType == EResourceType::Count)
+        {
+            return 0;
+        }
+
+        if (DemandType != GetVisitConsumptionResourceType() ||
+            !IsSummaryResourceType(DemandType))
+        {
+            return mOperations.GetResourceStock(DemandType);
+        }
+
+        int Total = 0;
+        ForEachRuntimeVisitConsumptionAcceptedResourceType(
+            DemandType,
+            [&](EResourceType SupplyType)
+            {
+                Total += mOperations.GetResourceStock(SupplyType);
+            });
+        return Total;
     }
     int GetExportableResourceStock() const
     {
@@ -1166,6 +1511,48 @@ public:
     int GetReservedIncomingResourceAmount(EResourceType Type) const
     {
         return mOperations.GetReservedIncomingResourceAmount(Type);
+    }
+    int GetProductionInputCompatibleReservedIncomingResourceAmount(
+        EResourceType DemandType) const
+    {
+        if (DemandType == EResourceType::None ||
+            DemandType == EResourceType::Count)
+        {
+            return 0;
+        }
+
+        if (DemandType != EResourceType::FeedCrops)
+            return mOperations.GetReservedIncomingResourceAmount(DemandType);
+
+        return mOperations.GetReservedIncomingResourceAmount(
+                   EResourceType::Corn) +
+            mOperations.GetReservedIncomingResourceAmount(
+                EResourceType::Sugar);
+    }
+    int GetVisitConsumptionCompatibleReservedIncomingResourceAmount(
+        EResourceType DemandType) const
+    {
+        if (DemandType == EResourceType::None ||
+            DemandType == EResourceType::Count)
+        {
+            return 0;
+        }
+
+        if (DemandType != GetVisitConsumptionResourceType() ||
+            !IsSummaryResourceType(DemandType))
+        {
+            return mOperations.GetReservedIncomingResourceAmount(DemandType);
+        }
+
+        int Total = 0;
+        ForEachRuntimeVisitConsumptionAcceptedResourceType(
+            DemandType,
+            [&](EResourceType SupplyType)
+            {
+                Total += mOperations.GetReservedIncomingResourceAmount(
+                    SupplyType);
+            });
+        return Total;
     }
     int GetReservedResourcePickupAmount(EResourceType Type) const
     {
@@ -1247,8 +1634,12 @@ public:
         mOperations.AddProduction(
             UnitsPerSec,
             DeltaTime,
+            GetCurrentWorkerOccupancy(),
+            GetCapacity(),
             ResolveOperationModeProductionMultiplier() *
-                ResolvePowerOperationalMultiplier(),
+                GetBudgetSatisfactionScale() *
+                ResolvePowerOperationalMultiplier() *
+                ResolveDamageOperationalMultiplier(),
             ResolveOperationModeInputConsumptionMultiplier());
     }
 
@@ -1263,6 +1654,58 @@ public:
     bool TryConsumeResource(EResourceType Type, int Amount = 1)
     {
         return mOperations.TryConsumeResource(Type, Amount);
+    }
+
+    bool TryConsumeVisitConsumptionCompatibleResource(
+        EResourceType DemandType,
+        int Amount = 1)
+    {
+        if (Amount <= 0)
+            return true;
+
+        if (DemandType == EResourceType::None ||
+            DemandType == EResourceType::Count)
+        {
+            return false;
+        }
+
+        if (DemandType != GetVisitConsumptionResourceType() ||
+            !IsSummaryResourceType(DemandType))
+        {
+            return TryConsumeResource(DemandType, Amount);
+        }
+
+        EResourceType BestSupplyType = EResourceType::None;
+        int BestStock = 0;
+
+        ForEachRuntimeVisitConsumptionAcceptedResourceType(
+            DemandType,
+            [&](EResourceType SupplyType)
+            {
+                const int Stock = mOperations.GetResourceStock(SupplyType);
+
+                if (Stock <= 0)
+                    return;
+
+                if (BestSupplyType == EResourceType::None ||
+                    Stock > BestStock)
+                {
+                    BestSupplyType = SupplyType;
+                    BestStock = Stock;
+                }
+            });
+
+        return BestSupplyType != EResourceType::None &&
+            BestStock >= Amount &&
+            TryConsumeResource(BestSupplyType, Amount);
+    }
+
+    bool TryConsumeVisitConsumptionResource(int Amount = 1)
+    {
+        const EResourceType VisitType = GetVisitConsumptionResourceType();
+        return VisitType != EResourceType::None ?
+            TryConsumeVisitConsumptionCompatibleResource(VisitType, Amount) :
+            TryConsumeResource(Amount);
     }
 
     bool TryConsumeAnyExportableResource(

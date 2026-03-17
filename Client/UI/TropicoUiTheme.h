@@ -4,39 +4,75 @@
 
 namespace TropicoUiTheme
 {
-    const FVector4 GButtonDefaultNormalTint(0.20f, 0.22f, 0.26f, 0.92f);
-    const FVector4 GButtonDefaultHoverTint(0.26f, 0.30f, 0.35f, 0.95f);
-    const FVector4 GButtonDefaultClickTint(0.14f, 0.16f, 0.20f, 0.98f);
-    const FVector4 GButtonDefaultDisableTint(0.10f, 0.10f, 0.12f, 0.70f);
+    void RegisterRuntimeConfig();
+    bool ReloadIfChanged(float DeltaTime);
+    unsigned long long GetRuntimeConfigGeneration();
 
-    const FVector4 GButtonHighlightNormalTint(0.10f, 0.32f, 0.52f, 0.95f);
-    const FVector4 GButtonHighlightHoverTint(0.16f, 0.40f, 0.62f, 0.98f);
-    const FVector4 GButtonHighlightClickTint(0.08f, 0.24f, 0.40f, 0.98f);
-    const FVector4 GButtonHighlightDisableTint(0.08f, 0.24f, 0.40f, 0.70f);
+    extern FVector4 GButtonDefaultNormalTint;
+    extern FVector4 GButtonDefaultHoverTint;
+    extern FVector4 GButtonDefaultClickTint;
+    extern FVector4 GButtonDefaultDisableTint;
 
-    const FVector4 GButtonIconSlotNormalTint(1.f, 1.f, 1.f, 0.96f);
-    const FVector4 GButtonIconSlotHoverTint(1.f, 1.f, 1.f, 1.f);
-    const FVector4 GButtonIconSlotClickTint(0.80f, 0.80f, 0.80f, 1.f);
-    const FVector4 GButtonIconSlotDisableTint(0.35f, 0.35f, 0.35f, 0.75f);
+    extern FVector4 GButtonHighlightNormalTint;
+    extern FVector4 GButtonHighlightHoverTint;
+    extern FVector4 GButtonHighlightClickTint;
+    extern FVector4 GButtonHighlightDisableTint;
 
-    const FVector4 GButtonCategorySelectedNormalTint(1.f, 1.f, 1.f, 1.f);
-    const FVector4 GButtonCategorySelectedHoverTint(1.f, 1.f, 1.f, 1.f);
-    const FVector4 GButtonCategorySelectedClickTint(0.90f, 0.90f, 0.90f, 1.f);
-    const FVector4 GButtonCategorySelectedDisableTint(0.50f, 0.50f, 0.50f, 0.75f);
-    const FVector4 GButtonCategoryNormalTint(0.74f, 0.84f, 0.98f, 0.96f);
-    const FVector4 GButtonCategoryHoverTint(0.88f, 0.95f, 1.f, 1.f);
-    const FVector4 GButtonCategoryClickTint(0.62f, 0.74f, 0.92f, 1.f);
-    const FVector4 GButtonCategoryDisableTint(0.50f, 0.50f, 0.50f, 0.70f);
+    extern FVector4 GButtonIconSlotNormalTint;
+    extern FVector4 GButtonIconSlotHoverTint;
+    extern FVector4 GButtonIconSlotClickTint;
+    extern FVector4 GButtonIconSlotDisableTint;
 
-    const FVector4 GStatusDangerTint(0.82f, 0.24f, 0.18f, 1.f);
-    const FVector4 GStatusWarningTint(0.84f, 0.48f, 0.12f, 1.f);
-    const FVector4 GStatusCautionTint(0.78f, 0.68f, 0.18f, 1.f);
-    const FVector4 GStatusSuccessTint(0.20f, 0.56f, 0.20f, 1.f);
-    const FVector4 GTextMutedTint(0.31f, 0.27f, 0.21f, 1.f);
+    extern FVector4 GButtonCategorySelectedNormalTint;
+    extern FVector4 GButtonCategorySelectedHoverTint;
+    extern FVector4 GButtonCategorySelectedClickTint;
+    extern FVector4 GButtonCategorySelectedDisableTint;
+    extern FVector4 GButtonCategoryNormalTint;
+    extern FVector4 GButtonCategoryHoverTint;
+    extern FVector4 GButtonCategoryClickTint;
+    extern FVector4 GButtonCategoryDisableTint;
 
-    const FVector4 GEdictSlotActiveTint(1.15f, 0.90f, 0.20f, 1.f);
-    const FVector4 GEdictSlotCoolingDownTint(0.86f, 0.88f, 0.92f, 1.f);
-    const FVector4 GEdictSlotUnavailableTint(0.90f, 0.90f, 0.90f, 1.f);
-    const FVector4 GEdictSlotFocusedTint(1.03f, 0.98f, 0.84f, 1.f);
-    const FVector4 GOverlayDisabledTint(0.60f, 0.60f, 0.60f, 0.75f);
+    extern FVector4 GStatusDangerTint;
+    extern FVector4 GStatusWarningTint;
+    extern FVector4 GStatusCautionTint;
+    extern FVector4 GStatusSuccessTint;
+    extern FVector4 GTextMutedTint;
+
+    extern FVector4 GEdictSlotActiveTint;
+    extern FVector4 GEdictSlotCoolingDownTint;
+    extern FVector4 GEdictSlotUnavailableTint;
+    extern FVector4 GEdictSlotFocusedTint;
+    extern FVector4 GOverlayDisabledTint;
+
+    extern FVector4 GCitizenInfoTitleTint;
+    extern FVector4 GCitizenInfoSubtitleTint;
+    extern FVector4 GCitizenInfoBodyTint;
+    extern FVector4 GCitizenInfoSectionHeaderTint;
+    extern FVector4 GCitizenInfoValueTint;
+    extern FVector4 GCitizenInfoStrongValueTint;
+    extern FVector4 GCitizenInfoAccentTint;
+    extern FVector4 GCitizenInfoActionTextTint;
+    extern FVector4 GCitizenInfoDividerTint;
+    extern FVector4 GCitizenInfoPanelHighlightTint;
+    extern FVector4 GCitizenInfoProgressRailTint;
+    extern FVector4 GCitizenInfoProgressFillTint;
+    extern FVector4 GCitizenInfoSupportNegativeTint;
+    extern FVector4 GCitizenInfoSupportNeutralTint;
+    extern FVector4 GCitizenInfoSupportPositiveTint;
+    extern FVector4 GCitizenInfoFooterTint;
+    extern FVector4 GCitizenInfoTabLabelSelectedTint;
+    extern FVector4 GCitizenInfoTabLabelNormalTint;
+    extern FVector4 GCitizenInfoTabIconSelectedTint;
+    extern FVector4 GCitizenInfoTabIconNormalTint;
+    extern FVector4 GCitizenInfoBudgetLabelSelectedTint;
+    extern FVector4 GCitizenInfoBudgetLabelNormalTint;
+    extern FVector4 GCitizenInfoMetricProfileTint;
+    extern FVector4 GCitizenInfoMetricHeaderTint;
+    extern FVector4 GCitizenInfoMetricLabelTint;
+    extern FVector4 GCitizenInfoMetricValueTint;
+    extern FVector4 GCitizenInfoMetricAccentTint;
+    extern FVector4 GCitizenInfoEmptyResidentTint;
+    extern FVector4 GCitizenInfoDisabledVisitorTint;
+
+    const FVector4& GetAlmanacSatisfactionTint(int Index);
 }

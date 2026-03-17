@@ -96,6 +96,62 @@ namespace TradeDiplomacyRuntime
         return L"냉각";
     }
 
+    inline const wchar_t* GetForeignPowerName(int Index, EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::Colonial:
+            switch (Index)
+            {
+            case 0: return L"왕실";
+            case 1: return L"밀수업자";
+            default: return L"해외";
+            }
+        case EBuildingEra::WorldWars:
+            switch (Index)
+            {
+            case 0: return L"연합국";
+            case 1: return L"추축국";
+            default: return L"해외";
+            }
+        case EBuildingEra::ColdWar:
+            switch (Index)
+            {
+            case 0: return L"서방 진영";
+            case 1: return L"동구권";
+            default: return L"해외";
+            }
+        case EBuildingEra::Modern:
+        default:
+            switch (Index)
+            {
+            case 0: return L"미국";
+            case 1: return L"러시아";
+            case 2: return L"중국";
+            case 3: return L"유럽연합";
+            case 4: return L"중동";
+            default: return L"해외";
+            }
+        }
+    }
+
+    inline bool IsForeignPowerActiveForEra(int Index, EBuildingEra Era)
+    {
+        if (Index < 0 || Index >= GForeignPowerCount)
+            return false;
+
+        switch (Era)
+        {
+        case EBuildingEra::Colonial:
+        case EBuildingEra::WorldWars:
+        case EBuildingEra::ColdWar:
+            return Index < 2;
+        case EBuildingEra::Modern:
+        default:
+            return true;
+        }
+    }
+
     inline bool HasActiveEdict(
         const std::vector<FGovernmentEdictState>& States,
         EGovernmentEdictType Type)
@@ -254,9 +310,13 @@ namespace TradeDiplomacyRuntime
         int Index,
         const FForeignTradeContext& Context,
         bool MartialLawActive,
-        bool TaxEventActive)
+        bool TaxEventActive,
+        EBuildingEra Era = EBuildingEra::Modern)
     {
         FForeignTradeRuntimeData Result;
+
+        if (!IsForeignPowerActiveForEra(Index, Era))
+            return Result;
 
         switch (Index)
         {
@@ -596,7 +656,8 @@ namespace TradeDiplomacyRuntime
         const WorldStats::FWorldStatsSnapshot& Snapshot,
         const FGovernmentProfile& GovernmentProfile,
         const FTaxPolicyEventStatus& TaxEventStatus,
-        const std::vector<FGovernmentEdictState>& GovernmentEdictStates)
+        const std::vector<FGovernmentEdictState>& GovernmentEdictStates,
+        EBuildingEra Era = EBuildingEra::Modern)
     {
         const bool MartialLawActive =
             HasActiveEdict(GovernmentEdictStates, EGovernmentEdictType::MartialLaw);
@@ -614,7 +675,8 @@ namespace TradeDiplomacyRuntime
                     Index,
                     Context,
                     MartialLawActive,
-                    TaxEventStatus.Active);
+                    TaxEventStatus.Active,
+                    Era);
             ApplyEdictForeignPolicyBias(
                 Index,
                 GovernmentEdictStates,
@@ -630,19 +692,25 @@ namespace TradeDiplomacyRuntime
         const FGovernmentProfile& GovernmentProfile,
         const FTaxPolicyEventStatus& TaxEventStatus,
         const std::vector<FGovernmentEdictState>& GovernmentEdictStates,
+        EBuildingEra Era = EBuildingEra::Modern,
         const std::array<FForeignPowerStandingState, GForeignPowerCount>&
-            StandingStates)
+            StandingStates =
+                std::array<FForeignPowerStandingState, GForeignPowerCount>())
     {
         const auto RuntimeData =
             BuildForeignTradeRuntimeData(
                 Snapshot,
                 GovernmentProfile,
                 TaxEventStatus,
-                GovernmentEdictStates);
+                GovernmentEdictStates,
+                Era);
         std::array<FForeignPowerWorldState, GForeignPowerCount> Result = {};
 
         for (int Index = 0; Index < GForeignPowerCount; ++Index)
         {
+            if (!IsForeignPowerActiveForEra(Index, Era))
+                continue;
+
             Result[static_cast<size_t>(Index)] =
                 BuildForeignPowerWorldState(
                     RuntimeData[static_cast<size_t>(Index)],
@@ -730,14 +798,16 @@ namespace TradeDiplomacyRuntime
         const WorldStats::FWorldStatsSnapshot& Snapshot,
         const FGovernmentProfile& GovernmentProfile,
         const FTaxPolicyEventStatus& TaxEventStatus,
-        const std::vector<FGovernmentEdictState>& GovernmentEdictStates)
+        const std::vector<FGovernmentEdictState>& GovernmentEdictStates,
+        EBuildingEra Era = EBuildingEra::Modern)
     {
         const auto Powers =
             BuildForeignTradeRuntimeData(
                 Snapshot,
                 GovernmentProfile,
                 TaxEventStatus,
-                GovernmentEdictStates);
+                GovernmentEdictStates,
+                Era);
         return ComputeDiplomacyBiasPercent(Type, Powers, false);
     }
 
@@ -746,14 +816,16 @@ namespace TradeDiplomacyRuntime
         const WorldStats::FWorldStatsSnapshot& Snapshot,
         const FGovernmentProfile& GovernmentProfile,
         const FTaxPolicyEventStatus& TaxEventStatus,
-        const std::vector<FGovernmentEdictState>& GovernmentEdictStates)
+        const std::vector<FGovernmentEdictState>& GovernmentEdictStates,
+        EBuildingEra Era = EBuildingEra::Modern)
     {
         const auto Powers =
             BuildForeignTradeRuntimeData(
                 Snapshot,
                 GovernmentProfile,
                 TaxEventStatus,
-                GovernmentEdictStates);
+                GovernmentEdictStates,
+                Era);
         return ComputeDiplomacyBiasPercent(Type, Powers, true);
     }
 

@@ -1,6 +1,6 @@
 #include "CitizenSystem.h"
 #include "World/World.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldSystemAccess.h"
 #include "../GameConstants.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Map/BuildingMarkerOrb.h"
@@ -24,11 +24,29 @@ namespace
     };
 
     int GNextCitizenHouseholdId = 1;
-    FPendingHouseholdSeed GPendingHouseholdSeeds[3] = {};
+    FPendingHouseholdSeed GPendingHouseholdSeeds[GCitizenWealthLevelCount] = {};
 
     float Clamp01(float Value)
     {
         return (std::max)(0.f, (std::min)(1.f, Value));
+    }
+
+    bool IsLowWealthCitizen(ECitizenWealthLevel WealthLevel)
+    {
+        return GetCitizenWealthRank(WealthLevel) <=
+            GetCitizenWealthRank(ECitizenWealthLevel::Poor);
+    }
+
+    bool IsAffluentCitizen(ECitizenWealthLevel WealthLevel)
+    {
+        return GetCitizenWealthRank(WealthLevel) >=
+            GetCitizenWealthRank(ECitizenWealthLevel::Rich);
+    }
+
+    bool IsLuxuryWealthCitizen(ECitizenWealthLevel WealthLevel)
+    {
+        return GetCitizenWealthRank(WealthLevel) >=
+            GetCitizenWealthRank(ECitizenWealthLevel::FilthyRich);
     }
 
     bool IsAssignablePlacedBuilding(
@@ -72,12 +90,18 @@ namespace
     {
         switch (WealthLevel)
         {
+        case ECitizenWealthLevel::Broke:
+            return GBuildingWealthMaskBroke;
+        case ECitizenWealthLevel::Poor:
+            return GBuildingWealthMaskPoor;
         case ECitizenWealthLevel::WellOff:
             return GBuildingWealthMaskWellOff;
         case ECitizenWealthLevel::Rich:
             return GBuildingWealthMaskRich;
+        case ECitizenWealthLevel::FilthyRich:
+            return GBuildingWealthMaskFilthyRich;
         default:
-            return GBuildingWealthMaskPoor;
+            return GBuildingWealthMaskBroke;
         }
     }
 
@@ -98,10 +122,8 @@ namespace
         if (!Building)
             return 0;
 
-        const FBuildingCatalogEntry* const Entry =
-            FindBuildingCatalogEntry(Building->GetBuildingId());
         const int HouseholdCapacity =
-            Entry ? (std::max)(0, Entry->HouseholdCapacity) : 0;
+            (std::max)(0, Building->GetHouseholdCapacity());
 
         if (HouseholdCapacity > 0)
             return HouseholdCapacity;
@@ -121,6 +143,10 @@ namespace
 
         switch (WealthLevel)
         {
+        case ECitizenWealthLevel::FilthyRich:
+            if (Roll < 72)
+                return 1;
+            return 2;
         case ECitizenWealthLevel::Rich:
             if (Roll < 56)
                 return 1;
@@ -135,7 +161,7 @@ namespace
             if (Roll < 94)
                 return 3;
             return 4;
-        default:
+        case ECitizenWealthLevel::Poor:
             if (Roll < 18)
                 return 1;
             if (Roll < 53)
@@ -143,6 +169,17 @@ namespace
             if (Roll < 82)
                 return 3;
             return 4;
+        case ECitizenWealthLevel::Broke:
+        default:
+            if (Roll < 8)
+                return 1;
+            if (Roll < 30)
+                return 2;
+            if (Roll < 64)
+                return 3;
+            if (Roll < 89)
+                return 4;
+            return 5;
         }
     }
 
@@ -150,7 +187,7 @@ namespace
     {
         int WealthIndex = static_cast<int>(Profile.WealthLevel);
 
-        if (WealthIndex < 0 || WealthIndex >= 3)
+        if (WealthIndex < 0 || WealthIndex >= GCitizenWealthLevelCount)
             WealthIndex = 0;
 
         FPendingHouseholdSeed& Seed = GPendingHouseholdSeeds[WealthIndex];
@@ -223,6 +260,8 @@ namespace
                     ECitizenEducationLevel::HighSchool :
                     ECitizenEducationLevel::College;
             Profile.WealthLevel =
+                WealthRoll < 28 ?
+                    ECitizenWealthLevel::Broke :
                 WealthRoll < 84 ?
                     ECitizenWealthLevel::Poor :
                     ECitizenWealthLevel::WellOff;
@@ -233,9 +272,9 @@ namespace
                     ECitizenEducationLevel::College :
                     ECitizenEducationLevel::HighSchool;
             Profile.WealthLevel =
-                WealthRoll < 88 ?
+                WealthRoll < 14 ?
                     ECitizenWealthLevel::Rich :
-                    ECitizenWealthLevel::WellOff;
+                    ECitizenWealthLevel::FilthyRich;
             break;
         case ETouristPreference::Cultural:
             Profile.EducationLevel =
@@ -243,11 +282,13 @@ namespace
                     ECitizenEducationLevel::College :
                     ECitizenEducationLevel::HighSchool;
             Profile.WealthLevel =
-                WealthRoll < 15 ?
+                WealthRoll < 8 ?
                     ECitizenWealthLevel::Poor :
-                WealthRoll < 70 ?
+                WealthRoll < 62 ?
                     ECitizenWealthLevel::WellOff :
-                    ECitizenWealthLevel::Rich;
+                WealthRoll < 88 ?
+                    ECitizenWealthLevel::Rich :
+                    ECitizenWealthLevel::FilthyRich;
             break;
         case ETouristPreference::Family:
             Profile.EducationLevel =
@@ -255,11 +296,13 @@ namespace
                     ECitizenEducationLevel::College :
                     ECitizenEducationLevel::HighSchool;
             Profile.WealthLevel =
-                WealthRoll < 22 ?
+                WealthRoll < 10 ?
                     ECitizenWealthLevel::Poor :
-                WealthRoll < 84 ?
+                WealthRoll < 68 ?
                     ECitizenWealthLevel::WellOff :
-                    ECitizenWealthLevel::Rich;
+                WealthRoll < 92 ?
+                    ECitizenWealthLevel::Rich :
+                    ECitizenWealthLevel::FilthyRich;
             break;
         case ETouristPreference::ThrillSeeker:
             Profile.EducationLevel =
@@ -267,11 +310,13 @@ namespace
                     ECitizenEducationLevel::College :
                     ECitizenEducationLevel::HighSchool;
             Profile.WealthLevel =
-                WealthRoll < 18 ?
+                WealthRoll < 12 ?
                     ECitizenWealthLevel::Poor :
-                WealthRoll < 76 ?
+                WealthRoll < 66 ?
                     ECitizenWealthLevel::WellOff :
-                    ECitizenWealthLevel::Rich;
+                WealthRoll < 90 ?
+                    ECitizenWealthLevel::Rich :
+                    ECitizenWealthLevel::FilthyRich;
             break;
         case ETouristPreference::Relaxation:
         default:
@@ -280,11 +325,13 @@ namespace
                     ECitizenEducationLevel::College :
                     ECitizenEducationLevel::HighSchool;
             Profile.WealthLevel =
-                WealthRoll < 10 ?
+                WealthRoll < 6 ?
                     ECitizenWealthLevel::Poor :
-                WealthRoll < 72 ?
+                WealthRoll < 58 ?
                     ECitizenWealthLevel::WellOff :
-                    ECitizenWealthLevel::Rich;
+                WealthRoll < 86 ?
+                    ECitizenWealthLevel::Rich :
+                    ECitizenWealthLevel::FilthyRich;
             break;
         }
 
@@ -310,16 +357,13 @@ namespace
             if (!IsAssignablePlacedBuilding(Building))
                 continue;
 
-            const FBuildingCatalogEntry* const Entry =
-                FindBuildingCatalogEntry(Building->GetBuildingId());
-
-            if (!Entry)
-                continue;
-
-            if (IsTourismVenueCategory(Entry->Category))
+            if (IsTourismVenueCategory(Building->GetBuildingCategory()))
                 Score += 2;
-            else if (HasTouristPreference(Entry->PrimaryTouristPreference))
+            else if (
+                HasTouristPreference(Building->GetPrimaryTouristPreference()))
+            {
                 ++Score;
+            }
         }
 
         return Score;
@@ -489,24 +533,36 @@ namespace
         if (Profile.EducationLevel == ECitizenEducationLevel::College)
         {
             Profile.WealthLevel =
-                WealthRoll < 35 ?
-                ECitizenWealthLevel::WellOff :
-                ECitizenWealthLevel::Rich;
+                WealthRoll < 10 ?
+                    ECitizenWealthLevel::Poor :
+                WealthRoll < 52 ?
+                    ECitizenWealthLevel::WellOff :
+                WealthRoll < 90 ?
+                    ECitizenWealthLevel::Rich :
+                    ECitizenWealthLevel::FilthyRich;
         }
         else if (Profile.EducationLevel ==
             ECitizenEducationLevel::HighSchool)
         {
             Profile.WealthLevel =
-                WealthRoll < 70 ?
-                ECitizenWealthLevel::Poor :
-                ECitizenWealthLevel::WellOff;
+                WealthRoll < 18 ?
+                    ECitizenWealthLevel::Broke :
+                WealthRoll < 64 ?
+                    ECitizenWealthLevel::Poor :
+                WealthRoll < 94 ?
+                    ECitizenWealthLevel::WellOff :
+                    ECitizenWealthLevel::Rich;
         }
         else
         {
             Profile.WealthLevel =
-                WealthRoll < 85 ?
-                ECitizenWealthLevel::Poor :
-                ECitizenWealthLevel::WellOff;
+                WealthRoll < 28 ?
+                    ECitizenWealthLevel::Broke :
+                WealthRoll < 82 ?
+                    ECitizenWealthLevel::Poor :
+                WealthRoll < 98 ?
+                    ECitizenWealthLevel::WellOff :
+                    ECitizenWealthLevel::Rich;
         }
 
         AssignCitizenHouseholdProfile(Profile);
@@ -748,7 +804,7 @@ namespace
     auto MarkerOrb = World->CreateGameObject<CBuildingMarkerOrb>(OrbName);
     auto MarkerOrbObj = MarkerOrb.lock();
     const IMainWorldCitizenPolicyAccess* MainWorldAccess =
-        World ? dynamic_cast<IMainWorldCitizenPolicyAccess*>(World) : nullptr;
+        ResolveMainWorldCitizenPolicyAccess(World);
 
     if (!MarkerOrbObj)
         return;
@@ -937,8 +993,6 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             continue;
 
         FServiceBuildingInfo Info;
-        const FBuildingCatalogEntry* const Entry =
-            FindBuildingCatalogEntry(FoodBuilding->GetBuildingId());
         Info.Name = FoodNames[i];
         Info.Building = FoodBuilding;
         Info.SatisfactionCap = FoodBuilding->GetFoodSatisfactionCap();
@@ -947,13 +1001,10 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             FoodBuilding->GetActiveServiceVisitorCount(
                 EBuildingServiceType::Food);
         Info.AllowedWealthMask = FoodBuilding->GetAllowedWealthMask();
-        Info.Category = Entry ? Entry->Category :
-            FoodBuilding->GetBuildingCategory();
-        Info.LeisureClass = Entry ? Entry->LeisureClass :
-            EBuildingLeisureClass::None;
-        Info.PrimaryTouristPreference = Entry ?
-            Entry->PrimaryTouristPreference :
-            ETouristPreference::None;
+        Info.Category = FoodBuilding->GetBuildingCategory();
+        Info.LeisureClass = FoodBuilding->GetLeisureClass();
+        Info.PrimaryTouristPreference =
+            FoodBuilding->GetPrimaryTouristPreference();
         Info.Accessibility = ResolveAccessibilityScore(FoodBuilding);
         FoodInfos.push_back(std::move(Info));
     }
@@ -981,8 +1032,6 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             continue;
 
         FServiceBuildingInfo Info;
-        const FBuildingCatalogEntry* const Entry =
-            FindBuildingCatalogEntry(FunBuilding->GetBuildingId());
         Info.Name = FunNames[i];
         Info.Building = FunBuilding;
         Info.SatisfactionCap = FunBuilding->GetFunSatisfactionCap();
@@ -991,13 +1040,10 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             FunBuilding->GetActiveServiceVisitorCount(
                 EBuildingServiceType::Fun);
         Info.AllowedWealthMask = FunBuilding->GetAllowedWealthMask();
-        Info.Category = Entry ? Entry->Category :
-            FunBuilding->GetBuildingCategory();
-        Info.LeisureClass = Entry ? Entry->LeisureClass :
-            EBuildingLeisureClass::None;
-        Info.PrimaryTouristPreference = Entry ?
-            Entry->PrimaryTouristPreference :
-            ETouristPreference::None;
+        Info.Category = FunBuilding->GetBuildingCategory();
+        Info.LeisureClass = FunBuilding->GetLeisureClass();
+        Info.PrimaryTouristPreference =
+            FunBuilding->GetPrimaryTouristPreference();
         Info.Accessibility = ResolveAccessibilityScore(FunBuilding);
         FunInfos.push_back(std::move(Info));
     }
@@ -1025,8 +1071,6 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             continue;
 
         FServiceBuildingInfo Info;
-        const FBuildingCatalogEntry* const Entry =
-            FindBuildingCatalogEntry(HealthBuilding->GetBuildingId());
         Info.Name = HealthNames[i];
         Info.Building = HealthBuilding;
         Info.SatisfactionCap = HealthBuilding->GetHealthSatisfactionCap();
@@ -1035,13 +1079,10 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             HealthBuilding->GetActiveServiceVisitorCount(
                 EBuildingServiceType::Health);
         Info.AllowedWealthMask = HealthBuilding->GetAllowedWealthMask();
-        Info.Category = Entry ? Entry->Category :
-            HealthBuilding->GetBuildingCategory();
-        Info.LeisureClass = Entry ? Entry->LeisureClass :
-            EBuildingLeisureClass::None;
-        Info.PrimaryTouristPreference = Entry ?
-            Entry->PrimaryTouristPreference :
-            ETouristPreference::None;
+        Info.Category = HealthBuilding->GetBuildingCategory();
+        Info.LeisureClass = HealthBuilding->GetLeisureClass();
+        Info.PrimaryTouristPreference =
+            HealthBuilding->GetPrimaryTouristPreference();
         Info.Accessibility = ResolveAccessibilityScore(HealthBuilding);
         HealthInfos.push_back(std::move(Info));
     }
@@ -1069,8 +1110,6 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             continue;
 
         FServiceBuildingInfo Info;
-        const FBuildingCatalogEntry* const Entry =
-            FindBuildingCatalogEntry(FaithBuilding->GetBuildingId());
         Info.Name = FaithNames[i];
         Info.Building = FaithBuilding;
         Info.SatisfactionCap = FaithBuilding->GetFaithSatisfactionCap();
@@ -1079,13 +1118,10 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             FaithBuilding->GetActiveServiceVisitorCount(
                 EBuildingServiceType::Faith);
         Info.AllowedWealthMask = FaithBuilding->GetAllowedWealthMask();
-        Info.Category = Entry ? Entry->Category :
-            FaithBuilding->GetBuildingCategory();
-        Info.LeisureClass = Entry ? Entry->LeisureClass :
-            EBuildingLeisureClass::None;
-        Info.PrimaryTouristPreference = Entry ?
-            Entry->PrimaryTouristPreference :
-            ETouristPreference::None;
+        Info.Category = FaithBuilding->GetBuildingCategory();
+        Info.LeisureClass = FaithBuilding->GetLeisureClass();
+        Info.PrimaryTouristPreference =
+            FaithBuilding->GetPrimaryTouristPreference();
         Info.Accessibility = ResolveAccessibilityScore(FaithBuilding);
         FaithInfos.push_back(std::move(Info));
     }
@@ -1114,6 +1150,18 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         Info.Accessibility = ResolveAccessibilityScore(WorkBuilding);
         WorkInfos.push_back(std::move(Info));
     }
+
+    auto SyncWorkBuildingOccupancy = [&]()
+    {
+        for (size_t i = 0; i < WorkInfos.size(); ++i)
+        {
+            if (WorkInfos[i].Building)
+            {
+                WorkInfos[i].Building->SetCurrentWorkerOccupancy(
+                    WorkInfos[i].Occupied);
+            }
+        }
+    };
 
     std::unordered_map<std::string, size_t> HomeIndexByName;
     HomeIndexByName.reserve(HomeInfos.size());
@@ -1174,7 +1222,10 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
     }
 
     if (ActiveOrbs.empty())
+    {
+        SyncWorkBuildingOccupancy();
         return;
+    }
 
     std::vector<int> OrbHomeIndex(ActiveOrbs.size(), -1);
     std::vector<int> OrbFoodIndex(ActiveOrbs.size(), -1);
@@ -1901,44 +1952,87 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
                 AllowedWealthMask;
         int TierCount = 0;
 
+        if ((EffectiveMask & GBuildingWealthMaskBroke) != 0)
+            ++TierCount;
         if ((EffectiveMask & GBuildingWealthMaskPoor) != 0)
             ++TierCount;
         if ((EffectiveMask & GBuildingWealthMaskWellOff) != 0)
             ++TierCount;
         if ((EffectiveMask & GBuildingWealthMaskRich) != 0)
             ++TierCount;
+        if ((EffectiveMask & GBuildingWealthMaskFilthyRich) != 0)
+            ++TierCount;
 
         return (std::max)(1, TierCount);
     };
 
+    auto ResolveAllowedWealthFloorRank = [](unsigned int AllowedWealthMask)
+    {
+        const unsigned int EffectiveMask =
+            AllowedWealthMask == GBuildingWealthMaskNone ?
+                GBuildingWealthMaskAll :
+                AllowedWealthMask;
+
+        if ((EffectiveMask & GBuildingWealthMaskBroke) != 0)
+            return GetCitizenWealthRank(ECitizenWealthLevel::Broke);
+        if ((EffectiveMask & GBuildingWealthMaskPoor) != 0)
+            return GetCitizenWealthRank(ECitizenWealthLevel::Poor);
+        if ((EffectiveMask & GBuildingWealthMaskWellOff) != 0)
+            return GetCitizenWealthRank(ECitizenWealthLevel::WellOff);
+        if ((EffectiveMask & GBuildingWealthMaskRich) != 0)
+            return GetCitizenWealthRank(ECitizenWealthLevel::Rich);
+        return GetCitizenWealthRank(ECitizenWealthLevel::FilthyRich);
+    };
+
+    auto ResolveAllowedWealthCeilingRank = [](unsigned int AllowedWealthMask)
+    {
+        const unsigned int EffectiveMask =
+            AllowedWealthMask == GBuildingWealthMaskNone ?
+                GBuildingWealthMaskAll :
+                AllowedWealthMask;
+
+        if ((EffectiveMask & GBuildingWealthMaskFilthyRich) != 0)
+            return GetCitizenWealthRank(ECitizenWealthLevel::FilthyRich);
+        if ((EffectiveMask & GBuildingWealthMaskRich) != 0)
+            return GetCitizenWealthRank(ECitizenWealthLevel::Rich);
+        if ((EffectiveMask & GBuildingWealthMaskWellOff) != 0)
+            return GetCitizenWealthRank(ECitizenWealthLevel::WellOff);
+        if ((EffectiveMask & GBuildingWealthMaskPoor) != 0)
+            return GetCitizenWealthRank(ECitizenWealthLevel::Poor);
+        return GetCitizenWealthRank(ECitizenWealthLevel::Broke);
+    };
+
     auto ResolveServiceWealthFitScore =
         [&](unsigned int AllowedWealthMask,
-            const FCitizenIdentityProfile& Identity) -> float
+            ECitizenWealthLevel WealthLevel) -> float
     {
         if (!DoesBuildingAllowCitizenWealth(
                 AllowedWealthMask,
-                Identity.WealthLevel))
+                WealthLevel))
         {
             return -1.f;
         }
 
         const int TierCount = ResolveAllowedWealthTierCount(AllowedWealthMask);
+        const int CitizenRank = GetCitizenWealthRank(WealthLevel);
+        const int FloorRank = ResolveAllowedWealthFloorRank(AllowedWealthMask);
+        const int CeilingRank =
+            ResolveAllowedWealthCeilingRank(AllowedWealthMask);
 
-        switch (Identity.WealthLevel)
-        {
-        case ECitizenWealthLevel::Rich:
-            return TierCount == 1 ? 1.f :
-                TierCount == 2 ? 0.80f :
-                0.60f;
-        case ECitizenWealthLevel::WellOff:
-            return TierCount == 2 ? 0.95f :
-                TierCount == 1 ? 0.84f :
-                0.74f;
-        default:
-            return TierCount == 3 ? 0.96f :
-                TierCount == 2 ? 0.84f :
-                0.68f;
-        }
+        if (TierCount <= 1 || FloorRank >= CeilingRank)
+            return 1.f;
+
+        const float Span =
+            static_cast<float>((std::max)(1, CeilingRank - FloorRank));
+        const float Offset =
+            static_cast<float>((std::max)(0, CitizenRank - FloorRank));
+        float Fit = 1.f - (Offset / Span) * 0.18f;
+        Fit -= static_cast<float>((std::max)(0, TierCount - 2)) * 0.03f;
+
+        if (CitizenRank == FloorRank)
+            Fit += 0.03f;
+
+        return (std::max)(0.66f, (std::min)(1.f, Fit));
     };
 
     auto ResolveCurrentVisitBuildingName =
@@ -1975,14 +2069,14 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         Weights.Congestion += NeedUrgency * 0.09f;
         Weights.Distance -= NeedUrgency * 0.06f;
 
-        if (Identity.WealthLevel == ECitizenWealthLevel::Rich ||
+        if (IsAffluentCitizen(Identity.WealthLevel) ||
             Identity.TouristProfile == ETouristPreference::Celebrity)
         {
             Weights.Quality += 0.07f;
             Weights.WealthFit += 0.05f;
             Weights.Distance -= 0.04f;
         }
-        else if (Identity.WealthLevel == ECitizenWealthLevel::Poor ||
+        else if (IsLowWealthCitizen(Identity.WealthLevel) ||
             Identity.TouristProfile == ETouristPreference::Backpacker)
         {
             Weights.Accessibility += 0.06f;
@@ -2047,13 +2141,13 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         switch (ServiceType)
         {
         case EBuildingServiceType::Food:
-            if (Identity.WealthLevel == ECitizenWealthLevel::Rich ||
+            if (IsAffluentCitizen(Identity.WealthLevel) ||
                 Identity.TouristProfile == ETouristPreference::Celebrity)
             {
                 Bias += (QualityScore - AccessibilityScore) * 0.12f;
                 Bias += (WealthFitScore - 0.5f) * 0.08f;
             }
-            else if (Identity.WealthLevel == ECitizenWealthLevel::Poor ||
+            else if (IsLowWealthCitizen(Identity.WealthLevel) ||
                 Identity.TouristProfile == ETouristPreference::Backpacker)
             {
                 Bias +=
@@ -2086,21 +2180,24 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
                     Bias += 0.08f;
                 }
 
-                if (Identity.WealthLevel == ECitizenWealthLevel::Rich &&
+                if (IsAffluentCitizen(Identity.WealthLevel) &&
                     (Info.LeisureClass == EBuildingLeisureClass::Luxury ||
                         Info.Category ==
                             EBuildingCategory::LuxuryEntertainment))
                 {
-                    Bias += 0.12f;
+                    Bias +=
+                        IsLuxuryWealthCitizen(Identity.WealthLevel) ?
+                            0.16f :
+                            0.12f;
                 }
 
-                if (Identity.WealthLevel == ECitizenWealthLevel::Poor &&
+                if (IsLowWealthCitizen(Identity.WealthLevel) &&
                     Info.LeisureClass == EBuildingLeisureClass::General)
                 {
                     Bias += 0.07f;
                 }
 
-                if (Identity.WealthLevel == ECitizenWealthLevel::Poor &&
+                if (IsLowWealthCitizen(Identity.WealthLevel) &&
                     (Info.LeisureClass == EBuildingLeisureClass::Luxury ||
                         Info.Category ==
                             EBuildingCategory::LuxuryEntertainment))
@@ -2115,12 +2212,12 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
                 ((QualityScore - 0.5f) * 0.10f +
                     (CongestionScore - 0.5f) * 0.14f);
 
-            if (Identity.WealthLevel == ECitizenWealthLevel::Rich)
+            if (IsAffluentCitizen(Identity.WealthLevel))
             {
                 Bias += (WealthFitScore - 0.5f) * 0.10f;
                 Bias += (QualityScore - DistanceScore) * 0.05f;
             }
-            else if (Identity.WealthLevel == ECitizenWealthLevel::Poor)
+            else if (IsLowWealthCitizen(Identity.WealthLevel))
             {
                 Bias +=
                     (AccessibilityScore + DistanceScore - QualityScore) *
@@ -2187,12 +2284,17 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
             ResolveCongestionScore(OccupancyAfter, Info.Capacity);
         const float DistanceScore =
             ResolveHouseholdDistanceScore(HouseholdIdx, HomeIdx);
+        const float WealthFitScore =
+            ResolveServiceWealthFitScore(
+                Info.AllowedWealthMask,
+                Household.WealthLevel);
 
         float Score =
-            QualityScore * 0.38f +
-            AccessScore * 0.20f +
-            CongestionScore * 0.18f +
-            DistanceScore * 0.24f;
+            QualityScore * 0.34f +
+            AccessScore * 0.18f +
+            CongestionScore * 0.16f +
+            DistanceScore * 0.20f +
+            WealthFitScore * 0.12f;
 
         if (Household.CurrentHomeIndex == HomeIdx)
             Score += 0.05f;
@@ -2254,7 +2356,9 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
                 ResolveHomeBuildingForOrb(OrbIdx),
                 ResolveWorkBuildingForOrb(OrbIdx));
         const float WealthFitScore =
-            ResolveServiceWealthFitScore(Info.AllowedWealthMask, Identity);
+            ResolveServiceWealthFitScore(
+                Info.AllowedWealthMask,
+                Identity.WealthLevel);
         const float NeedUrgency =
             ResolveServiceNeedUrgency(Satisfaction, ServiceType);
         const FServiceScoringWeights Weights =
@@ -2768,6 +2872,8 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         if (BetterWorkIdx >= 0 && BetterWorkIdx != CurrentWorkIdx)
             AssignOrbToWork(static_cast<int>(OrbIdx), BetterWorkIdx);
     }
+
+    SyncWorkBuildingOccupancy();
 
     RunServiceReassignment(
         FoodInfos,

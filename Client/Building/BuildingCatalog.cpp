@@ -152,12 +152,9 @@ namespace
         EResourceType ProducedResourceType = EResourceType::None;
         std::wstring ProducedResourceLabel;
         EResourceType VisitConsumptionResourceType = EResourceType::None;
+        std::vector<EResourceType> VisitConsumptionAcceptedResourceTypes;
         std::array<EResourceType, GProductionInputSlotCount>
-            ProductionInputTypes =
-            {
-                EResourceType::None,
-                EResourceType::None
-            };
+            ProductionInputTypes = {};
         std::array<int, GProductionInputSlotCount>
             ProductionInputAmounts = {};
         std::array<std::wstring, GProductionInputSlotCount>
@@ -261,6 +258,19 @@ namespace
         int ModeIndex = 0;
         std::wstring DisplayName;
         std::wstring EffectSummary;
+        bool HasProducedResourceTypeOverride = false;
+        EResourceType ProducedResourceTypeOverride = EResourceType::None;
+        // ProducedType may stay blank for input-only modes. Treat input arrays
+        // as a first-class recipe override rather than a secondary hint.
+        bool HasProductionInputTypesOverride = false;
+        std::array<EResourceType, GProductionInputSlotCount>
+            ProductionInputTypesOverride = {};
+        std::array<int, GProductionInputSlotCount>
+            ProductionInputAmountsOverride = {};
+        bool HasVisitConsumptionTypeOverride = false;
+        EResourceType VisitConsumptionTypeOverride = EResourceType::None;
+        bool HasVisitConsumptionAcceptedTypesOverride = false;
+        std::vector<EResourceType> VisitConsumptionAcceptedTypesOverride;
         bool HasProductionMultiplier = false;
         float ProductionMultiplier = 1.f;
         bool HasInputConsumptionMultiplier = false;
@@ -1117,18 +1127,26 @@ namespace
             Normalized |=
                 GBuildingWealthMaskPoor |
                 GBuildingWealthMaskWellOff |
-                GBuildingWealthMaskRich;
+                GBuildingWealthMaskRich |
+                GBuildingWealthMaskFilthyRich;
         }
 
         if ((RawMask & 2) != 0)
-            Normalized |= GBuildingWealthMaskWellOff | GBuildingWealthMaskRich;
+        {
+            Normalized |=
+                GBuildingWealthMaskWellOff |
+                GBuildingWealthMaskRich |
+                GBuildingWealthMaskFilthyRich;
+        }
 
         if ((RawMask & 4) != 0)
-            Normalized |= GBuildingWealthMaskRich;
+            Normalized |= GBuildingWealthMaskRich | GBuildingWealthMaskFilthyRich;
 
-        // ?�재 ?�진?� 부/중산�??��? 3?�계�??�용?��?�?        // "?�럽�?부????최고 ?�어??Rich �??�어??반영?�다.
         if ((RawMask & 8) != 0)
-            Normalized |= GBuildingWealthMaskRich;
+            Normalized |= GBuildingWealthMaskFilthyRich;
+
+        if ((RawMask & 16) != 0)
+            Normalized |= GBuildingWealthMaskBroke;
 
         return Normalized == GBuildingWealthMaskNone ?
             GBuildingWealthMaskAll :
@@ -1221,6 +1239,46 @@ namespace
             OutType = EResourceType::HydroponicProduce;
         else if (Key == "FactoryLivestock")
             OutType = EResourceType::FactoryLivestock;
+        else if (Key == "FeedCrops")
+            OutType = EResourceType::FeedCrops;
+        else if (Key == "Banana")
+            OutType = EResourceType::Banana;
+        else if (Key == "Cocoa")
+            OutType = EResourceType::Cocoa;
+        else if (Key == "Coffee")
+            OutType = EResourceType::Coffee;
+        else if (Key == "Corn")
+            OutType = EResourceType::Corn;
+        else if (Key == "Cotton")
+            OutType = EResourceType::Cotton;
+        else if (Key == "Pineapple")
+            OutType = EResourceType::Pineapple;
+        else if (Key == "Rubber")
+            OutType = EResourceType::Rubber;
+        else if (Key == "Sugar")
+            OutType = EResourceType::Sugar;
+        else if (Key == "Tobacco")
+            OutType = EResourceType::Tobacco;
+        else if (Key == "Meat")
+            OutType = EResourceType::Meat;
+        else if (Key == "Milk")
+            OutType = EResourceType::Milk;
+        else if (Key == "Hides")
+            OutType = EResourceType::Hides;
+        else if (Key == "Wool")
+            OutType = EResourceType::Wool;
+        else if (Key == "Coal")
+            OutType = EResourceType::Coal;
+        else if (Key == "Iron")
+            OutType = EResourceType::Iron;
+        else if (Key == "Gold")
+            OutType = EResourceType::Gold;
+        else if (Key == "Nickel")
+            OutType = EResourceType::Nickel;
+        else if (Key == "Aluminum")
+            OutType = EResourceType::Aluminum;
+        else if (Key == "Uranium")
+            OutType = EResourceType::Uranium;
         else if (Key == "Planks")
             OutType = EResourceType::Planks;
         else if (Key == "Rum")
@@ -1259,10 +1317,56 @@ namespace
             OutType = EResourceType::Pharmaceuticals;
         else if (Key == "Juice")
             OutType = EResourceType::Juice;
+        else if (Key == "SpecialChocolate")
+            OutType = EResourceType::SpecialChocolate;
+        else if (Key == "Goldnuts")
+            OutType = EResourceType::Goldnuts;
+        else if (Key == "BS")
+            OutType = EResourceType::BS;
         else
             return false;
 
         return true;
+    }
+
+    std::vector<EResourceType> ParseResourceTypeList(
+        const std::string& Text)
+    {
+        std::vector<EResourceType> Result;
+        std::string CurrentToken;
+
+        auto FlushToken = [&]()
+        {
+            if (CurrentToken.empty())
+                return;
+
+            EResourceType ParsedType = EResourceType::None;
+            if (TryParseResourceTypeKey(CurrentToken, ParsedType) &&
+                ParsedType != EResourceType::None &&
+                std::find(Result.begin(), Result.end(), ParsedType) ==
+                    Result.end())
+            {
+                Result.push_back(ParsedType);
+            }
+
+            CurrentToken.clear();
+        };
+
+        for (size_t Index = 0; Index < Text.size(); ++Index)
+        {
+            const char Ch = Text[Index];
+
+            if (Ch == ',' || Ch == '|' || Ch == '/' || Ch == ';')
+            {
+                FlushToken();
+                continue;
+            }
+
+            CurrentToken.push_back(Ch);
+        }
+
+        FlushToken();
+        return Result;
     }
 
     bool LoadExternalCatalogRecords(
@@ -1521,15 +1625,23 @@ namespace
                         Record.ProducedResourceLabel = Utf8ToWide(
                             UnescapeCatalogField(Fields[2]));
 
+                        const size_t InputFieldBaseIndex = 3;
+                        const size_t VisitFieldIndex =
+                            InputFieldBaseIndex +
+                            static_cast<size_t>(GProductionInputSlotCount) * 3;
+                        const size_t VisitAcceptedFieldIndex =
+                            VisitFieldIndex + 1;
+
                         for (int SlotIndex = 0;
                             SlotIndex < GProductionInputSlotCount;
                             ++SlotIndex)
                         {
                             const size_t BaseFieldIndex =
-                                3 + static_cast<size_t>(SlotIndex) * 3;
+                                InputFieldBaseIndex +
+                                static_cast<size_t>(SlotIndex) * 3;
 
-                            if (BaseFieldIndex >= Fields.size())
-                                break;
+                            if (BaseFieldIndex + 2 >= Fields.size())
+                                continue;
 
                             EResourceType InputType =
                                 EResourceType::None;
@@ -1580,22 +1692,41 @@ namespace
                             }
                         }
 
-                        if (Fields.size() >= 10)
+                        if (VisitFieldIndex < Fields.size())
                         {
                             TryParseResourceTypeKey(
-                                Fields[9],
+                                Fields[VisitFieldIndex],
                                 Record.VisitConsumptionResourceType);
                         }
 
-                        const bool HasRecipeData =
+                        if (VisitAcceptedFieldIndex < Fields.size())
+                        {
+                            Record.VisitConsumptionAcceptedResourceTypes =
+                                ParseResourceTypeList(
+                                    Fields[VisitAcceptedFieldIndex]);
+                        }
+
+                        bool HasRecipeData =
                             Record.ProducedResourceType !=
                                 EResourceType::None ||
                             Record.VisitConsumptionResourceType !=
                                 EResourceType::None ||
-                            Record.ProductionInputTypes[0] !=
-                                EResourceType::None ||
-                            Record.ProductionInputTypes[1] !=
-                                EResourceType::None;
+                            !Record.VisitConsumptionAcceptedResourceTypes.empty();
+
+                        for (int SlotIndex = 0;
+                            SlotIndex < GProductionInputSlotCount &&
+                                !HasRecipeData;
+                            ++SlotIndex)
+                        {
+                            if (Record.ProductionInputTypes[
+                                    static_cast<size_t>(SlotIndex)] !=
+                                    EResourceType::None &&
+                                Record.ProductionInputAmounts[
+                                    static_cast<size_t>(SlotIndex)] > 0)
+                            {
+                                HasRecipeData = true;
+                            }
+                        }
 
                         if (HasRecipeData)
                             OutRecords.push_back(std::move(Record));
@@ -2619,6 +2750,108 @@ namespace
                                 UnescapeCatalogField(Fields[19]));
                         }
 
+                        if (Fields.size() >= 21)
+                        {
+                            const std::string ProducedTypeKey =
+                                UnescapeCatalogField(Fields[20]);
+
+                            // Input-switching modes intentionally leave
+                            // ProducedType empty and only fill InputN fields.
+                            if (!ProducedTypeKey.empty() &&
+                                TryParseResourceTypeKey(
+                                    ProducedTypeKey,
+                                    Record.ProducedResourceTypeOverride))
+                            {
+                                Record.HasProducedResourceTypeOverride = true;
+                            }
+                        }
+
+                        for (int SlotIndex = 0;
+                            SlotIndex < GProductionInputSlotCount;
+                            ++SlotIndex)
+                        {
+                            const size_t TypeFieldIndex =
+                                21 + static_cast<size_t>(SlotIndex) * 2;
+                            const size_t AmountFieldIndex =
+                                TypeFieldIndex + 1;
+
+                            if (TypeFieldIndex >= Fields.size())
+                                break;
+
+                            const std::string TypeKey =
+                                UnescapeCatalogField(Fields[TypeFieldIndex]);
+
+                            if (TypeKey.empty())
+                                continue;
+
+                            EResourceType ParsedType = EResourceType::None;
+                            if (!TryParseResourceTypeKey(TypeKey, ParsedType) ||
+                                ParsedType == EResourceType::None)
+                            {
+                                continue;
+                            }
+
+                            int ParsedAmount = 0;
+                            if (AmountFieldIndex >= Fields.size() ||
+                                !TryParseCatalogIntegerField(
+                                    Fields[AmountFieldIndex],
+                                    ParsedAmount) ||
+                                ParsedAmount <= 0)
+                            {
+                                continue;
+                            }
+
+                            Record.HasProductionInputTypesOverride = true;
+                            Record.ProductionInputTypesOverride[
+                                static_cast<size_t>(SlotIndex)] = ParsedType;
+                            Record.ProductionInputAmountsOverride[
+                                static_cast<size_t>(SlotIndex)] = ParsedAmount;
+                        }
+
+                        const size_t VisitConsumptionTypeFieldIndex =
+                            21 +
+                            static_cast<size_t>(GProductionInputSlotCount) * 2;
+                        const size_t VisitAcceptedTypesFieldIndex =
+                            VisitConsumptionTypeFieldIndex + 1;
+
+                        if (VisitConsumptionTypeFieldIndex < Fields.size())
+                        {
+                            const std::string VisitTypeKey =
+                                UnescapeCatalogField(
+                                    Fields[VisitConsumptionTypeFieldIndex]);
+
+                            if (!VisitTypeKey.empty() &&
+                                TryParseResourceTypeKey(
+                                    VisitTypeKey,
+                                    Record.VisitConsumptionTypeOverride))
+                            {
+                                Record.HasVisitConsumptionTypeOverride = true;
+                            }
+                        }
+
+                        if (VisitAcceptedTypesFieldIndex < Fields.size())
+                        {
+                            const std::string AcceptedTypesText =
+                                UnescapeCatalogField(
+                                    Fields[VisitAcceptedTypesFieldIndex]);
+
+                            if (AcceptedTypesText == "-" ||
+                                AcceptedTypesText == "None")
+                            {
+                                Record.HasVisitConsumptionAcceptedTypesOverride =
+                                    true;
+                                Record.VisitConsumptionAcceptedTypesOverride
+                                    .clear();
+                            }
+                            else if (!AcceptedTypesText.empty())
+                            {
+                                Record.HasVisitConsumptionAcceptedTypesOverride =
+                                    true;
+                                Record.VisitConsumptionAcceptedTypesOverride =
+                                    ParseResourceTypeList(AcceptedTypesText);
+                            }
+                        }
+
                         OutRecords.push_back(std::move(Record));
                     }
                 }
@@ -3561,6 +3794,36 @@ namespace
         if (!OverrideRecord.RequiredResearch.empty())
             ModeDef.RequiredResearch = OverrideRecord.RequiredResearch;
 
+        if (OverrideRecord.HasProducedResourceTypeOverride)
+        {
+            ModeDef.Effect.HasProducedResourceTypeOverride = true;
+            ModeDef.Effect.ProducedResourceTypeOverride =
+                OverrideRecord.ProducedResourceTypeOverride;
+        }
+
+        if (OverrideRecord.HasProductionInputTypesOverride)
+        {
+            ModeDef.Effect.HasProductionInputTypesOverride = true;
+            ModeDef.Effect.ProductionInputTypesOverride =
+                OverrideRecord.ProductionInputTypesOverride;
+            ModeDef.Effect.ProductionInputAmountsOverride =
+                OverrideRecord.ProductionInputAmountsOverride;
+        }
+
+        if (OverrideRecord.HasVisitConsumptionTypeOverride)
+        {
+            ModeDef.Effect.HasVisitConsumptionTypeOverride = true;
+            ModeDef.Effect.VisitConsumptionTypeOverride =
+                OverrideRecord.VisitConsumptionTypeOverride;
+        }
+
+        if (OverrideRecord.HasVisitConsumptionAcceptedTypesOverride)
+        {
+            ModeDef.Effect.HasVisitConsumptionAcceptedTypesOverride = true;
+            ModeDef.Effect.VisitConsumptionAcceptedTypesOverride =
+                OverrideRecord.VisitConsumptionAcceptedTypesOverride;
+        }
+
         if (OverrideRecord.HasProductionMultiplier)
         {
             ModeDef.Effect.ProductionMultiplier =
@@ -3625,6 +3888,49 @@ namespace
         {
             ModeDef.Effect.GenericServiceQualityDelta =
                 OverrideRecord.GenericServiceQualityDelta;
+        }
+    }
+
+    void ApplyDefaultOperationModeResourceBaseline(
+        FBuildingCatalogEntry& Entry)
+    {
+        if (Entry.OperationModeDefs.empty())
+            return;
+
+        const FBuildingOperationModeEffect& DefaultEffect =
+            Entry.OperationModeDefs.front().Effect;
+
+        if (DefaultEffect.HasProducedResourceTypeOverride &&
+            DefaultEffect.ProducedResourceTypeOverride !=
+                EResourceType::None)
+        {
+            Entry.ProducedResourceType =
+                DefaultEffect.ProducedResourceTypeOverride;
+            Entry.ProducedResourceLabel.clear();
+        }
+
+        if (DefaultEffect.HasProductionInputTypesOverride)
+        {
+            // Default mode may keep the same output while changing the active
+            // recipe. Mirror that at catalog baseline so new buildings start
+            // with the correct exact inputs before any runtime mode switch.
+            Entry.ProductionInputTypes =
+                DefaultEffect.ProductionInputTypesOverride;
+            Entry.ProductionInputAmounts =
+                DefaultEffect.ProductionInputAmountsOverride;
+            Entry.ProductionInputLabels = {};
+        }
+
+        if (DefaultEffect.HasVisitConsumptionTypeOverride)
+        {
+            Entry.VisitConsumptionResourceType =
+                DefaultEffect.VisitConsumptionTypeOverride;
+        }
+
+        if (DefaultEffect.HasVisitConsumptionAcceptedTypesOverride)
+        {
+            Entry.VisitConsumptionAcceptedResourceTypes =
+                DefaultEffect.VisitConsumptionAcceptedTypesOverride;
         }
     }
 
@@ -4014,14 +4320,11 @@ namespace
             }
             Entry.ProducedResourceType = EResourceType::None;
             Entry.ProducedResourceLabel.clear();
-            Entry.ProductionInputTypes =
-            {
-                EResourceType::None,
-                EResourceType::None
-            };
+            Entry.ProductionInputTypes = {};
             Entry.ProductionInputAmounts = {};
             Entry.ProductionInputLabels = {};
             Entry.VisitConsumptionResourceType = EResourceType::None;
+            Entry.VisitConsumptionAcceptedResourceTypes.clear();
             const FProductionRecipeRecord* const ProductionRecipe =
                 FindProductionRecipeRecord(
                     ProductionRecipeRecords,
@@ -4041,6 +4344,8 @@ namespace
                     ProductionRecipe->ProductionInputLabels;
                 Entry.VisitConsumptionResourceType =
                     ProductionRecipe->VisitConsumptionResourceType;
+                Entry.VisitConsumptionAcceptedResourceTypes =
+                    ProductionRecipe->VisitConsumptionAcceptedResourceTypes;
             }
 
             if (Entry.UsesRecipeTable &&
@@ -4053,7 +4358,6 @@ namespace
                 OutputDebugStringW(Warning.c_str());
             }
 
-            FinalizeCatalogEntryAfterRecipeLoad(Entry);
             Entry.OperationModeDefs =
                 ExtractOperationModeDefsFromEntry(Entry);
             Entry.RuntimeUpgradeDefs =
@@ -4077,6 +4381,9 @@ namespace
                     *OverrideRecord,
                     Entry.OperationModeDefs);
             }
+
+            ApplyDefaultOperationModeResourceBaseline(Entry);
+            FinalizeCatalogEntryAfterRecipeLoad(Entry);
 
             const std::vector<const FCatalogRuntimeUpgradeOverrideRecord*>
                 RuntimeUpgradeOverrides =

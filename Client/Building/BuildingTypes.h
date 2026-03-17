@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <string>
 #include <vector>
 
 // 건물 카탈로그 카테고리 번호.
@@ -101,6 +102,7 @@ struct FEraProgressState
     bool HasNextEra = true;
     EBuildingEra NextEra = EBuildingEra::WorldWars;
     FEraUnlockRequirement NextRequirement;
+    bool NextEraReady = false;
     int Population = 0;
     int TotalBuildings = 0;
     int FoodProviders = 0;
@@ -108,6 +110,37 @@ struct FEraProgressState
     int PublicServiceBuildings = 0;
     int EntertainmentBuildings = 0;
     int PowerMW = 0;
+};
+
+enum class EEraTransitionStage
+{
+    None = 0,
+    Available,
+    PendingChoice,
+    InCeremony,
+    Cooldown
+};
+
+enum class EEraTransitionChoice
+{
+    None = 0,
+    Confirm
+};
+
+struct FEraTransitionState
+{
+    EEraTransitionStage Stage = EEraTransitionStage::None;
+    EEraTransitionChoice Choice = EEraTransitionChoice::None;
+    EBuildingEra CurrentEra = EBuildingEra::Colonial;
+    EBuildingEra TargetEra = EBuildingEra::WorldWars;
+    bool CanStart = false;
+    int AvailableSinceYear = 0;
+    int AvailableSinceMonth = 0;
+    int AvailableSinceDay = 0;
+    int NotificationDays = 0;
+    std::wstring Title;
+    std::wstring Summary;
+    std::wstring ConfirmText;
 };
 
 enum class EBuildingHousingClass
@@ -172,13 +205,17 @@ inline const wchar_t* GetTouristPreferenceDisplayName(
 }
 
 constexpr unsigned int GBuildingWealthMaskNone = 0u;
-constexpr unsigned int GBuildingWealthMaskPoor = 1u << 0;
-constexpr unsigned int GBuildingWealthMaskWellOff = 1u << 1;
-constexpr unsigned int GBuildingWealthMaskRich = 1u << 2;
+constexpr unsigned int GBuildingWealthMaskBroke = 1u << 0;
+constexpr unsigned int GBuildingWealthMaskPoor = 1u << 1;
+constexpr unsigned int GBuildingWealthMaskWellOff = 1u << 2;
+constexpr unsigned int GBuildingWealthMaskRich = 1u << 3;
+constexpr unsigned int GBuildingWealthMaskFilthyRich = 1u << 4;
 constexpr unsigned int GBuildingWealthMaskAll =
+    GBuildingWealthMaskBroke |
     GBuildingWealthMaskPoor |
     GBuildingWealthMaskWellOff |
-    GBuildingWealthMaskRich;
+    GBuildingWealthMaskRich |
+    GBuildingWealthMaskFilthyRich;
 
 enum class EResourceType
 {
@@ -191,8 +228,31 @@ enum class EResourceType
     Ore,
     Oil,
     FarmedFish,
+    // Project-local family placeholder for Hydroponic Plantation only.
+    // This is not a concrete Tropico 6 trade good, and it must not be used
+    // as a proxy for Vertical Farm outputs.
     HydroponicProduce,
     FactoryLivestock,
+    FeedCrops,
+    Banana,
+    Cocoa,
+    Coffee,
+    Corn,
+    Cotton,
+    Pineapple,
+    Rubber,
+    Sugar,
+    Tobacco,
+    Meat,
+    Milk,
+    Hides,
+    Wool,
+    Coal,
+    Iron,
+    Gold,
+    Nickel,
+    Aluminum,
+    Uranium,
     Planks,
     Rum,
     Leather,
@@ -212,6 +272,9 @@ enum class EResourceType
     Apparel,
     Pharmaceuticals,
     Juice,
+    SpecialChocolate,
+    Goldnuts,
+    BS,
     Count
 };
 
@@ -233,7 +296,7 @@ enum class EBuildingServiceType
     Count
 };
 
-constexpr int GProductionInputSlotCount = 2;
+constexpr int GProductionInputSlotCount = 4;
 constexpr int GBuildingServiceTypeCount =
     static_cast<int>(EBuildingServiceType::Count);
 
@@ -264,6 +327,46 @@ inline const wchar_t* GetResourceTypeDisplayName(EResourceType Type)
     case EResourceType::FactoryLivestock:
         return UIStrings::Get(
             L"building.resource_type.factory_livestock").c_str();
+    case EResourceType::FeedCrops:
+        return UIStrings::Get(L"building.resource_type.feed_crops").c_str();
+    case EResourceType::Banana:
+        return UIStrings::Get(L"building.resource_type.banana").c_str();
+    case EResourceType::Cocoa:
+        return UIStrings::Get(L"building.resource_type.cocoa").c_str();
+    case EResourceType::Coffee:
+        return UIStrings::Get(L"building.resource_type.coffee").c_str();
+    case EResourceType::Corn:
+        return UIStrings::Get(L"building.resource_type.corn").c_str();
+    case EResourceType::Cotton:
+        return UIStrings::Get(L"building.resource_type.cotton").c_str();
+    case EResourceType::Pineapple:
+        return UIStrings::Get(L"building.resource_type.pineapple").c_str();
+    case EResourceType::Rubber:
+        return UIStrings::Get(L"building.resource_type.rubber").c_str();
+    case EResourceType::Sugar:
+        return UIStrings::Get(L"building.resource_type.sugar").c_str();
+    case EResourceType::Tobacco:
+        return UIStrings::Get(L"building.resource_type.tobacco").c_str();
+    case EResourceType::Meat:
+        return UIStrings::Get(L"building.resource_type.meat").c_str();
+    case EResourceType::Milk:
+        return UIStrings::Get(L"building.resource_type.milk").c_str();
+    case EResourceType::Hides:
+        return UIStrings::Get(L"building.resource_type.hides").c_str();
+    case EResourceType::Wool:
+        return UIStrings::Get(L"building.resource_type.wool").c_str();
+    case EResourceType::Coal:
+        return UIStrings::Get(L"building.resource_type.coal").c_str();
+    case EResourceType::Iron:
+        return UIStrings::Get(L"building.resource_type.iron").c_str();
+    case EResourceType::Gold:
+        return UIStrings::Get(L"building.resource_type.gold").c_str();
+    case EResourceType::Nickel:
+        return UIStrings::Get(L"building.resource_type.nickel").c_str();
+    case EResourceType::Aluminum:
+        return UIStrings::Get(L"building.resource_type.aluminum").c_str();
+    case EResourceType::Uranium:
+        return UIStrings::Get(L"building.resource_type.uranium").c_str();
     case EResourceType::Planks:
         return UIStrings::Get(L"building.resource_type.planks").c_str();
     case EResourceType::Rum:
@@ -304,6 +407,13 @@ inline const wchar_t* GetResourceTypeDisplayName(EResourceType Type)
             L"building.resource_type.pharmaceuticals").c_str();
     case EResourceType::Juice:
         return UIStrings::Get(L"building.resource_type.juice").c_str();
+    case EResourceType::SpecialChocolate:
+        return UIStrings::Get(
+            L"building.resource_type.special_chocolate").c_str();
+    case EResourceType::Goldnuts:
+        return UIStrings::Get(L"building.resource_type.goldnuts").c_str();
+    case EResourceType::BS:
+        return UIStrings::Get(L"building.resource_type.bs").c_str();
     default:
         return UIStrings::Get(L"building.resource_type.none").c_str();
     }
@@ -320,13 +430,34 @@ inline EResourceMarketClass GetResourceMarketClass(EResourceType Type)
     case EResourceType::FarmedFish:
     case EResourceType::HydroponicProduce:
     case EResourceType::FactoryLivestock:
+    case EResourceType::FeedCrops:
+    case EResourceType::Banana:
+    case EResourceType::Corn:
+    case EResourceType::Pineapple:
+    case EResourceType::Meat:
+    case EResourceType::Milk:
     case EResourceType::CannedGoods:
     case EResourceType::Cheese:
     case EResourceType::Juice:
+    case EResourceType::BS:
         return EResourceMarketClass::Food;
     case EResourceType::Logs:
     case EResourceType::Ore:
     case EResourceType::Oil:
+    case EResourceType::Cocoa:
+    case EResourceType::Coffee:
+    case EResourceType::Cotton:
+    case EResourceType::Rubber:
+    case EResourceType::Sugar:
+    case EResourceType::Tobacco:
+    case EResourceType::Hides:
+    case EResourceType::Wool:
+    case EResourceType::Coal:
+    case EResourceType::Iron:
+    case EResourceType::Gold:
+    case EResourceType::Nickel:
+    case EResourceType::Aluminum:
+    case EResourceType::Uranium:
         return EResourceMarketClass::RawGoods;
     case EResourceType::Planks:
     case EResourceType::Rum:
@@ -339,8 +470,10 @@ inline EResourceMarketClass GetResourceMarketClass(EResourceType Type)
     case EResourceType::Boats:
     case EResourceType::Weapons:
     case EResourceType::Chocolate:
+    case EResourceType::SpecialChocolate:
     case EResourceType::Furniture:
     case EResourceType::Jewelry:
+    case EResourceType::Goldnuts:
     case EResourceType::Cars:
     case EResourceType::Electronics:
     case EResourceType::Apparel:
@@ -348,6 +481,184 @@ inline EResourceMarketClass GetResourceMarketClass(EResourceType Type)
         return EResourceMarketClass::LuxuryGoods;
     default:
         return EResourceMarketClass::None;
+    }
+}
+
+inline bool IsCropOutputResourceType(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::Banana:
+    case EResourceType::Cocoa:
+    case EResourceType::Coffee:
+    case EResourceType::Corn:
+    case EResourceType::Cotton:
+    case EResourceType::Pineapple:
+    case EResourceType::Rubber:
+    case EResourceType::Sugar:
+    case EResourceType::Tobacco:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool IsAnimalOutputResourceType(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::Meat:
+    case EResourceType::Milk:
+    case EResourceType::Hides:
+    case EResourceType::Wool:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool IsMineOutputResourceType(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::Coal:
+    case EResourceType::Iron:
+    case EResourceType::Gold:
+    case EResourceType::Nickel:
+    case EResourceType::Aluminum:
+    case EResourceType::Uranium:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool IsHydroponicPlantationPlaceholderResourceType(EResourceType Type)
+{
+    return Type == EResourceType::HydroponicProduce;
+}
+
+template <typename TVisitor>
+inline void ForEachCropOutputResourceType(
+    const TVisitor& Visitor)
+{
+    Visitor(EResourceType::Banana);
+    Visitor(EResourceType::Cocoa);
+    Visitor(EResourceType::Coffee);
+    Visitor(EResourceType::Corn);
+    Visitor(EResourceType::Cotton);
+    Visitor(EResourceType::Pineapple);
+    Visitor(EResourceType::Rubber);
+    Visitor(EResourceType::Sugar);
+    Visitor(EResourceType::Tobacco);
+}
+
+template <typename TVisitor>
+inline void ForEachAnimalOutputResourceType(
+    const TVisitor& Visitor)
+{
+    Visitor(EResourceType::Meat);
+    Visitor(EResourceType::Milk);
+    Visitor(EResourceType::Hides);
+    Visitor(EResourceType::Wool);
+}
+
+template <typename TVisitor>
+inline void ForEachMineOutputResourceType(
+    const TVisitor& Visitor)
+{
+    Visitor(EResourceType::Coal);
+    Visitor(EResourceType::Iron);
+    Visitor(EResourceType::Gold);
+    Visitor(EResourceType::Nickel);
+    Visitor(EResourceType::Aluminum);
+    Visitor(EResourceType::Uranium);
+}
+
+// IMPORTANT:
+// Compatibility rules are intentionally split by purpose.
+// Do not merge industrial input, food visit, feed, policy, and
+// supply-chain family logic back into a single generic helper.
+
+// Industrial input families are only for recipe/chain interpretation.
+// Runtime stock, transport, import, and export should stay exact-type based.
+template <typename TVisitor>
+inline void ForEachIndustrialInputCompatibleResourceType(
+    EResourceType DemandType,
+    const TVisitor& Visitor)
+{
+    if (DemandType == EResourceType::None ||
+        DemandType == EResourceType::Count)
+    {
+        return;
+    }
+
+    switch (DemandType)
+    {
+    case EResourceType::Crops:
+    case EResourceType::HydroponicProduce:
+        // HydroponicProduce is a Hydroponic Plantation family alias only.
+        // Vertical Farm should enter the economy through exact crops / BS,
+        // never through this placeholder type.
+        ForEachCropOutputResourceType(Visitor);
+        return;
+    case EResourceType::AnimalProducts:
+    case EResourceType::FactoryLivestock:
+        ForEachAnimalOutputResourceType(Visitor);
+        return;
+    case EResourceType::Ore:
+        ForEachMineOutputResourceType(Visitor);
+        return;
+    default:
+        Visitor(DemandType);
+        return;
+    }
+}
+
+inline bool IsFeedInputDemandResourceType(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::FeedCrops:
+    case EResourceType::Corn:
+    case EResourceType::Sugar:
+    case EResourceType::Fish:
+    case EResourceType::FarmedFish:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Feed compatibility is a separate domain from generic crop compatibility.
+// FeedCrops is a local recipe family that expands only to its accepted exact
+// feed resources.
+template <typename TVisitor>
+inline void ForEachFeedCompatibleResourceType(
+    EResourceType DemandType,
+    const TVisitor& Visitor)
+{
+    if (DemandType == EResourceType::None ||
+        DemandType == EResourceType::Count)
+    {
+        return;
+    }
+
+    switch (DemandType)
+    {
+    case EResourceType::FeedCrops:
+        Visitor(EResourceType::Corn);
+        Visitor(EResourceType::Sugar);
+        return;
+    case EResourceType::Fish:
+    case EResourceType::FarmedFish:
+    case EResourceType::Corn:
+    case EResourceType::Sugar:
+        Visitor(DemandType);
+        return;
+    default:
+        Visitor(DemandType);
+        return;
     }
 }
 
@@ -374,10 +685,234 @@ inline bool IsFoodResourceType(EResourceType Type)
     return GetResourceMarketClass(Type) == EResourceMarketClass::Food;
 }
 
-inline bool IsExportableResourceType(EResourceType Type)
+inline bool IsSummaryResourceType(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::Crops:
+    case EResourceType::AnimalProducts:
+    case EResourceType::Ore:
+    case EResourceType::HydroponicProduce:
+    case EResourceType::FactoryLivestock:
+    case EResourceType::FeedCrops:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool IsConcreteEconomicResourceType(EResourceType Type)
 {
     return Type != EResourceType::None &&
-        Type != EResourceType::Count;
+        Type != EResourceType::Count &&
+        !IsSummaryResourceType(Type);
+}
+
+// Phase-2 special goods. Keep enum ids reserved so saves/data remain stable,
+// but do not surface these in the immediate vanilla-core scope.
+inline bool IsPhaseTwoSpecialResourceType(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::SpecialChocolate:
+    case EResourceType::Goldnuts:
+    case EResourceType::BS:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Immediate project scope is vanilla core production + source-backed major
+// workmode switches. Future/DLC special goods and the Vertical Farm /
+// Synthetic Food Lab economy stay out of policy/trade UI until their full
+// production loops are source-backed.
+inline bool IsImmediateProductionScopeResourceType(EResourceType Type)
+{
+    return IsConcreteEconomicResourceType(Type) &&
+        !IsPhaseTwoSpecialResourceType(Type);
+}
+
+inline bool IsEdibleResourceType(EResourceType Type)
+{
+    switch (Type)
+    {
+    case EResourceType::Coconuts:
+    case EResourceType::Fish:
+    case EResourceType::FarmedFish:
+    case EResourceType::Banana:
+    case EResourceType::Corn:
+    case EResourceType::Pineapple:
+    case EResourceType::Meat:
+    case EResourceType::Milk:
+    case EResourceType::Cheese:
+    case EResourceType::CannedGoods:
+    case EResourceType::Juice:
+    case EResourceType::BS:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool ShouldVisitConsumptionUseSelfProducedFoodOnly(
+    const std::string& BuildingId)
+{
+    return BuildingId == "build_2_4" ||
+        BuildingId == "build_2_6" ||
+        BuildingId == "build_2_11" ||
+        BuildingId == "build_2_12";
+}
+
+template <typename TVisitor>
+inline void ForEachFoodVisitCompatibleResourceType(
+    const std::string& BuildingId,
+    EResourceType ProducedType,
+    EResourceType VisitConsumptionType,
+    const TVisitor& Visitor)
+{
+    if (VisitConsumptionType == EResourceType::None ||
+        VisitConsumptionType == EResourceType::Count)
+    {
+        return;
+    }
+
+    if (!IsSummaryResourceType(VisitConsumptionType))
+    {
+        Visitor(VisitConsumptionType);
+        return;
+    }
+
+    if (ShouldVisitConsumptionUseSelfProducedFoodOnly(BuildingId))
+    {
+        if (IsEdibleResourceType(ProducedType))
+            Visitor(ProducedType);
+
+        return;
+    }
+
+    (void)BuildingId;
+}
+
+// Policy families are presentation/selection aliases only.
+inline EResourceType GetPolicyFamilyResourceType(EResourceType Type)
+{
+    if (IsHydroponicPlantationPlaceholderResourceType(Type) ||
+        IsCropOutputResourceType(Type))
+    {
+        return EResourceType::Crops;
+    }
+
+    if (Type == EResourceType::FactoryLivestock ||
+        IsAnimalOutputResourceType(Type))
+    {
+        return EResourceType::AnimalProducts;
+    }
+
+    if (IsMineOutputResourceType(Type))
+        return EResourceType::Ore;
+
+    return Type;
+}
+
+inline EResourceMarketClass GetPolicyFamilyMarketClass(EResourceType Type)
+{
+    return GetResourceMarketClass(GetPolicyFamilyResourceType(Type));
+}
+
+// Supply-chain families are also presentation aliases only.
+inline EResourceType GetSupplyChainFamilyResourceType(EResourceType Type)
+{
+    if (IsHydroponicPlantationPlaceholderResourceType(Type) ||
+        IsCropOutputResourceType(Type))
+    {
+        return EResourceType::Crops;
+    }
+
+    if (Type == EResourceType::FactoryLivestock ||
+        IsAnimalOutputResourceType(Type))
+    {
+        return EResourceType::AnimalProducts;
+    }
+
+    if (IsMineOutputResourceType(Type))
+        return EResourceType::Ore;
+
+    return Type;
+}
+
+template <typename TVisitor>
+inline void ForEachSupplyChainDemandKeyResourceType(
+    EResourceType Type,
+    const TVisitor& Visitor)
+{
+    if (Type == EResourceType::None ||
+        Type == EResourceType::Count)
+    {
+        return;
+    }
+
+    Visitor(Type);
+
+    const EResourceType FamilyType =
+        GetSupplyChainFamilyResourceType(Type);
+    if (FamilyType != Type)
+        Visitor(FamilyType);
+}
+
+inline bool IsExportableResourceType(EResourceType Type)
+{
+    return IsConcreteEconomicResourceType(Type);
+}
+
+inline float ResolveBuildingBaseProductionUnitsPerSecond(
+    const std::string& BuildingId,
+    EBuildingCategory Category,
+    EResourceType ProducedType)
+{
+    if (ProducedType == EResourceType::None ||
+        ProducedType == EResourceType::Count)
+    {
+        return 0.f;
+    }
+
+    // Stateful primary producers should keep a stable family-level base rate
+    // even when their active output changes between exact resource types.
+    if (BuildingId == "build_2_4" ||
+        BuildingId == "build_2_11" ||
+        BuildingId == "build_2_6" ||
+        BuildingId == "build_2_12")
+    {
+        return 40.f;
+    }
+
+    if (BuildingId == "build_2_7" ||
+        BuildingId == "build_3_1")
+    {
+        return 10.f;
+    }
+
+    const bool PrimaryAgricultureOutput =
+        Category == EBuildingCategory::FoodResource &&
+        (IsCropOutputResourceType(ProducedType) ||
+            IsAnimalOutputResourceType(ProducedType));
+
+    if (PrimaryAgricultureOutput)
+        return 40.f;
+
+    switch (GetResourceMarketClass(ProducedType))
+    {
+    case EResourceMarketClass::Food:
+        return Category == EBuildingCategory::FoodResource ? 40.f : 8.f;
+    case EResourceMarketClass::RawGoods:
+        return 10.f;
+    case EResourceMarketClass::ManufacturedGoods:
+        return 6.f;
+    case EResourceMarketClass::LuxuryGoods:
+        return 4.f;
+    default:
+        return 0.f;
+    }
 }
 
 struct FResourceInventory

@@ -39,6 +39,10 @@ public:
     void Reset();
     void ApplyDailyEffects(const FDailyContext& Context);
     void Tick(const FTickContext& Context);
+    void TriggerForcedCrisis(
+        EWorldCrisisType Type,
+        const FTickContext& Context);
+    void TriggerForcedRaid(const FTickContext& Context);
 
     const FWorldCrisisStatus& GetStatus() const
     {

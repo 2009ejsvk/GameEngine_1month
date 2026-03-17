@@ -1,6 +1,7 @@
 #include "MainWorldPoliticalDemandService.h"
 #include "MainWorldTradeRuntime.h"
 #include "WorldStatsSnapshot.h"
+#include "../UI/UIStrings.h"
 #include "../GameConstants.h"
 #include <algorithm>
 #include <cmath>
@@ -9,6 +10,11 @@
 namespace
 {
     namespace MWDemand = GameConstants::MainWorld::PoliticalDemand;
+    constexpr double GWarningApprovalThreshold = 35.0;
+    constexpr int GWarningPressureThreshold = 10;
+    constexpr int GUltimatumPressureThreshold = 30;
+    constexpr int GRevoltPressureThreshold = 60;
+    constexpr int GPressureDecayPerSafeDay = 2;
 
     const wchar_t* GetPoliticalFactionName(EPoliticalFaction Faction)
     {
@@ -97,6 +103,139 @@ namespace
             Result = L"직접 변화 없음";
 
         return Result;
+    }
+
+    const std::wstring& GetPoliticalDemandStageLabel(
+        EPoliticalDemandStage Stage)
+    {
+        switch (Stage)
+        {
+        case EPoliticalDemandStage::Warning:
+            return UIStrings::Get(L"escalation.stage.warning");
+        case EPoliticalDemandStage::Ultimatum:
+            return UIStrings::Get(L"escalation.stage.ultimatum");
+        case EPoliticalDemandStage::Revolt:
+            return UIStrings::Get(L"escalation.stage.revolt");
+        case EPoliticalDemandStage::Demand:
+        default:
+            return UIStrings::Get(L"escalation.stage.demand");
+        }
+    }
+
+    const wchar_t* GetFactionWarningSummaryKey(EPoliticalFaction Faction)
+    {
+        switch (Faction)
+        {
+        case EPoliticalFaction::Communists:
+            return L"escalation.warning.communists";
+        case EPoliticalFaction::Capitalists:
+            return L"escalation.warning.capitalists";
+        case EPoliticalFaction::Religious:
+            return L"escalation.warning.religious";
+        case EPoliticalFaction::Militarists:
+            return L"escalation.warning.militarists";
+        case EPoliticalFaction::Environmentalists:
+            return L"escalation.warning.environmentalists";
+        case EPoliticalFaction::Industrialists:
+            return L"escalation.warning.industrialists";
+        case EPoliticalFaction::Intellectuals:
+            return L"escalation.warning.intellectuals";
+        case EPoliticalFaction::Conservatives:
+            return L"escalation.warning.conservatives";
+        default:
+            return L"escalation.warning.generic";
+        }
+    }
+
+    void RefreshFactionDemandStagePresentation(FPoliticalDemandState& Demand)
+    {
+        if (Demand.IssuerType != EPoliticalDemandIssuerType::Faction ||
+            Demand.IssuerIndex < 0 ||
+            Demand.IssuerIndex >= GPoliticalFactionCount)
+        {
+            return;
+        }
+
+        Demand.Title =
+            std::wstring(GetPoliticalFactionName(
+                static_cast<EPoliticalFaction>(Demand.IssuerIndex))) +
+            L" " +
+            GetPoliticalDemandStageLabel(Demand.Stage);
+        Demand.RewardText = BuildPoliticalDemandEffectText(
+            Demand.RewardBudgetDelta,
+            Demand.RewardFactionApprovalDelta,
+            0,
+            0,
+            Demand.ModifierDurationDays);
+        Demand.PenaltyText = BuildPoliticalDemandEffectText(
+            Demand.PenaltyBudgetDelta,
+            Demand.PenaltyFactionApprovalDelta,
+            0,
+            0,
+            Demand.ModifierDurationDays);
+    }
+
+    bool PromoteFactionDemandStage(
+        FPoliticalDemandState& Demand,
+        EPoliticalDemandStage NewStage)
+    {
+        if (!Demand.Active ||
+            Demand.IssuerType != EPoliticalDemandIssuerType::Faction ||
+            static_cast<int>(Demand.Stage) >= static_cast<int>(NewStage))
+        {
+            return false;
+        }
+
+        const bool NeedsUltimatumPenaltyUpgrade =
+            static_cast<int>(Demand.Stage) <
+                static_cast<int>(EPoliticalDemandStage::Ultimatum) &&
+            static_cast<int>(NewStage) >=
+                static_cast<int>(EPoliticalDemandStage::Ultimatum);
+
+        Demand.Stage = NewStage;
+
+        if (NeedsUltimatumPenaltyUpgrade)
+        {
+            const int NewDurationDays = (std::max)(1, Demand.DurationDays / 2);
+            Demand.DurationDays = NewDurationDays;
+
+            if (Demand.RemainingDays > 0)
+            {
+                Demand.RemainingDays =
+                    (std::max)(
+                        1,
+                        (std::min)(
+                            NewDurationDays,
+                            (Demand.RemainingDays + 1) / 2));
+            }
+            else
+            {
+                Demand.RemainingDays = NewDurationDays;
+            }
+
+            Demand.PenaltyBudgetDelta *= 2;
+            Demand.PenaltyFactionApprovalDelta *= 2;
+        }
+
+        RefreshFactionDemandStagePresentation(Demand);
+        return true;
+    }
+
+    FPoliticalDemandNotice BuildFactionWarningNotice(
+        EPoliticalFaction Faction,
+        int PressureDays)
+    {
+        FPoliticalDemandNotice Notice;
+        Notice.ActiveDemand = false;
+        Notice.Positive = false;
+        Notice.RemainingDays = MWDemand::NoticeDurationDays;
+        Notice.Title = UIStrings::Format(
+            L"escalation.warning.title_template",
+            { std::wstring(GetPoliticalFactionName(Faction)) });
+        Notice.Summary = UIStrings::Format(
+            GetFactionWarningSummaryKey(Faction),
+            { std::to_wstring((std::max)(0, PressureDays)) });
+        return Notice;
     }
 
     int CountActiveFactionDemands(
@@ -234,7 +373,10 @@ namespace
         Demand.RemainingDays = Demand.DurationDays;
         Demand.ModifierDurationDays = MWDemand::FactionModifierDurationDays;
         Demand.PenaltyBudgetDelta = 0;
-        Demand.Title = std::wstring(GetPoliticalFactionName(Faction)) + L" 요구";
+        Demand.Title =
+            std::wstring(GetPoliticalFactionName(Faction)) +
+            L" " +
+            GetPoliticalDemandStageLabel(EPoliticalDemandStage::Demand);
         OutPriority = 0.0;
 
         switch (Faction)
@@ -487,12 +629,14 @@ namespace
             0,
             0,
             Demand.ModifierDurationDays);
+        RefreshFactionDemandStagePresentation(Demand);
         OutDemand = std::move(Demand);
         return OutPriority > 0.0;
     }
 
     bool TryBuildForeignDemand(
         int ForeignPowerIndex,
+        EBuildingEra CurrentEra,
         const WorldStats::FWorldStatsSnapshot& Snapshot,
         const std::array<
             TradeDiplomacyRuntime::FForeignPowerWorldState,
@@ -503,6 +647,13 @@ namespace
     {
         if (ForeignPowerIndex < 0 ||
             ForeignPowerIndex >= TradeDiplomacyRuntime::GForeignPowerCount)
+        {
+            return false;
+        }
+
+        if (!TradeDiplomacyRuntime::IsForeignPowerActiveForEra(
+                ForeignPowerIndex,
+                CurrentEra))
         {
             return false;
         }
@@ -518,7 +669,9 @@ namespace
         Demand.DurationDays = MWDemand::ForeignDurationDays;
         Demand.RemainingDays = Demand.DurationDays;
         Demand.Title =
-            std::wstring(MainWorldTradeRuntime::GetForeignPowerName(ForeignPowerIndex)) +
+            std::wstring(MainWorldTradeRuntime::GetForeignPowerName(
+                ForeignPowerIndex,
+                CurrentEra)) +
             L" 요구";
         Demand.RewardBudgetDelta = GlobalTuning.RewardBudgetDelta;
         Demand.PenaltyBudgetDelta = 0;
@@ -554,7 +707,10 @@ namespace
             Demand.CurrentValue = ActiveRouteCount;
             Demand.Summary = L"무역 계약을 늘려 교역 규모를 키우라고 요구합니다.";
             Demand.ObjectiveText =
-                std::wstring(L"중국과 활성 무역로 ") +
+                std::wstring(MainWorldTradeRuntime::GetForeignPowerName(
+                    ForeignPowerIndex,
+                    CurrentEra)) +
+                L"과 활성 무역로 " +
                 std::to_wstring(Demand.TargetValue) +
                 L"개 이상";
             OutPriority +=
@@ -776,10 +932,59 @@ void CMainWorldPoliticalDemandService::Reset()
 {
     mPoliticalDemandNotice = FPoliticalDemandNotice();
     mFactionDemands = {};
+    mFactionPressureDays = {};
     mFactionDemandCooldownDays = {};
     mFactionDemandModifierDays = {};
     mForeignDemands = {};
     mForeignDemandCooldownDays = {};
+}
+
+bool CMainWorldPoliticalDemandService::InjectScenarioDemand(
+    FPoliticalDemandState Demand)
+{
+    if (Demand.IssuerType == EPoliticalDemandIssuerType::None ||
+        Demand.IssuerIndex < 0)
+    {
+        return false;
+    }
+
+    Demand.Active = true;
+
+    if (Demand.Status == EPoliticalDemandStatus::None)
+        Demand.Status = EPoliticalDemandStatus::PendingResponse;
+
+    if (Demand.DurationDays <= 0 && Demand.RemainingDays > 0)
+        Demand.DurationDays = Demand.RemainingDays;
+
+    if (Demand.RemainingDays <= 0 && Demand.DurationDays > 0)
+        Demand.RemainingDays = Demand.DurationDays;
+
+    switch (Demand.IssuerType)
+    {
+    case EPoliticalDemandIssuerType::Faction:
+        if (Demand.IssuerIndex >= GPoliticalFactionCount)
+            return false;
+
+        mFactionDemandCooldownDays[static_cast<size_t>(Demand.IssuerIndex)] = 0;
+        mFactionDemands[static_cast<size_t>(Demand.IssuerIndex)] =
+            std::move(Demand);
+        break;
+    case EPoliticalDemandIssuerType::ForeignPower:
+        if (Demand.IssuerIndex >= TradeDiplomacyRuntime::GForeignPowerCount)
+            return false;
+
+        mForeignDemandCooldownDays[static_cast<size_t>(Demand.IssuerIndex)] = 0;
+        mForeignDemands[static_cast<size_t>(Demand.IssuerIndex)] =
+            std::move(Demand);
+        break;
+    case EPoliticalDemandIssuerType::None:
+    default:
+        return false;
+    }
+
+    mPoliticalDemandNotice =
+        BuildPriorityDemandNotice(mFactionDemands, mForeignDemands);
+    return true;
 }
 
 bool CMainWorldPoliticalDemandService::RespondPoliticalDemand(
@@ -918,11 +1123,27 @@ bool CMainWorldPoliticalDemandService::RespondPoliticalDemand(
     if (!Accept)
     {
         const std::wstring DemandTitle = Demand->Title;
+        const bool WasAccepted =
+            Demand->Status == EPoliticalDemandStatus::Accepted;
+        const bool TriggerFactionRevolt =
+            Demand->IssuerType == EPoliticalDemandIssuerType::Faction &&
+            Demand->Stage == EPoliticalDemandStage::Revolt &&
+            Demand->IssuerIndex >= 0 &&
+            Demand->IssuerIndex < GPoliticalFactionCount;
+        const int RevoltFactionIndex = Demand->IssuerIndex;
+        Demand->Status = EPoliticalDemandStatus::Rejected;
         ApplyDemandOutcome(
             false,
-            Demand->Status == EPoliticalDemandStatus::Accepted ?
+            WasAccepted ?
                 L"요구 포기" :
                 L"요구 거절");
+
+        if (TriggerFactionRevolt)
+        {
+            OutRefreshRequests.TriggerFactionRevolts[
+                static_cast<size_t>(RevoltFactionIndex)] = true;
+        }
+
         OutMessage =
             DemandTitle.empty() ?
                 L"요구를 거절했습니다." :
@@ -1012,6 +1233,109 @@ CMainWorldPoliticalDemandService::FRefreshRequests
     const WorldStats::FWorldStatsSnapshot Snapshot =
         WorldStats::BuildSnapshot(Context.World);
 
+    int ActiveFactionDemandCount = CountActiveFactionDemands(mFactionDemands);
+
+    for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+    {
+        const auto& FactionSnapshot =
+            Context.PoliticalSnapshot.Factions[static_cast<size_t>(Index)];
+        int& PressureDays = mFactionPressureDays[static_cast<size_t>(Index)];
+        const int PreviousPressureDays = PressureDays;
+
+        if (FactionSnapshot.AverageApproval < GWarningApprovalThreshold)
+        {
+            ++PressureDays;
+        }
+        else
+        {
+            PressureDays =
+                (std::max)(0, PressureDays - GPressureDecayPerSafeDay);
+        }
+
+        if (mFactionDemandCooldownDays[static_cast<size_t>(Index)] > 0)
+            continue;
+
+        FPoliticalDemandState& ActiveDemand =
+            mFactionDemands[static_cast<size_t>(Index)];
+
+        if (PressureDays >= GRevoltPressureThreshold)
+        {
+            if (ActiveDemand.Active)
+            {
+                PromoteFactionDemandStage(
+                    ActiveDemand,
+                    EPoliticalDemandStage::Revolt);
+            }
+            else if (
+                ActiveFactionDemandCount < MWDemand::MaxActiveFactionDemandCount)
+            {
+                FPoliticalDemandState CandidateDemand;
+                double CandidatePriority = 0.0;
+
+                if (TryBuildFactionDemand(
+                        static_cast<EPoliticalFaction>(Index),
+                        Snapshot,
+                        Context.PoliticalSnapshot,
+                        Context.GovernmentProfile,
+                        Context.LastDailyExportIncome,
+                        CandidateDemand,
+                        CandidatePriority))
+                {
+                    PromoteFactionDemandStage(
+                        CandidateDemand,
+                        EPoliticalDemandStage::Revolt);
+                    ActiveDemand = std::move(CandidateDemand);
+                    ++ActiveFactionDemandCount;
+                }
+            }
+
+            continue;
+        }
+
+        if (PressureDays >= GUltimatumPressureThreshold)
+        {
+            if (ActiveDemand.Active)
+            {
+                PromoteFactionDemandStage(
+                    ActiveDemand,
+                    EPoliticalDemandStage::Ultimatum);
+            }
+            else if (
+                ActiveFactionDemandCount < MWDemand::MaxActiveFactionDemandCount)
+            {
+                FPoliticalDemandState CandidateDemand;
+                double CandidatePriority = 0.0;
+
+                if (TryBuildFactionDemand(
+                        static_cast<EPoliticalFaction>(Index),
+                        Snapshot,
+                        Context.PoliticalSnapshot,
+                        Context.GovernmentProfile,
+                        Context.LastDailyExportIncome,
+                        CandidateDemand,
+                        CandidatePriority))
+                {
+                    PromoteFactionDemandStage(
+                        CandidateDemand,
+                        EPoliticalDemandStage::Ultimatum);
+                    ActiveDemand = std::move(CandidateDemand);
+                    ++ActiveFactionDemandCount;
+                }
+            }
+
+            continue;
+        }
+
+        if (PreviousPressureDays < GWarningPressureThreshold &&
+            PressureDays >= GWarningPressureThreshold &&
+            !ActiveDemand.Active)
+        {
+            mPoliticalDemandNotice = BuildFactionWarningNotice(
+                static_cast<EPoliticalFaction>(Index),
+                PressureDays);
+        }
+    }
+
     const auto ApplyFactionModifier =
         [&](int FactionIndex, int Delta, int DurationDays)
         {
@@ -1079,6 +1403,14 @@ CMainWorldPoliticalDemandService::FRefreshRequests
         if (Demand.RemainingDays > 0)
             continue;
 
+        const bool WasAccepted =
+            Demand.Status == EPoliticalDemandStatus::Accepted;
+        const bool TriggerFactionRevolt =
+            Demand.Stage == EPoliticalDemandStage::Revolt &&
+            Demand.IssuerIndex >= 0 &&
+            Demand.IssuerIndex < GPoliticalFactionCount;
+        const int RevoltFactionIndex = Demand.IssuerIndex;
+        Demand.Status = EPoliticalDemandStatus::Failed;
         ApplyPoliticalDemandBudgetDelta(
             Demand.PenaltyBudgetDelta,
             Context.NationalBudget,
@@ -1095,9 +1427,16 @@ CMainWorldPoliticalDemandService::FRefreshRequests
             mPoliticalDemandNotice,
             Demand,
             false,
-            Demand.Status == EPoliticalDemandStatus::Accepted ?
+            WasAccepted ?
                 L"요구 실패" :
                 L"요구 만료");
+
+        if (TriggerFactionRevolt)
+        {
+            RefreshRequests.TriggerFactionRevolts[
+                static_cast<size_t>(RevoltFactionIndex)] = true;
+        }
+
         Demand = FPoliticalDemandState();
         RefreshRequests.RefreshPoliticalSnapshot = true;
     }
@@ -1172,7 +1511,9 @@ CMainWorldPoliticalDemandService::FRefreshRequests
         RefreshRequests.RefreshWorldMarketPrices = true;
     }
 
-    if (CountActiveFactionDemands(mFactionDemands) <
+    ActiveFactionDemandCount = CountActiveFactionDemands(mFactionDemands);
+
+    if (ActiveFactionDemandCount <
         MWDemand::MaxActiveFactionDemandCount)
     {
         bool FoundDemand = false;
@@ -1213,7 +1554,10 @@ CMainWorldPoliticalDemandService::FRefreshRequests
         }
 
         if (FoundDemand && BestIndex >= 0)
+        {
             mFactionDemands[static_cast<size_t>(BestIndex)] = std::move(BestDemand);
+            ++ActiveFactionDemandCount;
+        }
     }
 
     if (CountActiveForeignDemands(mForeignDemands) <
@@ -1239,6 +1583,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
 
             if (!TryBuildForeignDemand(
                     Index,
+                    Context.CurrentEra,
                     Snapshot,
                     Context.ForeignPowerStates,
                     Context.ActiveTradeRoutes,

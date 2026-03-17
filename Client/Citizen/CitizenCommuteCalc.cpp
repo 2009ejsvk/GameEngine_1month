@@ -7,6 +7,12 @@
 
 namespace
 {
+    bool IsAffluentCitizen(ECitizenWealthLevel WealthLevel)
+    {
+        return GetCitizenWealthRank(WealthLevel) >=
+            GetCitizenWealthRank(ECitizenWealthLevel::Rich);
+    }
+
     float Clamp01(float Value)
     {
         return (std::max)(0.f, (std::min)(1.f, Value));
@@ -201,6 +207,12 @@ namespace
 
         switch (WealthLevel)
         {
+        case ECitizenWealthLevel::FilthyRich:
+            if (Profile.Mode == ECommuteMode::Vehicle)
+                Score -= 11.f;
+            else if (Profile.Mode == ECommuteMode::Walk)
+                Score += 18.f;
+            break;
         case ECitizenWealthLevel::Rich:
             if (Profile.Mode == ECommuteMode::Vehicle)
                 Score -= 8.f;
@@ -213,6 +225,13 @@ namespace
             else if (Profile.Mode == ECommuteMode::Walk)
                 Score += 5.f;
             break;
+        case ECitizenWealthLevel::Broke:
+            if (Profile.Mode == ECommuteMode::Transit)
+                Score -= 4.f;
+            else if (Profile.Mode == ECommuteMode::Vehicle)
+                Score += 6.f;
+            break;
+        case ECitizenWealthLevel::Poor:
         default:
             if (Profile.Mode == ECommuteMode::Transit)
                 Score -= 3.f;
@@ -388,7 +407,7 @@ namespace CitizenCommuteCalc
 
         FCommuteProfile VehicleProfile;
 
-        if (IdentityProfile.WealthLevel == ECitizenWealthLevel::Rich &&
+        if (IsAffluentCitizen(IdentityProfile.WealthLevel) &&
             TryBuildVehicleCommuteProfile(
                 HomeBuilding,
                 WorkBuilding,

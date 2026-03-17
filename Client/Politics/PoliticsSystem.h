@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ConstitutionTypes.h"
 #include "PoliticalTypes.h"
 
 class CBuildingMarkerOrb;
@@ -22,12 +23,14 @@ namespace PoliticsSystem
         CWorld* World,
         const CBuildingMarkerOrb& Citizen,
         const FGovernmentProfile& GovernmentProfile,
-        const FTaxPolicyEventStatus* TaxEventStatus = nullptr);
+        const FTaxPolicyEventStatus* TaxEventStatus = nullptr,
+        const FConstitutionOptionEffect* ConstitutionEffects = nullptr);
 
     FPoliticalWorldSnapshot EvaluateWorld(
         CWorld* World,
         const FGovernmentProfile& GovernmentProfile,
-        const FTaxPolicyEventStatus* TaxEventStatus = nullptr);
+        const FTaxPolicyEventStatus* TaxEventStatus = nullptr,
+        const FConstitutionOptionEffect* ConstitutionEffects = nullptr);
 
     void InitializeElectionSchedule(
         FElectionStatus& OutStatus,

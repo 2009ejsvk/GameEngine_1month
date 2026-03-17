@@ -723,7 +723,8 @@ namespace WorldStats
                 }
                 const int WealthIndex = static_cast<int>(
                     Orb->GetIdentityProfile().WealthLevel);
-                if (WealthIndex >= 0 && WealthIndex < 3)
+                if (WealthIndex >= 0 &&
+                    WealthIndex < GCitizenWealthLevelCount)
                     ++Snapshot.CitizenWealthCount[WealthIndex];
                 const int EducationIndex = static_cast<int>(
                     Orb->GetIdentityProfile().EducationLevel);
@@ -864,7 +865,8 @@ namespace WorldStats
                 {
                     ++Snapshot.HomelessHouseholdCount;
 
-                    if (WealthIndex >= 0 && WealthIndex < 3)
+                    if (WealthIndex >= 0 &&
+                        WealthIndex < GCitizenWealthLevelCount)
                         ++Snapshot.HomelessWealthCount[WealthIndex];
 
                     continue;

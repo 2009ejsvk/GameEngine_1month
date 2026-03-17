@@ -2,6 +2,7 @@
 
 #include "../Building/BuildingTypes.h"
 #include "../UI/UIStrings.h"
+#include <algorithm>
 #include <string>
 
 // 시민 FSM 상태
@@ -50,19 +51,35 @@ inline const wchar_t* GetCitizenEducationDisplayName(
 
 enum class ECitizenWealthLevel
 {
-    Poor = 0,
+    Broke = 0,
+    Poor,
     WellOff,
-    Rich
+    Rich,
+    FilthyRich
 };
+
+constexpr int GCitizenWealthLevelCount =
+    static_cast<int>(ECitizenWealthLevel::FilthyRich) + 1;
+
+inline int GetCitizenWealthRank(ECitizenWealthLevel Level)
+{
+    const int Rank = static_cast<int>(Level);
+    return (std::max)(0, (std::min)(GCitizenWealthLevelCount - 1, Rank));
+}
 
 inline const wchar_t* GetCitizenWealthDisplayName(ECitizenWealthLevel Level)
 {
     switch (Level)
     {
+    case ECitizenWealthLevel::Broke:
+        return UIStrings::Get(L"citizen.wealth.broke").c_str();
     case ECitizenWealthLevel::WellOff:
         return UIStrings::Get(L"citizen.wealth.well_off").c_str();
     case ECitizenWealthLevel::Rich:
         return UIStrings::Get(L"citizen.wealth.rich").c_str();
+    case ECitizenWealthLevel::FilthyRich:
+        return UIStrings::Get(L"citizen.wealth.filthy_rich").c_str();
+    case ECitizenWealthLevel::Poor:
     default:
         return UIStrings::Get(L"citizen.wealth.poor").c_str();
     }

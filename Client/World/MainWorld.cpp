@@ -3,15 +3,22 @@
 #include "MainWorldInfrastructureRuntime.h"
 #include "MainWorldTradeRuntime.h"
 #include "RuntimeConfigRegistry.h"
+#include "World/WorldUIManager.h"
 #include "WorldStatsSnapshot.h"
 #include "../GameConstants.h"
+#include "../ObjectNames.h"
+#include "../Building/BuildingCatalog.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementAreaObject.h"
+#include "../Politics/ConstitutionSystem.h"
 #include "../Politics/EdictSystem.h"
 #include "../Politics/PoliticsSystem.h"
+#include "../UI/EventWidget.h"
+#include "../UI/ResultWidget.h"
 #include "../Economy/EconomySystem.h"
 #include "../Economy/ResourceTradePricing.h"
 #include "../Economy/TradeDiplomacyRuntime.h"
+#include "../StringUtils.h"
 #include <Windows.h>
 #include <algorithm>
 #include <array>
@@ -27,9 +34,51 @@ namespace
     namespace MWTradeDiplomacy = GameConstants::MainWorld::TradeDiplomacy;
 
     constexpr const wchar_t* GEraConfigId = L"MainWorld.EraUnlockRequirements";
+    constexpr int GEraTransitionNotificationDays = 6;
     std::array<
         FEraUnlockRequirement,
         static_cast<size_t>(EBuildingEra::Modern) + 1> GEraUnlockRequirements;
+
+    std::wstring FormatPercentText(double Value, int DecimalPlaces)
+    {
+        wchar_t Buffer[64] = {};
+
+        if (DecimalPlaces <= 0)
+        {
+            swprintf_s(Buffer, L"%d%%", static_cast<int>(std::lround(Value)));
+            return Buffer;
+        }
+
+        swprintf_s(Buffer, L"%.1f%%", Value);
+        return Buffer;
+    }
+
+    std::wstring BuildTenureText(
+        int StartYear,
+        int StartMonth,
+        int StartDay,
+        int CurrentYear,
+        int CurrentMonth,
+        int CurrentDay)
+    {
+        int TotalMonths =
+            (CurrentYear - StartYear) * 12 +
+            (CurrentMonth - StartMonth);
+
+        if (CurrentDay < StartDay)
+            --TotalMonths;
+
+        TotalMonths = (std::max)(0, TotalMonths);
+        const int Years = TotalMonths / 12;
+        const int Months = TotalMonths % 12;
+
+        return
+            L"재임 기간: " +
+            std::to_wstring(Years) +
+            L"년 " +
+            std::to_wstring(Months) +
+            L"개월";
+    }
 
     size_t GetEraRequirementIndex(EBuildingEra Era)
     {
@@ -207,24 +256,9 @@ namespace
             });
     }
 
-    const wchar_t* GetTradeForeignPowerName(int Index)
+    const wchar_t* GetTradeForeignPowerName(int Index, EBuildingEra Era)
     {
-        static const wchar_t* Names[TradeDiplomacyRuntime::GForeignPowerCount] =
-        {
-            L"중국",
-            L"러시아",
-            L"미국",
-            L"중동",
-            L"유럽연합"
-        };
-
-        if (Index < 0 ||
-            Index >= TradeDiplomacyRuntime::GForeignPowerCount)
-        {
-            return L"해외";
-        }
-
-        return Names[Index];
+        return MainWorldTradeRuntime::GetForeignPowerName(Index, Era);
     }
 
     std::wstring FormatTradeCurrency(long long Value)
@@ -275,6 +309,57 @@ namespace
         }
 
         return Count;
+    }
+
+    bool IsEligibleRevoltDamageTarget(
+        const std::shared_ptr<CPlacementAreaObject>& Building)
+    {
+        return Building &&
+            Building->GetAlive() &&
+            Building->GetEnable() &&
+            Building->HasPlacedArea() &&
+            !Building->IsRoad() &&
+            Building->GetDamageLevel() != EBuildingDamageLevel::Critical;
+    }
+
+    bool IsFactionRevoltPriorityBuilding(
+        const std::shared_ptr<CPlacementAreaObject>& Building,
+        EPoliticalFaction Faction)
+    {
+        if (!Building)
+            return false;
+
+        switch (Faction)
+        {
+        case EPoliticalFaction::Communists:
+            return Building->IsResidential() ||
+                Building->GetBuildingCategory() == EBuildingCategory::Housing;
+        case EPoliticalFaction::Capitalists:
+            return Building->GetBuildingCategory() == EBuildingCategory::Industry ||
+                Building->GetBuildingCategory() ==
+                    EBuildingCategory::GovernmentFinance;
+        case EPoliticalFaction::Religious:
+            return Building->IsFaithProvider();
+        case EPoliticalFaction::Militarists:
+            return Building->GetBuildingCategory() == EBuildingCategory::Military;
+        case EPoliticalFaction::Environmentalists:
+            return Building->IsHealthProvider() ||
+                Building->GetBuildingCategory() ==
+                    EBuildingCategory::PublicService ||
+                Building->GetBuildingCategory() == EBuildingCategory::FoodResource;
+        case EPoliticalFaction::Industrialists:
+            return Building->GetBuildingCategory() == EBuildingCategory::Industry ||
+                Building->CanGenerateWorkOutput();
+        case EPoliticalFaction::Intellectuals:
+            return Building->GetBuildingCategory() ==
+                EBuildingCategory::MediaEducation;
+        case EPoliticalFaction::Conservatives:
+            return Building->GetBuildingCategory() ==
+                    EBuildingCategory::GovernmentFinance ||
+                Building->IsResidential();
+        default:
+            return false;
+        }
     }
 
     int ComputeTradeRouteSignedStandardPricePerThousand(EResourceType Type, bool ImportRoute)
@@ -618,21 +703,118 @@ namespace
         return true;
     }
 
+    std::wstring BuildEraTransitionTitle(EBuildingEra TargetEra)
+    {
+        switch (TargetEra)
+        {
+        case EBuildingEra::WorldWars:
+            return L"독립 선언";
+        case EBuildingEra::ColdWar:
+            return L"전후 질서 편입";
+        case EBuildingEra::Modern:
+            return L"현대화 선언";
+        case EBuildingEra::Colonial:
+        default:
+            return L"시대 전환";
+        }
+    }
+
+    std::wstring BuildEraTransitionConfirmText(EBuildingEra TargetEra)
+    {
+        switch (TargetEra)
+        {
+        case EBuildingEra::WorldWars:
+            return L"독립 승인";
+        case EBuildingEra::ColdWar:
+            return L"냉전 진입";
+        case EBuildingEra::Modern:
+            return L"현대화 승인";
+        case EBuildingEra::Colonial:
+        default:
+            return L"전환 승인";
+        }
+    }
+
+    std::wstring BuildEraTransitionAvailableSummary(EBuildingEra TargetEra)
+    {
+        switch (TargetEra)
+        {
+        case EBuildingEra::WorldWars:
+            return
+                L"독립을 선포할 준비가 끝났습니다.\n"
+                L"승인하면 세계대전 시대 건물과 칙령이 즉시 열립니다.";
+        case EBuildingEra::ColdWar:
+            return
+                L"전후 체제로 편입할 준비가 끝났습니다.\n"
+                L"승인하면 냉전 시대 건물과 칙령이 즉시 열립니다.";
+        case EBuildingEra::Modern:
+            return
+                L"현대화 전환 준비가 끝났습니다.\n"
+                L"승인하면 현대 시대 건물과 칙령이 즉시 열립니다.";
+        case EBuildingEra::Colonial:
+        default:
+            return L"다음 시대로 전환할 수 있습니다.";
+        }
+    }
+
+    std::wstring BuildEraTransitionCompletionSummary(
+        EBuildingEra PreviousEra,
+        EBuildingEra CurrentEra)
+    {
+        return
+            std::wstring(GetBuildingEraDisplayName(PreviousEra)) +
+            L"에서 " +
+            GetBuildingEraDisplayName(CurrentEra) +
+            L"(으)로 전환되었습니다. 새 시대 건물과 칙령을 확인하세요.";
+    }
+
+    void PopulateEraTransitionAvailableState(
+        FEraTransitionState& OutState,
+        const FEraProgressState& EraProgress,
+        int Year,
+        int Month,
+        int Day)
+    {
+        const bool KeepAvailableDate =
+            OutState.Stage == EEraTransitionStage::Available &&
+            OutState.CurrentEra == EraProgress.CurrentEra &&
+            OutState.TargetEra == EraProgress.NextEra;
+
+        const int AvailableYear = KeepAvailableDate ?
+            OutState.AvailableSinceYear :
+            Year;
+        const int AvailableMonth = KeepAvailableDate ?
+            OutState.AvailableSinceMonth :
+            Month;
+        const int AvailableDay = KeepAvailableDate ?
+            OutState.AvailableSinceDay :
+            Day;
+
+        OutState = FEraTransitionState();
+        OutState.Stage = EEraTransitionStage::Available;
+        OutState.Choice = EEraTransitionChoice::Confirm;
+        OutState.CurrentEra = EraProgress.CurrentEra;
+        OutState.TargetEra = EraProgress.NextEra;
+        OutState.CanStart = true;
+        OutState.AvailableSinceYear = AvailableYear;
+        OutState.AvailableSinceMonth = AvailableMonth;
+        OutState.AvailableSinceDay = AvailableDay;
+        OutState.Title = BuildEraTransitionTitle(EraProgress.NextEra);
+        OutState.Summary =
+            BuildEraTransitionAvailableSummary(EraProgress.NextEra);
+        OutState.ConfirmText =
+            BuildEraTransitionConfirmText(EraProgress.NextEra);
+    }
+
+    bool ShouldEnableElectionsForEra(EBuildingEra Era)
+    {
+        return IsBuildingEraUnlocked(Era, EBuildingEra::WorldWars);
+    }
+
     std::wstring BuildAutoImportSelectionText(
         const TradePolicy::FImportTradePolicy& Policy)
     {
-        switch (Policy.Mode)
-        {
-        case TradePolicy::EImportPolicyMode::None:
-            return L"없음";
-        case TradePolicy::EImportPolicyMode::SingleResource:
-            if (Policy.SelectedResourceType != EResourceType::None)
-                return GetResourceTypeDisplayName(Policy.SelectedResourceType);
-            return L"없음";
-        case TradePolicy::EImportPolicyMode::AllResources:
-        default:
-            return L"전체";
-        }
+        return TradePolicy::BuildImportPolicySelectionDisplayText(Policy);
     }
 
     std::wstring BuildImportCapSelectionText(
@@ -693,6 +875,7 @@ namespace
                 static_cast<EResourceType>(ResourceIndex);
 
             if (!IsExportableResourceType(ResourceType) ||
+                !IsImmediateProductionScopeResourceType(ResourceType) ||
                 TradePolicy::IsResourceExportAllowed(Policy, ResourceType))
             {
                 continue;
@@ -736,12 +919,154 @@ namespace
         }
     }
 
+    bool TryResolveKnowledgeProducerBaseDailyGeneration(
+        const FBuildingCatalogEntry& Entry,
+        int& OutBaseDailyGeneration)
+    {
+        OutBaseDailyGeneration = 0;
+
+        if (Entry.Id == "build_6_2")
+        {
+            OutBaseDailyGeneration = 3;
+            return true;
+        }
+
+        if (Entry.Id == "build_6_3")
+        {
+            OutBaseDailyGeneration = 4;
+            return true;
+        }
+
+        if (Entry.Id == "build_6_4")
+        {
+            OutBaseDailyGeneration = 6;
+            return true;
+        }
+
+        if (Entry.Id == "build_6_11")
+        {
+            OutBaseDailyGeneration = 10;
+            return true;
+        }
+
+        return false;
+    }
+
+    int ResolveKnowledgeGenerationForBuilding(
+        const std::shared_ptr<CPlacementAreaObject>& Building)
+    {
+        if (!Building ||
+            !Building->GetAlive() ||
+            !Building->GetEnable() ||
+            !Building->HasPlacedArea())
+        {
+            return 0;
+        }
+
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(Building->GetBuildingId());
+
+        if (!Entry)
+            return 0;
+
+        int BaseDailyGeneration = 0;
+
+        if (!TryResolveKnowledgeProducerBaseDailyGeneration(
+                *Entry,
+                BaseDailyGeneration))
+        {
+            return 0;
+        }
+
+        const int WorkerCapacity = Building->GetCapacity();
+        const int CurrentWorkers = Building->GetCurrentWorkerOccupancy();
+
+        if (WorkerCapacity <= 0 || CurrentWorkers <= 0)
+            return 0;
+
+        const float WorkerRatio = (std::max)(
+            0.f,
+            (std::min)(
+                1.f,
+                static_cast<float>(CurrentWorkers) /
+                    static_cast<float>(WorkerCapacity)));
+        const float EffectiveGeneration =
+            static_cast<float>(BaseDailyGeneration) *
+            WorkerRatio *
+            (std::max)(0.f, Building->GetBudgetSatisfactionScale()) *
+            (std::max)(0.f, Building->GetPowerSupplyRatio());
+        return (std::max)(
+            0,
+            static_cast<int>(roundf(EffectiveGeneration)));
+    }
+
+    int GetBuildingDamageLevelRank(EBuildingDamageLevel Level)
+    {
+        switch (Level)
+        {
+        case EBuildingDamageLevel::Critical:
+            return 2;
+        case EBuildingDamageLevel::Damaged:
+            return 1;
+        case EBuildingDamageLevel::None:
+        default:
+            return 0;
+        }
+    }
+
+    int ResolveBuildingRepairCost(
+        const FBuildingCatalogEntry& Entry,
+        EBuildingDamageLevel Level)
+    {
+        if (Level == EBuildingDamageLevel::None)
+            return 0;
+
+        int BaseCost = 1200;
+
+        if (Entry.ConstructionCostState == EBuildingCostState::Known &&
+            Entry.ConstructionCost > 0)
+        {
+            BaseCost = Entry.ConstructionCost;
+        }
+        else if (Entry.BlueprintCostState == EBuildingCostState::Known &&
+            Entry.BlueprintCost > 0)
+        {
+            BaseCost = Entry.BlueprintCost;
+        }
+
+        switch (Level)
+        {
+        case EBuildingDamageLevel::Damaged:
+            return (std::max)(
+                250,
+                static_cast<int>(roundf(static_cast<float>(BaseCost) * 0.18f)));
+        case EBuildingDamageLevel::Critical:
+            return (std::max)(
+                600,
+                static_cast<int>(roundf(static_cast<float>(BaseCost) * 0.42f)));
+        case EBuildingDamageLevel::None:
+        default:
+            return 0;
+        }
+    }
+
 }
 
 void CMainWorld::InitializeElectionSchedule()
 {
-    mElectionService->InitializeSchedule(
-        mSimulationYear,
+    if (!ShouldEnableElectionsForEra(mPolicy.EraProgress.CurrentEra))
+        return;
+
+    const FElectionStatus& ElectionStatus = mServices.ElectionService->GetElectionStatus();
+
+    if (ElectionStatus.GameLost ||
+        ElectionStatus.NextElectionYear > 0)
+    {
+        return;
+    }
+
+    mServices.ElectionService->InitializeSchedule(
+        mSimulation.Year,
         MainWorldConfig::GInitialElectionLeadYears,
         MainWorldConfig::GElectionMonth,
         MainWorldConfig::GElectionDay);
@@ -751,67 +1076,82 @@ void CMainWorld::TickElectionPromises()
 {
     CMainWorldElectionService::FPromiseContext Context;
     Context.World = mSelf.lock();
-    Context.SimulationYear = mSimulationYear;
-    Context.SimulationMonth = mSimulationMonth;
-    Context.SimulationDay = mSimulationDay;
-    Context.LastDailyExportIncome = mLastDailyExportIncome;
-    mElectionService->TickPromises(Context);
+    Context.SimulationYear = mSimulation.Year;
+    Context.SimulationMonth = mSimulation.Month;
+    Context.SimulationDay = mSimulation.Day;
+    Context.LastDailyExportIncome = mBudget.LastDailyExportIncome;
+    mServices.ElectionService->TickPromises(Context);
 }
 
 void CMainWorld::ResolveScheduledElection()
 {
+    const FElectionStatus PreviousStatus =
+        mServices.ElectionService->GetElectionStatus();
+
     RefreshPoliticalSnapshot();
-    mElectionService->ResolveScheduledElection(
-        mPoliticalSnapshot,
-        mSimulationYear,
-        mSimulationMonth,
-        mSimulationDay,
+    mServices.ElectionService->ResolveScheduledElection(
+        mPolicy.PoliticalSnapshot,
+        mSimulation.Year,
+        mSimulation.Month,
+        mSimulation.Day,
         MainWorldConfig::GElectionIntervalYears,
         MainWorldConfig::GElectionMonth,
         MainWorldConfig::GElectionDay);
+
+    const FElectionStatus& ElectionStatus =
+        mServices.ElectionService->GetElectionStatus();
+    const bool RecordedNewElection =
+        ElectionStatus.HasRecordedElection &&
+        (!PreviousStatus.HasRecordedElection ||
+            ElectionStatus.LastElectionYear != PreviousStatus.LastElectionYear ||
+            ElectionStatus.LastElectionMonth != PreviousStatus.LastElectionMonth ||
+            ElectionStatus.LastElectionDay != PreviousStatus.LastElectionDay);
+
+    if (RecordedNewElection)
+        ShowResultWidget(ElectionStatus.IncumbentWonLastElection);
 }
 
 int CMainWorld::GetDaysUntilNextElection() const
 {
-    return mElectionService->GetDaysUntilNextElection(
-        mSimulationYear,
-        mSimulationMonth,
-        mSimulationDay);
+    return mServices.ElectionService->GetDaysUntilNextElection(
+        mSimulation.Year,
+        mSimulation.Month,
+        mSimulation.Day);
 }
 
 double CMainWorld::GetElectionWarningScore() const
 {
-    return mElectionService->GetElectionWarningScore(
-        mPoliticalSnapshot,
-        mTaxEventStatus,
-        mSimulationYear,
-        mSimulationMonth,
-        mSimulationDay);
+    return mServices.ElectionService->GetElectionWarningScore(
+        mPolicy.PoliticalSnapshot,
+        mPolicy.TaxEventStatus,
+        mSimulation.Year,
+        mSimulation.Month,
+        mSimulation.Day);
 }
 
 void CMainWorld::ApplyDailyEconomySettlement()
 {
-    const int DaysInMonth = GetDaysInMonth(mSimulationYear, mSimulationMonth);
+    const int DaysInMonth = GetDaysInMonth(mSimulation.Year, mSimulation.Month);
     const auto Result = EconomySystem::ApplyDailyWorldSettlement(
         this,
         DaysInMonth,
-        mGovernmentProfile,
-        mTaxEventStatus,
-        mGovernmentEdicts,
-        mEdictModifiers);
-    mLastDailyWageCost     = Result.BaseResult.WageCost;
-    mLastDailyUpkeepCost   = Result.BaseResult.UpkeepCost;
-    mLastDailyExportIncome = Result.BaseResult.ExportIncome;
-    mLastDailyTaxIncome    = Result.AdjustedTaxIncome;
-    mLastDailyConsumptionTaxIncome = Result.AdjustedConsumptionTaxIncome;
-    mLastDailyIncomeTaxIncome = Result.AdjustedIncomeTaxIncome;
-    mLastDailyPropertyTaxIncome = Result.AdjustedPropertyTaxIncome;
-    mLastDailyEdictCost    = Result.DailyEdictCost;
-    mLastDailyImportExpense = Result.BaseResult.ImportExpense;
-    mLastDailyTaxCollectionEfficiency =
+        mPolicy.GovernmentProfile,
+        mPolicy.TaxEventStatus,
+        mPolicy.GovernmentEdicts,
+        mPolicy.EdictModifiers);
+    mBudget.LastDailyWageCost     = Result.BaseResult.WageCost;
+    mBudget.LastDailyUpkeepCost   = Result.BaseResult.UpkeepCost;
+    mBudget.LastDailyExportIncome = Result.BaseResult.ExportIncome;
+    mBudget.LastDailyTaxIncome    = Result.AdjustedTaxIncome;
+    mBudget.LastDailyConsumptionTaxIncome = Result.AdjustedConsumptionTaxIncome;
+    mBudget.LastDailyIncomeTaxIncome = Result.AdjustedIncomeTaxIncome;
+    mBudget.LastDailyPropertyTaxIncome = Result.AdjustedPropertyTaxIncome;
+    mBudget.LastDailyEdictCost    = Result.DailyEdictCost;
+    mBudget.LastDailyImportExpense = Result.BaseResult.ImportExpense;
+    mBudget.LastDailyTaxCollectionEfficiency =
         Result.BaseResult.TaxCollectionEfficiency;
-    mLastDailyNetChange = Result.NetBudgetChange;
-    mNationalBudget += mLastDailyNetChange;
+    mBudget.LastDailyNetChange = Result.NetBudgetChange;
+    mBudget.NationalBudget += mBudget.LastDailyNetChange;
 }
 
 void CMainWorld::RecordFinishedTradeRoute(
@@ -869,6 +1209,35 @@ void CMainWorld::RecordFinishedTradeRoute(
     ++mTradeDiplomacyState.TradeRouteCompletionNotificationVersion;
 }
 
+void CMainWorld::CancelTradeRoutesForInactivePowers(EBuildingEra Era)
+{
+    if (mTradeDiplomacyState.ActiveTradeRoutes.empty())
+        return;
+
+    std::vector<FTradeRouteRuntimeState> RemainingRoutes;
+    RemainingRoutes.reserve(mTradeDiplomacyState.ActiveTradeRoutes.size());
+
+    for (size_t RouteIndex = 0;
+        RouteIndex < mTradeDiplomacyState.ActiveTradeRoutes.size();
+        ++RouteIndex)
+    {
+        const FTradeRouteRuntimeState& Route =
+            mTradeDiplomacyState.ActiveTradeRoutes[RouteIndex];
+
+        if (!TradeDiplomacyRuntime::IsForeignPowerActiveForEra(
+                Route.ForeignPowerIndex,
+                Era))
+        {
+            RecordFinishedTradeRoute(Route, ETradeRouteEndReason::Cancelled);
+            continue;
+        }
+
+        RemainingRoutes.push_back(Route);
+    }
+
+    mTradeDiplomacyState.ActiveTradeRoutes.swap(RemainingRoutes);
+}
+
 void CMainWorld::ProcessActiveTradeRoutes()
 {
     if (mTradeDiplomacyState.ActiveTradeRoutes.empty())
@@ -910,8 +1279,8 @@ void CMainWorld::ProcessActiveTradeRoutes()
             if (Route.RoutePricePerThousandUnits > 0)
             {
                 const long long MaxAffordableUnits =
-                    mNationalBudget > 0 ?
-                        (mNationalBudget * 1000LL) /
+                    mBudget.NationalBudget > 0 ?
+                        (mBudget.NationalBudget * 1000LL) /
                         static_cast<long long>(Route.RoutePricePerThousandUnits) :
                         0LL;
                 DailyTransferUnits = (std::min)(
@@ -979,9 +1348,9 @@ void CMainWorld::ProcessActiveTradeRoutes()
                 const long long ImportCost =
                     static_cast<long long>(Route.RoutePricePerThousandUnits) *
                     static_cast<long long>(ImportedUnits) / 1000LL;
-                mNationalBudget -= ImportCost;
-                mLastDailyImportExpense += ImportCost;
-                mLastDailyNetChange -= ImportCost;
+                mBudget.NationalBudget -= ImportCost;
+                mBudget.LastDailyImportExpense += ImportCost;
+                mBudget.LastDailyNetChange -= ImportCost;
                 Route.FulfilledUnits += ImportedUnits;
                 BudgetChanged = true;
             }
@@ -1031,9 +1400,9 @@ void CMainWorld::ProcessActiveTradeRoutes()
                 const long long ExportIncome =
                     static_cast<long long>(Route.RoutePricePerThousandUnits) *
                     static_cast<long long>(ExportedUnits) / 1000LL;
-                mNationalBudget += ExportIncome;
-                mLastDailyExportIncome += ExportIncome;
-                mLastDailyNetChange += ExportIncome;
+                mBudget.NationalBudget += ExportIncome;
+                mBudget.LastDailyExportIncome += ExportIncome;
+                mBudget.LastDailyNetChange += ExportIncome;
                 Route.FulfilledUnits += ExportedUnits;
                 BudgetChanged = true;
             }
@@ -1105,9 +1474,10 @@ void CMainWorld::RefreshForeignTradeDiplomacy(bool ApplyIdleDecay)
     mTradeDiplomacyState.ForeignPowerStates =
         TradeDiplomacyRuntime::BuildForeignPowerWorldStates(
             WorldStats::BuildSnapshot(World),
-            mGovernmentProfile,
-            mTaxEventStatus,
-            mGovernmentEdicts,
+            mPolicy.GovernmentProfile,
+            mPolicy.TaxEventStatus,
+            mPolicy.GovernmentEdicts,
+            mPolicy.EraProgress.CurrentEra,
             mTradeDiplomacyState.ForeignPowerStandingStates);
 }
 
@@ -1126,14 +1496,14 @@ void CMainWorld::RefreshWorldMarketPrices()
 
     ResourceTradePricing::UpdateWorldMarketPrices(
         WorldStats::BuildSnapshot(World),
-        mGovernmentProfile,
-        mGovernmentEdicts,
-        mTaxEventStatus,
-        mWorldCrisisService->GetStatus(),
+        mPolicy.GovernmentProfile,
+        mPolicy.GovernmentEdicts,
+        mPolicy.TaxEventStatus,
+        mServices.WorldCrisisService->GetStatus(),
         mTradeDiplomacyState.ForeignPowerStates,
-        mSimulationYear,
-        mSimulationMonth,
-        mSimulationDay);
+        mSimulation.Year,
+        mSimulation.Month,
+        mSimulation.Day);
 }
 
 void CMainWorld::RefreshBuildingPollutionExposure()
@@ -1146,11 +1516,211 @@ void CMainWorld::RefreshRuntimeBuildingState()
 {
     RefreshPowerGridCoverage();
     RefreshBuildingPollutionExposure();
+    RefreshBuildingRepairCosts();
+    RefreshKnowledgeGeneration();
     ReassignCitizenNeeds();
     RefreshEraProgress();
     RefreshPoliticalSnapshot();
     RefreshForeignTradeDiplomacy(false);
     RefreshWorldMarketPrices();
+}
+
+bool CMainWorld::TryUnlockResearch(
+    const std::wstring& Key,
+    int Cost)
+{
+    if (Key.empty())
+        return false;
+
+    if (::IsResearchUnlocked(mPolicy.KnowledgeState, Key))
+        return true;
+
+    if (!CanUnlockResearch(mPolicy.KnowledgeState, Key, Cost))
+        return false;
+
+    return ::TryUnlockResearch(mPolicy.KnowledgeState, Key, Cost);
+}
+
+bool CMainWorld::TrySelectConstitutionOption(
+    EConstitutionOptionId Id)
+{
+    if (!ConstitutionSystem::TrySelectConstitutionOption(
+            mPolicy.ConstitutionState,
+            Id))
+    {
+        return false;
+    }
+
+    RefreshPoliticalSnapshot();
+    return true;
+}
+
+void CMainWorld::RefreshKnowledgeGeneration()
+{
+    mPolicy.KnowledgeState.DailyGeneration = 0;
+    auto World = mSelf.lock();
+
+    if (!World)
+        return;
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return;
+
+    int TotalDailyGeneration = 0;
+
+    for (size_t Index = 0; Index < BuildingList.size(); ++Index)
+    {
+        const auto Building = BuildingList[Index].lock();
+        TotalDailyGeneration += ResolveKnowledgeGenerationForBuilding(Building);
+    }
+
+    mPolicy.KnowledgeState.DailyGeneration = (std::max)(0, TotalDailyGeneration);
+}
+
+void CMainWorld::ApplyDailyKnowledgeGain()
+{
+    if (mPolicy.KnowledgeState.DailyGeneration <= 0)
+        return;
+
+    mPolicy.KnowledgeState.Points += (std::max)(0, mPolicy.KnowledgeState.DailyGeneration);
+}
+
+void CMainWorld::RefreshBuildingRepairCosts()
+{
+    auto World = mSelf.lock();
+
+    if (!World)
+        return;
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return;
+
+    for (size_t Index = 0; Index < BuildingList.size(); ++Index)
+    {
+        auto Building = BuildingList[Index].lock();
+
+        if (!Building ||
+            !Building->GetAlive() ||
+            !Building->GetEnable())
+        {
+            continue;
+        }
+
+        const FBuildingCatalogEntry* const Entry =
+            FindBuildingCatalogEntry(Building->GetBuildingId());
+
+        Building->SetRepairCost(
+            Entry ?
+                ResolveBuildingRepairCost(*Entry, Building->GetDamageLevel()) :
+                0);
+    }
+}
+
+bool CMainWorld::DamageBuilding(
+    const std::string& BuildingName,
+    EBuildingDamageLevel Level)
+{
+    if (BuildingName.empty() || Level == EBuildingDamageLevel::None)
+        return false;
+
+    auto World = mSelf.lock();
+
+    if (!World)
+        return false;
+
+    auto Building =
+        World->FindObject<CPlacementAreaObject>(BuildingName).lock();
+
+    if (!Building ||
+        !Building->GetAlive() ||
+        !Building->GetEnable() ||
+        !Building->HasPlacedArea() ||
+        Building->IsRoad())
+    {
+        return false;
+    }
+
+    if (GetBuildingDamageLevelRank(Building->GetDamageLevel()) >=
+        GetBuildingDamageLevelRank(Level))
+    {
+        return false;
+    }
+
+    Building->SetDamageLevel(Level);
+    const FBuildingCatalogEntry* const Entry =
+        FindBuildingCatalogEntry(Building->GetBuildingId());
+    Building->SetRepairCost(
+        Entry ?
+            ResolveBuildingRepairCost(*Entry, Level) :
+            0);
+    return true;
+}
+
+bool CMainWorld::TryRepairBuilding(
+    const std::string& BuildingName,
+    std::wstring& OutMessage)
+{
+    OutMessage.clear();
+    auto World = mSelf.lock();
+
+    if (!World || BuildingName.empty())
+    {
+        OutMessage = L"건물을 찾을 수 없습니다.";
+        return false;
+    }
+
+    auto Building =
+        World->FindObject<CPlacementAreaObject>(BuildingName).lock();
+
+    if (!Building ||
+        !Building->GetAlive() ||
+        !Building->GetEnable() ||
+        !Building->HasPlacedArea())
+    {
+        OutMessage = L"건물을 찾을 수 없습니다.";
+        return false;
+    }
+
+    if (!Building->HasBuildingDamage())
+    {
+        OutMessage = L"수리가 필요한 피해가 없습니다.";
+        return false;
+    }
+
+    const FBuildingCatalogEntry* const Entry =
+        FindBuildingCatalogEntry(Building->GetBuildingId());
+    const int RepairCost =
+        Building->GetRepairCost() > 0 ?
+            Building->GetRepairCost() :
+            (Entry ?
+                ResolveBuildingRepairCost(*Entry, Building->GetDamageLevel()) :
+                0);
+
+    if (RepairCost > mBudget.NationalBudget)
+    {
+        OutMessage =
+            StringUtils::Utf8ToWide(Building->GetBuildingDisplayName()) +
+            L": 수리비 " +
+            FormatTradeCurrency(RepairCost) +
+            L" 필요";
+        return false;
+    }
+
+    mBudget.NationalBudget -= RepairCost;
+    mBudget.LastDailyNetChange -= RepairCost;
+    Building->SetDamageLevel(EBuildingDamageLevel::None);
+    Building->SetRepairCost(0);
+    RefreshRuntimeBuildingState();
+    OutMessage =
+        StringUtils::Utf8ToWide(Building->GetBuildingDisplayName()) +
+        L": 긴급 수리 완료 (-" +
+        FormatTradeCurrency(RepairCost) +
+        L")";
+    return true;
 }
 
 bool CMainWorld::TryApplyEdict(
@@ -1167,7 +1737,7 @@ bool CMainWorld::TryApplyEdict(
     }
 
     if (!IsBuildingEraUnlocked(
-            mEraProgress.CurrentEra,
+            mPolicy.EraProgress.CurrentEra,
             ConvertEdictEra(Definition->Era)))
     {
         OutMessage =
@@ -1185,11 +1755,11 @@ bool CMainWorld::TryApplyEdict(
 
     FGovernmentEdictState* TargetState = nullptr;
 
-    for (size_t i = 0; i < mGovernmentEdicts.size(); ++i)
+    for (size_t i = 0; i < mPolicy.GovernmentEdicts.size(); ++i)
     {
-        if (mGovernmentEdicts[i].Type == Type)
+        if (mPolicy.GovernmentEdicts[i].Type == Type)
         {
-            TargetState = &mGovernmentEdicts[i];
+            TargetState = &mPolicy.GovernmentEdicts[i];
             break;
         }
     }
@@ -1201,13 +1771,13 @@ bool CMainWorld::TryApplyEdict(
     }
 
     const int ActiveCitizenCount =
-        (std::max)(0, mPoliticalSnapshot.ActiveCitizenCount);
+        (std::max)(0, mPolicy.PoliticalSnapshot.ActiveCitizenCount);
     const ETaxPolicyEventType RequiredTaxEvent =
         EconomySystem::GetRequiredTaxPolicyEventForEdict(Type);
 
     if (RequiredTaxEvent != ETaxPolicyEventType::None)
     {
-        if (!mTaxEventStatus.Active || mTaxEventStatus.Type != RequiredTaxEvent)
+        if (!mPolicy.TaxEventStatus.Active || mPolicy.TaxEventStatus.Type != RequiredTaxEvent)
         {
             OutMessage =
                 Definition->DisplayName +
@@ -1224,7 +1794,7 @@ bool CMainWorld::TryApplyEdict(
         TargetState->Active = false;
         TargetState->RemainingDays = 0;
         PoliticsSystem::SyncGovernmentActionFromEdict(
-            mGovernmentProfile,
+            mPolicy.GovernmentProfile,
             Type,
             false);
         RefreshEdictModifiers();
@@ -1252,13 +1822,13 @@ bool CMainWorld::TryApplyEdict(
             *Definition,
             ActiveCitizenCount);
 
-    if (ActivationCost > mNationalBudget)
+    if (ActivationCost > mBudget.NationalBudget)
     {
         OutMessage = L"예산이 부족합니다.";
         return false;
     }
 
-    mNationalBudget -= ActivationCost;
+    mBudget.NationalBudget -= ActivationCost;
     TargetState->Active = true;
 
     if (Definition->Mode == EGovernmentEdictMode::Active)
@@ -1279,10 +1849,10 @@ bool CMainWorld::TryApplyEdict(
     case EGovernmentEdictType::LaborTaxRelief:
     {
         const int RateDelta = EconomySystem::ApplyTaxPolicyRateDelta(
-            mGovernmentProfile.TaxPolicy,
+            mPolicy.GovernmentProfile.TaxPolicy,
             ETaxPolicyType::Income,
             -4);
-        EconomySystem::ResolveTaxPolicyEvent(mTaxEventStatus, true);
+        EconomySystem::ResolveTaxPolicyEvent(mPolicy.TaxEventStatus, true);
         ResponseMessage =
             L"소득세 " +
             std::to_wstring((std::max)(0, -RateDelta)) +
@@ -1292,10 +1862,10 @@ bool CMainWorld::TryApplyEdict(
     case EGovernmentEdictType::PropertyTaxRelief:
     {
         const int RateDelta = EconomySystem::ApplyTaxPolicyRateDelta(
-            mGovernmentProfile.TaxPolicy,
+            mPolicy.GovernmentProfile.TaxPolicy,
             ETaxPolicyType::Property,
             -10);
-        EconomySystem::ResolveTaxPolicyEvent(mTaxEventStatus, true);
+        EconomySystem::ResolveTaxPolicyEvent(mPolicy.TaxEventStatus, true);
         ResponseMessage =
             L"재산세 " +
             std::to_wstring((std::max)(0, -RateDelta)) +
@@ -1305,9 +1875,9 @@ bool CMainWorld::TryApplyEdict(
     case EGovernmentEdictType::EmergencyAusterity:
     {
         const long long EmergencyFunds = 12000;
-        mNationalBudget += EmergencyFunds;
-        mLastDailyNetChange += EmergencyFunds;
-        EconomySystem::ResolveTaxPolicyEvent(mTaxEventStatus, true);
+        mBudget.NationalBudget += EmergencyFunds;
+        mBudget.LastDailyNetChange += EmergencyFunds;
+        EconomySystem::ResolveTaxPolicyEvent(mPolicy.TaxEventStatus, true);
         ResponseMessage = L"긴급 자금 $12,000 투입";
         break;
     }
@@ -1316,7 +1886,7 @@ bool CMainWorld::TryApplyEdict(
     }
 
     PoliticsSystem::SyncGovernmentActionFromEdict(
-        mGovernmentProfile,
+        mPolicy.GovernmentProfile,
         Type,
         true);
     RefreshEdictModifiers();
@@ -1335,13 +1905,53 @@ bool CMainWorld::TryApplyEdict(
     return true;
 }
 
+bool CMainWorld::TryExecuteEraTransition(EEraTransitionChoice Choice)
+{
+    if (Choice != EEraTransitionChoice::Confirm ||
+        mPolicy.EraTransition.Stage != EEraTransitionStage::Available ||
+        !mPolicy.EraTransition.CanStart)
+    {
+        return false;
+    }
+
+    const EBuildingEra PreviousEra = mPolicy.EraProgress.CurrentEra;
+    const EBuildingEra TargetEra = mPolicy.EraTransition.TargetEra;
+
+    mPolicy.EraProgress.CurrentEra = TargetEra;
+    CancelTradeRoutesForInactivePowers(TargetEra);
+    RefreshEraProgress();
+    InitializeElectionSchedule();
+
+    mPolicy.EraTransition = FEraTransitionState();
+    mPolicy.EraTransition.Stage = EEraTransitionStage::Cooldown;
+    mPolicy.EraTransition.Choice = Choice;
+    mPolicy.EraTransition.CurrentEra = mPolicy.EraProgress.CurrentEra;
+    mPolicy.EraTransition.TargetEra = TargetEra;
+    mPolicy.EraTransition.NotificationDays = GEraTransitionNotificationDays;
+    mPolicy.EraTransition.Title = BuildEraTransitionTitle(TargetEra);
+    mPolicy.EraTransition.Summary =
+        BuildEraTransitionCompletionSummary(
+            PreviousEra,
+            mPolicy.EraProgress.CurrentEra);
+    mPolicy.EraTransition.ConfirmText =
+        BuildEraTransitionConfirmText(TargetEra);
+
+    ConstitutionSystem::OnEraTransitioned(
+        mPolicy.ConstitutionState,
+        TargetEra);
+    RefreshPoliticalSnapshot();
+    RefreshForeignTradeDiplomacy(false);
+    RefreshWorldMarketPrices();
+    return true;
+}
+
 bool CMainWorld::AdjustTaxPolicy(
     ETaxPolicyType Type,
     int DeltaPercent,
     std::wstring& OutMessage)
 {
     const bool Adjusted = EconomySystem::AdjustTaxPolicy(
-        mGovernmentProfile.TaxPolicy,
+        mPolicy.GovernmentProfile.TaxPolicy,
         Type,
         DeltaPercent,
         OutMessage);
@@ -1359,11 +1969,11 @@ bool CMainWorld::CycleAutoImportResource(
     std::wstring& OutMessage)
 {
     TradePolicy::AdvanceImportPolicySelection(
-        mGovernmentProfile.ImportTradePolicy);
+        mPolicy.GovernmentProfile.ImportTradePolicy);
     OutMessage =
         L"자동 수입 대상: " +
         BuildAutoImportSelectionText(
-            mGovernmentProfile.ImportTradePolicy);
+            mPolicy.GovernmentProfile.ImportTradePolicy);
     return true;
 }
 
@@ -1371,11 +1981,11 @@ bool CMainWorld::CycleImportPerResourceCap(
     std::wstring& OutMessage)
 {
     TradePolicy::AdvanceImportResourceCapSelection(
-        mGovernmentProfile.ImportTradePolicy);
+        mPolicy.GovernmentProfile.ImportTradePolicy);
     OutMessage =
         L"자원별 수입 한도: " +
         BuildImportCapSelectionText(
-            mGovernmentProfile.ImportTradePolicy);
+            mPolicy.GovernmentProfile.ImportTradePolicy);
     return true;
 }
 
@@ -1383,11 +1993,11 @@ bool CMainWorld::CycleImportBudgetPolicy(
     std::wstring& OutMessage)
 {
     TradePolicy::AdvanceImportBudgetSelection(
-        mGovernmentProfile.ImportTradePolicy);
+        mPolicy.GovernmentProfile.ImportTradePolicy);
     OutMessage =
         L"일일 수입 예산: " +
         BuildImportBudgetSelectionText(
-            mGovernmentProfile.ImportTradePolicy);
+            mPolicy.GovernmentProfile.ImportTradePolicy);
     return true;
 }
 
@@ -1395,11 +2005,11 @@ bool CMainWorld::CycleDomesticReservePolicy(
     std::wstring& OutMessage)
 {
     TradePolicy::AdvanceDomesticReservePolicySelection(
-        mGovernmentProfile.ExportTradePolicy);
+        mPolicy.GovernmentProfile.ExportTradePolicy);
     OutMessage =
         L"내수 비축 기준: " +
         BuildDomesticReserveSelectionText(
-            mGovernmentProfile.ExportTradePolicy);
+            mPolicy.GovernmentProfile.ExportTradePolicy);
     return true;
 }
 
@@ -1407,11 +2017,11 @@ bool CMainWorld::CycleExportBlockedResource(
     std::wstring& OutMessage)
 {
     TradePolicy::AdvanceExportBlockedResourceSelection(
-        mGovernmentProfile.ExportTradePolicy);
+        mPolicy.GovernmentProfile.ExportTradePolicy);
     OutMessage =
         L"수출 금지 자원: " +
         BuildExportBlockedSelectionText(
-            mGovernmentProfile.ExportTradePolicy);
+            mPolicy.GovernmentProfile.ExportTradePolicy);
     return true;
 }
 
@@ -1491,7 +2101,9 @@ bool CMainWorld::ExecuteTradeProposal(
     RefreshWorldMarketPrices();
     RefreshPoliticalSnapshot();
     OutMessage =
-        std::wstring(MainWorldTradeRuntime::GetForeignPowerName(ForeignPowerIndex)) +
+        std::wstring(GetTradeForeignPowerName(
+            ForeignPowerIndex,
+            mPolicy.EraProgress.CurrentEra)) +
         L"과(와) " +
         GetResourceTypeDisplayName(ResourceType) +
         L" " +
@@ -1542,11 +2154,12 @@ CMainWorldPoliticalDemandService::FContext
     return
     {
         mSelf.lock(),
-        mPoliticalSnapshot,
-        mGovernmentProfile,
-        mLastDailyExportIncome,
-        mNationalBudget,
-        mLastDailyNetChange,
+        mPolicy.EraProgress.CurrentEra,
+        mPolicy.PoliticalSnapshot,
+        mPolicy.GovernmentProfile,
+        mBudget.LastDailyExportIncome,
+        mBudget.NationalBudget,
+        mBudget.LastDailyNetChange,
         mTradeDiplomacyState.ForeignPowerStandingStates,
         mTradeDiplomacyState.ForeignPowerStates,
         mTradeDiplomacyState.ActiveTradeRoutes
@@ -1556,6 +2169,14 @@ CMainWorldPoliticalDemandService::FContext
 void CMainWorld::ApplyPoliticalDemandRefreshRequests(
     const CMainWorldPoliticalDemandService::FRefreshRequests& RefreshRequests)
 {
+    for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+    {
+        if (!RefreshRequests.TriggerFactionRevolts[static_cast<size_t>(Index)])
+            continue;
+
+        TriggerFactionRevoltConsequences(static_cast<EPoliticalFaction>(Index));
+    }
+
     if (RefreshRequests.RefreshPoliticalSnapshot)
         RefreshPoliticalSnapshot();
 
@@ -1566,6 +2187,86 @@ void CMainWorld::ApplyPoliticalDemandRefreshRequests(
         RefreshWorldMarketPrices();
 }
 
+void CMainWorld::TriggerFactionRevoltConsequences(EPoliticalFaction Faction)
+{
+    auto World = mSelf.lock();
+
+    if (!World)
+        return;
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return;
+
+    std::vector<std::shared_ptr<CPlacementAreaObject>> PriorityTargets;
+    std::vector<std::shared_ptr<CPlacementAreaObject>> FallbackTargets;
+
+    for (size_t Index = 0; Index < BuildingList.size(); ++Index)
+    {
+        auto Building = BuildingList[Index].lock();
+
+        if (!IsEligibleRevoltDamageTarget(Building))
+            continue;
+
+        if (IsFactionRevoltPriorityBuilding(Building, Faction))
+            PriorityTargets.push_back(Building);
+        else
+            FallbackTargets.push_back(Building);
+    }
+
+    const int TotalCandidateCount = static_cast<int>(
+        PriorityTargets.size() + FallbackTargets.size());
+    const int TargetHitCount =
+        TotalCandidateCount <= 0 ? 0 : (std::min)(2, 1 + rand() % 2);
+    int AppliedHits = 0;
+
+    auto ApplySingleHit =
+        [&](std::vector<std::shared_ptr<CPlacementAreaObject>>& Targets)
+        {
+            while (AppliedHits < TargetHitCount && !Targets.empty())
+            {
+                const size_t PickIndex = static_cast<size_t>(
+                    rand() % static_cast<int>(Targets.size()));
+                const auto Target = Targets[PickIndex];
+                Targets.erase(Targets.begin() + static_cast<int>(PickIndex));
+
+                if (!Target)
+                    continue;
+
+                const EBuildingDamageLevel NextLevel =
+                    Target->GetDamageLevel() == EBuildingDamageLevel::Damaged ?
+                        EBuildingDamageLevel::Critical :
+                        EBuildingDamageLevel::Damaged;
+
+                if (DamageBuilding(Target->GetName(), NextLevel))
+                    ++AppliedHits;
+            }
+        };
+
+    ApplySingleHit(PriorityTargets);
+    ApplySingleHit(FallbackTargets);
+
+    if (mServices.WorldCrisisService)
+    {
+        const CMainWorldWorldCrisisService::FTickContext CrisisContext =
+        {
+            mSelf.lock(),
+            mPolicy.PoliticalSnapshot,
+            mPolicy.GovernmentEdicts,
+            mPolicy.GovernmentProfile.TaxPolicy,
+            mPolicy.TaxEventStatus,
+            mSimulation.Year,
+            mSimulation.Month,
+            mSimulation.Day,
+            mBudget.NationalBudget,
+            mBudget.LastDailyNetChange,
+            mBudget.LastDailyTaxCollectionEfficiency
+        };
+        mServices.WorldCrisisService->TriggerForcedRaid(CrisisContext);
+    }
+}
+
 bool CMainWorld::RespondPoliticalDemand(
     EPoliticalDemandIssuerType IssuerType,
     int IssuerIndex,
@@ -1574,7 +2275,7 @@ bool CMainWorld::RespondPoliticalDemand(
 {
     CMainWorldPoliticalDemandService::FRefreshRequests RefreshRequests;
 
-    if (!mPoliticalDemandService->RespondPoliticalDemand(
+    if (!mServices.PoliticalDemandService->RespondPoliticalDemand(
             IssuerType,
             IssuerIndex,
             Accept,
@@ -1604,10 +2305,10 @@ int CMainWorld::GetCustomsImportTradePriceModifierPercent() const
 const FGovernmentEdictState* CMainWorld::GetGovernmentEdictState(
     EGovernmentEdictType Type) const
 {
-    for (size_t i = 0; i < mGovernmentEdicts.size(); ++i)
+    for (size_t i = 0; i < mPolicy.GovernmentEdicts.size(); ++i)
     {
-        if (mGovernmentEdicts[i].Type == Type)
-            return &mGovernmentEdicts[i];
+        if (mPolicy.GovernmentEdicts[i].Type == Type)
+            return &mPolicy.GovernmentEdicts[i];
     }
 
     return nullptr;
@@ -1617,9 +2318,9 @@ void CMainWorld::TickGovernmentEdicts()
 {
     bool ModifiersChanged = false;
 
-    for (size_t i = 0; i < mGovernmentEdicts.size(); ++i)
+    for (size_t i = 0; i < mPolicy.GovernmentEdicts.size(); ++i)
     {
-        FGovernmentEdictState& State = mGovernmentEdicts[i];
+        FGovernmentEdictState& State = mPolicy.GovernmentEdicts[i];
         const FGovernmentEdictDefinition* Definition =
             EdictSystem::FindGovernmentEdictDefinition(State.Type);
 
@@ -1637,7 +2338,7 @@ void CMainWorld::TickGovernmentEdicts()
                 State.Active = false;
                 State.RemainingDays = 0;
                 PoliticsSystem::SyncGovernmentActionFromEdict(
-                    mGovernmentProfile,
+                    mPolicy.GovernmentProfile,
                     State.Type,
                     false);
                 ModifiersChanged = true;
@@ -1658,11 +2359,11 @@ void CMainWorld::TickGovernmentEdicts()
 
 void CMainWorld::RefreshEdictModifiers()
 {
-    mEdictModifiers = EdictSystem::CalculateEdictModifiers(
-        mGovernmentEdicts,
-        mPoliticalSnapshot.ActiveCitizenCount);
-    mGovernmentProfile.EdictFactionApprovalModifiers =
-        mEdictModifiers.FactionApprovalModifiers;
+    mPolicy.EdictModifiers = EdictSystem::CalculateEdictModifiers(
+        mPolicy.GovernmentEdicts,
+        mPolicy.PoliticalSnapshot.ActiveCitizenCount);
+    mPolicy.GovernmentProfile.EdictFactionApprovalModifiers =
+        mPolicy.EdictModifiers.FactionApprovalModifiers;
     RefreshWorldMarketPrices();
 }
 
@@ -1670,14 +2371,14 @@ void CMainWorld::ApplyDailyEdictCitizenEffects()
 {
     PoliticsSystem::ApplyDailyEdictCitizenEffects(
         this,
-        mEdictModifiers);
+        mPolicy.EdictModifiers);
 }
 
 void CMainWorld::ApplyDailyTaxPolicyEventEffects()
 {
     EconomySystem::ApplyDailyTaxPolicyEventEffects(
         this,
-        mTaxEventStatus);
+        mPolicy.TaxEventStatus);
 }
 
 void CMainWorld::ApplyDailyWorldCrisisEffects()
@@ -1685,30 +2386,30 @@ void CMainWorld::ApplyDailyWorldCrisisEffects()
     const CMainWorldWorldCrisisService::FDailyContext Context =
     {
         mSelf.lock(),
-        mNationalBudget,
-        mLastDailyNetChange,
-        mLastDailyTaxIncome,
-        mLastDailyConsumptionTaxIncome,
-        mLastDailyIncomeTaxIncome,
-        mLastDailyPropertyTaxIncome
+        mBudget.NationalBudget,
+        mBudget.LastDailyNetChange,
+        mBudget.LastDailyTaxIncome,
+        mBudget.LastDailyConsumptionTaxIncome,
+        mBudget.LastDailyIncomeTaxIncome,
+        mBudget.LastDailyPropertyTaxIncome
     };
-    mWorldCrisisService->ApplyDailyEffects(Context);
+    mServices.WorldCrisisService->ApplyDailyEffects(Context);
 }
 
 void CMainWorld::TickTaxPolicyEvents()
 {
     EconomySystem::TickTaxPolicyEvents(
-        mPoliticalSnapshot,
-        mGovernmentProfile,
-        mSimulationYear,
-        mSimulationMonth,
-        mSimulationDay,
-        mNationalBudget,
-        mLastDailyNetChange,
-        mWorkerTaxPressureDays,
-        mPropertyTaxPressureDays,
-        mBudgetCrisisPressureDays,
-        mTaxEventStatus);
+        mPolicy.PoliticalSnapshot,
+        mPolicy.GovernmentProfile,
+        mSimulation.Year,
+        mSimulation.Month,
+        mSimulation.Day,
+        mBudget.NationalBudget,
+        mBudget.LastDailyNetChange,
+        mPolicy.WorkerTaxPressureDays,
+        mPolicy.PropertyTaxPressureDays,
+        mPolicy.BudgetCrisisPressureDays,
+        mPolicy.TaxEventStatus);
 }
 
 void CMainWorld::TickWorldCrises()
@@ -1716,26 +2417,40 @@ void CMainWorld::TickWorldCrises()
     const CMainWorldWorldCrisisService::FTickContext Context =
     {
         mSelf.lock(),
-        mPoliticalSnapshot,
-        mGovernmentEdicts,
-        mGovernmentProfile.TaxPolicy,
-        mTaxEventStatus,
-        mSimulationYear,
-        mSimulationMonth,
-        mSimulationDay,
-        mNationalBudget,
-        mLastDailyNetChange,
-        mLastDailyTaxCollectionEfficiency
+        mPolicy.PoliticalSnapshot,
+        mPolicy.GovernmentEdicts,
+        mPolicy.GovernmentProfile.TaxPolicy,
+        mPolicy.TaxEventStatus,
+        mSimulation.Year,
+        mSimulation.Month,
+        mSimulation.Day,
+        mBudget.NationalBudget,
+        mBudget.LastDailyNetChange,
+        mBudget.LastDailyTaxCollectionEfficiency
     };
-    mWorldCrisisService->Tick(Context);
+    mServices.WorldCrisisService->Tick(Context);
 }
 
 void CMainWorld::TickPoliticalDemands()
 {
     const CMainWorldPoliticalDemandService::FRefreshRequests RefreshRequests =
-        mPoliticalDemandService->Tick(BuildPoliticalDemandContext());
+        mServices.PoliticalDemandService->Tick(BuildPoliticalDemandContext());
 
     ApplyPoliticalDemandRefreshRequests(RefreshRequests);
+}
+
+void CMainWorld::TickEraTransitionState()
+{
+    if (mPolicy.EraTransition.Stage != EEraTransitionStage::Cooldown ||
+        mPolicy.EraTransition.NotificationDays <= 0)
+    {
+        return;
+    }
+
+    --mPolicy.EraTransition.NotificationDays;
+
+    if (mPolicy.EraTransition.NotificationDays <= 0)
+        mPolicy.EraTransition = FEraTransitionState();
 }
 
 void CMainWorld::RefreshEraProgress()
@@ -1748,51 +2463,182 @@ void CMainWorld::RefreshEraProgress()
     const WorldStats::FWorldStatsSnapshot Snapshot =
         WorldStats::BuildSnapshot(World);
 
-    EBuildingEra CurrentEra = mEraProgress.CurrentEra;
+    const EBuildingEra CurrentEra = mPolicy.EraProgress.CurrentEra;
 
-    while (HasNextBuildingEra(CurrentEra))
-    {
-        const EBuildingEra NextEra = GetNextBuildingEra(CurrentEra);
-        const FEraUnlockRequirement Requirement =
-            ResolveEraUnlockRequirement(NextEra);
-
-        if (!MeetsEraUnlockRequirement(Snapshot, Requirement))
-            break;
-
-        CurrentEra = NextEra;
-    }
-
-    mEraProgress = FEraProgressState();
-    mEraProgress.CurrentEra = CurrentEra;
-    mEraProgress.Population = Snapshot.ActiveCitizenCount;
-    mEraProgress.TotalBuildings = Snapshot.TotalBuildingCount;
-    mEraProgress.FoodProviders = Snapshot.FoodProviderCount;
-    mEraProgress.IndustryBuildings =
+    mPolicy.EraProgress = FEraProgressState();
+    mPolicy.EraProgress.CurrentEra = CurrentEra;
+    mPolicy.EraProgress.Population = Snapshot.ActiveCitizenCount;
+    mPolicy.EraProgress.TotalBuildings = Snapshot.TotalBuildingCount;
+    mPolicy.EraProgress.FoodProviders = Snapshot.FoodProviderCount;
+    mPolicy.EraProgress.IndustryBuildings =
         ResolveIndustryBuildingCount(Snapshot);
-    mEraProgress.PublicServiceBuildings =
+    mPolicy.EraProgress.PublicServiceBuildings =
         ResolvePublicServiceBuildingCount(Snapshot);
-    mEraProgress.EntertainmentBuildings =
+    mPolicy.EraProgress.EntertainmentBuildings =
         ResolveEntertainmentBuildingCount(Snapshot);
-    mEraProgress.PowerMW = Snapshot.TotalProducedPowerMW;
-    mEraProgress.HasNextEra = HasNextBuildingEra(CurrentEra);
+    mPolicy.EraProgress.PowerMW = Snapshot.TotalProducedPowerMW;
+    mPolicy.EraProgress.HasNextEra = HasNextBuildingEra(CurrentEra);
 
-    if (mEraProgress.HasNextEra)
+    if (mPolicy.EraProgress.HasNextEra)
     {
-        mEraProgress.NextEra = GetNextBuildingEra(CurrentEra);
-        mEraProgress.NextRequirement =
-            ResolveEraUnlockRequirement(mEraProgress.NextEra);
+        mPolicy.EraProgress.NextEra = GetNextBuildingEra(CurrentEra);
+        mPolicy.EraProgress.NextRequirement =
+            ResolveEraUnlockRequirement(mPolicy.EraProgress.NextEra);
+        mPolicy.EraProgress.NextEraReady =
+            MeetsEraUnlockRequirement(
+                Snapshot,
+                mPolicy.EraProgress.NextRequirement);
     }
     else
     {
-        mEraProgress.NextEra = EBuildingEra::Modern;
-        mEraProgress.NextRequirement = FEraUnlockRequirement();
+        mPolicy.EraProgress.NextEra = EBuildingEra::Modern;
+        mPolicy.EraProgress.NextRequirement = FEraUnlockRequirement();
+        mPolicy.EraProgress.NextEraReady = false;
     }
+
+    RefreshEraTransitionState();
+}
+
+void CMainWorld::RefreshEraTransitionState()
+{
+    if (mPolicy.EraTransition.Stage == EEraTransitionStage::Cooldown &&
+        mPolicy.EraTransition.NotificationDays > 0)
+    {
+        return;
+    }
+
+    if (!mPolicy.EraProgress.HasNextEra || !mPolicy.EraProgress.NextEraReady)
+    {
+        if (mPolicy.EraTransition.Stage == EEraTransitionStage::Available)
+            mPolicy.EraTransition = FEraTransitionState();
+
+        return;
+    }
+
+    PopulateEraTransitionAvailableState(
+        mPolicy.EraTransition,
+        mPolicy.EraProgress,
+        mSimulation.Year,
+        mSimulation.Month,
+        mSimulation.Day);
 }
 
 void CMainWorld::RefreshPoliticalSnapshot()
 {
-    mPoliticalSnapshot = PoliticsSystem::EvaluateWorld(
+    mPolicy.PoliticalSnapshot = PoliticsSystem::EvaluateWorld(
         this,
-        mGovernmentProfile,
-        &mTaxEventStatus);
+        mPolicy.GovernmentProfile,
+        &mPolicy.TaxEventStatus,
+        &mPolicy.ConstitutionState.ActiveEffects);
+
+    constexpr int GWarningPressureThreshold = 10;
+    const auto& FactionPressureDays =
+        mServices.PoliticalDemandService->GetFactionPressureDays();
+    const auto& FactionDemandStates =
+        mServices.PoliticalDemandService->GetFactionDemandStates();
+
+    for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+    {
+        FPoliticalFactionSnapshot& FactionSnapshot =
+            mPolicy.PoliticalSnapshot.Factions[static_cast<size_t>(Index)];
+        const int PressureDays =
+            (std::max)(0, FactionPressureDays[static_cast<size_t>(Index)]);
+        const FPoliticalDemandState& Demand =
+            FactionDemandStates[static_cast<size_t>(Index)];
+
+        FactionSnapshot.PressureDays = PressureDays;
+
+        if (Demand.Active)
+        {
+            FactionSnapshot.DemandStage = Demand.Stage;
+        }
+        else if (PressureDays >= GWarningPressureThreshold)
+        {
+            FactionSnapshot.DemandStage = EPoliticalDemandStage::Warning;
+        }
+        else
+        {
+            FactionSnapshot.DemandStage = EPoliticalDemandStage::Demand;
+        }
+    }
+
+    mResultRuntime.PeakSupportPercent =
+        (std::max)(
+            mResultRuntime.PeakSupportPercent,
+            mPolicy.PoliticalSnapshot.AverageSupportScore);
 }
+
+void CMainWorld::ShowResultWidget(bool Victory)
+{
+    if (mResultRuntime.ResultShown)
+        return;
+
+    auto UiManager = mUIManager;
+    const std::shared_ptr<CWorld> World = mSelf.lock();
+
+    if (!UiManager || !World)
+        return;
+
+    auto ResultWidget =
+        UiManager->FindWidget<CResultWidget>(GResultWidgetName).lock();
+
+    if (!ResultWidget)
+        return;
+
+    if (auto EventWidget = UiManager->FindWidget<CEventWidget>(GEventWidgetName).lock())
+        EventWidget->GetMutableState().Visible = false;
+
+    const WorldStats::FWorldStatsSnapshot Snapshot =
+        WorldStats::BuildSnapshot(World);
+    const FElectionStatus& ElectionStatus =
+        mServices.ElectionService->GetElectionStatus();
+    const int BuildingsBuilt =
+        (std::max)(0, Snapshot.TotalBuildingCount - mResultRuntime.InitialBuildingCount);
+    const std::wstring TenureText =
+        BuildTenureText(
+            mResultRuntime.TermStartYear,
+            mResultRuntime.TermStartMonth,
+            mResultRuntime.TermStartDay,
+            mSimulation.Year,
+            mSimulation.Month,
+            mSimulation.Day);
+    FResultWidgetState& State = ResultWidget->GetMutableState();
+    State.Visible = true;
+    State.Victory = Victory;
+
+    if (Victory)
+    {
+        State.Title = L"재선 성공!";
+        State.Summary = L"트로피코 시민들이 다시 한번 당신을 선택했습니다.";
+        State.DetailPrimary =
+            L"득표율: " + FormatPercentText(ElectionStatus.LastVoteShare, 1);
+        State.DetailSecondary = L"임기 연장: 4년";
+        State.DetailTertiary =
+            L"임기 중 건설: " +
+            std::to_wstring(BuildingsBuilt) +
+            L"개 건물";
+        State.DetailQuaternary =
+            L"최고 지지율: " +
+            FormatPercentText(mResultRuntime.PeakSupportPercent, 0);
+    }
+    else
+    {
+        State.Title = L"쿠데타 발생";
+        State.Summary = L"지지율 붕괴로 군부가 관저를 점령했습니다.";
+        State.DetailPrimary =
+            L"최종 지지율: " +
+            FormatPercentText(mPolicy.PoliticalSnapshot.AverageSupportScore, 0);
+        State.DetailSecondary = TenureText;
+        State.DetailTertiary =
+            L"임기 중 건설: " +
+            std::to_wstring(BuildingsBuilt) +
+            L"개 건물";
+        State.DetailQuaternary =
+            L"최고 지지율: " +
+            FormatPercentText(mResultRuntime.PeakSupportPercent, 0);
+    }
+
+    mSimulation.Paused = true;
+    mResultRuntime.ResultShown = true;
+}
+

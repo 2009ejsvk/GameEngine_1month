@@ -5,6 +5,49 @@
 
 namespace StringUtils
 {
+    inline unsigned long long AbsToUnsigned(long long Value)
+    {
+        return Value < 0 ?
+            static_cast<unsigned long long>(-(Value + 1)) + 1ULL :
+            static_cast<unsigned long long>(Value);
+    }
+
+    inline std::wstring FormatUnsignedIntegerWithCommas(
+        unsigned long long Value)
+    {
+        std::wstring Digits = std::to_wstring(Value);
+        std::wstring Result;
+        int GroupCount = 0;
+
+        for (int Index = static_cast<int>(Digits.size()) - 1;
+            Index >= 0;
+            --Index)
+        {
+            if (GroupCount == 3)
+            {
+                Result.insert(Result.begin(), L',');
+                GroupCount = 0;
+            }
+
+            Result.insert(Result.begin(), Digits[static_cast<size_t>(Index)]);
+            ++GroupCount;
+        }
+
+        return Result;
+    }
+
+    inline std::wstring FormatIntegerWithCommas(long long Value)
+    {
+        const bool Negative = Value < 0;
+        std::wstring Result =
+            FormatUnsignedIntegerWithCommas(AbsToUnsigned(Value));
+
+        if (Negative)
+            Result.insert(Result.begin(), L'-');
+
+        return Result;
+    }
+
     inline std::wstring Utf8ToWide(const std::string& Text)
     {
         if (Text.empty())

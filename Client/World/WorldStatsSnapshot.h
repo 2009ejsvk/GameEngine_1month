@@ -84,8 +84,8 @@ namespace WorldStats
         int DisconnectedConsumerCount = 0;
         int AnyNeutralAxisCitizenCount = 0;
         int FullyNeutralCitizenCount = 0;
-        int HomelessWealthCount[3] = {};
-        int CitizenWealthCount[3] = {};
+        int HomelessWealthCount[GCitizenWealthLevelCount] = {};
+        int CitizenWealthCount[GCitizenWealthLevelCount] = {};
         int TouristProfileCount[GTouristPreferenceCount] = {};
         int OverallSatisfactionCitizenCount[5] = {};
         int EducationCount[3] = {};

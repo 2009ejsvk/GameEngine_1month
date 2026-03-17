@@ -1,6 +1,8 @@
 #include "AlmanacRenderer.h"
-#include "AlmanacRendererCalc.h"
+#include "AlmanacCalc.h"
 #include "AlmanacRendererInternal.h"
+#include "AlmanacTheme.h"
+#include "UIStrings.h"
 #include "../Building/BuildingCategoryInfo.h"
 
 namespace
@@ -96,6 +98,8 @@ namespace
         double AverageActionScore = 0.0;
         std::wstring GovernmentLine;
         int AlignmentScore = 0;
+        int PressureDays = 0;
+        EPoliticalDemandStage DemandStage = EPoliticalDemandStage::Demand;
     };
 
     struct FForeignContribution
@@ -544,6 +548,12 @@ namespace
         Result.AverageActionScore =
             Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
                 AverageActionScore;
+        Result.PressureDays =
+            Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
+                PressureDays;
+        Result.DemandStage =
+            Snapshot.PoliticalSnapshot.Factions[static_cast<size_t>(Index)].
+                DemandStage;
         Result.Favor = ClampInt(
             static_cast<int>(std::lround(Result.AverageApproval)),
             0,
@@ -1159,6 +1169,61 @@ namespace
             Demand.PenaltyText;
     }
 
+    std::wstring BuildFactionDemandStageText(
+        const FPoliticsFactionRuntimeData& Faction)
+    {
+        const wchar_t* StageKey = L"escalation.stage.stable";
+
+        switch (Faction.DemandStage)
+        {
+        case EPoliticalDemandStage::Revolt:
+            StageKey = L"escalation.stage.revolt";
+            break;
+        case EPoliticalDemandStage::Ultimatum:
+            StageKey = L"escalation.stage.ultimatum";
+            break;
+        case EPoliticalDemandStage::Warning:
+            StageKey = L"escalation.stage.warning";
+            break;
+        case EPoliticalDemandStage::Demand:
+        default:
+            StageKey =
+                Faction.PressureDays >= 10 ?
+                    L"escalation.stage.warning" :
+                    L"escalation.stage.stable";
+            break;
+        }
+
+        std::wstring Result = UIStrings::Get(StageKey);
+
+        if (Faction.PressureDays > 0)
+        {
+            Result += UIStrings::Format(
+                L"escalation.pressure_suffix_template",
+                { std::to_wstring(Faction.PressureDays) });
+        }
+
+        return Result;
+    }
+
+    FVector4 GetDemandStageTint(const FPoliticsFactionRuntimeData& Faction)
+    {
+        switch (Faction.DemandStage)
+        {
+        case EPoliticalDemandStage::Revolt:
+        case EPoliticalDemandStage::Ultimatum:
+            return FVector4(0.80f, 0.22f, 0.18f, 1.f);
+        case EPoliticalDemandStage::Warning:
+            return FVector4(0.86f, 0.62f, 0.16f, 1.f);
+        case EPoliticalDemandStage::Demand:
+        default:
+            if (Faction.PressureDays >= 10)
+                return FVector4(0.86f, 0.62f, 0.16f, 1.f);
+
+            return FVector4(0.31f, 0.27f, 0.21f, 1.f);
+        }
+    }
+
     void ConfigureDemandActionRow(
         const CAlmanacWidget::FDetailRowWidgets& Row,
         bool Enabled,
@@ -1289,7 +1354,7 @@ void FAlmanacRenderer::ApplyPoliticsPage(
                 static_cast<double>(Snapshot.ActiveCitizenCount) :
             0.0;
     const std::wstring ElectionWarningText =
-        BuildElectionWarningSummary(
+        AlmanacCalc::BuildElectionWarningSummary(
             Snapshot.ElectionStatus.GameLost,
             Snapshot.DaysUntilNextElection,
             Snapshot.ElectionWarningScore,
@@ -1377,8 +1442,12 @@ void FAlmanacRenderer::ApplyPoliticsPage(
             BuildDemandProgressText(SelectedDemand));
         SetDetailRowData(
             Widget.mPoliticsDetails[16],
-            L"보상 / 불이익",
-            BuildDemandEffectText(SelectedDemand));
+            L"압력 단계 / 보상",
+            BuildFactionDemandStageText(SelectedFaction) +
+                L" / " +
+                BuildDemandEffectText(SelectedDemand),
+            false,
+            GetDemandStageTint(SelectedFaction));
         ConfigureDemandActionRow(
             Widget.mPoliticsDetails[17],
             true,
@@ -1397,11 +1466,17 @@ void FAlmanacRenderer::ApplyPoliticsPage(
         SetDetailRowData(
             Widget.mPoliticsDetails[15],
             L"현재 요구 없음",
-            L"이 세력은 당분간 추가 요구를 제시하지 않습니다.");
+            BuildFactionDemandStageText(SelectedFaction),
+            false,
+            GetDemandStageTint(SelectedFaction));
         SetDetailRowData(
             Widget.mPoliticsDetails[16],
             L"대기 상태",
-            L"-");
+            SelectedFaction.PressureDays > 0 ?
+                L"압력이 누적되고 있어 다음 요구 단계가 가까워지고 있습니다." :
+                L"-",
+            false,
+            GetDemandStageTint(SelectedFaction));
         ConfigureDemandActionRow(
             Widget.mPoliticsDetails[17],
             false,
@@ -1891,11 +1966,10 @@ void FAlmanacRenderer::ApplyBuildingPage(
 void FAlmanacRenderer::ApplyConflictPage(
         CAlmanacWidget& Widget,
         const AlmanacDataProvider::FAlmanacSnapshot& Snapshot,
-        const AlmanacRendererCalc::FConflictPageComputedData& ComputedData)
+        const AlmanacCalc::FConflictPageComputedData& ComputedData)
     {
         auto ConflictHeadlineBackground = Widget.mConflictHeadlineBackground.lock();
         auto ConflictHeadlineText = Widget.mConflictHeadlineText.lock();
-        FVector4 ConflictTint(0.82f, 0.92f, 0.76f, 0.98f);
         const bool HasActiveWorldCrisis = Snapshot.WorldCrisisStatus.Active;
         const bool HasRecentWorldCrisis =
             Snapshot.WorldCrisisStatus.Active ||
@@ -1903,23 +1977,10 @@ void FAlmanacRenderer::ApplyConflictPage(
         const bool HasRecentTaxEvent =
             Snapshot.TaxEventStatus.Active ||
             Snapshot.TaxEventStatus.NotificationDays > 0;
-
-        if (Snapshot.RebelRiskScore >= 66.0)
-            ConflictTint = FVector4(0.96f, 0.48f, 0.38f, 0.98f);
-        else if (Snapshot.RebelRiskScore >= 33.0)
-            ConflictTint = FVector4(0.96f, 0.78f, 0.28f, 0.98f);
-        else if (HasActiveWorldCrisis)
-            ConflictTint =
-                Snapshot.WorldCrisisStatus.Type == EWorldCrisisType::FiscalEmergency ?
-                    FVector4(0.94f, 0.54f, 0.40f, 0.98f) :
-                    FVector4(0.94f, 0.70f, 0.30f, 0.98f);
-        else if (Snapshot.TaxEventStatus.Active)
-            ConflictTint =
-                Snapshot.TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis ?
-                    FVector4(0.94f, 0.54f, 0.40f, 0.98f) :
-                    FVector4(0.94f, 0.76f, 0.32f, 0.98f);
-        else if (ComputedData.ElectionWarningActive)
-            ConflictTint = ComputedData.ElectionWarningTint;
+        const FVector4 ConflictTint =
+            AlmanacTheme::GetConflictHeadlineTint(
+                Snapshot,
+                ComputedData);
 
         if (ConflictHeadlineBackground)
             ConflictHeadlineBackground->SetTint(ConflictTint);

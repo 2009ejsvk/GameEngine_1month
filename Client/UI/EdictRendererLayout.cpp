@@ -1,6 +1,6 @@
 #include "EdictRenderer.h"
 #include "EdictRendererInternal.h"
-#include "UILayoutConfig.h"
+#include "UILayoutValues.h"
 #include "Device.h"
 #include <algorithm>
 

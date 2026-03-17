@@ -89,7 +89,9 @@ namespace
             WorldSnapshot.AnyNeutralAxisCitizenCount;
         Snapshot.FullyNeutralCitizenCount =
             WorldSnapshot.FullyNeutralCitizenCount;
-        for (int WealthIndex = 0; WealthIndex < 3; ++WealthIndex)
+        for (int WealthIndex = 0;
+            WealthIndex < GCitizenWealthLevelCount;
+            ++WealthIndex)
         {
             Snapshot.HomelessWealthCount[WealthIndex] =
                 WorldSnapshot.HomelessWealthCount[WealthIndex];

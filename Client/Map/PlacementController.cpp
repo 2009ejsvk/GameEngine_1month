@@ -2,7 +2,7 @@
 #include "BuildingMarkerOrb.h"
 #include "PlacementBuildingVisual.h"
 #include "../UI/CitizenInfoWidget.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/MainWorldUiReadAccess.h"
 #include "../ObjectNames.h"
 #include "Component/CameraComponent.h"
 #include "Component/TileMapComponent.h"
@@ -209,7 +209,7 @@ bool CPlacementController::BeginBuildPlacement(
         return false;
 
     const auto MainWorldAccess =
-        std::dynamic_pointer_cast<IMainWorldBuildMenuAccess>(World);
+        ResolveMainWorldBuildMenuAccess(World);
 
     if (MainWorldAccess &&
         !IsBuildingEraUnlocked(

@@ -1,5 +1,8 @@
 #include "StartWorld.h"
-#include "../UI/UILayoutConfig.h"
+#include "../UI/UILayoutApplier.h"
+#include "../UI/UILayoutLoader.h"
+#include "../UI/TropicoUiAssetCatalog.h"
+#include "../UI/TropicoUiTheme.h"
 #include "../UI/StartWidget.h"
 #include "World/WorldUIManager.h"
 
@@ -14,6 +17,9 @@ CStartWorld::~CStartWorld()
 bool CStartWorld::Init()
 {
 	CWorld::Init();
+    UILayoutLoader::RegisterRuntimeConfig();
+    TropicoUiAssets::RegisterRuntimeConfig();
+    TropicoUiTheme::RegisterRuntimeConfig();
 
 	LoadAnimation2D();
 
@@ -24,9 +30,17 @@ bool CStartWorld::Init()
 	return true;
 }
 
+void CStartWorld::Update(float DeltaTime)
+{
+    UILayoutLoader::ReloadIfChanged(DeltaTime);
+    TropicoUiAssets::ReloadIfChanged(DeltaTime);
+    TropicoUiTheme::ReloadIfChanged(DeltaTime);
+    CWorld::Update(DeltaTime);
+}
+
 void CStartWorld::OnUiManagerUpdated()
 {
-    UIConfig::ApplyWidgetOverrides(GetUIManager().lock());
+    UILayoutApplier::ApplyWidgetOverrides(GetUIManager().lock());
 }
 
 void CStartWorld::LoadAnimation2D()

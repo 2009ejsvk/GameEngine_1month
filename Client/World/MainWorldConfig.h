@@ -1,19 +1,21 @@
 #pragma once
 
+#include "ScenarioConfig.h"
+
 namespace MainWorldConfig
 {
-    constexpr int GInitialNpcCount = 10;
+    constexpr int GInitialNpcCount = ScenarioConfig::GInitialNpcCount;
     constexpr int GMaxNpcCount = 2000;
     constexpr float GNpcSpawnInterval = 5.f;
     constexpr float GCitizenReassignInterval = 0.5f;
-    constexpr long long GInitialNationalBudget = 500000;
-    constexpr int GInitialElectionLeadYears = 2;
-    constexpr int GElectionIntervalYears = 4;
-    constexpr int GElectionMonth = 1;
-    constexpr int GElectionDay = 1;
-    constexpr int GSimulationStartYear = 2000;
-    constexpr int GSimulationStartMonth = 1;
-    constexpr int GSimulationStartDay = 1;
+    constexpr long long GInitialNationalBudget = ScenarioConfig::GInitialBudget;
+    constexpr int GInitialElectionLeadYears = ScenarioConfig::GElectionLeadYears;
+    constexpr int GElectionIntervalYears = ScenarioConfig::GElectionIntervalYears;
+    constexpr int GElectionMonth = ScenarioConfig::GElectionMonth;
+    constexpr int GElectionDay = ScenarioConfig::GElectionDay;
+    constexpr int GSimulationStartYear = ScenarioConfig::GStartYear;
+    constexpr int GSimulationStartMonth = ScenarioConfig::GStartMonth;
+    constexpr int GSimulationStartDay = ScenarioConfig::GStartDay;
     constexpr float GSecondsPerSimulationDay = 2.f;
     constexpr float GPoliticalSnapshotInterval = 1.f;
     constexpr int GCitizenDirectionCount = 8;
@@ -33,11 +35,14 @@ namespace MainWorldConfig
         "CitizenSmall8DirectionSheet";
     constexpr const TCHAR* GCitizenSheetTextureFile =
         TEXT("Small-8-Direction-Characters_by_AxulArt.png");
-    constexpr const char* GStarterDormitoryObjectName =
-        "StarterDormitory";
     constexpr const char* GStarterTeamsterObjectName =
         "StarterTeamsterOffice";
-    constexpr const char* GStarterRanchObjectName = "StarterRanch";
-    constexpr const char* GStarterFarmObjectName = "StarterLargeFarm";
+    constexpr const char* GStarterAlfalfaFarmObjectName =
+        "StarterAlfalfaFarm";
+    constexpr const char* GStarterFarmObjectName = "StarterFarm";
+    constexpr const char* GStarterTenementAObjectName =
+        "StarterTenementA";
+    constexpr const char* GStarterTenementBObjectName =
+        "StarterTenementB";
     constexpr const char* GStarterHarborObjectName = "StarterHarbor";
 }

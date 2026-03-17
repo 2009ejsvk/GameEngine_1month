@@ -75,6 +75,44 @@ namespace ResourceTradePricing
             return { 4, 6 };
         case EResourceType::FactoryLivestock:
             return { 5, 7 };
+        case EResourceType::Banana:
+            return { 3, 4 };
+        case EResourceType::Cocoa:
+            return { 4, 6 };
+        case EResourceType::Coffee:
+            return { 4, 6 };
+        case EResourceType::Corn:
+            return { 3, 4 };
+        case EResourceType::Cotton:
+            return { 4, 6 };
+        case EResourceType::Pineapple:
+            return { 3, 4 };
+        case EResourceType::Rubber:
+            return { 5, 7 };
+        case EResourceType::Sugar:
+            return { 4, 6 };
+        case EResourceType::Tobacco:
+            return { 4, 6 };
+        case EResourceType::Meat:
+            return { 4, 6 };
+        case EResourceType::Milk:
+            return { 4, 6 };
+        case EResourceType::Hides:
+            return { 4, 6 };
+        case EResourceType::Wool:
+            return { 4, 6 };
+        case EResourceType::Coal:
+            return { 4, 6 };
+        case EResourceType::Iron:
+            return { 4, 6 };
+        case EResourceType::Gold:
+            return { 8, 11 };
+        case EResourceType::Nickel:
+            return { 5, 7 };
+        case EResourceType::Aluminum:
+            return { 5, 7 };
+        case EResourceType::Uranium:
+            return { 6, 9 };
         case EResourceType::Planks:
             return { 5, 7 };
         case EResourceType::Rum:
@@ -113,6 +151,15 @@ namespace ResourceTradePricing
             return { 11, 16 };
         case EResourceType::Juice:
             return { 7, 10 };
+        // Phase-2 special goods: placeholder prices only. These stay hidden
+        // from the current vanilla-core trade/policy surface until the full
+        // Vertical Farm / Synthetic Food Lab / DLC production loops are in.
+        case EResourceType::SpecialChocolate:
+            return { 10, 14 };
+        case EResourceType::Goldnuts:
+            return { 10, 14 };
+        case EResourceType::BS:
+            return { 5, 7 };
         default:
             return {};
         }

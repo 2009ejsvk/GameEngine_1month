@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EdictWidgetState.h"
 #include "UIStrings.h"
 #include <memory>
 #include <string>
@@ -7,7 +8,6 @@
 #include <vector>
 
 class CWorld;
-enum class EEdictUiCategory : int;
 
 namespace EdictDataProvider
 {
@@ -99,9 +99,5 @@ namespace EdictDataProvider
 
     FEdictSnapshot BuildSnapshot(
         const std::shared_ptr<CWorld>& World,
-        EEdictUiCategory SelectedCategory,
-        int RequestedPage,
-        int PreviewEntryIndex,
-        int SelectedEntryIndex,
-        const std::wstring& FeedbackMessage);
+        const FEdictWidgetState& State);
 }
