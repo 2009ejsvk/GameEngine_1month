@@ -86,6 +86,19 @@ public:
 			mChild.reset();
 	}
 
+	template <typename T>
+	std::weak_ptr<T> CreateChildWidget(const std::string& Name,
+		int ZOrder = 0)
+	{
+		auto Child = CWidget::CreateStaticWidget<T>(Name, mWorld, ZOrder);
+
+		if (!Child)
+			return std::weak_ptr<T>();
+
+		SetChild(Child);
+		return Child;
+	}
+
     std::shared_ptr<CWidget> GetChild() const
     {
         return mChild;

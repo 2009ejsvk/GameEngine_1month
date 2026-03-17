@@ -65,6 +65,7 @@ struct FConstitutionState
 {
     std::array<EConstitutionOptionId, GConstitutionTopicCount>
         SelectedOptions = MakeDefaultConstitutionSelections();
+    std::array<bool, GConstitutionTopicCount> QueuedTopics = {};
     bool PendingTopicChoice = false;
     EConstitutionTopic PendingTopic = EConstitutionTopic::VotingRights;
     FConstitutionOptionEffect ActiveEffects;

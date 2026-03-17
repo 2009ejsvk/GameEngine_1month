@@ -29,10 +29,13 @@
 #include "../Map/PlacementBuildingVisual.h"
 #include "../Player/MainCamera.h"
 #include "../Map/PlacementController.h"
+#include "../Politics/ConstitutionSystem.h"
 #include "../Politics/EdictSystem.h"
 #include "../Politics/PoliticsSystem.h"
 #include <Windows.h>
+#include <cstdio>
 #include <cstring>
+#include <sstream>
 #include <string>
 
 namespace
@@ -271,6 +274,78 @@ namespace
         if (VisualObj)
             VisualObj->SetBuilding(Building);
     }
+
+#ifdef _DEBUG
+    std::wstring GetConstitutionValidationPath(const wchar_t* FileName)
+    {
+        wchar_t ModulePath[MAX_PATH] = {};
+        const DWORD Length = GetModuleFileNameW(
+            nullptr,
+            ModulePath,
+            MAX_PATH);
+
+        std::wstring Result =
+            Length > 0 ? std::wstring(ModulePath, Length) : std::wstring();
+        const size_t LastSlash = Result.find_last_of(L"\\/");
+
+        if (LastSlash != std::wstring::npos)
+            Result.erase(LastSlash + 1);
+        else
+            Result.clear();
+
+        Result += FileName ? FileName : L"";
+        return Result;
+    }
+
+    bool IsConstitutionValidationRequested()
+    {
+        wchar_t Buffer[8] = {};
+        const DWORD Count = GetEnvironmentVariableW(
+            L"TROPICO_VALIDATE_CONSTITUTION_UI",
+            Buffer,
+            static_cast<DWORD>(std::size(Buffer)));
+
+        if (Count > 0 && Buffer[0] != L'0')
+            return true;
+
+        const std::wstring RequestPath =
+            GetConstitutionValidationPath(
+                L"ConstitutionValidation.request");
+        const DWORD Attributes = GetFileAttributesW(RequestPath.c_str());
+        return Attributes != INVALID_FILE_ATTRIBUTES &&
+            (Attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+    }
+
+    void OutputConstitutionValidationLine(const std::string& Line)
+    {
+        OutputDebugStringA("[ConstitutionValidation] ");
+        OutputDebugStringA(Line.c_str());
+        OutputDebugStringA("\n");
+    }
+
+    void WriteConstitutionValidationLog(
+        const std::vector<std::string>& Lines)
+    {
+        FILE* File = nullptr;
+        const std::wstring LogPath =
+            GetConstitutionValidationPath(L"ConstitutionValidation.log");
+
+        if (_wfopen_s(&File, LogPath.c_str(), L"wb") != 0 ||
+            !File)
+        {
+            return;
+        }
+
+        for (size_t Index = 0; Index < Lines.size(); ++Index)
+        {
+            const std::string& Line = Lines[Index];
+            fwrite(Line.c_str(), 1, Line.size(), File);
+            fwrite("\n", 1, 1, File);
+        }
+
+        fclose(File);
+    }
+#endif
 }
 
 void CMainWorld::RebuildRoadNetwork()
@@ -381,6 +456,9 @@ bool CMainWorld::Init()
 
     LoadCitizenAnimation2D();
     CreateUI();
+#ifdef _DEBUG
+    RunDebugConstitutionValidationIfRequested();
+#endif
 
     auto MainCamera = CreateGameObject<CMainCamera>("MainCamera");
     CreateGameObject<CPlacementController>(GPlacementControllerName);
@@ -745,4 +823,94 @@ void CMainWorld::CreateUI()
     mUIManager->CreateWidget<CAlmanacWidget>(
         GAlmanacWidgetName, 320);
 }
+
+#ifdef _DEBUG
+void CMainWorld::RunDebugConstitutionValidationIfRequested()
+{
+    if (!IsConstitutionValidationRequested())
+        return;
+
+    std::vector<std::string> ValidationLines;
+    auto Log =
+        [&](const std::string& Line)
+        {
+            ValidationLines.push_back(Line);
+            OutputConstitutionValidationLine(Line);
+        };
+
+    auto TopHud =
+        mUIManager ?
+        mUIManager->FindWidget<CTopHudWidget>(GTopHudWidgetName).lock() :
+        nullptr;
+
+    if (!TopHud)
+    {
+        Log("FAIL top_hud_widget_not_found");
+        WriteConstitutionValidationLog(ValidationLines);
+        return;
+    }
+
+    std::vector<ConstitutionSystem::FDebugValidationStep> Steps;
+
+    if (!ConstitutionSystem::BuildDebugRightOptionValidationSteps(Steps))
+    {
+        Log("FAIL validation_step_build_failed");
+        WriteConstitutionValidationLog(ValidationLines);
+        return;
+    }
+
+    const FConstitutionState OriginalConstitutionState =
+        mPolicy.ConstitutionState;
+    const FPoliticalWorldSnapshot OriginalPoliticalSnapshot =
+        mPolicy.PoliticalSnapshot;
+    FConstitutionState ValidationState;
+    EBuildingEra AppliedEra = EBuildingEra::Colonial;
+    bool AppliedAnyEra = false;
+    bool AllStepsPassed = true;
+
+    for (size_t Index = 0; Index < Steps.size(); ++Index)
+    {
+        const ConstitutionSystem::FDebugValidationStep& Step = Steps[Index];
+
+        if (!AppliedAnyEra || AppliedEra != Step.TriggerEra)
+        {
+            ConstitutionSystem::OnEraTransitioned(
+                ValidationState,
+                Step.TriggerEra);
+            AppliedEra = Step.TriggerEra;
+            AppliedAnyEra = true;
+        }
+
+        mPolicy.ConstitutionState = ValidationState;
+        RefreshPoliticalSnapshot();
+        TopHud->Update(0.f);
+
+        std::string StepMessage;
+        const bool StepPassed =
+            TopHud->DebugValidateCurrentConstitutionRightButton(
+                Step,
+                StepMessage);
+
+        std::ostringstream Stream;
+        Stream << (StepPassed ? "PASS" : "FAIL")
+            << " step=" << (Index + 1)
+            << "/" << Steps.size()
+            << " " << StepMessage;
+        Log(Stream.str());
+
+        if (!StepPassed)
+            AllStepsPassed = false;
+
+        ValidationState = mPolicy.ConstitutionState;
+    }
+
+    Log(AllStepsPassed ? "SUMMARY PASS" : "SUMMARY FAIL");
+
+    mPolicy.ConstitutionState = OriginalConstitutionState;
+    mPolicy.PoliticalSnapshot = OriginalPoliticalSnapshot;
+    TopHud->Update(0.f);
+
+    WriteConstitutionValidationLog(ValidationLines);
+}
+#endif
 

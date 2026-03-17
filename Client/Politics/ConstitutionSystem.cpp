@@ -255,10 +255,38 @@ namespace
         return nullptr;
     }
 
-    bool TryResolvePendingTopicForEra(
-        const FConstitutionState& State,
-        EBuildingEra Era,
-        EConstitutionTopic& OutTopic)
+    bool ResolveTopicOptions(
+        EConstitutionTopic Topic,
+        EConstitutionOptionId& OutLeftOptionId,
+        EConstitutionOptionId& OutRightOptionId)
+    {
+        OutLeftOptionId = EConstitutionOptionId::None;
+        OutRightOptionId = EConstitutionOptionId::None;
+
+        const auto& Catalog = ConstitutionSystem::GetConstitutionOptionCatalog();
+
+        for (size_t Index = 0; Index < Catalog.size(); ++Index)
+        {
+            if (Catalog[Index].Topic != Topic)
+                continue;
+
+            if (OutLeftOptionId == EConstitutionOptionId::None)
+            {
+                OutLeftOptionId = Catalog[Index].Id;
+                continue;
+            }
+
+            OutRightOptionId = Catalog[Index].Id;
+            break;
+        }
+
+        return OutLeftOptionId != EConstitutionOptionId::None &&
+            OutRightOptionId != EConstitutionOptionId::None;
+    }
+
+    void QueuePendingTopicsForEra(
+        FConstitutionState& State,
+        EBuildingEra Era)
     {
         std::array<bool, GConstitutionTopicCount> TopicVisited = {};
         const auto& Catalog = ConstitutionSystem::GetConstitutionOptionCatalog();
@@ -280,10 +308,41 @@ namespace
             if (State.SelectedOptions[TopicIndex] != EConstitutionOptionId::None)
                 continue;
 
-            OutTopic = Option.Topic;
+            State.QueuedTopics[TopicIndex] = true;
+        }
+    }
+
+    bool TryActivateNextQueuedTopic(FConstitutionState& State)
+    {
+        std::array<bool, GConstitutionTopicCount> TopicVisited = {};
+        const auto& Catalog = ConstitutionSystem::GetConstitutionOptionCatalog();
+
+        for (size_t Index = 0; Index < Catalog.size(); ++Index)
+        {
+            const FConstitutionOptionDef& Option = Catalog[Index];
+            const size_t TopicIndex = GetTopicIndex(Option.Topic);
+
+            if (TopicVisited[TopicIndex])
+                continue;
+
+            TopicVisited[TopicIndex] = true;
+
+            if (!State.QueuedTopics[TopicIndex])
+                continue;
+
+            if (State.SelectedOptions[TopicIndex] != EConstitutionOptionId::None)
+            {
+                State.QueuedTopics[TopicIndex] = false;
+                continue;
+            }
+
+            State.PendingTopicChoice = true;
+            State.PendingTopic = Option.Topic;
             return true;
         }
 
+        State.PendingTopicChoice = false;
+        State.PendingTopic = EConstitutionTopic::VotingRights;
         return false;
     }
 
@@ -364,20 +423,10 @@ namespace ConstitutionSystem
     void OnEraTransitioned(FConstitutionState& State, EBuildingEra NewEra)
     {
         RecalculateActiveEffects(State);
+        QueuePendingTopicsForEra(State, NewEra);
 
-        if (State.PendingTopicChoice)
-            return;
-
-        EConstitutionTopic PendingTopic = EConstitutionTopic::VotingRights;
-
-        if (!TryResolvePendingTopicForEra(State, NewEra, PendingTopic))
-        {
-            State.PendingTopicChoice = false;
-            return;
-        }
-
-        State.PendingTopicChoice = true;
-        State.PendingTopic = PendingTopic;
+        if (!State.PendingTopicChoice)
+            TryActivateNextQueuedTopic(State);
     }
 
     bool TrySelectConstitutionOption(
@@ -395,19 +444,69 @@ namespace ConstitutionSystem
             return false;
         }
 
-        State.SelectedOptions[GetTopicIndex(Option->Topic)] = OptionId;
+        const size_t TopicIndex = GetTopicIndex(Option->Topic);
+        State.SelectedOptions[TopicIndex] = OptionId;
+        State.QueuedTopics[TopicIndex] = false;
         State.PendingTopicChoice = false;
-        State.PendingTopic = Option->Topic;
         RecalculateActiveEffects(State);
-
-        EConstitutionTopic NextTopic = EConstitutionTopic::VotingRights;
-
-        if (TryResolvePendingTopicForEra(State, Option->UnlockEra, NextTopic))
-        {
-            State.PendingTopicChoice = true;
-            State.PendingTopic = NextTopic;
-        }
+        TryActivateNextQueuedTopic(State);
 
         return true;
     }
+
+#ifdef _DEBUG
+    bool BuildDebugRightOptionValidationSteps(
+        std::vector<FDebugValidationStep>& OutSteps)
+    {
+        OutSteps.clear();
+
+        FConstitutionState State;
+        constexpr EBuildingEra ValidationEras[] =
+        {
+            EBuildingEra::WorldWars,
+            EBuildingEra::ColdWar,
+            EBuildingEra::Modern
+        };
+
+        for (const EBuildingEra Era : ValidationEras)
+        {
+            OnEraTransitioned(State, Era);
+
+            while (State.PendingTopicChoice)
+            {
+                FDebugValidationStep Step;
+                Step.TriggerEra = Era;
+                Step.Topic = State.PendingTopic;
+
+                if (!ResolveTopicOptions(
+                        Step.Topic,
+                        Step.LeftOptionId,
+                        Step.RightOptionId))
+                {
+                    OutSteps.clear();
+                    return false;
+                }
+
+                FConstitutionState AfterSelection = State;
+
+                if (!TrySelectConstitutionOption(
+                        AfterSelection,
+                        Step.RightOptionId))
+                {
+                    OutSteps.clear();
+                    return false;
+                }
+
+                Step.ExpectPendingAfterSelection =
+                    AfterSelection.PendingTopicChoice;
+                Step.ExpectedNextPendingTopic =
+                    AfterSelection.PendingTopic;
+                OutSteps.push_back(Step);
+                State = AfterSelection;
+            }
+        }
+
+        return !OutSteps.empty();
+    }
+#endif
 }

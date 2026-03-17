@@ -623,6 +623,48 @@ namespace
         return false;
     }
 
+    int ResolveProductionInputCurrentStock(
+        const CPlacementAreaObject& Building,
+        EResourceType InputType)
+    {
+        if (InputType == EResourceType::None ||
+            InputType == EResourceType::Count)
+        {
+            return 0;
+        }
+
+        if (InputType == EResourceType::FeedCrops)
+        {
+            return Building.GetProductionInputCompatibleResourceStock(
+                       InputType) +
+                Building
+                    .GetProductionInputCompatibleReservedIncomingResourceAmount(
+                        InputType);
+        }
+
+        return Building.GetResourceStock(InputType) +
+            Building.GetReservedIncomingResourceAmount(InputType);
+    }
+
+    int ResolveProductionInputMaxStock(
+        const CPlacementAreaObject& Building,
+        EResourceType InputType)
+    {
+        if (InputType == EResourceType::None ||
+            InputType == EResourceType::Count)
+        {
+            return 0;
+        }
+
+        if (InputType == EResourceType::FeedCrops)
+        {
+            return Building.GetResourceTypeCapacity(EResourceType::Corn) +
+                Building.GetResourceTypeCapacity(EResourceType::Sugar);
+        }
+
+        return Building.GetResourceTypeCapacity(InputType);
+    }
+
     void PopulateProductionResourceView(
         const CPlacementAreaObject& Building,
         const FBuildingCatalogEntry* CatalogEntry,
@@ -667,10 +709,12 @@ namespace
             if (!IsValidProductionInputSlot(InputRecord))
                 continue;
 
-            InputRecord.CurrentStock =
-                Building.GetResourceStock(InputRecord.Type);
-            InputRecord.MaxStock =
-                Building.GetResourceTypeCapacity(InputRecord.Type);
+            InputRecord.CurrentStock = ResolveProductionInputCurrentStock(
+                Building,
+                InputRecord.Type);
+            InputRecord.MaxStock = ResolveProductionInputMaxStock(
+                Building,
+                InputRecord.Type);
         }
     }
 

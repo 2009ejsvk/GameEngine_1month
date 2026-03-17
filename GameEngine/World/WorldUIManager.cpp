@@ -12,6 +12,54 @@
 
 namespace
 {
+#ifdef _DEBUG
+    void OutputUiTrace(
+        const char* Category,
+        const std::string& Text)
+    {
+        OutputDebugStringA("[");
+        OutputDebugStringA(Category ? Category : "UITrace");
+        OutputDebugStringA("] ");
+        OutputDebugStringA(Text.c_str());
+        OutputDebugStringA("\n");
+    }
+
+    std::string BuildTraceWidgetPath(
+        const CWorldUIManager& UIManager,
+        const std::shared_ptr<CWidget>& Widget)
+    {
+        if (!Widget)
+            return std::string("<none>");
+
+        return "Widget." + UIManager.BuildWidgetPath(Widget);
+    }
+
+    void TraceHoveredWidgetChange(
+        const CWorldUIManager& UIManager,
+        const std::shared_ptr<CWidget>& Prev,
+        const std::shared_ptr<CWidget>& Current)
+    {
+        std::ostringstream Stream;
+        Stream << "hover prev=" << BuildTraceWidgetPath(UIManager, Prev)
+            << " current=" << BuildTraceWidgetPath(UIManager, Current);
+        OutputUiTrace("UIHover", Stream.str());
+    }
+
+    void TraceMouseButtonOnWidget(
+        const CWorldUIManager& UIManager,
+        const std::shared_ptr<CWidget>& Widget,
+        const char* State,
+        const FVector2& MousePos)
+    {
+        std::ostringstream Stream;
+        Stream << (State ? State : "mouse")
+            << " path=" << BuildTraceWidgetPath(UIManager, Widget)
+            << " mouse=(" << static_cast<int>(MousePos.x)
+            << ", " << static_cast<int>(MousePos.y) << ")";
+        OutputUiTrace("UIMouse", Stream.str());
+    }
+#endif
+
     const char* GetWidgetTypeName(const std::shared_ptr<CWidget>& Widget)
     {
         if (std::dynamic_pointer_cast<CTextBlock>(Widget))
@@ -311,6 +359,9 @@ bool CWorldUIManager::CollisionMouse(float DeltaTime,
 
 				if (Prev != Current)
 				{
+#ifdef _DEBUG
+                    TraceHoveredWidgetChange(*this, Prev, Current);
+#endif
 					if (Prev)
 					{
 						Prev->MouseUnHovered();
@@ -334,6 +385,13 @@ bool CWorldUIManager::CollisionMouse(float DeltaTime,
 				if (Input->GetMouseState(EMouseType::LButton,
 					EInputType::Press))
 				{
+#ifdef _DEBUG
+                    TraceMouseButtonOnWidget(
+                        *this,
+                        Widget,
+                        "press",
+                        MousePos);
+#endif
 					std::shared_ptr<CWidget>	OperatorWidget;
 
 					if (Widget->MouseDragStart(MousePos,
@@ -354,6 +412,19 @@ bool CWorldUIManager::CollisionMouse(float DeltaTime,
 						}
 					}
 				}
+
+                else if (Input->GetMouseState(
+                    EMouseType::LButton,
+                    EInputType::Release))
+                {
+#ifdef _DEBUG
+                    TraceMouseButtonOnWidget(
+                        *this,
+                        Widget,
+                        "release",
+                        MousePos);
+#endif
+                }
 
 				/*else if (Input->GetMouseState(EMouseType::LButton,
 					EInputType::Hold) && Widget->GetMouseDrag())
@@ -381,6 +452,9 @@ bool CWorldUIManager::CollisionMouse(float DeltaTime,
 		{
 			auto	Widget = mHoveredWidget.lock();
 
+#ifdef _DEBUG
+            TraceHoveredWidgetChange(*this, Widget, nullptr);
+#endif
 			Widget->MouseUnHovered();
 
 			mHoveredWidget = std::weak_ptr<CWidget>();

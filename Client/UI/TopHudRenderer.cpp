@@ -562,86 +562,166 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         Widget.mEraTransitionBodyText = EraTransitionBodyText;
     }
 
-    auto EraTransitionConfirmButton =
+    auto PopupRightButton =
         Widget.CreateWidget<CButton>(
-            "TopHud_EraTransitionConfirmButton",
+            "TopHud_PopupRightButton",
             96).lock();
 
-    if (EraTransitionConfirmButton)
+    if (PopupRightButton)
     {
         ApplyButtonTextureSet(
-            EraTransitionConfirmButton,
-            "TopHudEraTransitionConfirmButton",
+            PopupRightButton,
+            "TopHudPopupRightButton",
             GBigTextButtonTexture,
             GBigTextButtonHoverTexture,
             GBigTextButtonSelectedTexture,
             GBigTextButtonDisabledTexture);
-        ConfigureHighlightedButtonStyle(EraTransitionConfirmButton);
-        EraTransitionConfirmButton->SetEnable(false);
-        EraTransitionConfirmButton->SetEventCallback<CTopHudWidget>(
+        ConfigureHighlightedButtonStyle(PopupRightButton);
+        PopupRightButton->SetEnable(false);
+        PopupRightButton->SetEventCallback<CTopHudWidget>(
             EButtonEventState::Click,
             &Widget,
-            &CTopHudWidget::OnEraTransitionConfirmButtonClick);
-        Widget.mEraTransitionConfirmButton = EraTransitionConfirmButton;
+            &CTopHudWidget::OnPopupRightButtonClick);
+        Widget.mPopupRightButton = PopupRightButton;
 
-        auto ConfirmText = Widget.CreateWidget<CTextBlock>(
-            "TopHud_EraTransitionConfirmButtonText",
+        auto RightButtonText = PopupRightButton->CreateChildWidget<CTextBlock>(
+            "TopHud_PopupRightButtonText",
             97).lock();
 
-        if (ConfirmText)
+        if (RightButtonText)
         {
-            ConfirmText->SetText(TEXT("승인"));
-            ConfirmText->SetFontSize(18.f);
-            ConfirmText->SetAlignH(ETextAlignH::Center);
-            ConfirmText->SetAlignV(ETextAlignV::Middle);
-            ConfirmText->SetTextColor(76, 56, 28, 255);
-            ConfirmText->EnableShadow(true);
-            ConfirmText->SetShadowOffset(1.f, 1.f);
-            ConfirmText->SetShadowTextColor(245, 234, 208, 140);
-            EraTransitionConfirmButton->SetChild(ConfirmText);
-            Widget.mEraTransitionConfirmButtonText = ConfirmText;
+            RightButtonText->SetText(TEXT("승인"));
+            RightButtonText->SetFontSize(18.f);
+            RightButtonText->SetAlignH(ETextAlignH::Center);
+            RightButtonText->SetAlignV(ETextAlignV::Middle);
+            RightButtonText->SetTextColor(76, 56, 28, 255);
+            RightButtonText->EnableShadow(true);
+            RightButtonText->SetShadowOffset(1.f, 1.f);
+            RightButtonText->SetShadowTextColor(245, 234, 208, 140);
+            Widget.mPopupRightButtonText = RightButtonText;
         }
     }
 
-    auto EraTransitionCancelButton =
+    auto PopupLeftButton =
         Widget.CreateWidget<CButton>(
-            "TopHud_EraTransitionCancelButton",
+            "TopHud_PopupLeftButton",
             96).lock();
 
-    if (EraTransitionCancelButton)
+    if (PopupLeftButton)
     {
         ApplyButtonTextureSet(
-            EraTransitionCancelButton,
-            "TopHudEraTransitionCancelButton",
+            PopupLeftButton,
+            "TopHudPopupLeftButton",
             GBigTextButtonTexture,
             GBigTextButtonHoverTexture,
             GBigTextButtonSelectedTexture,
             GBigTextButtonDisabledTexture);
-        ConfigureDefaultButtonStyle(EraTransitionCancelButton);
-        EraTransitionCancelButton->SetEnable(false);
-        EraTransitionCancelButton->SetEventCallback<CTopHudWidget>(
+        ConfigureDefaultButtonStyle(PopupLeftButton);
+        PopupLeftButton->SetEnable(false);
+        PopupLeftButton->SetEventCallback<CTopHudWidget>(
             EButtonEventState::Click,
             &Widget,
-            &CTopHudWidget::OnEraTransitionCancelButtonClick);
-        Widget.mEraTransitionCancelButton = EraTransitionCancelButton;
+            &CTopHudWidget::OnPopupLeftButtonClick);
+        Widget.mPopupLeftButton = PopupLeftButton;
 
-        auto CancelText = Widget.CreateWidget<CTextBlock>(
-            "TopHud_EraTransitionCancelButtonText",
+        auto LeftButtonText = PopupLeftButton->CreateChildWidget<CTextBlock>(
+            "TopHud_PopupLeftButtonText",
             97).lock();
 
-        if (CancelText)
+        if (LeftButtonText)
         {
-            CancelText->SetText(UIStrings::Get(
+            LeftButtonText->SetText(UIStrings::Get(
                 L"top_hud.era_transition.cancel").c_str());
-            CancelText->SetFontSize(18.f);
-            CancelText->SetAlignH(ETextAlignH::Center);
-            CancelText->SetAlignV(ETextAlignV::Middle);
-            CancelText->SetTextColor(76, 56, 28, 255);
-            CancelText->EnableShadow(true);
-            CancelText->SetShadowOffset(1.f, 1.f);
-            CancelText->SetShadowTextColor(245, 234, 208, 140);
-            EraTransitionCancelButton->SetChild(CancelText);
-            Widget.mEraTransitionCancelButtonText = CancelText;
+            LeftButtonText->SetFontSize(18.f);
+            LeftButtonText->SetAlignH(ETextAlignH::Center);
+            LeftButtonText->SetAlignV(ETextAlignV::Middle);
+            LeftButtonText->SetTextColor(76, 56, 28, 255);
+            LeftButtonText->EnableShadow(true);
+            LeftButtonText->SetShadowOffset(1.f, 1.f);
+            LeftButtonText->SetShadowTextColor(245, 234, 208, 140);
+            Widget.mPopupLeftButtonText = LeftButtonText;
+        }
+    }
+
+    auto ConstitutionRightButton =
+        Widget.CreateWidget<CButton>(
+            "TopHud_ConstitutionRightButton",
+            96).lock();
+
+    if (ConstitutionRightButton)
+    {
+        ApplyButtonTextureSet(
+            ConstitutionRightButton,
+            "TopHudConstitutionRightButton",
+            GBigTextButtonTexture,
+            GBigTextButtonHoverTexture,
+            GBigTextButtonSelectedTexture,
+            GBigTextButtonDisabledTexture);
+        ConfigureHighlightedButtonStyle(ConstitutionRightButton);
+        ConstitutionRightButton->SetEnable(false);
+        ConstitutionRightButton->SetEventCallback<CTopHudWidget>(
+            EButtonEventState::Click,
+            &Widget,
+            &CTopHudWidget::OnPopupRightButtonClick);
+        Widget.mConstitutionRightButton = ConstitutionRightButton;
+
+        auto RightButtonText =
+            ConstitutionRightButton->CreateChildWidget<CTextBlock>(
+                "TopHud_ConstitutionRightButtonText",
+                97).lock();
+
+        if (RightButtonText)
+        {
+            RightButtonText->SetText(TEXT(""));
+            RightButtonText->SetFontSize(18.f);
+            RightButtonText->SetAlignH(ETextAlignH::Center);
+            RightButtonText->SetAlignV(ETextAlignV::Middle);
+            RightButtonText->SetTextColor(76, 56, 28, 255);
+            RightButtonText->EnableShadow(true);
+            RightButtonText->SetShadowOffset(1.f, 1.f);
+            RightButtonText->SetShadowTextColor(245, 234, 208, 140);
+            Widget.mConstitutionRightButtonText = RightButtonText;
+        }
+    }
+
+    auto ConstitutionLeftButton =
+        Widget.CreateWidget<CButton>(
+            "TopHud_ConstitutionLeftButton",
+            96).lock();
+
+    if (ConstitutionLeftButton)
+    {
+        ApplyButtonTextureSet(
+            ConstitutionLeftButton,
+            "TopHudConstitutionLeftButton",
+            GBigTextButtonTexture,
+            GBigTextButtonHoverTexture,
+            GBigTextButtonSelectedTexture,
+            GBigTextButtonDisabledTexture);
+        ConfigureDefaultButtonStyle(ConstitutionLeftButton);
+        ConstitutionLeftButton->SetEnable(false);
+        ConstitutionLeftButton->SetEventCallback<CTopHudWidget>(
+            EButtonEventState::Click,
+            &Widget,
+            &CTopHudWidget::OnPopupLeftButtonClick);
+        Widget.mConstitutionLeftButton = ConstitutionLeftButton;
+
+        auto LeftButtonText =
+            ConstitutionLeftButton->CreateChildWidget<CTextBlock>(
+                "TopHud_ConstitutionLeftButtonText",
+                97).lock();
+
+        if (LeftButtonText)
+        {
+            LeftButtonText->SetText(TEXT(""));
+            LeftButtonText->SetFontSize(18.f);
+            LeftButtonText->SetAlignH(ETextAlignH::Center);
+            LeftButtonText->SetAlignV(ETextAlignV::Middle);
+            LeftButtonText->SetTextColor(76, 56, 28, 255);
+            LeftButtonText->EnableShadow(true);
+            LeftButtonText->SetShadowOffset(1.f, 1.f);
+            LeftButtonText->SetShadowTextColor(245, 234, 208, 140);
+            Widget.mConstitutionLeftButtonText = LeftButtonText;
         }
     }
 
@@ -803,15 +883,39 @@ void FTopHudRenderer::ApplySnapshot(
     auto EraTransitionPanel = Widget.mEraTransitionPanel.lock();
     auto EraTransitionTitleText = Widget.mEraTransitionTitleText.lock();
     auto EraTransitionBodyText = Widget.mEraTransitionBodyText.lock();
-    auto EraTransitionConfirmButton = Widget.mEraTransitionConfirmButton.lock();
-    auto EraTransitionCancelButton = Widget.mEraTransitionCancelButton.lock();
-    auto EraTransitionConfirmButtonText =
-        Widget.mEraTransitionConfirmButtonText.lock();
-    auto EraTransitionCancelButtonText =
-        Widget.mEraTransitionCancelButtonText.lock();
-    const bool ShowEraTransitionPopup =
+    auto PopupRightButton = Widget.mPopupRightButton.lock();
+    auto PopupLeftButton = Widget.mPopupLeftButton.lock();
+    auto ConstitutionRightButton =
+        Widget.mConstitutionRightButton.lock();
+    auto ConstitutionLeftButton =
+        Widget.mConstitutionLeftButton.lock();
+    auto PopupRightButtonText =
+        Widget.mPopupRightButtonText.lock();
+    auto PopupLeftButtonText =
+        Widget.mPopupLeftButtonText.lock();
+    auto ConstitutionRightButtonText =
+        Widget.mConstitutionRightButtonText.lock();
+    auto ConstitutionLeftButtonText =
+        Widget.mConstitutionLeftButtonText.lock();
+    const bool ShowPopupOverlay =
         Widget.GetState().EraTransitionPopupOpen &&
         !Snapshot.GameLost;
+    const bool ShowConstitutionPopup =
+        ShowPopupOverlay &&
+        Widget.GetState().ConstitutionPopupActive;
+    const bool ShowEraTransitionPopup =
+        ShowPopupOverlay &&
+        !ShowConstitutionPopup;
+    const bool ConstitutionPopupButtonsEnabled =
+        ShowConstitutionPopup &&
+        Snapshot.CanUseButtons;
+    const bool EraTransitionLeftButtonEnabled =
+        ShowEraTransitionPopup &&
+        Snapshot.CanUseButtons;
+    const bool EraTransitionRightButtonEnabled =
+        ShowEraTransitionPopup &&
+        Snapshot.CanUseButtons &&
+        Snapshot.EraTransitionAvailable;
 
     if (DateText)
         DateText->SetText(Snapshot.DateText.c_str());
@@ -904,53 +1008,68 @@ void FTopHudRenderer::ApplySnapshot(
     }
 
     if (EraTransitionDim)
-        EraTransitionDim->SetEnable(ShowEraTransitionPopup);
+        EraTransitionDim->SetEnable(ShowPopupOverlay);
 
     if (EraTransitionPanel)
-        EraTransitionPanel->SetEnable(ShowEraTransitionPopup);
+        EraTransitionPanel->SetEnable(ShowPopupOverlay);
 
     if (EraTransitionTitleText)
     {
         EraTransitionTitleText->SetText(Snapshot.EraTransitionTitle.c_str());
-        EraTransitionTitleText->SetEnable(ShowEraTransitionPopup);
+        EraTransitionTitleText->SetEnable(ShowPopupOverlay);
     }
 
     if (EraTransitionBodyText)
     {
         EraTransitionBodyText->SetText(Snapshot.EraTransitionBody.c_str());
-        EraTransitionBodyText->SetEnable(ShowEraTransitionPopup);
+        EraTransitionBodyText->SetEnable(ShowPopupOverlay);
     }
 
-    if (EraTransitionConfirmButton)
+    if (PopupRightButton)
     {
-        EraTransitionConfirmButton->SetEnable(ShowEraTransitionPopup);
-        EraTransitionConfirmButton->ButtonEnable(
-            ShowEraTransitionPopup &&
-            Snapshot.CanUseButtons &&
-            Snapshot.EraTransitionAvailable);
+        PopupRightButton->SetEnable(ShowEraTransitionPopup);
+        PopupRightButton->ButtonEnable(EraTransitionRightButtonEnabled);
     }
 
-    if (EraTransitionCancelButton)
+    if (PopupLeftButton)
     {
-        EraTransitionCancelButton->SetEnable(ShowEraTransitionPopup);
-        EraTransitionCancelButton->ButtonEnable(
-            ShowEraTransitionPopup &&
-            Snapshot.CanUseButtons);
+        PopupLeftButton->SetEnable(ShowEraTransitionPopup);
+        PopupLeftButton->ButtonEnable(EraTransitionLeftButtonEnabled);
     }
 
-    if (EraTransitionConfirmButtonText)
+    if (ConstitutionRightButton)
     {
-        EraTransitionConfirmButtonText->SetText(
+        ConstitutionRightButton->SetEnable(ShowConstitutionPopup);
+        ConstitutionRightButton->ButtonEnable(
+            ConstitutionPopupButtonsEnabled);
+    }
+
+    if (ConstitutionLeftButton)
+    {
+        ConstitutionLeftButton->SetEnable(ShowConstitutionPopup);
+        ConstitutionLeftButton->ButtonEnable(
+            ConstitutionPopupButtonsEnabled);
+    }
+
+    if (PopupRightButtonText)
+    {
+        PopupRightButtonText->SetText(
             Snapshot.EraTransitionConfirmText.c_str());
-        EraTransitionConfirmButtonText->SetEnable(ShowEraTransitionPopup);
+        PopupRightButtonText->SetEnable(ShowEraTransitionPopup);
     }
 
-    if (EraTransitionCancelButtonText)
+    if (PopupLeftButtonText)
     {
-        EraTransitionCancelButtonText->SetText(
+        PopupLeftButtonText->SetText(
             Snapshot.EraTransitionCancelText.c_str());
-        EraTransitionCancelButtonText->SetEnable(ShowEraTransitionPopup);
+        PopupLeftButtonText->SetEnable(ShowEraTransitionPopup);
     }
+
+    if (ConstitutionRightButtonText)
+        ConstitutionRightButtonText->SetEnable(ShowConstitutionPopup);
+
+    if (ConstitutionLeftButtonText)
+        ConstitutionLeftButtonText->SetEnable(ShowConstitutionPopup);
 
     if (GameOverDim)
         GameOverDim->SetEnable(Snapshot.GameLost);
@@ -1005,12 +1124,20 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     auto EraTransitionPanel = Widget.mEraTransitionPanel.lock();
     auto EraTransitionTitleText = Widget.mEraTransitionTitleText.lock();
     auto EraTransitionBodyText = Widget.mEraTransitionBodyText.lock();
-    auto EraTransitionConfirmButton = Widget.mEraTransitionConfirmButton.lock();
-    auto EraTransitionCancelButton = Widget.mEraTransitionCancelButton.lock();
-    auto EraTransitionConfirmButtonText =
-        Widget.mEraTransitionConfirmButtonText.lock();
-    auto EraTransitionCancelButtonText =
-        Widget.mEraTransitionCancelButtonText.lock();
+    auto PopupRightButton = Widget.mPopupRightButton.lock();
+    auto PopupLeftButton = Widget.mPopupLeftButton.lock();
+    auto ConstitutionRightButton =
+        Widget.mConstitutionRightButton.lock();
+    auto ConstitutionLeftButton =
+        Widget.mConstitutionLeftButton.lock();
+    auto PopupRightButtonText =
+        Widget.mPopupRightButtonText.lock();
+    auto PopupLeftButtonText =
+        Widget.mPopupLeftButtonText.lock();
+    auto ConstitutionRightButtonText =
+        Widget.mConstitutionRightButtonText.lock();
+    auto ConstitutionLeftButtonText =
+        Widget.mConstitutionLeftButtonText.lock();
     const float TopHudScale =
         (std::max)(0.72f, (std::min)(1.05f, ScreenWidth / 1920.f));
     const float TopHudPanelX = UIConfig::SpeedPanelX;
@@ -1381,30 +1508,58 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
             EraPanelHeight - 164.f * PanelScale);
     }
 
-    if (EraTransitionCancelButton)
+    if (PopupLeftButton)
     {
-        EraTransitionCancelButton->SetPos(EraCancelButtonX, EraButtonY);
-        EraTransitionCancelButton->SetSize(EraButtonWidth, EraButtonHeight);
+        PopupLeftButton->SetPos(EraCancelButtonX, EraButtonY);
+        PopupLeftButton->SetSize(EraButtonWidth, EraButtonHeight);
     }
 
-    if (EraTransitionConfirmButton)
+    if (PopupRightButton)
     {
-        EraTransitionConfirmButton->SetPos(EraConfirmButtonX, EraButtonY);
-        EraTransitionConfirmButton->SetSize(EraButtonWidth, EraButtonHeight);
+        PopupRightButton->SetPos(EraConfirmButtonX, EraButtonY);
+        PopupRightButton->SetSize(EraButtonWidth, EraButtonHeight);
     }
 
-    if (EraTransitionCancelButtonText)
+    if (PopupLeftButtonText)
     {
-        EraTransitionCancelButtonText->SetPos(0.f, 0.f);
-        EraTransitionCancelButtonText->SetSize(
+        PopupLeftButtonText->SetPos(0.f, 0.f);
+        PopupLeftButtonText->SetSize(
             EraButtonWidth,
             EraButtonHeight);
     }
 
-    if (EraTransitionConfirmButtonText)
+    if (PopupRightButtonText)
     {
-        EraTransitionConfirmButtonText->SetPos(0.f, 0.f);
-        EraTransitionConfirmButtonText->SetSize(
+        PopupRightButtonText->SetPos(0.f, 0.f);
+        PopupRightButtonText->SetSize(
+            EraButtonWidth,
+            EraButtonHeight);
+    }
+
+    if (ConstitutionLeftButton)
+    {
+        ConstitutionLeftButton->SetPos(EraCancelButtonX, EraButtonY);
+        ConstitutionLeftButton->SetSize(EraButtonWidth, EraButtonHeight);
+    }
+
+    if (ConstitutionRightButton)
+    {
+        ConstitutionRightButton->SetPos(EraConfirmButtonX, EraButtonY);
+        ConstitutionRightButton->SetSize(EraButtonWidth, EraButtonHeight);
+    }
+
+    if (ConstitutionLeftButtonText)
+    {
+        ConstitutionLeftButtonText->SetPos(0.f, 0.f);
+        ConstitutionLeftButtonText->SetSize(
+            EraButtonWidth,
+            EraButtonHeight);
+    }
+
+    if (ConstitutionRightButtonText)
+    {
+        ConstitutionRightButtonText->SetPos(0.f, 0.f);
+        ConstitutionRightButtonText->SetSize(
             EraButtonWidth,
             EraButtonHeight);
     }

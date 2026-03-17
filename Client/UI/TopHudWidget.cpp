@@ -13,9 +13,66 @@
 #include "../World/MainWorldAccess.h"
 #include "World/World.h"
 #include "World/WorldUIManager.h"
+#include <Windows.h>
+#include <sstream>
 
 namespace
 {
+#ifdef _DEBUG
+    void OutputConstitutionUiTrace(const std::string& Text)
+    {
+        OutputDebugStringA("[ConstitutionUI] ");
+        OutputDebugStringA(Text.c_str());
+        OutputDebugStringA("\n");
+    }
+
+    void TraceConstitutionButtonHandler(
+        const char* HandlerName,
+        bool PopupActive,
+        EConstitutionOptionId OptionId)
+    {
+        std::ostringstream Stream;
+        Stream << (HandlerName ? HandlerName : "handler")
+            << " popupActive=" << (PopupActive ? 1 : 0)
+            << " optionId=" << static_cast<int>(OptionId);
+        OutputConstitutionUiTrace(Stream.str());
+    }
+
+    const char* GetDebugEraName(EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::WorldWars:
+            return "WorldWars";
+        case EBuildingEra::ColdWar:
+            return "ColdWar";
+        case EBuildingEra::Modern:
+            return "Modern";
+        default:
+            return "OtherEra";
+        }
+    }
+
+    const char* GetDebugTopicName(EConstitutionTopic Topic)
+    {
+        switch (Topic)
+        {
+        case EConstitutionTopic::VotingRights:
+            return "VotingRights";
+        case EConstitutionTopic::LaborPolicy:
+            return "LaborPolicy";
+        case EConstitutionTopic::ReligionAndState:
+            return "ReligionAndState";
+        case EConstitutionTopic::MediaIndependence:
+            return "MediaIndependence";
+        case EConstitutionTopic::ArmedForces:
+            return "ArmedForces";
+        default:
+            return "UnknownTopic";
+        }
+    }
+#endif
+
     const wchar_t* GetConstitutionTopicDisplayName(EConstitutionTopic Topic)
     {
         switch (Topic)
@@ -142,8 +199,8 @@ bool CTopHudWidget::Init()
     mManualEraTransitionPopupOpen = false;
     mConstitutionPopupActive = false;
     mEraTransitionPopupOpen = false;
-    mConstitutionConfirmOptionId = EConstitutionOptionId::None;
-    mConstitutionCancelOptionId = EConstitutionOptionId::None;
+    mConstitutionLeftOptionId = EConstitutionOptionId::None;
+    mConstitutionRightOptionId = EConstitutionOptionId::None;
 
     FTopHudRenderer::CreateWidgets(*this);
     RefreshFromState();
@@ -161,8 +218,8 @@ void CTopHudWidget::RefreshFromState()
     const auto Snapshot = TopHudDataProvider::BuildSnapshot(mWorld.lock());
     const bool WasConstitutionPopupActive = mConstitutionPopupActive;
     mConstitutionPopupActive = false;
-    mConstitutionConfirmOptionId = EConstitutionOptionId::None;
-    mConstitutionCancelOptionId = EConstitutionOptionId::None;
+    mConstitutionLeftOptionId = EConstitutionOptionId::None;
+    mConstitutionRightOptionId = EConstitutionOptionId::None;
 
     auto ConstitutionAccess =
         ResolveMainWorldConstitutionAccess(mWorld.lock());
@@ -175,8 +232,8 @@ void CTopHudWidget::RefreshFromState()
         if (ConstitutionState.PendingTopicChoice &&
             ResolveConstitutionOptionsForTopic(
                 ConstitutionState.PendingTopic,
-                mConstitutionConfirmOptionId,
-                mConstitutionCancelOptionId))
+                mConstitutionLeftOptionId,
+                mConstitutionRightOptionId))
         {
             mConstitutionPopupActive = true;
             mManualEraTransitionPopupOpen = false;
@@ -209,15 +266,15 @@ void CTopHudWidget::RefreshFromState()
         const FConstitutionState& ConstitutionState =
             ConstitutionAccess->GetConstitutionState();
         const FConstitutionOptionDef* const LeftOption =
-            FindConstitutionOptionDef(mConstitutionConfirmOptionId);
+            FindConstitutionOptionDef(mConstitutionLeftOptionId);
         const FConstitutionOptionDef* const RightOption =
-            FindConstitutionOptionDef(mConstitutionCancelOptionId);
+            FindConstitutionOptionDef(mConstitutionRightOptionId);
         auto TitleText = mEraTransitionTitleText.lock();
         auto BodyText = mEraTransitionBodyText.lock();
-        auto ConfirmButton = mEraTransitionConfirmButton.lock();
-        auto CancelButton = mEraTransitionCancelButton.lock();
-        auto ConfirmButtonText = mEraTransitionConfirmButtonText.lock();
-        auto CancelButtonText = mEraTransitionCancelButtonText.lock();
+        auto LeftButton = mConstitutionLeftButton.lock();
+        auto RightButton = mConstitutionRightButton.lock();
+        auto LeftButtonText = mConstitutionLeftButtonText.lock();
+        auto RightButtonText = mConstitutionRightButtonText.lock();
 
         if (TitleText)
             TitleText->SetText(
@@ -234,27 +291,206 @@ void CTopHudWidget::RefreshFromState()
                     RightOption)
                 .c_str());
 
-        if (ConfirmButton)
+        if (LeftButton)
         {
-            ConfirmButton->SetEnable(true);
-            ConfirmButton->ButtonEnable(Snapshot.CanUseButtons);
+            LeftButton->SetEnable(true);
+            LeftButton->ButtonEnable(Snapshot.CanUseButtons);
         }
 
-        if (CancelButton)
+        if (RightButton)
         {
-            CancelButton->SetEnable(true);
-            CancelButton->ButtonEnable(Snapshot.CanUseButtons);
+            RightButton->SetEnable(true);
+            RightButton->ButtonEnable(Snapshot.CanUseButtons);
         }
 
-        if (ConfirmButtonText && LeftOption)
-            ConfirmButtonText->SetText(LeftOption->DisplayName.c_str());
+        if (LeftButtonText && LeftOption)
+            LeftButtonText->SetText(LeftOption->DisplayName.c_str());
 
-        if (CancelButtonText && RightOption)
-            CancelButtonText->SetText(RightOption->DisplayName.c_str());
+        if (RightButtonText && RightOption)
+            RightButtonText->SetText(RightOption->DisplayName.c_str());
     }
 
     FTopHudRenderer::RefreshLayout(*this);
 }
+
+#ifdef _DEBUG
+bool CTopHudWidget::DebugValidateCurrentConstitutionRightButton(
+    const ConstitutionSystem::FDebugValidationStep& Step,
+    std::string& OutMessage)
+{
+    OutMessage.clear();
+
+    auto World = mWorld.lock();
+    auto UIManager = World ? World->GetUIManager().lock() : nullptr;
+    auto ConstitutionAccess =
+        ResolveMainWorldConstitutionAccess(World);
+    auto RightButton = mConstitutionRightButton.lock();
+    auto RightButtonText = mConstitutionRightButtonText.lock();
+
+    bool Success = true;
+    std::ostringstream Stream;
+    auto Fail =
+        [&](const std::string& Reason)
+        {
+            if (!Stream.str().empty())
+                Stream << " | ";
+
+            Stream << Reason;
+            Success = false;
+        };
+
+    if (!World)
+        Fail("world_unavailable");
+
+    if (!UIManager)
+        Fail("ui_manager_unavailable");
+
+    if (!ConstitutionAccess)
+        Fail("constitution_access_unavailable");
+
+    if (!RightButton)
+        Fail("right_button_missing");
+
+    const FConstitutionState* BeforeState =
+        ConstitutionAccess ? &ConstitutionAccess->GetConstitutionState() :
+        nullptr;
+
+    if (!mConstitutionPopupActive)
+        Fail("constitution_popup_inactive");
+
+    if (!BeforeState || !BeforeState->PendingTopicChoice)
+    {
+        Fail("pending_topic_missing");
+    }
+    else if (BeforeState->PendingTopic != Step.Topic)
+    {
+        Fail(
+            std::string("pending_topic_mismatch expected=") +
+            GetDebugTopicName(Step.Topic) +
+            " actual=" +
+            GetDebugTopicName(BeforeState->PendingTopic));
+    }
+
+    if (mConstitutionRightOptionId != Step.RightOptionId)
+    {
+        Fail(
+            std::string("right_option_mismatch expected=") +
+            std::to_string(static_cast<int>(Step.RightOptionId)) +
+            " actual=" +
+            std::to_string(static_cast<int>(mConstitutionRightOptionId)));
+    }
+
+    const FConstitutionOptionDef* const RightOption =
+        FindConstitutionOptionDef(Step.RightOptionId);
+
+    if (!RightOption)
+        Fail("right_option_definition_missing");
+
+    if (RightButton)
+    {
+        if (!RightButton->GetEnable())
+            Fail("right_button_disabled");
+
+        const FVector3 ButtonPos = RightButton->GetPos();
+        const FVector3 ButtonSize = RightButton->GetSize();
+        const FVector2 HoverPoint(
+            ButtonPos.x + ButtonSize.x * 0.5f,
+            ButtonPos.y + ButtonSize.y * 0.5f);
+
+        if (UIManager)
+        {
+            UIManager->CollisionMouse(0.f, HoverPoint);
+            auto HoveredWidget = UIManager->GetHoveredWidget().lock();
+
+            if (HoveredWidget != RightButton)
+            {
+                Fail(
+                    std::string("hover_target_mismatch actual=") +
+                    "Widget." +
+                    UIManager->BuildWidgetPath(HoveredWidget));
+            }
+        }
+
+        if (!RightButton->GetMouseOn())
+            Fail("right_button_hover_missing");
+    }
+
+    if (RightButtonText && RightOption &&
+        RightButtonText->GetText() != RightOption->DisplayName)
+    {
+        Fail("right_button_label_mismatch");
+    }
+
+    const int HandlerEntryCountBefore = mDebugPopupRightHandlerEntryCount;
+    OnPopupRightButtonClick();
+
+    if (mDebugPopupRightHandlerEntryCount != HandlerEntryCountBefore + 1 ||
+        mDebugLastPopupRightHandlerOptionId != Step.RightOptionId)
+    {
+        Fail("right_button_click_handler_not_observed");
+    }
+
+    const FConstitutionState* AfterState =
+        ConstitutionAccess ? &ConstitutionAccess->GetConstitutionState() :
+        nullptr;
+
+    if (!AfterState)
+    {
+        Fail("post_click_state_unavailable");
+    }
+    else
+    {
+        const size_t TopicIndex = static_cast<size_t>(Step.Topic);
+
+        if (AfterState->SelectedOptions[TopicIndex] != Step.RightOptionId)
+            Fail("selected_option_not_applied");
+
+        if (AfterState->QueuedTopics[TopicIndex])
+            Fail("resolved_topic_still_queued");
+
+        if (Step.ExpectPendingAfterSelection)
+        {
+            if (!AfterState->PendingTopicChoice)
+            {
+                Fail("next_topic_not_activated");
+            }
+            else if (AfterState->PendingTopic !=
+                Step.ExpectedNextPendingTopic)
+            {
+                Fail(
+                    std::string("next_topic_mismatch expected=") +
+                    GetDebugTopicName(Step.ExpectedNextPendingTopic) +
+                    " actual=" +
+                    GetDebugTopicName(AfterState->PendingTopic));
+            }
+        }
+        else if (AfterState->PendingTopicChoice)
+        {
+            Fail("pending_topic_choice_not_cleared");
+        }
+    }
+
+    if (Success)
+    {
+        Stream << "ok era=" << GetDebugEraName(Step.TriggerEra)
+            << " topic=" << GetDebugTopicName(Step.Topic)
+            << " rightOption=" << static_cast<int>(Step.RightOptionId);
+
+        if (Step.ExpectPendingAfterSelection)
+        {
+            Stream << " next=" <<
+                GetDebugTopicName(Step.ExpectedNextPendingTopic);
+        }
+        else
+        {
+            Stream << " next=<none>";
+        }
+    }
+
+    OutMessage = Stream.str();
+    return Success;
+}
+#endif
 
 void CTopHudWidget::CloseMenus(
     bool CloseBuildMenu,
@@ -413,10 +649,19 @@ void CTopHudWidget::OnTradeButtonClick()
         TradeWidget->ToggleOpen();
 }
 
-void CTopHudWidget::OnEraTransitionConfirmButtonClick()
+void CTopHudWidget::OnPopupRightButtonClick()
 {
     if (mGameLost)
         return;
+
+#ifdef _DEBUG
+    ++mDebugPopupRightHandlerEntryCount;
+    mDebugLastPopupRightHandlerOptionId = mConstitutionRightOptionId;
+    TraceConstitutionButtonHandler(
+        "popup_right_handler_enter",
+        mConstitutionPopupActive,
+        mConstitutionRightOptionId);
+#endif
 
     if (mConstitutionPopupActive)
     {
@@ -424,10 +669,10 @@ void CTopHudWidget::OnEraTransitionConfirmButtonClick()
             ResolveMainWorldConstitutionAccess(mWorld.lock());
 
         if (ConstitutionAccess &&
-            mConstitutionConfirmOptionId != EConstitutionOptionId::None)
+            mConstitutionRightOptionId != EConstitutionOptionId::None)
         {
             ConstitutionAccess->TrySelectConstitutionOption(
-                mConstitutionConfirmOptionId);
+                mConstitutionRightOptionId);
         }
 
         RefreshFromState();
@@ -449,18 +694,28 @@ void CTopHudWidget::OnEraTransitionConfirmButtonClick()
     RefreshFromState();
 }
 
-void CTopHudWidget::OnEraTransitionCancelButtonClick()
+void CTopHudWidget::OnPopupLeftButtonClick()
 {
+    if (mGameLost)
+        return;
+
+#ifdef _DEBUG
+    TraceConstitutionButtonHandler(
+        "popup_left_handler_enter",
+        mConstitutionPopupActive,
+        mConstitutionLeftOptionId);
+#endif
+
     if (mConstitutionPopupActive)
     {
         auto ConstitutionAccess =
             ResolveMainWorldConstitutionAccess(mWorld.lock());
 
         if (ConstitutionAccess &&
-            mConstitutionCancelOptionId != EConstitutionOptionId::None)
+            mConstitutionLeftOptionId != EConstitutionOptionId::None)
         {
             ConstitutionAccess->TrySelectConstitutionOption(
-                mConstitutionCancelOptionId);
+                mConstitutionLeftOptionId);
         }
 
         RefreshFromState();

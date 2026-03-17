@@ -593,6 +593,7 @@ namespace UIStrings
             { L"citizen_info.label.daily_wage_cost", L"일 인건비" },
             { L"citizen_info.label.daily_upkeep_cost", L"일 유지비" },
             { L"citizen_info.label.current_stock", L"현재 재고" },
+            { L"citizen_info.label.input_slot", L"투입" },
             { L"citizen_info.label.output_per_second", L"초당 생산량" },
             { L"citizen_info.label.expected_daily_output", L"예상 일일 산출량" },
             { L"citizen_info.label.expected_monthly_output", L"예상 월간 산출량" },

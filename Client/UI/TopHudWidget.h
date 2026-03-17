@@ -2,9 +2,16 @@
 
 #include "TopHudWidgetState.h"
 #include "UI/WidgetContainer.h"
+#include <string>
 #include <vector>
 
 class FTopHudRenderer;
+namespace ConstitutionSystem
+{
+#ifdef _DEBUG
+    struct FDebugValidationStep;
+#endif
+}
 
 class CTopHudWidget :
     public CWidgetContainer
@@ -47,16 +54,25 @@ private:
     std::weak_ptr<class CTextBlock> mGameOverBodyText;
     std::weak_ptr<class CTextBlock> mEraTransitionTitleText;
     std::weak_ptr<class CTextBlock> mEraTransitionBodyText;
-    std::weak_ptr<class CTextBlock> mEraTransitionConfirmButtonText;
-    std::weak_ptr<class CTextBlock> mEraTransitionCancelButtonText;
+    std::weak_ptr<class CTextBlock> mPopupRightButtonText;
+    std::weak_ptr<class CTextBlock> mPopupLeftButtonText;
+    std::weak_ptr<class CTextBlock> mConstitutionRightButtonText;
+    std::weak_ptr<class CTextBlock> mConstitutionLeftButtonText;
     std::vector<std::weak_ptr<class CButton>> mSpeedButtons;
     std::vector<std::weak_ptr<class CImage>> mSpeedButtonIcons;
     std::vector<std::weak_ptr<class CButton>> mMenuButtons;
     std::vector<std::weak_ptr<class CImage>> mMenuButtonIcons;
     std::vector<std::weak_ptr<class CTextBlock>> mMenuButtonTexts;
-    std::weak_ptr<class CButton>    mEraTransitionConfirmButton;
-    std::weak_ptr<class CButton>    mEraTransitionCancelButton;
+    std::weak_ptr<class CButton>    mPopupRightButton;
+    std::weak_ptr<class CButton>    mPopupLeftButton;
+    std::weak_ptr<class CButton>    mConstitutionRightButton;
+    std::weak_ptr<class CButton>    mConstitutionLeftButton;
     FTopHudWidgetState mState;
+#ifdef _DEBUG
+    int mDebugPopupRightHandlerEntryCount = 0;
+    EConstitutionOptionId mDebugLastPopupRightHandlerOptionId =
+        EConstitutionOptionId::None;
+#endif
 
     // Compatibility aliases for existing widget code while callers migrate.
     float& mMonthProgress = mState.MonthProgress;
@@ -65,10 +81,10 @@ private:
     bool& mManualEraTransitionPopupOpen = mState.ManualEraTransitionPopupOpen;
     bool& mConstitutionPopupActive = mState.ConstitutionPopupActive;
     bool& mEraTransitionPopupOpen = mState.EraTransitionPopupOpen;
-    EConstitutionOptionId& mConstitutionConfirmOptionId =
-        mState.ConstitutionConfirmOptionId;
-    EConstitutionOptionId& mConstitutionCancelOptionId =
-        mState.ConstitutionCancelOptionId;
+    EConstitutionOptionId& mConstitutionLeftOptionId =
+        mState.ConstitutionLeftOptionId;
+    EConstitutionOptionId& mConstitutionRightOptionId =
+        mState.ConstitutionRightOptionId;
 
 public:
     virtual bool Init();
@@ -81,6 +97,11 @@ public:
     {
         return mState;
     }
+#ifdef _DEBUG
+    bool DebugValidateCurrentConstitutionRightButton(
+        const ConstitutionSystem::FDebugValidationStep& Step,
+        std::string& OutMessage);
+#endif
 
 private:
     void RefreshFromState();
@@ -94,8 +115,8 @@ private:
     void OnEdictsButtonClick();
     void OnAlmanacButtonClick();
     void OnTradeButtonClick();
-    void OnEraTransitionConfirmButtonClick();
-    void OnEraTransitionCancelButtonClick();
+    void OnPopupRightButtonClick();
+    void OnPopupLeftButtonClick();
     void OnSpeedStateButtonClick();
     void OnSpeedMultiplierButtonClick();
     void OnAnyButtonClick();

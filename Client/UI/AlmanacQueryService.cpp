@@ -27,6 +27,7 @@ namespace
                 return Result;
 
             Result.Available = true;
+            Result.CurrentEra = mMainWorldAccess->GetCurrentEra();
             Result.NationalBudget = mMainWorldAccess->GetNationalBudget();
             Result.DailyExportIncome =
                 mMainWorldAccess->GetLastDailyExportIncome();

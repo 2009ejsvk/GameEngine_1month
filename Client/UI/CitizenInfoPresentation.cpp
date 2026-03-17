@@ -687,7 +687,9 @@ namespace CitizenInfoPresentationInternal
                 continue;
 
             if (Input.CurrentStock < (std::max)(1, Input.RequiredAmount))
+            {
                 return true;
+            }
         }
 
         return false;
@@ -710,9 +712,7 @@ namespace CitizenInfoPresentationInternal
         if (!IsValidProductionInputRecord(Input))
             return std::wstring();
 
-        return CitizenInfoPresentation::FormatInteger(Input.CurrentStock) +
-            L" / " +
-            CitizenInfoPresentation::FormatInteger((std::max)(0, Input.MaxStock));
+        return CitizenInfoPresentation::FormatInteger(Input.CurrentStock);
     }
 
     std::wstring BuildProductionInputRequirementSummary(
@@ -792,7 +792,8 @@ namespace CitizenInfoPresentationInternal
 
     std::wstring BuildProductionInputStatisticsLabel(int SlotIndex)
     {
-        return L"투입 " +
+        return Ui(L"citizen_info.label.input_slot") +
+            L" " +
             std::to_wstring((std::max)(1, SlotIndex + 1));
     }
 
@@ -806,6 +807,15 @@ namespace CitizenInfoPresentationInternal
             std::wstring(GetResourceTypeDisplayName(Input.Type)) +
             L": " +
             BuildProductionInputStockText(Input);
+    }
+
+    std::wstring BuildProductionInputOverviewValue(
+        const FProductionInputSlotView& Input)
+    {
+        if (!IsValidProductionInputRecord(Input))
+            return std::wstring();
+
+        return BuildProductionInputStockText(Input);
     }
 
     int ExtractIntegerAfterToken(
@@ -2414,6 +2424,23 @@ namespace CitizenInfoPresentation
                 ResolveProductionInputStatus(Snapshot),
                 HasProductionInputShortage(Snapshot) ||
                     HasLowProductionInputStock(Snapshot));
+
+            Writer.AddHeader(Ui(L"citizen_info.section.production_inputs"));
+
+            for (size_t Index = 0; Index < Snapshot.ProductionInputs.size(); ++Index)
+            {
+                const FProductionInputSlotView& Input =
+                    Snapshot.ProductionInputs[Index];
+
+                if (!IsValidProductionInputRecord(Input))
+                    continue;
+
+                Writer.Add(
+                    BuildProductionInputRequirementText(Input),
+                    BuildProductionInputOverviewValue(Input),
+                    Input.CurrentStock >=
+                        (std::max)(1, Input.RequiredAmount));
+            }
         }
 
         const std::wstring PowerValue =

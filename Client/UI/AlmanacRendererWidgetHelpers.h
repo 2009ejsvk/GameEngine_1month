@@ -569,7 +569,8 @@ namespace
         const std::wstring& Label,
         const std::wstring& Value,
         float Percent,
-        bool Selected)
+        bool Selected,
+        bool Enabled = true)
     {
         auto Button = Row.Button.lock();
         auto Icon = Row.Icon.lock();
@@ -580,22 +581,26 @@ namespace
         if (Button)
         {
             ConfigureSatisfactionRowButtonStyle(Button, Selected);
-            Button->ButtonEnable(true);
+            Button->ButtonEnable(Enabled);
         }
 
         if (Icon && IconTexture)
         {
             Icon->SetTexture(Icon->GetName() + "_texture", IconTexture);
-            Icon->SetTint(1.f, 1.f, 1.f, 1.f);
+            Icon->SetTint(
+                Enabled ? 1.f : 0.45f,
+                Enabled ? 1.f : 0.45f,
+                Enabled ? 1.f : 0.45f,
+                Enabled ? 1.f : 0.65f);
         }
 
         if (LabelText)
         {
             LabelText->SetText(Label.c_str());
             LabelText->SetTextColor(
-                Selected ? 84 : 78,
-                Selected ? 64 : 68,
-                Selected ? 22 : 54,
+                Enabled ? (Selected ? 84 : 78) : 112,
+                Enabled ? (Selected ? 64 : 68) : 112,
+                Enabled ? (Selected ? 22 : 54) : 112,
                 255);
         }
 
@@ -603,21 +608,23 @@ namespace
         {
             ValueText->SetText(Value.c_str());
             ValueText->SetTextColor(
-                Selected ? 96 : 74,
-                Selected ? 62 : 96,
-                Selected ? 8 : 128,
+                Enabled ? (Selected ? 96 : 74) : 112,
+                Enabled ? (Selected ? 62 : 96) : 112,
+                Enabled ? (Selected ? 8 : 128) : 112,
                 255);
         }
 
         if (Bar)
         {
-            Bar->SetPercent(Clamp01(Percent));
+            Bar->SetPercent(Enabled ? Clamp01(Percent) : 0.f);
             Bar->SetTint(
                 EProgressBarImageType::Back,
                 FVector4(0.78f, 0.80f, 0.74f, 0.24f));
             Bar->SetTint(
                 EProgressBarImageType::Fill,
-                FVector4(0.32f, 0.60f, 0.90f, 0.96f));
+                Enabled ?
+                    FVector4(0.32f, 0.60f, 0.90f, 0.96f) :
+                    FVector4(0.48f, 0.48f, 0.48f, 0.55f));
             Bar->SetEnable(false);
         }
     }

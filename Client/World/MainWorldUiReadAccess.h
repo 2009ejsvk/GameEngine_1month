@@ -66,6 +66,7 @@ public:
     virtual ~IMainWorldAlmanacAccess() = default;
 
     virtual long long GetNationalBudget() const = 0;
+    virtual EBuildingEra GetCurrentEra() const = 0;
     virtual const FGovernmentProfile& GetGovernmentProfile() const = 0;
     virtual const FPoliticalWorldSnapshot& GetPoliticalSnapshot() const = 0;
     virtual const std::vector<FGovernmentEdictState>&

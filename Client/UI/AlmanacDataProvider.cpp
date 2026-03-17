@@ -241,6 +241,7 @@ namespace
         if (!MainWorldRecord.Available)
             return;
 
+        Snapshot.CurrentEra = MainWorldRecord.CurrentEra;
         Snapshot.NationalBudget = MainWorldRecord.NationalBudget;
         Snapshot.DailyExportIncome = MainWorldRecord.DailyExportIncome;
         Snapshot.DailyTaxIncome = MainWorldRecord.DailyTaxIncome;

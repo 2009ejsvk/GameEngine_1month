@@ -20,10 +20,22 @@ namespace
     constexpr int GScenarioForeignDemandDurationDays = 365;
     constexpr int GScenarioReligiousDemandDurationDays = 60;
 
+    std::wstring GetScenarioForeignPowerName(
+        int ForeignPowerIndex,
+        EBuildingEra CurrentEra)
+    {
+        return MainWorldTradeRuntime::GetForeignPowerName(
+            ForeignPowerIndex,
+            CurrentEra);
+    }
+
     FPoliticalDemandState BuildScenarioUsaDemand(
-        const std::vector<FTradeRouteRuntimeState>& ActiveTradeRoutes)
+        const std::vector<FTradeRouteRuntimeState>& ActiveTradeRoutes,
+        EBuildingEra CurrentEra)
     {
         FPoliticalDemandState Demand;
+        const std::wstring PowerName =
+            GetScenarioForeignPowerName(0, CurrentEra);
         Demand.Active = true;
         Demand.IssuerType = EPoliticalDemandIssuerType::ForeignPower;
         Demand.IssuerIndex = 0;
@@ -38,20 +50,25 @@ namespace
                 ActiveTradeRoutes,
                 Demand.IssuerIndex);
         Demand.PenaltyForeignRelationDelta = -20;
-        Demand.Title = L"미국의 제안";
+        Demand.Title = PowerName + L"의 제안";
         Demand.Summary =
-            L"미국 대사가 도착했습니다. 관계 인정을 위해 미국과의 "
-            L"무역로를 2개 이상 개설하라고 요구합니다.";
-        Demand.ObjectiveText = L"미국과 활성 무역로 2개 이상";
+            PowerName +
+            L" 대사가 도착했습니다. 관계 인정을 위해 " +
+            PowerName +
+            L"과의 무역로를 2개 이상 개설하라고 요구합니다.";
+        Demand.ObjectiveText = PowerName + L"과 활성 무역로 2개 이상";
         Demand.RewardText = L"목표 활성화";
-        Demand.PenaltyText = L"미국 외교관계 -20";
+        Demand.PenaltyText = PowerName + L" 외교관계 -20";
         return Demand;
     }
 
     FPoliticalDemandState BuildScenarioUssrDemand(
-        const WorldStats::FWorldStatsSnapshot& Snapshot)
+        const WorldStats::FWorldStatsSnapshot& Snapshot,
+        EBuildingEra CurrentEra)
     {
         FPoliticalDemandState Demand;
+        const std::wstring PowerName =
+            GetScenarioForeignPowerName(1, CurrentEra);
         Demand.Active = true;
         Demand.IssuerType = EPoliticalDemandIssuerType::ForeignPower;
         Demand.IssuerIndex = 1;
@@ -64,13 +81,14 @@ namespace
         Demand.CurrentValue =
             static_cast<int>(std::lround(Snapshot.AverageHousing));
         Demand.PenaltyForeignRelationDelta = -20;
-        Demand.Title = L"소련의 제안";
+        Demand.Title = PowerName + L"의 제안";
         Demand.Summary =
-            L"소련 대사가 원조를 제안했습니다. 평균 주거 만족도를 70 "
+            PowerName +
+            L" 대사가 지원을 제안했습니다. 평균 주거 만족도를 70 "
             L"이상으로 유지하면 지원을 약속합니다.";
         Demand.ObjectiveText = L"평균 주거 70 이상";
         Demand.RewardText = L"목표 활성화";
-        Demand.PenaltyText = L"소련 외교관계 -20";
+        Demand.PenaltyText = PowerName + L" 외교관계 -20";
         return Demand;
     }
 
@@ -352,10 +370,14 @@ void CMainWorld::ApplyScenarioResult(const FScenarioEvent& ScenarioEvent)
     case EScenarioEvent::ForeignDemand_USA:
         if (mServices.PoliticalDemandService)
         {
+            const std::wstring PowerName = GetScenarioForeignPowerName(
+                0,
+                mPolicy.EraProgress.CurrentEra);
             const bool Injected =
                 mServices.PoliticalDemandService->InjectScenarioDemand(
                     BuildScenarioUsaDemand(
-                        mTradeDiplomacyState.ActiveTradeRoutes));
+                        mTradeDiplomacyState.ActiveTradeRoutes,
+                        mPolicy.EraProgress.CurrentEra));
 
             if (Injected)
             {
@@ -363,23 +385,28 @@ void CMainWorld::ApplyScenarioResult(const FScenarioEvent& ScenarioEvent)
                     mUIManager,
                     EPoliticalDemandIssuerType::ForeignPower,
                     0,
-                    L"미국의 제안",
-                    L"미국 대사가 도착했습니다.\n"
+                    PowerName + L"의 제안",
+                    PowerName + L" 대사가 도착했습니다.\n"
                     L"수출 무역로 2개를 개설하면\n"
                     L"관계를 인정하겠습니다.",
                     L"수락 시: 무역로 목표가 활성화됩니다.",
-                    L"거부 시: 미국 외교관계 -20");
+                    L"거부 시: " + PowerName + L" 외교관계 -20");
             }
         }
         break;
     case EScenarioEvent::ForeignDemand_USSR:
         if (mServices.PoliticalDemandService)
         {
+            const std::wstring PowerName = GetScenarioForeignPowerName(
+                1,
+                mPolicy.EraProgress.CurrentEra);
             const WorldStats::FWorldStatsSnapshot Snapshot =
                 WorldStats::BuildSnapshot(World);
             const bool Injected =
                 mServices.PoliticalDemandService->InjectScenarioDemand(
-                    BuildScenarioUssrDemand(Snapshot));
+                    BuildScenarioUssrDemand(
+                        Snapshot,
+                        mPolicy.EraProgress.CurrentEra));
 
             if (Injected)
             {
@@ -387,12 +414,12 @@ void CMainWorld::ApplyScenarioResult(const FScenarioEvent& ScenarioEvent)
                     mUIManager,
                     EPoliticalDemandIssuerType::ForeignPower,
                     1,
-                    L"소련의 제안",
-                    L"소련 대사가 원조를 제안합니다.\n"
+                    PowerName + L"의 제안",
+                    PowerName + L" 대사가 지원을 제안합니다.\n"
                     L"주거 만족도 70 이상을 유지하면\n"
                     L"지원금을 제공하겠습니다.",
                     L"수락 시: 주거 목표가 활성화됩니다.",
-                    L"거부 시: 소련 외교관계 -20");
+                    L"거부 시: " + PowerName + L" 외교관계 -20");
             }
         }
         break;

@@ -6,7 +6,8 @@ enum class ETradeRouteEndReason
 {
     Completed = 0,
     Cancelled,
-    Expired
+    Expired,
+    EraTransitioned
 };
 
 inline const wchar_t* GetTradeRouteEndReasonDisplayName(ETradeRouteEndReason Reason)
@@ -19,6 +20,8 @@ inline const wchar_t* GetTradeRouteEndReasonDisplayName(ETradeRouteEndReason Rea
         return L"계약 취소";
     case ETradeRouteEndReason::Expired:
         return L"기간 만료";
+    case ETradeRouteEndReason::EraTransitioned:
+        return L"시대 전환";
     default:
         return L"종료";
     }

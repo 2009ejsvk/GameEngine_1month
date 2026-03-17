@@ -131,6 +131,8 @@ namespace MainWorldTradeRuntime
             return 5 + SizeTier;
         case ETradeRouteEndReason::Cancelled:
             return -(2 + SizeTier / 2);
+        case ETradeRouteEndReason::EraTransitioned:
+            return 0;
         case ETradeRouteEndReason::Expired:
         default:
             return -(1 + SizeTier / 3);
@@ -143,6 +145,9 @@ namespace MainWorldTradeRuntime
     {
         const int BaseModifier =
             ResolveTradeRouteCompletionRewardModifier(Route, EndReason);
+
+        if (EndReason == ETradeRouteEndReason::EraTransitioned)
+            return 0;
 
         if (EndReason == ETradeRouteEndReason::Completed)
             return BaseModifier;
@@ -162,6 +167,8 @@ namespace MainWorldTradeRuntime
             return (std::max)(2, SizeTier);
         case ETradeRouteEndReason::Cancelled:
             return -(std::max)(1, SizeTier / 2);
+        case ETradeRouteEndReason::EraTransitioned:
+            return 0;
         case ETradeRouteEndReason::Expired:
         default:
             return -(std::max)(1, SizeTier / 3);
@@ -189,7 +196,7 @@ namespace MainWorldTradeRuntime
     {
         if (Record.EndReason == ETradeRouteEndReason::Completed)
             ++InOutState.CompletedContractCount;
-        else
+        else if (Record.EndReason != ETradeRouteEndReason::EraTransitioned)
             ++InOutState.FailedContractCount;
 
         InOutState.LastRelationChange = Record.SecondaryRelationModifier;

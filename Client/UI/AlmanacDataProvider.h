@@ -59,6 +59,7 @@ namespace AlmanacDataProvider
     struct FAlmanacMainWorldRecord
     {
         bool Available = false;
+        EBuildingEra CurrentEra = EBuildingEra::Colonial;
         long long NationalBudget = 0;
         long long DailyExportIncome = 0;
         long long DailyTaxIncome = 0;
@@ -91,6 +92,7 @@ namespace AlmanacDataProvider
     struct FAlmanacSnapshot
     {
         bool HasMainWorld = false;
+        EBuildingEra CurrentEra = EBuildingEra::Colonial;
         int ActiveCitizenCount = 0;
         int ActiveTouristCount = 0;
         int ActiveHouseholdCount = 0;

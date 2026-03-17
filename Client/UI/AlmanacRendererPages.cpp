@@ -7,6 +7,19 @@
 
 namespace
 {
+    int CountActiveForeignPowers(EBuildingEra Era)
+    {
+        int Count = 0;
+
+        for (int Index = 0; Index < GForeignPowerCount; ++Index)
+        {
+            if (TradeDiplomacyRuntime::IsForeignPowerActiveForEra(Index, Era))
+                ++Count;
+        }
+
+        return Count;
+    }
+
     std::vector<std::pair<std::wstring, int>> BuildLogisticsWarningEntries(
         const AlmanacDataProvider::FAlmanacSnapshot& Snapshot,
         bool Bottleneck)
@@ -724,6 +737,9 @@ namespace
         int Index)
     {
         FForeignPowerRuntimeData Result;
+        Result.Name = TradeDiplomacyRuntime::GetForeignPowerName(
+            Index,
+            Snapshot.CurrentEra);
         std::array<FForeignContribution, 3> BuildingContributions = {};
         std::array<FForeignContribution, 3> EdictContributions = {};
         std::array<FForeignContribution, 3> MiscContributions = {};
@@ -731,7 +747,6 @@ namespace
         switch (Index)
         {
         case 0:
-            Result.Name = L"중국";
             BuildingContributions =
             {{
                 { L"산업 기반", static_cast<int>(std::lround(
@@ -793,7 +808,6 @@ namespace
                     0;
             break;
         case 1:
-            Result.Name = L"러시아";
             BuildingContributions =
             {{
                 { L"치안·군사 기반", static_cast<int>(std::lround(
@@ -844,7 +858,6 @@ namespace
             Result.EconomicAid = 0;
             break;
         case 2:
-            Result.Name = L"미국";
             BuildingContributions =
             {{
                 { L"관광·오락 산업", static_cast<int>(std::lround(
@@ -908,7 +921,6 @@ namespace
                     0;
             break;
         case 3:
-            Result.Name = L"중동";
             BuildingContributions =
             {{
                 { L"신앙 건물", static_cast<int>(std::lround(
@@ -960,7 +972,6 @@ namespace
             Result.EconomicAid = 0;
             break;
         default:
-            Result.Name = L"유럽연합";
             BuildingContributions =
             {{
                 { L"교육·미디어 기반", static_cast<int>(std::lround(
@@ -1534,6 +1545,8 @@ void FAlmanacRenderer::ApplyForeignPage(
     const AlmanacDataProvider::FAlmanacSnapshot& Snapshot)
 {
     const FForeignContext Context = BuildForeignContext(Snapshot);
+    const int ActiveForeignPowerCount =
+        (std::max)(1, CountActiveForeignPowers(Snapshot.CurrentEra));
     std::array<FForeignPowerRuntimeData, GForeignPowerCount> ForeignPowers = {};
 
     for (int Index = 0; Index < GForeignPowerCount; ++Index)
@@ -1546,7 +1559,7 @@ void FAlmanacRenderer::ApplyForeignPage(
         ClampInt(
             Widget.mSelectedForeignPowerIndex,
             0,
-            GForeignPowerCount - 1);
+            ActiveForeignPowerCount - 1);
     Widget.mSelectedForeignPowerIndex = SelectedForeignPowerIndex;
     const FForeignPowerRuntimeData& SelectedForeignPower =
         ForeignPowers[static_cast<size_t>(SelectedForeignPowerIndex)];
@@ -1562,17 +1575,29 @@ void FAlmanacRenderer::ApplyForeignPage(
             Index < GForeignPowerCount;
         ++Index)
     {
+        const bool Enabled =
+            TradeDiplomacyRuntime::IsForeignPowerActiveForEra(
+                Index,
+                Snapshot.CurrentEra);
         SetForeignPowerRowData(
             Widget.mForeignRows[static_cast<size_t>(Index)],
             GForeignPowerIcons[Index],
-            ForeignPowers[static_cast<size_t>(Index)].Name,
-            std::to_wstring(ForeignPowers[static_cast<size_t>(Index)].Relation),
-            static_cast<float>(
-                Clamp01(
-                    static_cast<double>(
-                        ForeignPowers[static_cast<size_t>(Index)].Relation) /
-                    100.0)),
-            Index == SelectedForeignPowerIndex);
+            Enabled ?
+                ForeignPowers[static_cast<size_t>(Index)].Name :
+                std::wstring(),
+            Enabled ?
+                std::to_wstring(
+                    ForeignPowers[static_cast<size_t>(Index)].Relation) :
+                std::wstring(),
+            Enabled ?
+                static_cast<float>(
+                    Clamp01(
+                        static_cast<double>(
+                            ForeignPowers[static_cast<size_t>(Index)].Relation) /
+                        100.0)) :
+                0.f,
+            Enabled && Index == SelectedForeignPowerIndex,
+            Enabled);
     }
 
     if (auto Title = Widget.mForeignTitle.lock())

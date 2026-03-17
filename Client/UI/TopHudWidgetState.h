@@ -10,8 +10,8 @@ struct FTopHudWidgetState
     bool ManualEraTransitionPopupOpen = false;
     bool ConstitutionPopupActive = false;
     bool EraTransitionPopupOpen = false;
-    EConstitutionOptionId ConstitutionConfirmOptionId =
+    EConstitutionOptionId ConstitutionLeftOptionId =
         EConstitutionOptionId::None;
-    EConstitutionOptionId ConstitutionCancelOptionId =
+    EConstitutionOptionId ConstitutionRightOptionId =
         EConstitutionOptionId::None;
 };

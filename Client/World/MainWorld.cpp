@@ -411,6 +411,8 @@ namespace
             return 5 + SizeTier;
         case ETradeRouteEndReason::Cancelled:
             return -(2 + SizeTier / 2);
+        case ETradeRouteEndReason::EraTransitioned:
+            return 0;
         case ETradeRouteEndReason::Expired:
         default:
             return -(1 + SizeTier / 3);
@@ -423,6 +425,9 @@ namespace
     {
         const int BaseModifier =
             ResolveTradeRouteCompletionRewardModifier(Route, EndReason);
+
+        if (EndReason == ETradeRouteEndReason::EraTransitioned)
+            return 0;
 
         if (EndReason == ETradeRouteEndReason::Completed)
             return BaseModifier;
@@ -442,6 +447,8 @@ namespace
             return (std::max)(2, SizeTier);
         case ETradeRouteEndReason::Cancelled:
             return -(std::max)(1, SizeTier / 2);
+        case ETradeRouteEndReason::EraTransitioned:
+            return 0;
         case ETradeRouteEndReason::Expired:
         default:
             return -(std::max)(1, SizeTier / 3);
@@ -479,7 +486,7 @@ namespace
     {
         if (Record.EndReason == ETradeRouteEndReason::Completed)
             ++InOutState.CompletedContractCount;
-        else
+        else if (Record.EndReason != ETradeRouteEndReason::EraTransitioned)
             ++InOutState.FailedContractCount;
 
         InOutState.LastRelationChange = Record.SecondaryRelationModifier;
@@ -1211,31 +1218,20 @@ void CMainWorld::RecordFinishedTradeRoute(
 
 void CMainWorld::CancelTradeRoutesForInactivePowers(EBuildingEra Era)
 {
+    (void)Era;
+
     if (mTradeDiplomacyState.ActiveTradeRoutes.empty())
         return;
 
-    std::vector<FTradeRouteRuntimeState> RemainingRoutes;
-    RemainingRoutes.reserve(mTradeDiplomacyState.ActiveTradeRoutes.size());
-
-    for (size_t RouteIndex = 0;
-        RouteIndex < mTradeDiplomacyState.ActiveTradeRoutes.size();
-        ++RouteIndex)
+    for (const FTradeRouteRuntimeState& Route :
+        mTradeDiplomacyState.ActiveTradeRoutes)
     {
-        const FTradeRouteRuntimeState& Route =
-            mTradeDiplomacyState.ActiveTradeRoutes[RouteIndex];
-
-        if (!TradeDiplomacyRuntime::IsForeignPowerActiveForEra(
-                Route.ForeignPowerIndex,
-                Era))
-        {
-            RecordFinishedTradeRoute(Route, ETradeRouteEndReason::Cancelled);
-            continue;
-        }
-
-        RemainingRoutes.push_back(Route);
+        RecordFinishedTradeRoute(
+            Route,
+            ETradeRouteEndReason::EraTransitioned);
     }
 
-    mTradeDiplomacyState.ActiveTradeRoutes.swap(RemainingRoutes);
+    mTradeDiplomacyState.ActiveTradeRoutes.clear();
 }
 
 void CMainWorld::ProcessActiveTradeRoutes()
@@ -1919,6 +1915,7 @@ bool CMainWorld::TryExecuteEraTransition(EEraTransitionChoice Choice)
 
     mPolicy.EraProgress.CurrentEra = TargetEra;
     CancelTradeRoutesForInactivePowers(TargetEra);
+    mTradeDiplomacyState.ForeignPowerStandingStates = {};
     RefreshEraProgress();
     InitializeElectionSchedule();
 

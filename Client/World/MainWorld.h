@@ -391,6 +391,9 @@ private:
 
 private:
 	void ResetWorldState();
+#ifdef _DEBUG
+    void RunDebugConstitutionValidationIfRequested();
+#endif
     void InitializeResultTracking();
     CMainWorldPoliticalDemandService::FContext BuildPoliticalDemandContext();
     void ApplyScenarioResult(const FScenarioEvent& ScenarioEvent);
