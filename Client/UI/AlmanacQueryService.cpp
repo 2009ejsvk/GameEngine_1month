@@ -47,6 +47,8 @@ namespace
                 mMainWorldAccess->GetLastDailyNetChange();
             Result.TaxCollectionEfficiency =
                 mMainWorldAccess->GetLastDailyTaxCollectionEfficiency();
+            Result.EconomyLedgerHistory =
+                mMainWorldAccess->GetEconomyLedgerHistory();
             Result.PoliticalSnapshot =
                 mMainWorldAccess->GetPoliticalSnapshot();
             Result.GovernmentProfile =

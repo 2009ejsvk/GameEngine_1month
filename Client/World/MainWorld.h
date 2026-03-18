@@ -2,10 +2,22 @@
 
 #include "GovernmentCommandService.h"
 #include "KnowledgeSystem.h"
+#include "BuildingSubsystem.h"
+#include "CrisisSubsystem.h"
+#include "EconomySubsystem.h"
+#include "EdictSubsystem.h"
+#include "EraSubsystem.h"
+#include "InfrastructureSubsystem.h"
 #include "MainWorldAccess.h"
 #include "MainWorldElectionService.h"
 #include "MainWorldPoliticalDemandService.h"
+#include "KnowledgeSubsystem.h"
+#include "PoliticsSubsystem.h"
+#include "PopulationSubsystem.h"
+#include "ScenarioSubsystem.h"
 #include "ScenarioRunner.h"
+#include "SimulationSubsystem.h"
+#include "TradeDiplomacySubsystem.h"
 #include "MainWorldTradeDiplomacyState.h"
 #include "MainWorldWorldCrisisService.h"
 #include "../Politics/ConstitutionTypes.h"
@@ -21,6 +33,7 @@ class CMainWorldSystemAccess;
 class CMainWorldInfrastructureReadAccess;
 class CMainWorldBuildingControlAccess;
 class CMainWorldTradeAccessGroup;
+class IWorldUIAccess;
 
 struct FMainWorldPopulationRuntime
 {
@@ -83,6 +96,32 @@ struct FMainWorldPolicyRuntime
     FConstitutionState ConstitutionState;
 };
 
+struct FMainWorldPoliticsState
+{
+    FGovernmentProfile GovernmentProfile;
+    FPoliticalWorldSnapshot PoliticalSnapshot;
+};
+
+struct FMainWorldEdictState
+{
+    std::vector<FGovernmentEdictState> GovernmentEdicts;
+    FGovernmentEdictModifiers EdictModifiers;
+};
+
+struct FMainWorldEraState
+{
+    FEraProgressState EraProgress;
+    FEraTransitionState EraTransition;
+};
+
+struct FMainWorldTaxPolicyState
+{
+    int WorkerTaxPressureDays = 0;
+    int PropertyTaxPressureDays = 0;
+    int BudgetCrisisPressureDays = 0;
+    FTaxPolicyEventStatus TaxEventStatus;
+};
+
 struct FMainWorldInfrastructureState
 {
     std::shared_ptr<CRoadNetwork> RoadNetwork;
@@ -104,10 +143,24 @@ struct FMainWorldAccessSet
     std::shared_ptr<CMainWorldBuildingControlAccess> BuildingControl;
     std::shared_ptr<CMainWorldTradeAccessGroup> Trade;
     std::shared_ptr<IGovernmentCommandService> GovernmentCommand;
+    std::shared_ptr<IWorldUIAccess> UIFacade;
 };
 
 class CMainWorld : public CWorld
 {
+    friend class CSimulationSubsystem;
+    friend class CEraSubsystem;
+    friend class CEdictSubsystem;
+    friend class CKnowledgeSubsystem;
+    friend class CCrisisSubsystem;
+    friend class CTradeDiplomacySubsystem;
+    friend class CEconomySubsystem;
+    friend class CPoliticsSubsystem;
+    friend class CPopulationSubsystem;
+    friend class CInfrastructureSubsystem;
+    friend class CBuildingSubsystem;
+    friend class CScenarioSubsystem;
+
 public:
 	CMainWorld();
 	virtual ~CMainWorld();
@@ -115,7 +168,16 @@ public:
 public:
 	virtual bool Init();
 	virtual void Update(float DeltaTime);
+    virtual void PostUpdate(float DeltaTime) override;
     virtual void OnUiManagerUpdated() override;
+    virtual bool IsSimulationPaused() const override
+    {
+        return mSimulation && mSimulation->Paused;
+    }
+    virtual int GetSimulationSpeedMultiplier() const override
+    {
+        return mSimulation ? mSimulation->SpeedMultiplier : 1;
+    }
     std::shared_ptr<IMainWorldBuildMenuAccess> GetBuildMenuAccessHandle() const;
     IMainWorldBuildMenuAccess* GetBuildMenuAccessRaw() const;
     std::shared_ptr<IMainWorldHudAccess> GetHudAccessHandle() const;
@@ -142,47 +204,109 @@ public:
     IMainWorldKnowledgeAccess* GetKnowledgeAccessRaw() const;
     std::shared_ptr<IMainWorldConstitutionAccess> GetConstitutionAccessHandle() const;
     IMainWorldConstitutionAccess* GetConstitutionAccessRaw() const;
+    std::shared_ptr<IWorldUIAccess> GetUIAccessHandle() const;
+    IWorldUIAccess* GetUIAccessRaw() const;
+    CSimulationSubsystem* GetSimulation() const
+    {
+        return mSimulation.get();
+    }
+    CEconomySubsystem* GetEconomy() const
+    {
+        return mEconomy.get();
+    }
+    CTradeDiplomacySubsystem* GetTrade() const
+    {
+        return mTrade.get();
+    }
+    CPoliticsSubsystem* GetPolitics() const
+    {
+        return mPolitics.get();
+    }
+    CEdictSubsystem* GetEdicts() const
+    {
+        return mEdictState.get();
+    }
+    CEraSubsystem* GetEra() const
+    {
+        return mEraState.get();
+    }
+    CKnowledgeSubsystem* GetKnowledge() const
+    {
+        return mKnowledgeState.get();
+    }
+    CCrisisSubsystem* GetCrisis() const
+    {
+        return mCrisis.get();
+    }
+    CPopulationSubsystem* GetPopulation() const
+    {
+        return mPopulation.get();
+    }
+    CInfrastructureSubsystem* GetInfrastructure() const
+    {
+        return mInfrastructure.get();
+    }
+    CBuildingSubsystem* GetBuildings() const
+    {
+        return mBuildings.get();
+    }
+    CScenarioSubsystem* GetScenario() const
+    {
+        return mScenario.get();
+    }
+
+    // Legacy wrapper getters remain for existing UI callers.
 	long long GetNationalBudget() const
 	{
-		return mBudget.NationalBudget;
+		return mEconomy->NationalBudget;
 	}
+	void SpendBuildingCost(int BaseCost);
 	int GetSimulationYear() const
 	{
-		return mSimulation.Year;
+		return mSimulation->Year;
 	}
 	int GetSimulationMonth() const
 	{
-		return mSimulation.Month;
+		return mSimulation->Month;
 	}
 	int GetSimulationDay() const
 	{
-		return mSimulation.Day;
+		return mSimulation->Day;
 	}
-	int GetSimulationMonthDayCount() const;
-	float GetSimulationDayProgress() const;
-	float GetSimulationMonthProgress() const;
-    bool IsSimulationPaused() const
+	int GetSimulationMonthDayCount() const
+	{
+		return mSimulation->GetDaysInMonth(
+            mSimulation->Year,
+            mSimulation->Month);
+	}
+	float GetSimulationDayProgress() const
+	{
+		return mSimulation->GetDayProgress();
+	}
+	float GetSimulationMonthProgress() const
+	{
+		return mSimulation->GetMonthProgress();
+	}
+    void ToggleSimulationPaused()
     {
-        return mSimulation.Paused;
+        mSimulation->TogglePaused();
     }
-    int GetSimulationSpeedMultiplier() const
+    void CycleSimulationSpeedMultiplier()
     {
-        return mSimulation.SpeedMultiplier;
+        mSimulation->CycleSpeedMultiplier();
     }
-    void ToggleSimulationPaused();
-    void CycleSimulationSpeedMultiplier();
     bool TryExecuteEraTransition(EEraTransitionChoice Choice);
     EBuildingEra GetCurrentEra() const
     {
-        return mPolicy.EraProgress.CurrentEra;
+        return mEraState->EraProgress.CurrentEra;
     }
     const FEraProgressState& GetEraProgress() const
     {
-        return mPolicy.EraProgress;
+        return mEraState->EraProgress;
     }
     const FEraTransitionState& GetEraTransitionState() const
     {
-        return mPolicy.EraTransition;
+        return mEraState->EraTransition;
     }
 	bool TryApplyEdict(
 		EGovernmentEdictType Type,
@@ -191,15 +315,7 @@ public:
 		ETaxPolicyType Type,
 		int DeltaPercent,
 		std::wstring& OutMessage);
-	bool CycleDomesticReservePolicy(
-		std::wstring& OutMessage);
-	bool CycleImportPerResourceCap(
-		std::wstring& OutMessage);
-	bool CycleImportBudgetPolicy(
-		std::wstring& OutMessage);
 	bool CycleExportBlockedResource(
-		std::wstring& OutMessage);
-	bool CycleAutoImportResource(
 		std::wstring& OutMessage);
     bool ExecuteTradeProposal(
         bool ImportRoute,
@@ -218,120 +334,129 @@ public:
         std::wstring& OutMessage);
 	const FGovernmentProfile& GetGovernmentProfile() const
 	{
-		return mPolicy.GovernmentProfile;
+		return mPolitics->GovernmentProfile;
 	}
 	const FTaxPolicy& GetTaxPolicy() const
 	{
-		return mPolicy.GovernmentProfile.TaxPolicy;
+		return mPolitics->GovernmentProfile.TaxPolicy;
 	}
 	const FPoliticalWorldSnapshot& GetPoliticalSnapshot() const
 	{
-		return mPolicy.PoliticalSnapshot;
+		return mPolitics->PoliticalSnapshot;
 	}
 	const std::vector<FGovernmentEdictState>& GetGovernmentEdictStates() const
 	{
-		return mPolicy.GovernmentEdicts;
+		return mEdictState->GovernmentEdicts;
 	}
 	const FGovernmentEdictState* GetGovernmentEdictState(
 		EGovernmentEdictType Type) const;
 	const FGovernmentEdictModifiers& GetEdictModifiers() const
 	{
-		return mPolicy.EdictModifiers;
+		return mEdictState->EdictModifiers;
 	}
 	long long GetLastDailyEdictCost() const
 	{
-		return mBudget.LastDailyEdictCost;
+		return mEconomy->LastDailyEdictCost;
 	}
 	long long GetLastDailyImportExpense() const
 	{
-		return mBudget.LastDailyImportExpense;
+		return mEconomy->LastDailyImportExpense;
 	}
 	long long GetLastDailyExportIncome() const
 	{
-		return mBudget.LastDailyExportIncome;
+		return mEconomy->LastDailyExportIncome;
 	}
 	long long GetLastDailyTaxIncome() const
 	{
-		return mBudget.LastDailyTaxIncome;
+		return mEconomy->LastDailyTaxIncome;
 	}
 	long long GetLastDailyConsumptionTaxIncome() const
 	{
-		return mBudget.LastDailyConsumptionTaxIncome;
+		return mEconomy->LastDailyConsumptionTaxIncome;
 	}
 	long long GetLastDailyIncomeTaxIncome() const
 	{
-		return mBudget.LastDailyIncomeTaxIncome;
+		return mEconomy->LastDailyIncomeTaxIncome;
 	}
 	long long GetLastDailyPropertyTaxIncome() const
 	{
-		return mBudget.LastDailyPropertyTaxIncome;
+		return mEconomy->LastDailyPropertyTaxIncome;
 	}
 	double GetLastDailyTaxCollectionEfficiency() const
 	{
-		return mBudget.LastDailyTaxCollectionEfficiency;
+		return mEconomy->LastDailyTaxCollectionEfficiency;
 	}
 	long long GetLastDailyNetChange() const
 	{
-		return mBudget.LastDailyNetChange;
+		return mEconomy->LastDailyNetChange;
 	}
+    const FEconomyLedgerHistorySnapshot& GetEconomyLedgerHistory() const
+    {
+        return mEconomy->GetLedgerHistory();
+    }
 	const FElectionStatus& GetElectionStatus() const
 	{
-		return mServices.ElectionService->GetElectionStatus();
+		return mPolitics->ElectionService->GetElectionStatus();
 	}
 	int GetDaysUntilNextElection() const;
 	double GetElectionWarningScore() const;
 	const FTaxPolicyEventStatus& GetTaxPolicyEventStatus() const
 	{
-		return mPolicy.TaxEventStatus;
+		return mEconomy->TaxEventStatus;
 	}
     const FWorldCrisisStatus& GetWorldCrisisStatus() const
     {
-        return mServices.WorldCrisisService->GetStatus();
+        return mCrisis->WorldCrisisService->GetStatus();
     }
     const FPoliticalDemandNotice& GetPoliticalDemandNotice() const
     {
-        return mServices.PoliticalDemandService->GetPoliticalDemandNotice();
+        return mPolitics->PoliticalDemandService->GetPoliticalDemandNotice();
     }
     const std::array<int, GPoliticalFactionCount>&
         GetFactionDemandPressureDays() const
     {
-        return mServices.PoliticalDemandService->GetFactionPressureDays();
+        return mPolitics->PoliticalDemandService->GetFactionPressureDays();
     }
     const std::array<FPoliticalDemandState, GPoliticalFactionCount>&
         GetFactionDemandStates() const
     {
-        return mServices.PoliticalDemandService->GetFactionDemandStates();
+        return mPolitics->PoliticalDemandService->GetFactionDemandStates();
     }
     const std::array<
         FPoliticalDemandState,
         TradeDiplomacyRuntime::GForeignPowerCount>&
         GetForeignDemandStates() const
     {
-        return mServices.PoliticalDemandService->GetForeignDemandStates();
+        return mPolitics->PoliticalDemandService->GetForeignDemandStates();
     }
     void RebuildRoadNetwork();
     const CRoadNetwork* GetRoadNetwork() const
     {
-        return mInfrastructure.RoadNetwork.get();
+        return mInfrastructure->RoadNetwork.get();
     }
     const CBusRouteSystem* GetBusRouteSystem() const
     {
-        return mInfrastructure.BusRouteSystem.get();
+        return mInfrastructure->BusRouteSystem.get();
     }
     void RefreshRuntimeBuildingState();
     const std::vector<FTradeRouteRuntimeState>&
         GetActiveTradeRoutes() const
     {
-        return mTradeDiplomacyState.ActiveTradeRoutes;
+        return mTrade->State.ActiveTradeRoutes;
     }
     const std::vector<FTradeRouteCompletionRecord>&
         GetCompletedTradeRoutes() const
     {
-        return mTradeDiplomacyState.CompletedTradeRoutes;
+        return mTrade->State.CompletedTradeRoutes;
+    }
+    const std::vector<FTradeOfferRuntimeState>&
+        GetAvailableTradeOffers() const
+    {
+        return mTrade->State.AvailableTradeOffers;
     }
     int GetTradeRouteCompletionNotificationVersion() const
     {
-        return mTradeDiplomacyState.TradeRouteCompletionNotificationVersion;
+        return mTrade->State.TradeRouteCompletionNotificationVersion;
     }
     int GetCustomsExportTradePriceModifierPercent() const;
     int GetCustomsImportTradePriceModifierPercent() const;
@@ -340,27 +465,27 @@ public:
         TradeDiplomacyRuntime::GForeignPowerCount>&
         GetForeignPowerStates() const
     {
-        return mTradeDiplomacyState.ForeignPowerStates;
+        return mTrade->State.ForeignPowerStates;
     }
     const FKnowledgeState& GetKnowledgeState() const
     {
-        return mPolicy.KnowledgeState;
+        return mKnowledgeState->KnowledgeState;
     }
     int GetKnowledgePoints() const
     {
-        return mPolicy.KnowledgeState.Points;
+        return mKnowledgeState->KnowledgeState.Points;
     }
     int GetDailyKnowledgeGeneration() const
     {
-        return mPolicy.KnowledgeState.DailyGeneration;
+        return mKnowledgeState->KnowledgeState.DailyGeneration;
     }
     const FConstitutionState& GetConstitutionState() const
     {
-        return mPolicy.ConstitutionState;
+        return mKnowledgeState->ConstitutionState;
     }
     bool IsResearchUnlocked(const std::wstring& Key) const
     {
-        return ::IsResearchUnlocked(mPolicy.KnowledgeState, Key);
+        return ::IsResearchUnlocked(mKnowledgeState->KnowledgeState, Key);
     }
     bool TryUnlockResearch(
         const std::wstring& Key,
@@ -375,71 +500,28 @@ public:
         std::wstring& OutMessage);
 
 private:
-	FMainWorldPopulationRuntime mPopulation;
-	FMainWorldBudgetRuntime mBudget;
-	FMainWorldSimulationRuntime mSimulation;
-    FMainWorldResultRuntime mResultRuntime;
-    FMainWorldPolicyRuntime mPolicy;
-    FMainWorldInfrastructureState mInfrastructure;
+	std::unique_ptr<CPopulationSubsystem> mPopulation;
+	std::unique_ptr<CEconomySubsystem> mEconomy;
+	std::unique_ptr<CSimulationSubsystem> mSimulation;
+    std::unique_ptr<CScenarioSubsystem> mScenario;
+    std::unique_ptr<CPoliticsSubsystem> mPolitics;
+    std::unique_ptr<CEdictSubsystem> mEdictState;
+    std::unique_ptr<CEraSubsystem> mEraState;
+    std::unique_ptr<CCrisisSubsystem> mCrisis;
+    std::unique_ptr<CKnowledgeSubsystem> mKnowledgeState;
+    std::unique_ptr<CInfrastructureSubsystem> mInfrastructure;
+    std::unique_ptr<CBuildingSubsystem> mBuildings;
     unsigned long long mLastGameConstantsGeneration = 0;
     unsigned long long mLastEdictConfigGeneration = 0;
-    FMainWorldTradeDiplomacyState mTradeDiplomacyState;
-    FMainWorldServiceSet mServices;
+    std::unique_ptr<CTradeDiplomacySubsystem> mTrade;
     FMainWorldAccessSet mAccess;
-    CScenarioRunner mScenarioRunner;
-    bool mScenarioElectionPromptPending = false;
 
 private:
 	void ResetWorldState();
 #ifdef _DEBUG
     void RunDebugConstitutionValidationIfRequested();
 #endif
-    void InitializeResultTracking();
-    CMainWorldPoliticalDemandService::FContext BuildPoliticalDemandContext();
-    void ApplyScenarioResult(const FScenarioEvent& ScenarioEvent);
-    void ShowResultWidget(bool Victory);
-    void ApplyPoliticalDemandRefreshRequests(
-        const CMainWorldPoliticalDemandService::FRefreshRequests&
-            RefreshRequests);
-    void TriggerFactionRevoltConsequences(EPoliticalFaction Faction);
 	void TickPoliticalRefresh(float DeltaTime);
-	void TickCitizenPopulation(float DeltaTime);
-	void SpawnCitizenOrb();
-	void ReassignCitizenNeeds();
-	void LoadCitizenAnimation2D();
-	void LoadAnimation2D();
-	void LoadSound();
 	void CreateUI();
-	void AdvanceSimulationDate(float DeltaTime);
 	void AdvanceSimulationDay();
-	int GetDaysInMonth(int Year, int Month) const;
-	void ApplyDailyEconomySettlement();
-    void ProcessActiveTradeRoutes();
-    void RecordFinishedTradeRoute(
-        const FTradeRouteRuntimeState& Route,
-        ETradeRouteEndReason EndReason);
-    void CancelTradeRoutesForInactivePowers(EBuildingEra Era);
-    void RefreshForeignTradeDiplomacy(bool ApplyIdleDecay);
-    void RefreshPowerGridCoverage();
-    void RefreshWorldMarketPrices();
-    void RefreshBuildingPollutionExposure();
-	void InitializeElectionSchedule();
-    void TickElectionPromises();
-	void ResolveScheduledElection();
-	void TickGovernmentEdicts();
-	void RefreshEdictModifiers();
-	void ApplyDailyEdictCitizenEffects();
-	void ApplyDailyTaxPolicyEventEffects();
-	void TickTaxPolicyEvents();
-    void ApplyDailyWorldCrisisEffects();
-    void TickWorldCrises();
-    void TickPoliticalDemands();
-    void TickEraTransitionState();
-    void RefreshEraProgress();
-    void RefreshEraTransitionState();
-    void RefreshKnowledgeGeneration();
-    void ApplyDailyKnowledgeGain();
-    void RefreshBuildingRepairCosts();
-	void RefreshPoliticalSnapshot();
-    void RebuildBusRoutes();
 };

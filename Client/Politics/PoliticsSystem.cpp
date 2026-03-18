@@ -12,6 +12,24 @@
 
 namespace
 {
+    bool IsFactionAvailableInEra(
+        EPoliticalFaction Faction,
+        EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::Colonial:
+            return false;
+        case EBuildingEra::WorldWars:
+        case EBuildingEra::ColdWar:
+            return Faction != EPoliticalFaction::Intellectuals &&
+                Faction != EPoliticalFaction::Conservatives;
+        case EBuildingEra::Modern:
+        default:
+            return true;
+        }
+    }
+
     bool IsLowWealthCitizen(ECitizenWealthLevel WealthLevel)
     {
         return GetCitizenWealthRank(WealthLevel) <=
@@ -192,12 +210,15 @@ namespace
         return Score;
     }
 
-    EPoliticalFaction ResolvePrimaryFaction(
+    bool TryResolvePrimaryFaction(
         const CBuildingMarkerOrb& Citizen,
-        const FNpcSatisfaction& Satisfaction)
+        const FNpcSatisfaction& Satisfaction,
+        EBuildingEra CurrentEra,
+        EPoliticalFaction& OutFaction)
     {
         EPoliticalFaction BestFaction = EPoliticalFaction::Communists;
         float BestScore = -1.f;
+        bool FoundFaction = false;
 
         for (int FactionIndex = 0;
             FactionIndex < GPoliticalFactionCount;
@@ -205,20 +226,26 @@ namespace
         {
             const EPoliticalFaction Candidate =
                 static_cast<EPoliticalFaction>(FactionIndex);
+
+            if (!IsFactionAvailableInEra(Candidate, CurrentEra))
+                continue;
+
             const float CandidateScore =
                 EvaluateFactionMembershipScore(
                     Citizen,
                     Satisfaction,
                     Candidate);
 
-            if (FactionIndex == 0 || CandidateScore > BestScore)
+            if (!FoundFaction || CandidateScore > BestScore)
             {
                 BestFaction = Candidate;
                 BestScore = CandidateScore;
+                FoundFaction = true;
             }
         }
 
-        return BestFaction;
+        OutFaction = BestFaction;
+        return FoundFaction;
     }
 
     float EvaluateFactionAlignmentScore(
@@ -363,15 +390,16 @@ namespace
     float CalculateServiceScarcityPenalty(
         const FNpcSatisfaction& Satisfaction)
     {
-        return
+        const float TotalPenalty =
             CalculateNeedDistressPenalty(
-                Satisfaction.Food, 58.f, 34.f, 0.12f, 0.24f) +
+                Satisfaction.Food, 48.f, 28.f, 0.09f, 0.18f) +
             CalculateNeedDistressPenalty(
-                Satisfaction.Health, 56.f, 34.f, 0.10f, 0.18f) +
+                Satisfaction.Health, 46.f, 28.f, 0.08f, 0.15f) +
             CalculateNeedDistressPenalty(
-                Satisfaction.Fun, 52.f, 28.f, 0.08f, 0.15f) +
+                Satisfaction.Fun, 42.f, 22.f, 0.06f, 0.12f) +
             CalculateNeedDistressPenalty(
-                Satisfaction.Faith, 50.f, 28.f, 0.06f, 0.12f);
+                Satisfaction.Faith, 40.f, 22.f, 0.05f, 0.10f);
+        return (std::min)(TotalPenalty, 0.35f);
     }
 
     float CalculateSecurityFreedomPressure(
@@ -677,6 +705,7 @@ namespace
 
     FCitizenPoliticalEvaluation EvaluateCitizenInternal(
         const CBuildingMarkerOrb& Citizen,
+        EBuildingEra CurrentEra,
         const FGovernmentProfile& GovernmentProfile,
         const std::vector<FPlacedPoliticalSignal>& PlacedSignals,
         const FTaxPolicyEventStatus* TaxEventStatus,
@@ -873,33 +902,43 @@ namespace
             Evaluation.ActionScore +
             Evaluation.FearScore);
 
-        Evaluation.PrimaryFaction =
-            ResolvePrimaryFaction(Citizen, Satisfaction);
-        Evaluation.FactionAlignmentScore = EvaluateFactionAlignmentScore(
-            Citizen,
-            GovernmentProfile,
-            Evaluation.PrimaryFaction);
-        const float ConstitutionFactionApprovalDelta =
-            ConstitutionEffects ?
-                static_cast<float>(
-                    ConstitutionEffects->FactionApprovalDeltas[
-                        static_cast<size_t>(Evaluation.PrimaryFaction)]) :
-                0.f;
-        Evaluation.FactionApprovalScore = ClampSupportScore(
-            Evaluation.TotalSupportScore * 0.72f +
-            14.f +
-            Evaluation.FactionAlignmentScore +
-            EvaluateFactionIssueScore(
+        if (TryResolvePrimaryFaction(
+                Citizen,
+                Satisfaction,
+                CurrentEra,
+                Evaluation.PrimaryFaction))
+        {
+            Evaluation.FactionAlignmentScore = EvaluateFactionAlignmentScore(
                 Citizen,
                 GovernmentProfile,
-                Satisfaction,
-                Evaluation.PrimaryFaction) +
-            static_cast<float>(
-                GovernmentProfile.FactionApprovalModifiers[
-                    static_cast<size_t>(Evaluation.PrimaryFaction)] +
-                GovernmentProfile.EdictFactionApprovalModifiers[
-                    static_cast<size_t>(Evaluation.PrimaryFaction)]) +
-            ConstitutionFactionApprovalDelta);
+                Evaluation.PrimaryFaction);
+            const float ConstitutionFactionApprovalDelta =
+                ConstitutionEffects ?
+                    static_cast<float>(
+                        ConstitutionEffects->FactionApprovalDeltas[
+                            static_cast<size_t>(Evaluation.PrimaryFaction)]) :
+                    0.f;
+            Evaluation.FactionApprovalScore = ClampSupportScore(
+                Evaluation.TotalSupportScore * 0.72f +
+                14.f +
+                Evaluation.FactionAlignmentScore +
+                EvaluateFactionIssueScore(
+                    Citizen,
+                    GovernmentProfile,
+                    Satisfaction,
+                    Evaluation.PrimaryFaction) +
+                static_cast<float>(
+                    GovernmentProfile.FactionApprovalModifiers[
+                        static_cast<size_t>(Evaluation.PrimaryFaction)] +
+                    GovernmentProfile.EdictFactionApprovalModifiers[
+                        static_cast<size_t>(Evaluation.PrimaryFaction)]) +
+                ConstitutionFactionApprovalDelta);
+        }
+        else
+        {
+            Evaluation.FactionAlignmentScore = 0.f;
+            Evaluation.FactionApprovalScore = 50.f;
+        }
 
         if (Evaluation.TotalSupportScore >= 58.f)
             Evaluation.VoteIntent = EVoteIntent::Incumbent;
@@ -1235,6 +1274,7 @@ namespace PoliticsSystem
     FCitizenPoliticalEvaluation EvaluateCitizen(
         CWorld* World,
         const CBuildingMarkerOrb& Citizen,
+        EBuildingEra CurrentEra,
         const FGovernmentProfile& GovernmentProfile,
         const FTaxPolicyEventStatus* TaxEventStatus,
         const FConstitutionOptionEffect* ConstitutionEffects)
@@ -1244,6 +1284,7 @@ namespace PoliticsSystem
 
         return EvaluateCitizenInternal(
             Citizen,
+            CurrentEra,
             GovernmentProfile,
             PlacedSignals,
             TaxEventStatus,
@@ -1252,6 +1293,7 @@ namespace PoliticsSystem
 
     FPoliticalWorldSnapshot EvaluateWorld(
         CWorld* World,
+        EBuildingEra CurrentEra,
         const FGovernmentProfile& GovernmentProfile,
         const FTaxPolicyEventStatus* TaxEventStatus,
         const FConstitutionOptionEffect* ConstitutionEffects)
@@ -1291,21 +1333,28 @@ namespace PoliticsSystem
             const FCitizenPoliticalEvaluation Evaluation =
                 EvaluateCitizenInternal(
                     *Orb,
+                    CurrentEra,
                     GovernmentProfile,
                     PlacedSignals,
                     TaxEventStatus,
                     ConstitutionEffects);
+
+            Orb->UpdateSmoothedApproval(Evaluation.TotalSupportScore);
 
             ++Snapshot.ActiveCitizenCount;
             LifeScoreSum += Evaluation.LifeScore;
             GovernmentScoreSum += Evaluation.GovernmentIdeologyScore;
             BuildingScoreSum += Evaluation.BuildingScore;
             ActionScoreSum += Evaluation.ActionScore;
-            SupportScoreSum += Evaluation.TotalSupportScore;
+            SupportScoreSum += Orb->GetSmoothedApproval();
             const int FactionIndex =
                 static_cast<int>(Evaluation.PrimaryFaction);
 
-            if (FactionIndex >= 0 && FactionIndex < GPoliticalFactionCount)
+            if (FactionIndex >= 0 &&
+                FactionIndex < GPoliticalFactionCount &&
+                IsFactionAvailableInEra(
+                    Evaluation.PrimaryFaction,
+                    CurrentEra))
             {
                 ++FactionCounts[static_cast<size_t>(FactionIndex)];
                 FactionApprovalSums[static_cast<size_t>(FactionIndex)] +=
@@ -1320,7 +1369,17 @@ namespace PoliticsSystem
                     Evaluation.FactionAlignmentScore;
             }
 
-            switch (Evaluation.VoteIntent)
+            const float SmoothedApproval = Orb->GetSmoothedApproval();
+            EVoteIntent SmoothedVoteIntent;
+
+            if (SmoothedApproval >= 58.f)
+                SmoothedVoteIntent = EVoteIntent::Incumbent;
+            else if (SmoothedApproval < 46.f)
+                SmoothedVoteIntent = EVoteIntent::Opposition;
+            else
+                SmoothedVoteIntent = EVoteIntent::Abstain;
+
+            switch (SmoothedVoteIntent)
             {
             case EVoteIntent::Incumbent:
                 ++Snapshot.IncumbentCount;

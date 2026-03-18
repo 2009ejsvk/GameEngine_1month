@@ -16,6 +16,39 @@ namespace
     constexpr int GRevoltPressureThreshold = 60;
     constexpr int GPressureDecayPerSafeDay = 2;
 
+    bool IsFactionAvailableInEra(
+        EPoliticalFaction Faction,
+        EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::Colonial:
+            return false;
+        case EBuildingEra::WorldWars:
+        case EBuildingEra::ColdWar:
+            return Faction != EPoliticalFaction::Intellectuals &&
+                Faction != EPoliticalFaction::Conservatives;
+        case EBuildingEra::Modern:
+        default:
+            return true;
+        }
+    }
+
+    int ResolveFaithDemandTargetMax(EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::Colonial:
+            return 56;
+        case EBuildingEra::WorldWars:
+            return 68;
+        case EBuildingEra::ColdWar:
+        case EBuildingEra::Modern:
+        default:
+            return 82;
+        }
+    }
+
     const wchar_t* GetPoliticalFactionName(EPoliticalFaction Faction)
     {
         switch (Faction)
@@ -342,19 +375,44 @@ namespace
         }
     }
 
+    int GetEraIndex(EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::WorldWars: return 1;
+        case EBuildingEra::ColdWar:   return 2;
+        case EBuildingEra::Modern:    return 3;
+        case EBuildingEra::Colonial:
+        default:                      return 0;
+        }
+    }
+
     bool TryBuildFactionDemand(
         EPoliticalFaction Faction,
         const WorldStats::FWorldStatsSnapshot& Snapshot,
         const FPoliticalWorldSnapshot& PoliticalSnapshot,
         const FGovernmentProfile& GovernmentProfile,
         long long LastDailyExportIncome,
+        EBuildingEra CurrentEra,
         FPoliticalDemandState& OutDemand,
         double& OutPriority)
     {
+        if (!IsFactionAvailableInEra(Faction, CurrentEra))
+            return false;
+
         const auto& FactionSnapshot =
             PoliticalSnapshot.Factions[static_cast<size_t>(Faction)];
 
-        if (FactionSnapshot.MemberCount < MWDemand::FactionMemberMinCount ||
+        const int EraIndex = GetEraIndex(CurrentEra);
+        const float DemandMultiplier =
+            GameConstants::MainWorld::EraDemandThresholdMultipliers[EraIndex];
+        const float MemberMultiplier =
+            GameConstants::MainWorld::EraFactionMemberMinMultipliers[EraIndex];
+        const int ScaledMemberMin = static_cast<int>(
+            static_cast<float>(MWDemand::FactionMemberMinCount) *
+            MemberMultiplier + 0.5f);
+
+        if (FactionSnapshot.MemberCount < ScaledMemberMin ||
             FactionSnapshot.AverageApproval >=
                 static_cast<double>(MWDemand::FactionApprovalThreshold))
         {
@@ -386,7 +444,10 @@ namespace
             const auto& Tuning = MWDemand::Communists;
             const int CurrentHousing =
                 static_cast<int>(std::lround(Snapshot.AverageHousing));
-            if (CurrentHousing >= Tuning.IgnoreAtOrAboveHousing &&
+            const int ScaledIgnoreHousing = static_cast<int>(
+                static_cast<float>(Tuning.IgnoreAtOrAboveHousing) *
+                DemandMultiplier + 0.5f);
+            if (CurrentHousing >= ScaledIgnoreHousing &&
                 Snapshot.HomelessHouseholdCount <= Tuning.IgnoreAtOrBelowHomeless)
             {
                 return false;
@@ -445,13 +506,22 @@ namespace
             const auto& Tuning = MWDemand::Religious;
             const int CurrentFaith =
                 static_cast<int>(std::lround(Snapshot.AverageFaith));
-            if (CurrentFaith >= Tuning.IgnoreAtOrAboveValue)
+            const int FaithTargetMax = (std::min)(
+                Tuning.TargetMax,
+                ResolveFaithDemandTargetMax(CurrentEra));
+            if (CurrentFaith >= static_cast<int>(
+                    static_cast<float>(Tuning.IgnoreAtOrAboveValue) *
+                    DemandMultiplier + 0.5f))
+                return false;
+            if (FaithTargetMax < Tuning.TargetMin)
                 return false;
 
             Demand.ObjectiveType = EPoliticalDemandObjectiveType::Faith;
             Demand.TargetValue = (std::max)(
                 Tuning.TargetMin,
-                (std::min)(Tuning.TargetMax, CurrentFaith + Tuning.TargetDelta));
+                (std::min)(FaithTargetMax, CurrentFaith + Tuning.TargetDelta));
+            if (Demand.TargetValue <= CurrentFaith)
+                return false;
             Demand.CurrentValue = CurrentFaith;
             Demand.Summary = L"신앙 만족도 회복과 종교 서비스 강화를 요구합니다.";
             Demand.ObjectiveText =
@@ -472,7 +542,9 @@ namespace
             const auto& Tuning = MWDemand::Militarists;
             const int CurrentSecurity =
                 static_cast<int>(std::lround(Snapshot.AverageSecurity));
-            if (CurrentSecurity >= Tuning.IgnoreAtOrAboveValue)
+            if (CurrentSecurity >= static_cast<int>(
+                    static_cast<float>(Tuning.IgnoreAtOrAboveValue) *
+                    DemandMultiplier + 0.5f))
                 return false;
 
             Demand.ObjectiveType = EPoliticalDemandObjectiveType::Security;
@@ -502,7 +574,9 @@ namespace
             const auto& Tuning = MWDemand::Environmentalists;
             const int CurrentHealth =
                 static_cast<int>(std::lround(Snapshot.AverageHealth));
-            if (CurrentHealth >= Tuning.IgnoreAtOrAboveValue)
+            if (CurrentHealth >= static_cast<int>(
+                    static_cast<float>(Tuning.IgnoreAtOrAboveValue) *
+                    DemandMultiplier + 0.5f))
                 return false;
 
             Demand.ObjectiveType = EPoliticalDemandObjectiveType::Health;
@@ -561,7 +635,9 @@ namespace
             const auto& Tuning = MWDemand::Intellectuals;
             const int CurrentFreedom =
                 static_cast<int>(std::lround(Snapshot.AverageFreedom));
-            if (CurrentFreedom >= Tuning.IgnoreAtOrAboveValue)
+            if (CurrentFreedom >= static_cast<int>(
+                    static_cast<float>(Tuning.IgnoreAtOrAboveValue) *
+                    DemandMultiplier + 0.5f))
                 return false;
 
             Demand.ObjectiveType = EPoliticalDemandObjectiveType::Freedom;
@@ -1233,10 +1309,30 @@ CMainWorldPoliticalDemandService::FRefreshRequests
     const WorldStats::FWorldStatsSnapshot Snapshot =
         WorldStats::BuildSnapshot(Context.World);
 
+    for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
+    {
+        const EPoliticalFaction Faction =
+            static_cast<EPoliticalFaction>(Index);
+
+        if (IsFactionAvailableInEra(Faction, Context.CurrentEra))
+            continue;
+
+        mFactionDemands[static_cast<size_t>(Index)] = FPoliticalDemandState();
+        mFactionPressureDays[static_cast<size_t>(Index)] = 0;
+        mFactionDemandCooldownDays[static_cast<size_t>(Index)] = 0;
+        mFactionDemandModifierDays[static_cast<size_t>(Index)] = 0;
+    }
+
     int ActiveFactionDemandCount = CountActiveFactionDemands(mFactionDemands);
 
     for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
     {
+        const EPoliticalFaction Faction =
+            static_cast<EPoliticalFaction>(Index);
+
+        if (!IsFactionAvailableInEra(Faction, Context.CurrentEra))
+            continue;
+
         const auto& FactionSnapshot =
             Context.PoliticalSnapshot.Factions[static_cast<size_t>(Index)];
         int& PressureDays = mFactionPressureDays[static_cast<size_t>(Index)];
@@ -1278,6 +1374,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
                         Context.PoliticalSnapshot,
                         Context.GovernmentProfile,
                         Context.LastDailyExportIncome,
+                        Context.CurrentEra,
                         CandidateDemand,
                         CandidatePriority))
                 {
@@ -1312,6 +1409,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
                         Context.PoliticalSnapshot,
                         Context.GovernmentProfile,
                         Context.LastDailyExportIncome,
+                        Context.CurrentEra,
                         CandidateDemand,
                         CandidatePriority))
                 {
@@ -1331,7 +1429,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
             !ActiveDemand.Active)
         {
             mPoliticalDemandNotice = BuildFactionWarningNotice(
-                static_cast<EPoliticalFaction>(Index),
+                Faction,
                 PressureDays);
         }
     }
@@ -1538,6 +1636,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
                     Context.PoliticalSnapshot,
                     Context.GovernmentProfile,
                     Context.LastDailyExportIncome,
+                    Context.CurrentEra,
                     CandidateDemand,
                     CandidatePriority))
             {

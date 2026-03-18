@@ -4,13 +4,14 @@
 #include "AlmanacWidget.h"
 #include "BuildMenuWidget.h"
 #include "EdictWidget.h"
+#include "TaskWidget.h"
 #include "TradeWidget.h"
 #include "UIStrings.h"
 #include "UI/Button.h"
 #include "UI/TextBlock.h"
 #include "../Politics/ConstitutionSystem.h"
 #include "../ObjectNames.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/IWorldUIAccess.h"
 #include "World/World.h"
 #include "World/WorldUIManager.h"
 #include <Windows.h>
@@ -213,21 +214,47 @@ void CTopHudWidget::Update(float DeltaTime)
     RefreshFromState();
 }
 
+void CTopHudWidget::OpenTaskWidgetForDemand(
+    EPoliticalDemandIssuerType IssuerType,
+    int IssuerIndex)
+{
+    if (mGameLost)
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    CloseMenus(true, true, true, true, false);
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return;
+
+    auto TaskWidget =
+        UIManager->FindWidget<CTaskWidget>(GTaskWidgetName).lock();
+
+    if (TaskWidget)
+        TaskWidget->OpenForDemand(IssuerType, IssuerIndex);
+}
+
 void CTopHudWidget::RefreshFromState()
 {
-    const auto Snapshot = TopHudDataProvider::BuildSnapshot(mWorld.lock());
+    auto World = mWorld.lock();
+    const auto Snapshot = TopHudDataProvider::BuildSnapshot(World);
     const bool WasConstitutionPopupActive = mConstitutionPopupActive;
     mConstitutionPopupActive = false;
     mConstitutionLeftOptionId = EConstitutionOptionId::None;
     mConstitutionRightOptionId = EConstitutionOptionId::None;
 
-    auto ConstitutionAccess =
-        ResolveMainWorldConstitutionAccess(mWorld.lock());
+    auto* Access = ResolveWorldUIAccess(World.get());
 
-    if (ConstitutionAccess)
+    if (Access)
     {
         const FConstitutionState& ConstitutionState =
-            ConstitutionAccess->GetConstitutionState();
+            Access->Read().GetConstitutionState();
 
         if (ConstitutionState.PendingTopicChoice &&
             ResolveConstitutionOptionsForTopic(
@@ -241,14 +268,14 @@ void CTopHudWidget::RefreshFromState()
     }
 
     if (mConstitutionPopupActive && !WasConstitutionPopupActive)
-        CloseMenus(true, true, true, true);
+        CloseMenus(true, true, true, true, true);
 
     mEraTransitionPopupOpen =
         mManualEraTransitionPopupOpen || mConstitutionPopupActive;
 
     if (Snapshot.GameLost && !mGameOverMenusClosed)
     {
-        CloseMenus(true, true, true, true);
+        CloseMenus(true, true, true, true, true);
         mGameOverMenusClosed = true;
         mManualEraTransitionPopupOpen = false;
         mConstitutionPopupActive = false;
@@ -264,7 +291,7 @@ void CTopHudWidget::RefreshFromState()
     if (mConstitutionPopupActive)
     {
         const FConstitutionState& ConstitutionState =
-            ConstitutionAccess->GetConstitutionState();
+            Access->Read().GetConstitutionState();
         const FConstitutionOptionDef* const LeftOption =
             FindConstitutionOptionDef(mConstitutionLeftOptionId);
         const FConstitutionOptionDef* const RightOption =
@@ -322,8 +349,7 @@ bool CTopHudWidget::DebugValidateCurrentConstitutionRightButton(
 
     auto World = mWorld.lock();
     auto UIManager = World ? World->GetUIManager().lock() : nullptr;
-    auto ConstitutionAccess =
-        ResolveMainWorldConstitutionAccess(World);
+    auto* Access = ResolveWorldUIAccess(World.get());
     auto RightButton = mConstitutionRightButton.lock();
     auto RightButtonText = mConstitutionRightButtonText.lock();
 
@@ -345,14 +371,14 @@ bool CTopHudWidget::DebugValidateCurrentConstitutionRightButton(
     if (!UIManager)
         Fail("ui_manager_unavailable");
 
-    if (!ConstitutionAccess)
+    if (!Access)
         Fail("constitution_access_unavailable");
 
     if (!RightButton)
         Fail("right_button_missing");
 
     const FConstitutionState* BeforeState =
-        ConstitutionAccess ? &ConstitutionAccess->GetConstitutionState() :
+        Access ? &Access->Read().GetConstitutionState() :
         nullptr;
 
     if (!mConstitutionPopupActive)
@@ -431,7 +457,7 @@ bool CTopHudWidget::DebugValidateCurrentConstitutionRightButton(
     }
 
     const FConstitutionState* AfterState =
-        ConstitutionAccess ? &ConstitutionAccess->GetConstitutionState() :
+        Access ? &Access->Read().GetConstitutionState() :
         nullptr;
 
     if (!AfterState)
@@ -496,7 +522,8 @@ void CTopHudWidget::CloseMenus(
     bool CloseBuildMenu,
     bool CloseAlmanac,
     bool CloseEdicts,
-    bool CloseTrade)
+    bool CloseTrade,
+    bool CloseTask)
 {
     auto World = mWorld.lock();
 
@@ -514,6 +541,8 @@ void CTopHudWidget::CloseMenus(
         UIManager->FindWidget<CAlmanacWidget>(GAlmanacWidgetName).lock();
     auto EdictWidget =
         UIManager->FindWidget<CEdictWidget>(GEdictWidgetName).lock();
+    auto TaskWidget =
+        UIManager->FindWidget<CTaskWidget>(GTaskWidgetName).lock();
     auto TradeWidget =
         UIManager->FindWidget<CTradeWidget>(GTradeWidgetName).lock();
 
@@ -532,8 +561,35 @@ void CTopHudWidget::CloseMenus(
     if (EdictWidget && CloseEdicts)
         EdictWidget->SetOpen(false);
 
+    if (TaskWidget && CloseTask)
+        TaskWidget->SetOpen(false);
+
     if (TradeWidget && CloseTrade)
         TradeWidget->SetOpen(false);
+}
+
+void CTopHudWidget::OnTaskButtonClick()
+{
+    if (mGameLost)
+        return;
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    CloseMenus(true, true, true, true, false);
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return;
+
+    auto TaskWidget =
+        UIManager->FindWidget<CTaskWidget>(GTaskWidgetName).lock();
+
+    if (TaskWidget)
+        TaskWidget->ToggleOpen();
 }
 
 void CTopHudWidget::OnConstructionButtonClick()
@@ -546,7 +602,7 @@ void CTopHudWidget::OnConstructionButtonClick()
     if (!World)
         return;
 
-    CloseMenus(false, true, true, true);
+    CloseMenus(false, true, true, true, true);
 
     auto UIManager = World->GetUIManager().lock();
 
@@ -565,10 +621,9 @@ void CTopHudWidget::OnEraTransitionButtonClick()
     if (mGameLost)
         return;
 
-    auto HudAccess =
-        ResolveMainWorldHudAccess(mWorld.lock());
+    auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
 
-    if (!HudAccess || mConstitutionPopupActive)
+    if (!Access || mConstitutionPopupActive)
         return;
 
     mManualEraTransitionPopupOpen = !mManualEraTransitionPopupOpen;
@@ -587,7 +642,7 @@ void CTopHudWidget::OnAlmanacButtonClick()
     if (!World)
         return;
 
-    CloseMenus(true, false, true, true);
+    CloseMenus(true, false, true, true, true);
 
     auto UIManager = World->GetUIManager().lock();
 
@@ -611,7 +666,7 @@ void CTopHudWidget::OnEdictsButtonClick()
     if (!World)
         return;
 
-    CloseMenus(true, true, false, true);
+    CloseMenus(true, true, false, true, true);
 
     auto UIManager = World->GetUIManager().lock();
 
@@ -635,7 +690,7 @@ void CTopHudWidget::OnTradeButtonClick()
     if (!World)
         return;
 
-    CloseMenus(true, true, true, false);
+    CloseMenus(true, true, true, false, true);
 
     auto UIManager = World->GetUIManager().lock();
 
@@ -663,15 +718,14 @@ void CTopHudWidget::OnPopupRightButtonClick()
         mConstitutionRightOptionId);
 #endif
 
+    auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
     if (mConstitutionPopupActive)
     {
-        auto ConstitutionAccess =
-            ResolveMainWorldConstitutionAccess(mWorld.lock());
-
-        if (ConstitutionAccess &&
+        if (Access &&
             mConstitutionRightOptionId != EConstitutionOptionId::None)
         {
-            ConstitutionAccess->TrySelectConstitutionOption(
+            Access->Commands().TrySelectConstitutionOption(
                 mConstitutionRightOptionId);
         }
 
@@ -679,14 +733,14 @@ void CTopHudWidget::OnPopupRightButtonClick()
         return;
     }
 
-    auto HudAccess =
-        ResolveMainWorldHudAccess(mWorld.lock());
-
-    if (!HudAccess)
+    if (!Access)
         return;
 
-    if (HudAccess->TryExecuteEraTransition(EEraTransitionChoice::Confirm))
+    if (Access->Commands().TryExecuteEraTransition(
+            EEraTransitionChoice::Confirm))
+    {
         mManualEraTransitionPopupOpen = false;
+    }
 
     mEraTransitionPopupOpen =
         mManualEraTransitionPopupOpen || mConstitutionPopupActive;
@@ -706,15 +760,14 @@ void CTopHudWidget::OnPopupLeftButtonClick()
         mConstitutionLeftOptionId);
 #endif
 
+    auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
     if (mConstitutionPopupActive)
     {
-        auto ConstitutionAccess =
-            ResolveMainWorldConstitutionAccess(mWorld.lock());
-
-        if (ConstitutionAccess &&
+        if (Access &&
             mConstitutionLeftOptionId != EConstitutionOptionId::None)
         {
-            ConstitutionAccess->TrySelectConstitutionOption(
+            Access->Commands().TrySelectConstitutionOption(
                 mConstitutionLeftOptionId);
         }
 
@@ -732,13 +785,12 @@ void CTopHudWidget::OnSpeedStateButtonClick()
     if (mGameLost)
         return;
 
-    auto HudAccess =
-        ResolveMainWorldHudAccess(mWorld.lock());
+    auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
 
-    if (!HudAccess)
+    if (!Access)
         return;
 
-    HudAccess->ToggleSimulationPaused();
+    Access->Commands().ToggleSimulationPaused();
     RefreshFromState();
 }
 
@@ -747,13 +799,12 @@ void CTopHudWidget::OnSpeedMultiplierButtonClick()
     if (mGameLost)
         return;
 
-    auto HudAccess =
-        ResolveMainWorldHudAccess(mWorld.lock());
+    auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
 
-    if (!HudAccess)
+    if (!Access)
         return;
 
-    HudAccess->CycleSimulationSpeedMultiplier();
+    Access->Commands().CycleSimulationSpeedMultiplier();
     RefreshFromState();
 }
 

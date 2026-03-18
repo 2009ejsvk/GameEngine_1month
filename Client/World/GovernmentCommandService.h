@@ -18,15 +18,7 @@ public:
         ETaxPolicyType Type,
         int DeltaPercent,
         std::wstring& OutMessage) = 0;
-    virtual bool CycleDomesticReservePolicy(
-        std::wstring& OutMessage) = 0;
-    virtual bool CycleImportPerResourceCap(
-        std::wstring& OutMessage) = 0;
-    virtual bool CycleImportBudgetPolicy(
-        std::wstring& OutMessage) = 0;
     virtual bool CycleExportBlockedResource(
-        std::wstring& OutMessage) = 0;
-    virtual bool CycleAutoImportResource(
         std::wstring& OutMessage) = 0;
     virtual bool ExecuteTradeProposal(
         bool ImportRoute,

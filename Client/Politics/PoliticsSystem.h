@@ -2,6 +2,7 @@
 
 #include "ConstitutionTypes.h"
 #include "PoliticalTypes.h"
+#include "../Building/BuildingTypes.h"
 
 class CBuildingMarkerOrb;
 class CWorld;
@@ -22,12 +23,14 @@ namespace PoliticsSystem
     FCitizenPoliticalEvaluation EvaluateCitizen(
         CWorld* World,
         const CBuildingMarkerOrb& Citizen,
+        EBuildingEra CurrentEra,
         const FGovernmentProfile& GovernmentProfile,
         const FTaxPolicyEventStatus* TaxEventStatus = nullptr,
         const FConstitutionOptionEffect* ConstitutionEffects = nullptr);
 
     FPoliticalWorldSnapshot EvaluateWorld(
         CWorld* World,
+        EBuildingEra CurrentEra,
         const FGovernmentProfile& GovernmentProfile,
         const FTaxPolicyEventStatus* TaxEventStatus = nullptr,
         const FConstitutionOptionEffect* ConstitutionEffects = nullptr);

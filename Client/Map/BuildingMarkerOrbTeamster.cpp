@@ -37,7 +37,7 @@ namespace
         case 0:
             return "warehouse_to_harbor_staging";
         case 1:
-            return "producer_to_warehouse_reserve";
+            return "unused";
         case 2:
             return "producer_to_harbor_staging";
         case 3:
@@ -434,31 +434,6 @@ namespace
         return &MainWorldAccess->GetGovernmentProfile().ExportTradePolicy;
     }
 
-    int ResolveDomesticReserveAmount(
-        const FTeamsterResourcePressure& Pressure,
-        const TradePolicy::FExportTradePolicy* ExportPolicy)
-    {
-        const int ReserveBufferUnits = ExportPolicy ?
-            TradePolicy::GetDomesticReserveBufferUnits(*ExportPolicy) :
-            GameConstants::Orb::TeamsterTransferUnit;
-        return Pressure.GlobalShortage +
-            (Pressure.ConsumerCount > 0 ?
-                ReserveBufferUnits :
-                0);
-    }
-
-    bool ShouldPreferWarehouseBuffer(
-        const FTeamsterResourcePressure& Pressure,
-        int Amount,
-        const TradePolicy::FExportTradePolicy* ExportPolicy)
-    {
-        if (Amount <= 0 || Pressure.WarehouseFreeCapacity < Amount)
-            return false;
-
-        return Pressure.WarehouseBufferedStock <
-            ResolveDomesticReserveAmount(Pressure, ExportPolicy);
-    }
-
     int ResolveRequestedTransferAmount(
         int AvailableAmount,
         int TransferUnit,
@@ -515,11 +490,9 @@ namespace
         // Keep island-wide export headroom separate from current harbor stock.
         // The first answers "may we export this nationally?", while the second
         // answers "how much should teamsters stage at export hubs right now?".
-        const int DomesticReserveAmount =
-            ResolveDomesticReserveAmount(ResourcePressure, ExportPolicy);
         const int IslandExportHeadroom = (std::max)(
             0,
-            ResourcePressure.TotalAvailableStock - DomesticReserveAmount);
+            ResourcePressure.TotalAvailableStock);
         const int ShipCapacity = ExportPolicy ?
             TradePolicy::GetHarborExportShipCapacityUnits(*ExportPolicy) :
             TradePolicy::GDefaultHarborExportShipCapacityUnits;
@@ -1458,8 +1431,16 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     auto ConsumerBuilding =
         World->FindObject<CPlacementAreaObject>(BestConsumerName).lock();
 
-    if (!SourceBuilding ||
-        !ConsumerBuilding ||
+    if (!SourceBuilding || !ConsumerBuilding)
+        return false;
+
+    // Export hubs (harbors) don't get a pickup reservation so that active
+    // trade routes can still consume from them while the teamster is in
+    // transit. The pickup at arrival will fail gracefully if the stock was
+    // already exported, which is preferable to blocking export income.
+    const bool ReserveSource = !SourceBuilding->CanExportStoredResources();
+
+    if (ReserveSource &&
         !SourceBuilding->ReserveTeamsterPickup(
             BestResourceType,
             BestRequestedAmount))
@@ -1471,15 +1452,20 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
             BestResourceType,
             BestRequestedAmount))
     {
-        SourceBuilding->ReleaseTeamsterPickup(
-            BestResourceType,
-            BestRequestedAmount);
+        if (ReserveSource)
+        {
+            SourceBuilding->ReleaseTeamsterPickup(
+                BestResourceType,
+                BestRequestedAmount);
+        }
         return false;
     }
 
     OutDelivery.Mode = FTeamsterDeliveryState::ERouteMode::ConsumerDelivery;
     OutDelivery.SourceReservationKind =
-        FTeamsterDeliveryState::ESourceReservationKind::Typed;
+        ReserveSource ?
+            FTeamsterDeliveryState::ESourceReservationKind::Typed :
+            FTeamsterDeliveryState::ESourceReservationKind::None;
     OutDelivery.SourceName = BestSourceName;
     OutDelivery.DestinationName = BestConsumerName;
     OutDelivery.RequestedType = BestResourceType;
@@ -1539,7 +1525,6 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
     float BestDropoffDistSq = FLT_MAX;
     bool BestReserveIncoming = false;
     int BestPendingStagingDemand = 0;
-    int BestWarehouseBufferNeed = 0;
 
     for (size_t i = 0; i < BuildingList.size(); ++i)
     {
@@ -1600,7 +1585,6 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
             int PriorityBucket = 0;
             int RequestedAmount = 0;
             int CandidatePendingStagingDemand = 0;
-            int CandidateWarehouseBufferNeed = 0;
 
             if (SourceIsWarehouse)
             {
@@ -1630,41 +1614,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
             }
             else
             {
-                const int DomesticReserveAmount =
-                    ResolveDomesticReserveAmount(Pressure, ExportPolicy);
-                const int WarehouseBufferNeed = (std::max)(
-                    0,
-                    DomesticReserveAmount - Pressure.WarehouseBufferedStock);
-                CandidateWarehouseBufferNeed = WarehouseBufferNeed;
-
-                if (ShouldPreferWarehouseBuffer(
-                        Pressure,
-                        (std::min)(TransferUnit, AvailableAmount),
-                        ExportPolicy))
-                {
-                    RequestedAmount = ResolveRequestedTransferAmount(
-                        AvailableAmount,
-                        TransferUnit,
-                        WarehouseBufferNeed);
-
-                    if (RequestedAmount > 0)
-                    {
-                        DropoffName = FindBestWarehouseDropoffName(
-                            OfficeBuilding,
-                            BuildingList,
-                            SourceBuilding->GetName(),
-                            CargoType,
-                            RequestedAmount);
-                    }
-
-                    if (!DropoffName.empty())
-                    {
-                        ReserveIncoming = true;
-                        PriorityBucket = 1;
-                    }
-                }
-
-                if (DropoffName.empty() && HarborExportAllowed)
+                if (HarborExportAllowed)
                 {
                     RequestedAmount = ResolveRequestedTransferAmount(
                         AvailableAmount,
@@ -1753,7 +1703,6 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
                 BestReserveIncoming = ReserveIncoming;
                 BestPendingStagingDemand =
                     CandidatePendingStagingDemand;
-                BestWarehouseBufferNeed = CandidateWarehouseBufferNeed;
             }
         }
     }
@@ -1775,7 +1724,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
     DebugTeamsterLog(
         "[Teamster][PlanExport] office=%s source=%s dropoff=%s "
         "dropoff_kind=%s resource=%s amount=%d reason=%s "
-        "pending_harbor_staging=%d warehouse_buffer_need=%d\n",
+        "pending_harbor_staging=%d\n",
         OfficeBuilding ? OfficeBuilding->GetName().c_str() : "",
         BestSourceName.c_str(),
         BestDropoffName.c_str(),
@@ -1783,8 +1732,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
         DebugResourceName(BestCargoType).c_str(),
         BestRequestedAmount,
         DebugExportPriorityBucketName(BestPriorityBucket),
-        BestPendingStagingDemand,
-        BestWarehouseBufferNeed);
+        BestPendingStagingDemand);
 #endif
 
     if (!SourceBuilding ||
@@ -2007,8 +1955,6 @@ std::string CBuildingMarkerOrb::FindTeamsterExportDropoffName(
             CargoType,
             Pressure,
             ExportPolicy);
-    const int DomesticReserveAmount =
-        ResolveDomesticReserveAmount(Pressure, ExportPolicy);
     const std::string HarborName = FindBestExportHubDropoffName(
         OfficeBuilding,
         BuildingList,
@@ -2022,27 +1968,10 @@ std::string CBuildingMarkerOrb::FindTeamsterExportDropoffName(
         !HarborName.empty();
     const bool HarborExportPreferred =
         HarborRouteAvailable &&
-        (HubPressure.PendingStagingDemand > 0 ||
-         Pressure.TotalAvailableStock - CargoAmount >= DomesticReserveAmount);
+        HubPressure.PendingStagingDemand > 0;
 
     if (!SourceIsWarehouse)
     {
-        if (ShouldPreferWarehouseBuffer(
-                Pressure,
-                CargoAmount,
-                ExportPolicy))
-        {
-            const std::string WarehouseName = FindBestWarehouseDropoffName(
-                OfficeBuilding,
-                BuildingList,
-                SourceName,
-                CargoType,
-                CargoAmount);
-
-            if (!WarehouseName.empty())
-                return WarehouseName;
-        }
-
         if (HarborExportPreferred)
             return HarborName;
 

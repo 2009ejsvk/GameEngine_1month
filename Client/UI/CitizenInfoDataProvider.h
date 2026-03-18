@@ -125,11 +125,7 @@ namespace CitizenInfoDataProvider
         std::vector<std::wstring> HarborPriorityLines;
         std::wstring WarehousePolicySelectionText;
         std::wstring WarehousePrioritySelectionText;
-        std::wstring HarborDomesticReserveSelectionText;
         std::wstring HarborExportSelectionText;
-        std::wstring HarborImportCapSelectionText;
-        std::wstring HarborImportBudgetSelectionText;
-        std::wstring HarborImportSelectionText;
         std::vector<std::string> Residents;
         std::vector<std::string> AssignedEmployees;
         std::vector<std::string> WorkingEmployees;
@@ -195,6 +191,7 @@ namespace CitizenInfoDataProvider
         const std::string& BuildingName,
         int SelectedBuildingTabIndex,
         bool ShowCustomsModeSelection = false,
+        int OperationModeSelectionPageIndex = -1,
         int OverviewMetricScrollOffset = 0);
 
     FCitizenInfoSnapshot BuildTrackedBuildingSnapshot(
@@ -202,5 +199,6 @@ namespace CitizenInfoDataProvider
         const std::string& BuildingName,
         int SelectedBuildingTabIndex,
         bool ShowCustomsModeSelection = false,
+        int OperationModeSelectionPageIndex = -1,
         int OverviewMetricScrollOffset = 0);
 }

@@ -889,7 +889,7 @@ inline float ResolveBuildingBaseProductionUnitsPerSecond(
     if (BuildingId == "build_2_7" ||
         BuildingId == "build_3_1")
     {
-        return 10.f;
+        return 12.f;
     }
 
     const bool PrimaryAgricultureOutput =
@@ -903,13 +903,13 @@ inline float ResolveBuildingBaseProductionUnitsPerSecond(
     switch (GetResourceMarketClass(ProducedType))
     {
     case EResourceMarketClass::Food:
-        return Category == EBuildingCategory::FoodResource ? 40.f : 8.f;
+        return Category == EBuildingCategory::FoodResource ? 40.f : 12.f;
     case EResourceMarketClass::RawGoods:
-        return 10.f;
+        return 12.f;
     case EResourceMarketClass::ManufacturedGoods:
-        return 6.f;
+        return 10.f;
     case EResourceMarketClass::LuxuryGoods:
-        return 4.f;
+        return 8.f;
     default:
         return 0.f;
     }

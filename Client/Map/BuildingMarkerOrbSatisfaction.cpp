@@ -1,72 +1,10 @@
 #include "BuildingMarkerOrb.h"
 #include "PlacementAreaObject.h"
 #include "../Citizen/CitizenCommuteCalc.h"
-#include "../Economy/TradePolicyRuntime.h"
 #include "../World/MainWorldInfrastructureAccess.h"
 #include "../World/MainWorldSystemAccess.h"
 #include "World/World.h"
 #include <algorithm>
-#include <array>
-
-namespace
-{
-    float ResolveTaxEventProductionMultiplier(
-        const FTaxPolicyEventStatus* TaxEventStatus)
-    {
-        if (!TaxEventStatus ||
-            !TaxEventStatus->Active ||
-            TaxEventStatus->Type == ETaxPolicyEventType::None)
-        {
-            return 1.f;
-        }
-
-        const float Severity = Clamp<float>(
-            static_cast<float>(TaxEventStatus->DaysActive + 1) / 6.f,
-            0.f,
-            1.f);
-
-        switch (TaxEventStatus->Type)
-        {
-        case ETaxPolicyEventType::WorkerTaxStrike:
-            return 0.74f - 0.30f * Severity;
-        case ETaxPolicyEventType::BudgetCrisis:
-            return 0.92f - 0.18f * Severity;
-        default:
-            return 1.f;
-        }
-    }
-
-    float ResolveWorldCrisisProductionMultiplier(
-        const FWorldCrisisStatus* WorldCrisisStatus)
-    {
-        if (!WorldCrisisStatus ||
-            !WorldCrisisStatus->Active ||
-            WorldCrisisStatus->Type == EWorldCrisisType::None)
-        {
-            return 1.f;
-        }
-
-        const float Severity = Clamp<float>(
-            static_cast<float>(WorldCrisisStatus->DaysActive + 1) / 6.f,
-            0.f,
-            1.f);
-
-        switch (WorldCrisisStatus->Type)
-        {
-        case EWorldCrisisType::Raid:
-            return 0.90f - 0.14f * Severity;
-        case EWorldCrisisType::LaborStrike:
-            return 0.78f - 0.24f * Severity;
-        case EWorldCrisisType::CrimeWave:
-            return 0.92f - 0.12f * Severity;
-        case EWorldCrisisType::FiscalEmergency:
-            return 0.94f - 0.10f * Severity;
-        case EWorldCrisisType::None:
-        default:
-            return 1.f;
-        }
-    }
-}
 
 void CBuildingMarkerOrb::InitPoliticalProfile()
 {
@@ -119,22 +57,10 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         ResolveMainWorldTransitAccess(World.get());
     const FGovernmentEdictModifiers* EdictModifiers =
         MainWorld ? &MainWorld->GetEdictModifiers() : nullptr;
-    const FGovernmentProfile* GovernmentProfile =
-        MainWorld ? &MainWorld->GetGovernmentProfile() : nullptr;
     const FTaxPolicy* TaxPolicy =
         MainWorld ? &MainWorld->GetTaxPolicy() : nullptr;
-    const FTaxPolicyEventStatus* TaxEventStatus =
-        MainWorld ? &MainWorld->GetTaxPolicyEventStatus() : nullptr;
-    const FWorldCrisisStatus* WorldCrisisStatus =
-        MainWorld ? &MainWorld->GetWorldCrisisStatus() : nullptr;
     const float FoodGainMultiplier =
         EdictModifiers ? EdictModifiers->FoodGainMultiplier : 1.f;
-    const float ProductionMultiplier =
-        EdictModifiers ? EdictModifiers->ProductionMultiplier : 1.f;
-    const float TaxEventProductionMultiplier =
-        ResolveTaxEventProductionMultiplier(TaxEventStatus);
-    const float WorldCrisisProductionMultiplier =
-        ResolveWorldCrisisProductionMultiplier(WorldCrisisStatus);
     const int FoodConsumptionPerVisit =
         EdictModifiers ?
         (std::max)(1, EdictModifiers->FoodConsumptionPerVisit) :
@@ -397,47 +323,6 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             Satisfaction.Job,
             10.f * CommuteProfile.JobRecoveryMultiplier,
             EffectiveWorkJobCap);
-        // 생산/식량 시설만 재고를 생산한다.
-        // 운송업자 사무소/항구는 재고를 직접 생산하지 않는다.
-        if (WorkBuilding)
-        {
-            float ProductionPerSec = 0.f;
-            const EResourceType ProducedType =
-                WorkBuilding->GetProducedResourceType();
-            std::array<EResourceType, GProductionInputSlotCount> InputTypes = {};
-
-            for (int SlotIndex = 0;
-                SlotIndex < GProductionInputSlotCount;
-                ++SlotIndex)
-            {
-                InputTypes[static_cast<size_t>(SlotIndex)] =
-                    SlotIndex < WorkBuilding->GetProductionInputCount() ?
-                        WorkBuilding->GetProductionInputType(SlotIndex) :
-                        EResourceType::None;
-            }
-
-            const float TradePolicyProductionMultiplier =
-                GovernmentProfile ?
-                    TradePolicyRuntime::ComputeBuildingProductionMultiplier(
-                        ProducedType,
-                        InputTypes,
-                        GovernmentProfile->ExportTradePolicy,
-                        GovernmentProfile->ImportTradePolicy) :
-                    1.f;
-            ProductionPerSec =
-                ResolveBuildingBaseProductionUnitsPerSecond(
-                    WorkBuilding->GetBuildingId(),
-                    WorkBuilding->GetBuildingCategory(),
-                    ProducedType) *
-                ProductionMultiplier *
-                TaxEventProductionMultiplier *
-                WorldCrisisProductionMultiplier;
-
-            ProductionPerSec *=
-                CommuteProfile.ProductivityMultiplier *
-                TradePolicyProductionMultiplier;
-            WorkBuilding->AddProduction(ProductionPerSec, DeltaTime);
-        }
         break;
     case ECitizenState::AtHome:
         RecoverUnderCap(Satisfaction.Housing, 8.f, HomeHousingCap);

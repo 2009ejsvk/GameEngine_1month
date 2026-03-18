@@ -2,6 +2,7 @@
 
 #include "TopHudWidgetState.h"
 #include "UI/WidgetContainer.h"
+#include "../Politics/PoliticalTypes.h"
 #include <string>
 #include <vector>
 
@@ -89,6 +90,9 @@ private:
 public:
     virtual bool Init();
     virtual void Update(float DeltaTime);
+    void OpenTaskWidgetForDemand(
+        EPoliticalDemandIssuerType IssuerType,
+        int IssuerIndex);
     const FTopHudWidgetState& GetState() const
     {
         return mState;
@@ -109,7 +113,9 @@ private:
         bool CloseBuildMenu,
         bool CloseAlmanac,
         bool CloseEdicts,
-        bool CloseTrade);
+        bool CloseTrade,
+        bool CloseTask);
+    void OnTaskButtonClick();
     void OnConstructionButtonClick();
     void OnEraTransitionButtonClick();
     void OnEdictsButtonClick();

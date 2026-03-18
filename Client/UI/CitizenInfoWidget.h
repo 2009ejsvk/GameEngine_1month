@@ -374,10 +374,16 @@ private:
     bool SelectBuildingTab(EBuildingInfoTab Tab);
     bool IsMouseOverOverviewMetricArea(const FVector2& MousePos) const;
     bool MoveOverviewMetricScroll(int DeltaLines);
+    void CloseOperationModeSelection();
+    bool HasTrackedBuildingOperationModes() const;
+    bool TryOpenOperationModeSelection();
+    bool CycleOperationModeSelectionPage();
     void SyncOverviewMetricScrollState(
         const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot);
+    void SyncOperationModeSelectionState(
+        const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot);
     bool IsTrackedCustomsOffice() const;
-    bool TrySelectCustomsOperationMode(int ModeIndex);
+    bool TrySelectOperationMode(int VisibleModeIndex);
     bool OpenTradeWidget();
     void SetBuildingBudgetLevel(int Level);
 

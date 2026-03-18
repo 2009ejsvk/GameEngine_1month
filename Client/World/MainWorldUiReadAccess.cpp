@@ -63,6 +63,11 @@ public:
         return mOwner->GetEraTransitionState();
     }
 
+    void SpendBuildingCost(int BaseCost) override
+    {
+        mOwner->SpendBuildingCost(BaseCost);
+    }
+
     const FTaxPolicy& GetTaxPolicy() const override
     {
         return mOwner->GetTaxPolicy();
@@ -200,6 +205,12 @@ public:
     long long GetLastDailyNetChange() const override
     {
         return mOwner->GetLastDailyNetChange();
+    }
+
+    const FEconomyLedgerHistorySnapshot& GetEconomyLedgerHistory()
+        const override
+    {
+        return mOwner->GetEconomyLedgerHistory();
     }
 
     const std::array<

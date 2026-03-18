@@ -235,6 +235,19 @@ namespace
             AddFactionApproval(Effect, EPoliticalFaction::Intellectuals, -4);
             AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 3);
             break;
+        case EGovernmentEdictType::LaborNegotiation:
+            Effect.DailyJobDelta = 1.5f;
+            Effect.DailyFreedomDelta = 0.5f;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 6);
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, -3);
+            break;
+        case EGovernmentEdictType::EmergencyWelfareSupport:
+            Effect.DailyFoodDelta = 2.0f;
+            Effect.DailyHousingDelta = 1.5f;
+            Effect.DailyFunDelta = 1.5f;
+            AddFactionApproval(Effect, EPoliticalFaction::Communists, 5);
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, -3);
+            break;
         default:
             break;
         }
@@ -1032,6 +1045,48 @@ namespace
                         EPoliticalStance::Right, -4.5f),
                     MakeSignal(EPoliticalAxis::IntellectualConservative,
                         EPoliticalStance::Right, 5.5f)
+                }),
+
+            MakeImplementedEdict(
+                EGovernmentEdictType::LaborNegotiation,
+                EEdictEra::ColdWar,
+                EGovernmentEdictMode::Active,
+                EPoliticalActionType::LaborNegotiation,
+                L"노동자 협상",
+                L"총파업 중 노동 지도부와 협상해 파업을 즉시 종식시킵니다.",
+                L"총파업 발생 중에만 시행 가능, 즉시 파업 종료, 후속 연쇄 위기 차단, 60일 재사용 대기시간",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_taxCut.png"),
+                1200,
+                0,
+                0,
+                0,
+                60,
+                {
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Left, 5.0f),
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Right, -2.0f)
+                }),
+
+            MakeImplementedEdict(
+                EGovernmentEdictType::EmergencyWelfareSupport,
+                EEdictEra::WorldWars,
+                EGovernmentEdictMode::Active,
+                EPoliticalActionType::WelfareSupport,
+                L"긴급 민생 지원",
+                L"긴급 예산을 투입해 음식·주거·유흥 만족도를 단기간 끌어올립니다.",
+                L"30일간 음식·주거·유흥 만족도 +10 부스트, 6개월 재사용 대기시간",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_freeHousing.png"),
+                800,
+                0,
+                0,
+                30,
+                180,
+                {
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Left, 4.0f),
+                    MakeSignal(EPoliticalAxis::Economy,
+                        EPoliticalStance::Right, -1.5f)
                 })
         };
 

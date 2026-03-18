@@ -1,5 +1,8 @@
 #include "MainWorld.h"
 #include "MainWorldAccess.h"
+#include "IWorldUIAccess.h"
+
+std::shared_ptr<IWorldUIAccess> CreateWorldUIAccessAdapter(CMainWorld* Owner);
 
 namespace
 {
@@ -36,9 +39,21 @@ namespace
 
 CMainWorld::CMainWorld()
 {
-    mServices.ElectionService.reset(new CMainWorldElectionService());
-    mServices.PoliticalDemandService.reset(new CMainWorldPoliticalDemandService());
-    mServices.WorldCrisisService.reset(new CMainWorldWorldCrisisService());
+    mPopulation = std::make_unique<CPopulationSubsystem>(this);
+    mEconomy = std::make_unique<CEconomySubsystem>(this);
+    mSimulation = std::make_unique<CSimulationSubsystem>(this);
+    mScenario = std::make_unique<CScenarioSubsystem>(this);
+    mPolitics = std::make_unique<CPoliticsSubsystem>(this);
+    mEraState = std::make_unique<CEraSubsystem>(this);
+    mEdictState = std::make_unique<CEdictSubsystem>(this);
+    mCrisis = std::make_unique<CCrisisSubsystem>(this);
+    mKnowledgeState = std::make_unique<CKnowledgeSubsystem>(this);
+    mInfrastructure = std::make_unique<CInfrastructureSubsystem>(this);
+    mBuildings = std::make_unique<CBuildingSubsystem>(this);
+    mTrade = std::make_unique<CTradeDiplomacySubsystem>(this);
+    mPolitics->ElectionService = std::make_unique<CMainWorldElectionService>();
+    mPolitics->PoliticalDemandService = std::make_unique<CMainWorldPoliticalDemandService>();
+    mCrisis->WorldCrisisService = std::make_unique<CMainWorldWorldCrisisService>();
     mAccess.UiRead = CreateMainWorldUiReadAccessAdapter(this);
     mAccess.SystemRead = CreateMainWorldSystemAccessAdapter(this);
     mAccess.InfrastructureRead =
@@ -47,6 +62,7 @@ CMainWorld::CMainWorld()
         CreateMainWorldBuildingControlAccessAdapter(this);
     mAccess.Trade = CreateMainWorldTradeAccessAdapter(this);
     mAccess.GovernmentCommand = CreateGovernmentCommandServiceAdapter(this);
+    mAccess.UIFacade = CreateWorldUIAccessAdapter(this);
 }
 
 CMainWorld::~CMainWorld()

@@ -19,6 +19,7 @@ namespace
     constexpr int GSpeedStateButtonIndex = 0;
     constexpr int GSpeedMultiplierButtonIndex = 1;
     constexpr int GMenuButtonCount = 8;
+    constexpr int GMenuTaskIndex = 0;
     constexpr int GMenuConstructionIndex = 1;
     constexpr int GMenuEdictsIndex = 2;
     constexpr int GMenuEraTransitionIndex = 3;
@@ -807,7 +808,9 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         void (CTopHudWidget::*MenuCallback)() =
             &CTopHudWidget::OnAnyButtonClick;
 
-        if (i == GMenuConstructionIndex)
+        if (i == GMenuTaskIndex)
+            MenuCallback = &CTopHudWidget::OnTaskButtonClick;
+        else if (i == GMenuConstructionIndex)
             MenuCallback = &CTopHudWidget::OnConstructionButtonClick;
         else if (i == GMenuEdictsIndex)
             MenuCallback = &CTopHudWidget::OnEdictsButtonClick;

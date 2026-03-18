@@ -12,6 +12,1443 @@ void FAlmanacRenderer::ApplyEconomyPage(
     CAlmanacWidget& Widget,
     const AlmanacDataProvider::FAlmanacSnapshot& Snapshot)
 {
+    const int EconomyPageSelectedIndex =
+        (std::max)(
+            0,
+            (std::min)(
+                Widget.mSelectedEconomyIndex,
+                (std::max)(
+                    0,
+                    static_cast<int>(Widget.mEconomyDetails.size()) - 1)));
+    const auto& EconomyLedger = Snapshot.EconomyLedgerHistory;
+
+    auto BuildFallbackDailyRecord = [&Snapshot]()
+    {
+        FEconomyLedgerPeriodRecord Record;
+        Record.NationalBudget = Snapshot.NationalBudget;
+        Record.ExportIncome = Snapshot.DailyExportIncome;
+        Record.ImportExpense = Snapshot.DailyImportExpense;
+        Record.ConsumptionTaxIncome = Snapshot.DailyConsumptionTaxIncome;
+        Record.IncomeTaxIncome = Snapshot.DailyIncomeTaxIncome;
+        Record.PropertyTaxIncome = Snapshot.DailyPropertyTaxIncome;
+        Record.WageCost = RoundToInt(
+            static_cast<double>(Snapshot.MonthlyWageCost) / 30.0);
+        Record.UpkeepCost = RoundToInt(
+            static_cast<double>(Snapshot.MonthlyUpkeepCost) / 30.0);
+        Record.EdictUpkeepCost = Snapshot.DailyEdictCost;
+        Record.NetBudgetChange = Snapshot.DailyNetChange;
+        Record.TaxCollectionEfficiency = Snapshot.TaxCollectionEfficiency;
+        Record.ActiveCitizenCount = Snapshot.ActiveCitizenCount;
+        Record.AssignedJobCount = Snapshot.AssignedJobCount;
+        Record.JobCapacity = Snapshot.JobCapacity;
+        Record.UnemployedCount = Snapshot.UnemployedCount;
+        Record.WorkVacancyCount =
+            (std::max)(0, Snapshot.JobCapacity - Snapshot.AssignedJobCount);
+        Record.ActiveTouristCount = Snapshot.ActiveTouristCount;
+        Record.TourismVisitCapacity = Snapshot.TourismVisitCapacity;
+        Record.TourismVisitOccupancy = Snapshot.TourismVisitOccupancy;
+        return Record;
+    };
+
+    const FEconomyLedgerPeriodRecord LatestDailyEconomyRecord =
+        EconomyLedger.DailyHistoryCount > 0 ?
+            EconomyLedger.DailyHistory[
+                static_cast<size_t>(EconomyLedger.DailyHistoryCount - 1)] :
+            BuildFallbackDailyRecord();
+    const FEconomyLedgerPeriodRecord LatestMonthlyEconomyRecord =
+        EconomyLedger.CurrentMonthDayCount > 0 ?
+            EconomyLedger.CurrentMonthToDate :
+            (EconomyLedger.MonthlyHistoryCount > 0 ?
+                EconomyLedger.MonthlyHistory[
+                    static_cast<size_t>(EconomyLedger.MonthlyHistoryCount - 1)] :
+                FEconomyLedgerPeriodRecord());
+    const FEconomyLedgerPeriodRecord PreviousMonthlyEconomyRecord =
+        EconomyLedger.MonthlyHistoryCount > 0 ?
+            EconomyLedger.MonthlyHistory[
+                static_cast<size_t>(EconomyLedger.MonthlyHistoryCount - 1)] :
+            FEconomyLedgerPeriodRecord();
+
+    auto BuildDailySeries = [&EconomyLedger](auto ResolveValue)
+    {
+        std::array<float, GEconomyTrendBarCount> Values = {};
+        const int Count =
+            (std::min)(GEconomyTrendBarCount, EconomyLedger.DailyHistoryCount);
+        const int SourceStart =
+            (std::max)(0, EconomyLedger.DailyHistoryCount - Count);
+        const int DestStart = GEconomyTrendBarCount - Count;
+
+        for (int Index = 0; Index < Count; ++Index)
+        {
+            Values[static_cast<size_t>(DestStart + Index)] =
+                static_cast<float>(
+                    ResolveValue(
+                        EconomyLedger.DailyHistory[
+                            static_cast<size_t>(SourceStart + Index)]));
+        }
+
+        return Values;
+    };
+
+    auto BuildMonthlySeries = [&EconomyLedger](auto ResolveValue)
+    {
+        std::array<float, GEconomyTrendBarCount> Values = {};
+        const int CurrentMonthVisible =
+            EconomyLedger.CurrentMonthDayCount > 0 ? 1 : 0;
+        const int TotalCount =
+            EconomyLedger.MonthlyHistoryCount + CurrentMonthVisible;
+        const int Count = (std::min)(GEconomyTrendBarCount, TotalCount);
+        const int SourceStart = (std::max)(0, TotalCount - Count);
+        const int DestStart = GEconomyTrendBarCount - Count;
+
+        for (int Index = 0; Index < Count; ++Index)
+        {
+            const int SourceIndex = SourceStart + Index;
+            const FEconomyLedgerPeriodRecord* Source = nullptr;
+
+            if (SourceIndex < EconomyLedger.MonthlyHistoryCount)
+            {
+                Source =
+                    &EconomyLedger.MonthlyHistory[
+                        static_cast<size_t>(SourceIndex)];
+            }
+            else if (EconomyLedger.CurrentMonthDayCount > 0)
+            {
+                Source = &EconomyLedger.CurrentMonthToDate;
+            }
+
+            if (!Source)
+                continue;
+
+            Values[static_cast<size_t>(DestStart + Index)] =
+                static_cast<float>(ResolveValue(*Source));
+        }
+
+        return Values;
+    };
+
+    auto SumRecentMonths = [&EconomyLedger](auto ResolveValue, int MonthCount)
+    {
+        long long Total = 0;
+        int Included = 0;
+
+        if (MonthCount > 0 && EconomyLedger.CurrentMonthDayCount > 0)
+        {
+            Total += static_cast<long long>(
+                ResolveValue(EconomyLedger.CurrentMonthToDate));
+            ++Included;
+        }
+
+        for (int Index = EconomyLedger.MonthlyHistoryCount - 1;
+            Index >= 0 && Included < MonthCount;
+            --Index)
+        {
+            Total += static_cast<long long>(
+                ResolveValue(
+                    EconomyLedger.MonthlyHistory[static_cast<size_t>(Index)]));
+            ++Included;
+        }
+
+        return Total;
+    };
+
+    auto ResolveSeriesMax = [](const auto& Values, float Minimum)
+    {
+        float Result = Minimum;
+
+        for (float Value : Values)
+            Result = (std::max)(Result, Value);
+
+        return Result;
+    };
+
+    auto ResolveRealAxisStep = [](int RawMax)
+    {
+        const int TargetStep = (std::max)(1, (RawMax + 4) / 5);
+        int Magnitude = 1;
+
+        while (Magnitude * 10 < TargetStep)
+            Magnitude *= 10;
+
+        if (TargetStep <= Magnitude * 2)
+            return Magnitude * 2;
+        if (TargetStep <= Magnitude * 5)
+            return Magnitude * 5;
+        return Magnitude * 10;
+    };
+
+    auto BuildRealAxisLabels = [](int AxisMax)
+    {
+        std::array<int, GEconomyTrendYAxisLabelCount> Labels = {};
+        const int Step = (std::max)(1, AxisMax / 5);
+
+        for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
+            Labels[static_cast<size_t>(Index)] =
+                (std::max)(0, AxisMax - Step * Index);
+
+        return Labels;
+    };
+
+    const long long RealDailyIncome = LatestDailyEconomyRecord.GetTotalIncome();
+    const long long RealDailyExpense =
+        LatestDailyEconomyRecord.GetTotalExpense();
+    const long long RealAnnualIncome =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.GetTotalIncome();
+            },
+            12);
+    const long long RealAnnualExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.GetTotalExpense();
+            },
+            12);
+    const long long RealAnnualExportIncome =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.ExportIncome;
+            },
+            12);
+    const long long RealAnnualConsumptionTaxIncome =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.ConsumptionTaxIncome;
+            },
+            12);
+    const long long RealAnnualIncomeTaxIncome =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.IncomeTaxIncome;
+            },
+            12);
+    const long long RealAnnualPropertyTaxIncome =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.PropertyTaxIncome;
+            },
+            12);
+    const long long RealAnnualTaxBudgetDelta =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.TaxBudgetDelta;
+            },
+            12);
+    const long long RealAnnualTradePolicyBudgetDelta =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.TradePolicyBudgetDelta;
+            },
+            12);
+    const long long RealAnnualSpecialEventIncome =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return (std::max)(0LL, Record.SpecialEventBudgetDelta);
+            },
+            12);
+    const long long RealAnnualOtherDirectIncome =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return (std::max)(0LL, Record.OtherBudgetDelta);
+            },
+            12);
+    const long long RealAnnualSpecialIncome =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return (std::max)(0LL, Record.SpecialEventBudgetDelta) +
+                    (std::max)(0LL, Record.OtherBudgetDelta);
+            },
+            12);
+    const long long RealAnnualImportExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.ImportExpense;
+            },
+            12);
+    const long long RealAnnualWageExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.WageCost;
+            },
+            12);
+    const long long RealAnnualUpkeepExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.UpkeepCost;
+            },
+            12);
+    const long long RealAnnualEdictUpkeepExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.EdictUpkeepCost;
+            },
+            12);
+    const long long RealAnnualConstructionExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.ConstructionExpense;
+            },
+            12);
+    const long long RealAnnualRepairExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.RepairExpense;
+            },
+            12);
+    const long long RealAnnualEdictActivationExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.EdictActivationExpense;
+            },
+            12);
+    const long long RealAnnualSpecialEventExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return (std::max)(0LL, -Record.SpecialEventBudgetDelta);
+            },
+            12);
+    const long long RealAnnualOtherDirectExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return (std::max)(0LL, -Record.OtherBudgetDelta);
+            },
+            12);
+    const long long RealAnnualSpecialExpense =
+        SumRecentMonths(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return (std::max)(0LL, -Record.SpecialEventBudgetDelta) +
+                    (std::max)(0LL, -Record.OtherBudgetDelta);
+            },
+            12);
+    const long long RealAnnualTradeBalance =
+        RealAnnualExportIncome - RealAnnualImportExpense;
+    const double RealCurrentTaxEfficiencyPercent =
+        (EconomyLedger.CurrentMonthDayCount > 0 ?
+            EconomyLedger.CurrentMonthToDate.TaxCollectionEfficiency :
+            LatestDailyEconomyRecord.TaxCollectionEfficiency) * 100.0;
+    const double RealPreviousMonthTaxEfficiencyPercent =
+        PreviousMonthlyEconomyRecord.TaxCollectionEfficiency * 100.0;
+    const long long RealDailyTaxIncome =
+        LatestDailyEconomyRecord.GetTotalTaxIncome();
+    const long long RealDailyDirectExpense =
+        LatestDailyEconomyRecord.ConstructionExpense +
+        LatestDailyEconomyRecord.RepairExpense +
+        LatestDailyEconomyRecord.EdictActivationExpense;
+    const long long RealDailySpecialIncome =
+        (std::max)(0LL, LatestDailyEconomyRecord.SpecialEventBudgetDelta) +
+        (std::max)(0LL, LatestDailyEconomyRecord.OtherBudgetDelta);
+    const long long RealDailySpecialExpense =
+        (std::max)(0LL, -LatestDailyEconomyRecord.SpecialEventBudgetDelta) +
+        (std::max)(0LL, -LatestDailyEconomyRecord.OtherBudgetDelta);
+
+    const std::array<float, GEconomyTrendBarCount> RealTreasuryBars =
+        BuildMonthlySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.NationalBudget;
+            });
+    const std::array<float, GEconomyTrendBarCount> RealDailyIncomeBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.GetTotalIncome();
+            });
+    const std::array<float, GEconomyTrendBarCount> RealDailyExpenseBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.GetTotalExpense();
+            });
+    const std::array<float, GEconomyTrendBarCount> RealMonthlyIncomeBars =
+        BuildMonthlySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.GetTotalIncome();
+            });
+    const std::array<float, GEconomyTrendBarCount> RealMonthlyExpenseBars =
+        BuildMonthlySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.GetTotalExpense();
+            });
+    const std::array<float, GEconomyTrendBarCount> RealMonthlyExportBars =
+        BuildMonthlySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.ExportIncome;
+            });
+    const std::array<float, GEconomyTrendBarCount> RealMonthlyImportBars =
+        BuildMonthlySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.ImportExpense;
+            });
+    const std::array<float, GEconomyTrendBarCount> RealTaxEfficiencyBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return std::lround(Record.TaxCollectionEfficiency * 100.0);
+            });
+    const std::array<float, GEconomyTrendBarCount> RealTouristCountBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.ActiveTouristCount;
+            });
+    const std::array<float, GEconomyTrendBarCount> RealTourismRatingBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.TourismRating;
+            });
+    const std::array<float, GEconomyTrendBarCount> RealTourismCapacityBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.TourismVisitCapacity;
+            });
+    const std::array<float, GEconomyTrendBarCount> RealTourismOccupancyBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.TourismVisitOccupancy;
+            });
+    const std::array<float, GEconomyTrendBarCount> RealJobOccupancyBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.GetJobOccupancyPercent();
+            });
+    const std::array<float, GEconomyTrendBarCount> RealUnemploymentPercentBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.GetUnemploymentPercent();
+            });
+    const std::array<float, GEconomyTrendBarCount> RealUnemployedCountBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.UnemployedCount;
+            });
+    const std::array<float, GEconomyTrendBarCount> RealVacancyBars =
+        BuildDailySeries(
+            [](const FEconomyLedgerPeriodRecord& Record)
+            {
+                return Record.WorkVacancyCount;
+            });
+
+    const int RealTreasuryAxisMax =
+        ResolveRealAxisStep(
+            (std::max)(
+                1000,
+                RoundToInt(
+                    ResolveSeriesMax(
+                        RealTreasuryBars,
+                        static_cast<float>(Snapshot.NationalBudget))))) * 5;
+    const int RealIncomeAxisMax =
+        ResolveRealAxisStep(
+            (std::max)(
+                1000,
+                RoundToInt(ResolveSeriesMax(RealMonthlyIncomeBars, 0.f)))) * 5;
+    const int RealExpenseAxisMax =
+        ResolveRealAxisStep(
+            (std::max)(
+                1000,
+                RoundToInt(ResolveSeriesMax(RealMonthlyExpenseBars, 0.f)))) * 5;
+    const int RealTradeAxisMax =
+        ResolveRealAxisStep(
+            (std::max)(
+                500,
+                RoundToInt(
+                    (std::max)(
+                        ResolveSeriesMax(RealMonthlyExportBars, 0.f),
+                        ResolveSeriesMax(RealMonthlyImportBars, 0.f))))) * 5;
+    const int RealUnemploymentCountAxisMax =
+        ResolveRealAxisStep(
+            (std::max)(
+                10,
+                RoundToInt(
+                    ResolveSeriesMax(
+                        RealUnemployedCountBars,
+                        static_cast<float>(Snapshot.UnemployedCount))))) * 5;
+    const int RealVacancyAxisMax =
+        ResolveRealAxisStep(
+            (std::max)(
+                10,
+                RoundToInt(
+                    ResolveSeriesMax(
+                        RealVacancyBars,
+                        static_cast<float>(
+                            (std::max)(
+                                0,
+                                Snapshot.JobCapacity -
+                                    Snapshot.AssignedJobCount)))))) * 5;
+    const int RealChangeAxisMax =
+        ResolveRealAxisStep(
+            (std::max)(
+                500,
+                RoundToInt(
+                    (std::max)(
+                        ResolveSeriesMax(RealDailyIncomeBars, 0.f),
+                        ResolveSeriesMax(RealDailyExpenseBars, 0.f))))) * 3;
+    const std::array<int, GEconomyTrendYAxisLabelCount>
+        RealTreasuryAxisLabels =
+            BuildRealAxisLabels(RealTreasuryAxisMax);
+    const std::array<int, GEconomyTrendYAxisLabelCount>
+        RealIncomeAxisLabels =
+            BuildRealAxisLabels(RealIncomeAxisMax);
+    const std::array<int, GEconomyTrendYAxisLabelCount>
+        RealExpenseAxisLabels =
+            BuildRealAxisLabels(RealExpenseAxisMax);
+    const std::array<int, GEconomyTrendYAxisLabelCount>
+        RealTradeAxisLabels =
+            BuildRealAxisLabels(RealTradeAxisMax);
+    const std::array<int, GEconomyTrendYAxisLabelCount>
+        RealUnemploymentCountAxisLabels =
+            BuildRealAxisLabels(RealUnemploymentCountAxisMax);
+    const std::array<int, GEconomyTrendYAxisLabelCount>
+        RealVacancyAxisLabels =
+            BuildRealAxisLabels(RealVacancyAxisMax);
+    const std::array<int, GEconomyTrendYAxisLabelCount>
+        RealPercentAxisLabels =
+    {
+        100, 80, 60, 40, 20, 0
+    };
+
+    std::vector<std::pair<std::wstring, int>> RealResourceRows;
+    for (int ResourceIndex = 1;
+        ResourceIndex < static_cast<int>(EResourceType::Count);
+        ++ResourceIndex)
+    {
+        const auto& Resource =
+            Snapshot.ResourceTypes[static_cast<size_t>(ResourceIndex)];
+
+        if (Resource.TotalStock <= 0)
+            continue;
+
+        RealResourceRows.emplace_back(
+            GetResourceTypeDisplayName(Resource.Type),
+            Resource.TotalStock);
+    }
+    std::sort(
+        RealResourceRows.begin(),
+        RealResourceRows.end(),
+        [](const auto& A, const auto& B)
+        {
+            if (A.second != B.second)
+                return A.second > B.second;
+
+            return A.first < B.first;
+        });
+
+    if (EconomyPageSelectedIndex <= 5)
+    {
+        auto FormatInteger = [](long long Value)
+        {
+            const bool Negative = Value < 0;
+            unsigned long long AbsValue = Negative ?
+                static_cast<unsigned long long>(-Value) :
+                static_cast<unsigned long long>(Value);
+            std::wstring Digits = std::to_wstring(AbsValue);
+
+            for (int Index = static_cast<int>(Digits.size()) - 3;
+                Index > 0;
+                Index -= 3)
+            {
+                Digits.insert(static_cast<size_t>(Index), 1, L',');
+            }
+
+            if (Negative)
+                Digits.insert(Digits.begin(), L'-');
+
+            return Digits;
+        };
+
+        auto SetMetricVisibility =
+            [](const CAlmanacWidget::FMetricRowWidgets& Row, bool Enable)
+        {
+            if (auto Background = Row.Background.lock())
+                Background->SetEnable(Enable);
+            if (auto Label = Row.Label.lock())
+                Label->SetEnable(Enable);
+            if (auto Value = Row.Value.lock())
+                Value->SetEnable(Enable);
+            if (auto Bar = Row.Bar.lock())
+                Bar->SetEnable(false);
+        };
+
+        auto SetDetailVisibility =
+            [](const CAlmanacWidget::FDetailRowWidgets& Row, bool Enable)
+        {
+            if (auto Button = Row.Button.lock())
+            {
+                Button->SetEnable(Enable);
+                Button->ButtonEnable(Enable);
+            }
+            if (auto Background = Row.Background.lock())
+                Background->SetEnable(Enable);
+            if (auto Label = Row.Label.lock())
+                Label->SetEnable(Enable);
+            if (auto Value = Row.Value.lock())
+                Value->SetEnable(Enable);
+        };
+
+        auto SetMetricSummaryStyle =
+            [](const CAlmanacWidget::FMetricRowWidgets& Row,
+                const FVector4& Tint,
+                bool BrightText)
+        {
+            if (auto Background = Row.Background.lock())
+            {
+                Background->SetTexture(
+                    Background->GetName() + "_summary",
+                    GBarFillTexture);
+                Background->SetTint(Tint);
+            }
+            if (auto Label = Row.Label.lock())
+            {
+                Label->SetTextColor(
+                    BrightText ? 248 : 58,
+                    BrightText ? 242 : 56,
+                    BrightText ? 226 : 42,
+                    255);
+            }
+            if (auto Value = Row.Value.lock())
+            {
+                Value->SetTextColor(
+                    BrightText ? 248 : 58,
+                    BrightText ? 242 : 56,
+                    BrightText ? 226 : 42,
+                    255);
+            }
+        };
+
+        auto SetBreakdownTitle =
+            [&Widget](const wchar_t* Title)
+        {
+            if (auto BreakdownTitleBackground =
+                Widget.mEconomyBreakdownTitleBackground.lock())
+            {
+                BreakdownTitleBackground->SetEnable(true);
+            }
+            if (auto BreakdownTitle = Widget.mEconomyBreakdownTitle.lock())
+            {
+                BreakdownTitle->SetEnable(true);
+                BreakdownTitle->SetText(Title);
+            }
+        };
+
+        auto SetBreakdownRow =
+            [&Widget, &SetDetailVisibility](int Index,
+                const wchar_t* LabelText,
+                const std::wstring& ValueText,
+                bool Header)
+        {
+            if (Index < 0 ||
+                Index >= static_cast<int>(Widget.mEconomyBreakdownRows.size()))
+            {
+                return;
+            }
+
+            auto& Row =
+                Widget.mEconomyBreakdownRows[static_cast<size_t>(Index)];
+            SetDetailRowData(
+                Row,
+                LabelText,
+                ValueText,
+                false);
+            SetDetailVisibility(Row, true);
+
+            if (auto Background = Row.Background.lock())
+            {
+                Background->SetTexture(
+                    Background->GetName() + "_base",
+                    GRowTexture);
+                Background->SetTint(
+                    Header ? 0.96f : 1.f,
+                    Header ? 0.95f : 1.f,
+                    Header ? 0.89f : 1.f,
+                    0.96f);
+            }
+            if (auto Label = Row.Label.lock())
+            {
+                Label->SetTextColor(
+                    Header ? 92 : 58,
+                    Header ? 84 : 56,
+                    Header ? 66 : 42,
+                    255);
+            }
+            if (auto Value = Row.Value.lock())
+            {
+                Value->SetTextColor(
+                    Header ? 92 : 58,
+                    Header ? 84 : 56,
+                    Header ? 66 : 42,
+                    255);
+            }
+        };
+
+        const int CurrentTourismRating = LatestDailyEconomyRecord.TourismRating;
+        const int PowerSurplusMW =
+            Snapshot.TotalProducedPowerMW - Snapshot.TotalRequiredPowerMW;
+        const int CurrentJobOccupancyPercent =
+            Snapshot.JobCapacity > 0 ?
+                RoundToInt(
+                    static_cast<double>(Snapshot.AssignedJobCount) * 100.0 /
+                    static_cast<double>(Snapshot.JobCapacity)) :
+                0;
+
+        SetDetailRowData(
+            Widget.mEconomyDetails[0],
+            L"국고",
+            FormatCompactCurrency(Snapshot.NationalBudget),
+            EconomyPageSelectedIndex == 0);
+        SetDetailRowData(
+            Widget.mEconomyDetails[1],
+            L"수익 (최근 12개월)",
+            FormatCompactCurrency(RealAnnualIncome),
+            EconomyPageSelectedIndex == 1);
+        SetDetailRowData(
+            Widget.mEconomyDetails[2],
+            L"경비 (최근 12개월)",
+            FormatCompactCurrency(RealAnnualExpense),
+            EconomyPageSelectedIndex == 2);
+        SetDetailRowData(
+            Widget.mEconomyDetails[3],
+            L"무역 수지",
+            FormatCompactCurrency(RealAnnualTradeBalance),
+            EconomyPageSelectedIndex == 3);
+        SetDetailRowData(
+            Widget.mEconomyDetails[4],
+            L"징세 효율",
+            FormatPercent(RealCurrentTaxEfficiencyPercent),
+            EconomyPageSelectedIndex == 4);
+        SetDetailRowData(
+            Widget.mEconomyDetails[5],
+            L"자원 재고",
+            FormatInteger(Snapshot.TotalResourceStock),
+            EconomyPageSelectedIndex == 5);
+        SetDetailRowData(
+            Widget.mEconomyDetails[6],
+            L"현재 관광객",
+            FormatInteger(Snapshot.ActiveTouristCount),
+            false);
+        SetDetailRowData(
+            Widget.mEconomyDetails[7],
+            L"관광객 평가",
+            FormatInteger(CurrentTourismRating),
+            false);
+        SetDetailRowData(
+            Widget.mEconomyDetails[8],
+            L"관광객 수용력",
+            FormatInteger(Snapshot.TourismVisitOccupancy) + L"/" +
+                FormatInteger(Snapshot.TourismVisitCapacity),
+            false);
+        SetDetailRowData(
+            Widget.mEconomyDetails[9],
+            L"노동력",
+            FormatInteger(CurrentJobOccupancyPercent) + L"%",
+            false);
+        SetDetailRowData(
+            Widget.mEconomyDetails[10],
+            L"실업자",
+            FormatInteger(Snapshot.UnemployedCount),
+            false);
+        SetDetailRowData(
+            Widget.mEconomyDetails[11],
+            L"빈 일자리",
+            FormatInteger((std::max)(0, Snapshot.JobCapacity - Snapshot.AssignedJobCount)),
+            false);
+        SetDetailRowData(
+            Widget.mEconomyDetails[12],
+            L"전기",
+            FormatInteger(PowerSurplusMW) + L"MW",
+            false);
+
+        for (size_t Index = 0; Index < Widget.mEconomyMetrics.size(); ++Index)
+            SetMetricVisibility(Widget.mEconomyMetrics[Index], false);
+        for (size_t Index = 0; Index < Widget.mEconomyBreakdownRows.size(); ++Index)
+            SetDetailVisibility(Widget.mEconomyBreakdownRows[Index], false);
+        if (auto BreakdownTitleBackground =
+            Widget.mEconomyBreakdownTitleBackground.lock())
+        {
+            BreakdownTitleBackground->SetEnable(false);
+        }
+        if (auto BreakdownTitle = Widget.mEconomyBreakdownTitle.lock())
+            BreakdownTitle->SetEnable(false);
+        if (auto TrendTitleBackground =
+            Widget.mEconomyTrendTitleBackground.lock())
+        {
+            TrendTitleBackground->SetEnable(true);
+        }
+        for (size_t Index = 0; Index < Widget.mEconomyTrendLines.size(); ++Index)
+        {
+            if (auto Line = Widget.mEconomyTrendLines[Index].lock())
+                Line->SetEnable(false);
+        }
+        for (size_t Index = 0; Index < Widget.mEconomyTrendBars.size(); ++Index)
+        {
+            if (auto Bar = Widget.mEconomyTrendBars[Index].lock())
+                Bar->SetEnable(false);
+        }
+        for (size_t Index = 0; Index < Widget.mEconomyTrendSecondaryBars.size(); ++Index)
+        {
+            if (auto Bar = Widget.mEconomyTrendSecondaryBars[Index].lock())
+                Bar->SetEnable(false);
+        }
+        for (size_t Index = 0; Index < Widget.mEconomyTrendTertiaryBars.size(); ++Index)
+        {
+            if (auto Bar = Widget.mEconomyTrendTertiaryBars[Index].lock())
+                Bar->SetEnable(false);
+        }
+        for (size_t Index = 0; Index < Widget.mEconomyTrendYAxisLabels.size(); ++Index)
+        {
+            if (auto Label = Widget.mEconomyTrendYAxisLabels[Index].lock())
+                Label->SetEnable(false);
+        }
+        for (size_t Index = 0; Index < Widget.mEconomyChangePositiveBars.size(); ++Index)
+        {
+            if (auto Bar = Widget.mEconomyChangePositiveBars[Index].lock())
+                Bar->SetEnable(false);
+        }
+        for (size_t Index = 0; Index < Widget.mEconomyChangeNegativeBars.size(); ++Index)
+        {
+            if (auto Bar = Widget.mEconomyChangeNegativeBars[Index].lock())
+                Bar->SetEnable(false);
+        }
+        for (size_t Index = 0; Index < Widget.mEconomyChangeYAxisLabels.size(); ++Index)
+        {
+            if (auto Label = Widget.mEconomyChangeYAxisLabels[Index].lock())
+                Label->SetEnable(false);
+        }
+
+        auto SetTrendLabels =
+            [&Widget](const std::array<int, GEconomyTrendYAxisLabelCount>& Labels,
+                bool Percent)
+        {
+            for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
+            {
+                if (Index >=
+                    static_cast<int>(Widget.mEconomyTrendYAxisLabels.size()))
+                {
+                    break;
+                }
+
+                if (auto Label =
+                    Widget.mEconomyTrendYAxisLabels[
+                        static_cast<size_t>(Index)].lock())
+                {
+                    Label->SetEnable(true);
+                    Label->SetText(
+                        Percent ?
+                            (std::to_wstring(
+                                Labels[static_cast<size_t>(Index)]) + L"%").c_str() :
+                            std::to_wstring(
+                                Labels[static_cast<size_t>(Index)]).c_str());
+                }
+            }
+        };
+
+        auto DrawTrendBars =
+            [&Widget](const auto& Values,
+                float MaxValue,
+                const FVector4& Tint)
+        {
+            auto Frame = Widget.mEconomyTrendFrame.lock();
+
+            if (!Frame || MaxValue <= 0.f)
+                return;
+
+            const float GraphLeft = Frame->GetPos().x + 22.f;
+            const float GraphTop = Frame->GetPos().y + 14.f;
+            const float GraphWidth = Frame->GetSize().x - 40.f;
+            const float GraphHeight = Frame->GetSize().y - 32.f;
+            const float GroupWidth =
+                GraphWidth / static_cast<float>((std::max)(1, GEconomyTrendBarCount));
+            const float SingleWidth = (std::max)(4.f, GroupWidth * 0.66f);
+
+            for (int Index = 0; Index < GEconomyTrendBarCount; ++Index)
+            {
+                if (Index >= static_cast<int>(Widget.mEconomyTrendBars.size()))
+                    break;
+
+                if (auto Bar =
+                    Widget.mEconomyTrendBars[static_cast<size_t>(Index)].lock())
+                {
+                    const float Height =
+                        GraphHeight *
+                        Clamp01(Values[static_cast<size_t>(Index)] / MaxValue);
+                    const float BarX =
+                        GraphLeft + GroupWidth * static_cast<float>(Index) +
+                        (GroupWidth - SingleWidth) * 0.5f;
+                    Bar->SetTint(Tint);
+                    Bar->SetEnable(Height > 0.f);
+                    Bar->SetPos(BarX, GraphTop + GraphHeight - Height);
+                    Bar->SetSize(SingleWidth, (std::max)(2.f, Height));
+                }
+            }
+        };
+
+        if (auto TrendTitle = Widget.mEconomyTrendTitle.lock())
+        {
+            TrendTitle->SetText(
+                EconomyPageSelectedIndex == 0 ? L"국고 추세" :
+                EconomyPageSelectedIndex == 1 ? L"수익 추세" :
+                EconomyPageSelectedIndex == 2 ? L"경비 추세" :
+                EconomyPageSelectedIndex == 3 ? L"무역 흐름" :
+                EconomyPageSelectedIndex == 4 ? L"징세 효율" :
+                    L"자원 재고");
+        }
+
+        const wchar_t* MonthlyLabels[GEconomyTrendXAxisLabelCount] =
+        {
+            L"24개월전", L"18개월전", L"12개월전", L"6개월전", L"이번달"
+        };
+        const wchar_t* DailyLabels[GEconomyTrendXAxisLabelCount] =
+        {
+            L"24일전", L"18일전", L"12일전", L"6일전", L"오늘"
+        };
+        const bool UseDailyLabels = EconomyPageSelectedIndex == 4;
+        for (int Index = 0; Index < GEconomyTrendXAxisLabelCount; ++Index)
+        {
+            if (Index >=
+                static_cast<int>(Widget.mEconomyTrendXAxisLabels.size()))
+            {
+                break;
+            }
+
+            if (auto Label =
+                Widget.mEconomyTrendXAxisLabels[static_cast<size_t>(Index)].lock())
+            {
+                Label->SetEnable(EconomyPageSelectedIndex != 5);
+                if (EconomyPageSelectedIndex != 5)
+                    Label->SetText(UseDailyLabels ? DailyLabels[Index] : MonthlyLabels[Index]);
+            }
+        }
+
+        if (auto TrendFrame = Widget.mEconomyTrendFrame.lock())
+            TrendFrame->SetEnable(EconomyPageSelectedIndex != 5);
+        if (auto TrendYAxisLine = Widget.mEconomyTrendYAxisLine.lock())
+            TrendYAxisLine->SetEnable(EconomyPageSelectedIndex != 5);
+        if (auto TrendXAxisLine = Widget.mEconomyTrendXAxisLine.lock())
+            TrendXAxisLine->SetEnable(EconomyPageSelectedIndex != 5);
+        if (auto TrendYAxisArrow = Widget.mEconomyTrendYAxisArrow.lock())
+            TrendYAxisArrow->SetEnable(EconomyPageSelectedIndex != 5);
+        if (auto TrendXAxisArrow = Widget.mEconomyTrendXAxisArrow.lock())
+            TrendXAxisArrow->SetEnable(EconomyPageSelectedIndex != 5);
+        for (size_t Index = 0; Index < Widget.mEconomyTrendGridLines.size(); ++Index)
+        {
+            if (auto GridLine = Widget.mEconomyTrendGridLines[Index].lock())
+                GridLine->SetEnable(EconomyPageSelectedIndex != 5);
+        }
+
+        if (auto ChangeFrame = Widget.mEconomyChangeFrame.lock())
+            ChangeFrame->SetEnable(false);
+        if (auto ChangeYAxisLine = Widget.mEconomyChangeYAxisLine.lock())
+            ChangeYAxisLine->SetEnable(false);
+        if (auto ChangeXAxisLine = Widget.mEconomyChangeXAxisLine.lock())
+            ChangeXAxisLine->SetEnable(false);
+        if (auto ChangeYAxisArrow = Widget.mEconomyChangeYAxisArrow.lock())
+            ChangeYAxisArrow->SetEnable(false);
+        if (auto ChangeXAxisArrow = Widget.mEconomyChangeXAxisArrow.lock())
+            ChangeXAxisArrow->SetEnable(false);
+        for (size_t Index = 0; Index < Widget.mEconomyChangeGridLines.size(); ++Index)
+        {
+            if (auto GridLine = Widget.mEconomyChangeGridLines[Index].lock())
+                GridLine->SetEnable(false);
+        }
+
+        auto DrawChangeBars =
+            [&Widget](const auto& PositiveValues,
+                const auto& NegativeValues,
+                int AxisMax)
+        {
+            if (AxisMax <= 0)
+                return;
+
+            if (auto ChangeFrame = Widget.mEconomyChangeFrame.lock())
+                ChangeFrame->SetEnable(true);
+            if (auto ChangeYAxisLine = Widget.mEconomyChangeYAxisLine.lock())
+                ChangeYAxisLine->SetEnable(true);
+            if (auto ChangeXAxisLine = Widget.mEconomyChangeXAxisLine.lock())
+                ChangeXAxisLine->SetEnable(true);
+            if (auto ChangeYAxisArrow = Widget.mEconomyChangeYAxisArrow.lock())
+                ChangeYAxisArrow->SetEnable(true);
+            if (auto ChangeXAxisArrow = Widget.mEconomyChangeXAxisArrow.lock())
+                ChangeXAxisArrow->SetEnable(true);
+            for (size_t Index = 0; Index < Widget.mEconomyChangeGridLines.size(); ++Index)
+            {
+                if (auto GridLine = Widget.mEconomyChangeGridLines[Index].lock())
+                    GridLine->SetEnable(true);
+            }
+
+            const int Step = (std::max)(1, AxisMax / 3);
+            const int Labels[GEconomyChangeYAxisLabelCount] =
+            {
+                Step * 3,
+                Step * 2,
+                Step,
+                -Step,
+                -Step * 2,
+                -Step * 3
+            };
+
+            for (int Index = 0; Index < GEconomyChangeYAxisLabelCount; ++Index)
+            {
+                if (Index >=
+                    static_cast<int>(Widget.mEconomyChangeYAxisLabels.size()))
+                {
+                    break;
+                }
+
+                if (auto Label =
+                    Widget.mEconomyChangeYAxisLabels[
+                        static_cast<size_t>(Index)].lock())
+                {
+                    Label->SetEnable(true);
+                    Label->SetText(std::to_wstring(Labels[Index]).c_str());
+                }
+            }
+
+            auto ChangeFrame = Widget.mEconomyChangeFrame.lock();
+            if (!ChangeFrame)
+                return;
+
+            const float GraphLeft = ChangeFrame->GetPos().x + 22.f;
+            const float GraphTop = ChangeFrame->GetPos().y + 12.f;
+            const float GraphWidth = ChangeFrame->GetSize().x - 40.f;
+            const float GraphHeight = ChangeFrame->GetSize().y - 26.f;
+            const float ZeroY =
+                ResolveGraphYInRange(
+                    GraphTop,
+                    GraphHeight,
+                    0.f,
+                    -static_cast<float>(AxisMax),
+                    static_cast<float>(AxisMax));
+            const float BarGroupWidth =
+                GraphWidth / static_cast<float>((std::max)(1, GEconomyChangeBarCount));
+            const float SingleBarWidth =
+                (std::max)(4.f, BarGroupWidth * 0.64f);
+            const float MaxValue = static_cast<float>((std::max)(1, AxisMax));
+
+            for (int Index = 0; Index < GEconomyChangeBarCount; ++Index)
+            {
+                const float BarX =
+                    GraphLeft + BarGroupWidth * static_cast<float>(Index) +
+                    (BarGroupWidth - SingleBarWidth) * 0.5f;
+
+                if (Index <
+                    static_cast<int>(Widget.mEconomyChangePositiveBars.size()))
+                {
+                    if (auto PositiveBar =
+                        Widget.mEconomyChangePositiveBars[
+                            static_cast<size_t>(Index)].lock())
+                    {
+                        const float PositiveHeight =
+                            GraphHeight *
+                            Clamp01(
+                                PositiveValues[static_cast<size_t>(Index)] /
+                                MaxValue) * 0.48f;
+                        PositiveBar->SetEnable(true);
+                        PositiveBar->SetTint(0.28f, 0.46f, 0.78f, 0.94f);
+                        PositiveBar->SetPos(BarX, ZeroY - PositiveHeight);
+                        PositiveBar->SetSize(
+                            SingleBarWidth,
+                            (std::max)(2.f, PositiveHeight));
+                    }
+                }
+
+                if (Index <
+                    static_cast<int>(Widget.mEconomyChangeNegativeBars.size()))
+                {
+                    if (auto NegativeBar =
+                        Widget.mEconomyChangeNegativeBars[
+                            static_cast<size_t>(Index)].lock())
+                    {
+                        const float NegativeHeight =
+                            GraphHeight *
+                            Clamp01(
+                                NegativeValues[static_cast<size_t>(Index)] /
+                                MaxValue) * 0.48f;
+                        NegativeBar->SetEnable(true);
+                        NegativeBar->SetTint(0.84f, 0.34f, 0.30f, 0.92f);
+                        NegativeBar->SetPos(BarX, ZeroY);
+                        NegativeBar->SetSize(
+                            SingleBarWidth,
+                            (std::max)(2.f, NegativeHeight));
+                    }
+                }
+            }
+        };
+
+        auto DrawDualTrendBars =
+            [&Widget](const auto& PrimaryValues,
+                const auto& SecondaryValues,
+                float MaxValue,
+                const FVector4& PrimaryTint,
+                const FVector4& SecondaryTint)
+        {
+            auto Frame = Widget.mEconomyTrendFrame.lock();
+
+            if (!Frame || MaxValue <= 0.f)
+                return;
+
+            const float GraphLeft = Frame->GetPos().x + 22.f;
+            const float GraphTop = Frame->GetPos().y + 14.f;
+            const float GraphWidth = Frame->GetSize().x - 40.f;
+            const float GraphHeight = Frame->GetSize().y - 32.f;
+            const float GroupWidth =
+                GraphWidth / static_cast<float>((std::max)(1, GEconomyTrendBarCount));
+            const float SingleWidth =
+                (std::max)(3.f, GroupWidth * 0.30f);
+
+            for (int Index = 0; Index < GEconomyTrendBarCount; ++Index)
+            {
+                const float BaseX =
+                    GraphLeft + GroupWidth * static_cast<float>(Index) +
+                    (GroupWidth - SingleWidth * 2.f - 2.f) * 0.5f;
+                const float PrimaryHeight =
+                    GraphHeight *
+                    Clamp01(
+                        PrimaryValues[static_cast<size_t>(Index)] /
+                        MaxValue);
+                const float SecondaryHeight =
+                    GraphHeight *
+                    Clamp01(
+                        SecondaryValues[static_cast<size_t>(Index)] /
+                        MaxValue);
+
+                if (Index < static_cast<int>(Widget.mEconomyTrendBars.size()))
+                {
+                    if (auto Bar =
+                        Widget.mEconomyTrendBars[
+                            static_cast<size_t>(Index)].lock())
+                    {
+                        Bar->SetTint(PrimaryTint);
+                        Bar->SetEnable(PrimaryHeight > 0.f);
+                        Bar->SetPos(
+                            BaseX,
+                            GraphTop + GraphHeight - PrimaryHeight);
+                        Bar->SetSize(
+                            SingleWidth,
+                            (std::max)(2.f, PrimaryHeight));
+                    }
+                }
+
+                if (Index <
+                    static_cast<int>(Widget.mEconomyTrendSecondaryBars.size()))
+                {
+                    if (auto Bar =
+                        Widget.mEconomyTrendSecondaryBars[
+                            static_cast<size_t>(Index)].lock())
+                    {
+                        Bar->SetTint(SecondaryTint);
+                        Bar->SetEnable(SecondaryHeight > 0.f);
+                        Bar->SetPos(
+                            BaseX + SingleWidth + 2.f,
+                            GraphTop + GraphHeight - SecondaryHeight);
+                        Bar->SetSize(
+                            SingleWidth,
+                            (std::max)(2.f, SecondaryHeight));
+                    }
+                }
+            }
+        };
+
+        if (EconomyPageSelectedIndex == 0)
+        {
+            SetTrendLabels(RealTreasuryAxisLabels, false);
+            DrawTrendBars(
+                RealTreasuryBars,
+                static_cast<float>((std::max)(1, RealTreasuryAxisMax)),
+                FVector4(0.12f, 0.82f, 0.38f, 0.95f));
+            DrawChangeBars(
+                RealDailyIncomeBars,
+                RealDailyExpenseBars,
+                (std::max)(1, RealChangeAxisMax));
+
+            SetMetricRowData(
+                Widget.mEconomyMetrics[0],
+                L"현재 국고",
+                FormatCompactCurrency(Snapshot.NationalBudget),
+                0.f,
+                FVector4(0.10f, 0.72f, 0.32f, 0.95f),
+                false);
+            SetMetricRowData(
+                Widget.mEconomyMetrics[1],
+                L"전일 순변동",
+                FormatCurrency(LatestDailyEconomyRecord.NetBudgetChange),
+                0.f,
+                FVector4(0.90f, 0.88f, 0.80f, 0.96f),
+                false);
+            SetMetricRowData(
+                Widget.mEconomyMetrics[2],
+                L"수익 (전일)",
+                FormatCurrency(RealDailyIncome),
+                0.f,
+                FVector4(0.28f, 0.46f, 0.78f, 0.94f),
+                false);
+            SetMetricRowData(
+                Widget.mEconomyMetrics[3],
+                L"경비 (전일)",
+                FormatCurrency(RealDailyExpense),
+                0.f,
+                FVector4(0.76f, 0.31f, 0.28f, 0.94f),
+                false);
+            for (int Index = 0; Index < 4; ++Index)
+            {
+                SetMetricVisibility(
+                    Widget.mEconomyMetrics[static_cast<size_t>(Index)],
+                    true);
+            }
+            SetMetricSummaryStyle(
+                Widget.mEconomyMetrics[0],
+                FVector4(0.10f, 0.72f, 0.32f, 0.95f),
+                false);
+            SetMetricSummaryStyle(
+                Widget.mEconomyMetrics[2],
+                FVector4(0.28f, 0.46f, 0.78f, 0.94f),
+                false);
+            SetMetricSummaryStyle(
+                Widget.mEconomyMetrics[3],
+                FVector4(0.76f, 0.31f, 0.28f, 0.94f),
+                false);
+
+            SetBreakdownTitle(L"전일 정산 명세");
+            SetBreakdownRow(0, L"수출", FormatCurrency(LatestDailyEconomyRecord.ExportIncome), false);
+            SetBreakdownRow(1, L"세금 합계", FormatCurrency(RealDailyTaxIncome), false);
+            SetBreakdownRow(
+                2,
+                L"무역정책 보정",
+                FormatCurrency(LatestDailyEconomyRecord.TradePolicyBudgetDelta),
+                false);
+            SetBreakdownRow(3, L"수입", FormatCurrency(LatestDailyEconomyRecord.ImportExpense), false);
+            SetBreakdownRow(
+                4,
+                L"임금 + 유지비",
+                FormatCurrency(
+                    LatestDailyEconomyRecord.WageCost +
+                    LatestDailyEconomyRecord.UpkeepCost),
+                false);
+            SetBreakdownRow(5, L"칙령 유지비", FormatCurrency(LatestDailyEconomyRecord.EdictUpkeepCost), false);
+            SetBreakdownRow(
+                6,
+                L"건설 + 수리 + 칙령 발동",
+                FormatCurrency(RealDailyDirectExpense),
+                false);
+            SetBreakdownRow(7, L"특별/기타 유입", FormatCurrency(RealDailySpecialIncome), false);
+            SetBreakdownRow(8, L"특별/기타 유출", FormatCurrency(RealDailySpecialExpense), false);
+            SetBreakdownRow(9, L"오늘 순변동", FormatCurrency(LatestDailyEconomyRecord.NetBudgetChange), true);
+        }
+        else if (EconomyPageSelectedIndex == 1)
+        {
+            SetTrendLabels(RealIncomeAxisLabels, false);
+            DrawTrendBars(
+                RealMonthlyIncomeBars,
+                static_cast<float>((std::max)(1, RealIncomeAxisMax)),
+                FVector4(0.28f, 0.46f, 0.78f, 0.94f));
+            SetMetricRowData(
+                Widget.mEconomyMetrics[0],
+                L"수익 (최근 12개월)",
+                FormatCompactCurrency(RealAnnualIncome),
+                0.f,
+                FVector4(0.28f, 0.46f, 0.78f, 0.94f),
+                false);
+            SetMetricVisibility(Widget.mEconomyMetrics[0], true);
+            SetMetricSummaryStyle(
+                Widget.mEconomyMetrics[0],
+                FVector4(0.28f, 0.46f, 0.78f, 0.94f),
+                false);
+
+            SetBreakdownTitle(L"수익 명세");
+            SetBreakdownRow(0, L"수출", FormatCurrency(RealAnnualExportIncome), false);
+            SetBreakdownRow(1, L"소비세", FormatCurrency(RealAnnualConsumptionTaxIncome), false);
+            SetBreakdownRow(2, L"소득세", FormatCurrency(RealAnnualIncomeTaxIncome), false);
+            SetBreakdownRow(3, L"재산세", FormatCurrency(RealAnnualPropertyTaxIncome), false);
+            SetBreakdownRow(4, L"세금 정책 효과", FormatCurrency(RealAnnualTaxBudgetDelta), false);
+            SetBreakdownRow(5, L"무역정책 보정", FormatCurrency(RealAnnualTradePolicyBudgetDelta), false);
+            SetBreakdownRow(6, L"특별 이벤트", FormatCurrency(RealAnnualSpecialEventIncome), false);
+            SetBreakdownRow(7, L"기타 직접 유입", FormatCurrency(RealAnnualOtherDirectIncome), false);
+            SetBreakdownRow(8, L"세금 합계", FormatCurrency(
+                RealAnnualConsumptionTaxIncome +
+                RealAnnualIncomeTaxIncome +
+                RealAnnualPropertyTaxIncome), false);
+            SetBreakdownRow(9, L"총수익", FormatCurrency(RealAnnualIncome), true);
+        }
+        else if (EconomyPageSelectedIndex == 2)
+        {
+            SetTrendLabels(RealExpenseAxisLabels, false);
+            DrawTrendBars(
+                RealMonthlyExpenseBars,
+                static_cast<float>((std::max)(1, RealExpenseAxisMax)),
+                FVector4(0.84f, 0.34f, 0.30f, 0.92f));
+            SetMetricRowData(
+                Widget.mEconomyMetrics[0],
+                L"경비 (최근 12개월)",
+                FormatCompactCurrency(RealAnnualExpense),
+                0.f,
+                FVector4(0.84f, 0.34f, 0.30f, 0.92f),
+                false);
+            SetMetricVisibility(Widget.mEconomyMetrics[0], true);
+            SetMetricSummaryStyle(
+                Widget.mEconomyMetrics[0],
+                FVector4(0.84f, 0.34f, 0.30f, 0.92f),
+                false);
+
+            SetBreakdownTitle(L"경비 명세");
+            SetBreakdownRow(0, L"수입", FormatCurrency(RealAnnualImportExpense), false);
+            SetBreakdownRow(1, L"임금", FormatCurrency(RealAnnualWageExpense), false);
+            SetBreakdownRow(2, L"유지비", FormatCurrency(RealAnnualUpkeepExpense), false);
+            SetBreakdownRow(3, L"칙령 유지비", FormatCurrency(RealAnnualEdictUpkeepExpense), false);
+            SetBreakdownRow(4, L"건설", FormatCurrency(RealAnnualConstructionExpense), false);
+            SetBreakdownRow(5, L"수리", FormatCurrency(RealAnnualRepairExpense), false);
+            SetBreakdownRow(6, L"칙령 발동비", FormatCurrency(RealAnnualEdictActivationExpense), false);
+            SetBreakdownRow(7, L"특별 이벤트", FormatCurrency(RealAnnualSpecialEventExpense), false);
+            SetBreakdownRow(8, L"기타 직접 유출", FormatCurrency(RealAnnualOtherDirectExpense), false);
+            SetBreakdownRow(9, L"총경비", FormatCurrency(RealAnnualExpense), true);
+        }
+        else if (EconomyPageSelectedIndex == 3)
+        {
+            SetTrendLabels(RealTradeAxisLabels, false);
+            DrawDualTrendBars(
+                RealMonthlyExportBars,
+                RealMonthlyImportBars,
+                static_cast<float>((std::max)(1, RealTradeAxisMax)),
+                FVector4(0.28f, 0.46f, 0.78f, 0.94f),
+                FVector4(0.84f, 0.34f, 0.30f, 0.92f));
+            SetMetricRowData(
+                Widget.mEconomyMetrics[0],
+                L"무역 수지 (최근 12개월)",
+                FormatCompactCurrency(RealAnnualTradeBalance),
+                0.f,
+                FVector4(0.28f, 0.46f, 0.78f, 0.94f),
+                false);
+            SetMetricVisibility(Widget.mEconomyMetrics[0], true);
+            SetMetricSummaryStyle(
+                Widget.mEconomyMetrics[0],
+                FVector4(0.28f, 0.46f, 0.78f, 0.94f),
+                false);
+
+            SetBreakdownTitle(L"무역 명세");
+            SetBreakdownRow(0, L"수출 합계", FormatCurrency(RealAnnualExportIncome), false);
+            SetBreakdownRow(1, L"수입 합계", FormatCurrency(RealAnnualImportExpense), false);
+            SetBreakdownRow(2, L"무역 수지", FormatCurrency(RealAnnualTradeBalance), false);
+            SetBreakdownRow(3, L"무역정책 보정", FormatCurrency(RealAnnualTradePolicyBudgetDelta), false);
+            SetBreakdownRow(4, L"전일 수출", FormatCurrency(LatestDailyEconomyRecord.ExportIncome), false);
+            SetBreakdownRow(5, L"전일 수입", FormatCurrency(LatestDailyEconomyRecord.ImportExpense), false);
+        }
+        else if (EconomyPageSelectedIndex == 4)
+        {
+            SetTrendLabels(RealPercentAxisLabels, true);
+            DrawTrendBars(
+                RealTaxEfficiencyBars,
+                100.f,
+                FVector4(0.72f, 0.56f, 0.54f, 0.92f));
+            SetMetricRowData(
+                Widget.mEconomyMetrics[0],
+                L"현재 징세 효율",
+                FormatPercent(RealCurrentTaxEfficiencyPercent),
+                0.f,
+                FVector4(0.72f, 0.56f, 0.54f, 0.92f),
+                false);
+            SetMetricRowData(
+                Widget.mEconomyMetrics[1],
+                L"전월 평균",
+                FormatPercent(RealPreviousMonthTaxEfficiencyPercent),
+                0.f,
+                FVector4(0.72f, 0.56f, 0.54f, 0.92f),
+                false);
+            SetMetricVisibility(Widget.mEconomyMetrics[0], true);
+            SetMetricVisibility(Widget.mEconomyMetrics[1], true);
+            SetMetricSummaryStyle(
+                Widget.mEconomyMetrics[0],
+                FVector4(0.72f, 0.56f, 0.54f, 0.92f),
+                false);
+            SetMetricSummaryStyle(
+                Widget.mEconomyMetrics[1],
+                FVector4(0.72f, 0.56f, 0.54f, 0.92f),
+                false);
+
+            SetBreakdownTitle(L"세금 명세");
+            SetBreakdownRow(0, L"소비세 (최근 12개월)", FormatCurrency(RealAnnualConsumptionTaxIncome), false);
+            SetBreakdownRow(1, L"소득세 (최근 12개월)", FormatCurrency(RealAnnualIncomeTaxIncome), false);
+            SetBreakdownRow(2, L"재산세 (최근 12개월)", FormatCurrency(RealAnnualPropertyTaxIncome), false);
+            SetBreakdownRow(3, L"세금 합계", FormatCurrency(
+                RealAnnualConsumptionTaxIncome +
+                RealAnnualIncomeTaxIncome +
+                RealAnnualPropertyTaxIncome), false);
+            SetBreakdownRow(4, L"세금 정책 효과", FormatCurrency(RealAnnualTaxBudgetDelta), false);
+            SetBreakdownRow(5, L"현재 징세 효율", FormatPercent(RealCurrentTaxEfficiencyPercent), false);
+            SetBreakdownRow(6, L"전월 평균", FormatPercent(RealPreviousMonthTaxEfficiencyPercent), false);
+        }
+        else
+        {
+            if (auto BreakdownTitleBackground =
+                Widget.mEconomyBreakdownTitleBackground.lock())
+            {
+                BreakdownTitleBackground->SetEnable(true);
+            }
+            if (auto BreakdownTitle = Widget.mEconomyBreakdownTitle.lock())
+            {
+                BreakdownTitle->SetEnable(true);
+                BreakdownTitle->SetText(L"총 자원 재고");
+            }
+            if (auto TrendFrame = Widget.mEconomyTrendFrame.lock())
+                TrendFrame->SetEnable(false);
+            if (auto TrendYAxisLine = Widget.mEconomyTrendYAxisLine.lock())
+                TrendYAxisLine->SetEnable(false);
+            if (auto TrendXAxisLine = Widget.mEconomyTrendXAxisLine.lock())
+                TrendXAxisLine->SetEnable(false);
+            if (auto TrendYAxisArrow = Widget.mEconomyTrendYAxisArrow.lock())
+                TrendYAxisArrow->SetEnable(false);
+            if (auto TrendXAxisArrow = Widget.mEconomyTrendXAxisArrow.lock())
+                TrendXAxisArrow->SetEnable(false);
+            for (size_t Index = 0; Index < Widget.mEconomyTrendGridLines.size(); ++Index)
+            {
+                if (auto GridLine = Widget.mEconomyTrendGridLines[Index].lock())
+                    GridLine->SetEnable(false);
+            }
+            for (int Index = 0;
+                Index < static_cast<int>(RealResourceRows.size()) &&
+                Index < static_cast<int>(Widget.mEconomyBreakdownRows.size()) &&
+                Index < 8;
+                ++Index)
+            {
+                SetDetailRowData(
+                    Widget.mEconomyBreakdownRows[static_cast<size_t>(Index)],
+                    RealResourceRows[static_cast<size_t>(Index)].first,
+                    FormatInteger(RealResourceRows[static_cast<size_t>(Index)].second),
+                    false);
+                SetDetailVisibility(
+                    Widget.mEconomyBreakdownRows[static_cast<size_t>(Index)],
+                    true);
+            }
+        }
+
+        return;
+    }
+
     const int JobVacancy =
         (std::max)(0, Snapshot.JobCapacity - Snapshot.AssignedJobCount);
     const int UnemployedUneducatedCount =
@@ -78,18 +1515,7 @@ void FAlmanacRenderer::ApplyEconomyPage(
             0.90f,
             0.40f);
     const std::array<float, GPopulationDistributionBarCount> PopulationWorkVacancyBars =
-        BuildPopulationHistoricalLayer(
-            JobVacancy > 0 ?
-                (std::max)(560.f,
-                    static_cast<float>(JobVacancy) * 0.88f) :
-                0.f,
-            JobVacancy > 0 ?
-                (std::max)(620.f,
-                    static_cast<float>(JobVacancy) * 1.02f) :
-                0.f,
-            static_cast<float>(JobVacancy),
-            18.f,
-            10.f);
+        RealVacancyBars;
     const long long EconomyDailyIncome =
         Snapshot.DailyExportIncome + Snapshot.DailyTaxIncome;
     const long long EconomyDailyExpense =
@@ -240,17 +1666,16 @@ void FAlmanacRenderer::ApplyEconomyPage(
         ResolveAxisStep(
             (std::max)(
                 25,
-                RoundToInt(static_cast<double>(CurrentTouristCount) * 1.15))) * 5;
+                RoundToInt(
+                    ResolveSeriesMax(RealTouristCountBars, 0.f)))) * 5;
     const int TourismCapacityAxisMax =
         ResolveAxisStep(
             (std::max)(
                 50,
                 RoundToInt(
-                    static_cast<double>(
-                        (std::max)(
-                            TourismVisitCapacity,
-                            (std::max)(TourismVisitOccupancy, CurrentTouristCount))) *
-                    1.10))) * 5;
+                    (std::max)(
+                        ResolveSeriesMax(RealTourismCapacityBars, 0.f),
+                        ResolveSeriesMax(RealTourismOccupancyBars, 0.f))))) * 5;
     const std::array<int, GEconomyTrendYAxisLabelCount> CurrentTouristAxisLabels =
         BuildAxisLabels(CurrentTouristAxisMax);
     const std::array<int, GEconomyTrendYAxisLabelCount> TourismCapacityAxisLabels =
@@ -295,60 +1720,17 @@ void FAlmanacRenderer::ApplyEconomyPage(
             11000.f,
             5200.f);
     const std::array<float, GEconomyTrendBarCount> CurrentTouristBars =
-        BuildPopulationHistoricalLayer(
-            CurrentTouristCount > 0 ?
-                static_cast<float>(CurrentTouristCount) * 0.86f :
-                0.f,
-            CurrentTouristCount > 0 ?
-                static_cast<float>(CurrentTouristCount) * 0.93f :
-                0.f,
-            static_cast<float>(CurrentTouristCount),
-            42.f,
-            18.f);
+        RealTouristCountBars;
     const std::array<float, GEconomyTrendBarCount> TourismRatingTrend =
-        BuildPopulationDetailTrend(
-            (std::max)(0.f, static_cast<float>(TourismRating) - 8.f),
-            static_cast<float>(TourismRating),
-            1.8f,
-            0.8f);
+        RealTourismRatingBars;
     const std::array<float, GEconomyTrendBarCount> TourismCapacityTrend =
-        BuildPopulationDetailTrend(
-            TourismVisitCapacity > 0 ?
-                (std::max)(0.f, static_cast<float>(TourismVisitCapacity) * 0.82f) :
-                0.f,
-            static_cast<float>(TourismVisitCapacity),
-            TourismVisitCapacity > 0 ?
-                (std::max)(10.f, static_cast<float>(TourismVisitCapacity) * 0.04f) :
-                4.f,
-            TourismVisitCapacity > 0 ?
-                (std::max)(5.f, static_cast<float>(TourismVisitCapacity) * 0.02f) :
-                2.f);
+        RealTourismCapacityBars;
     const std::array<float, GEconomyTrendBarCount> TourismArrivalTrend =
-        BuildPopulationDetailTrend(
-            CurrentTouristCount > 0 ?
-                (std::max)(0.f, static_cast<float>(CurrentTouristCount) * 0.80f) :
-                0.f,
-            static_cast<float>(CurrentTouristCount),
-            CurrentTouristCount > 0 ?
-                (std::max)(8.f, static_cast<float>(CurrentTouristCount) * 0.05f) :
-                3.f,
-            CurrentTouristCount > 0 ?
-                (std::max)(4.f, static_cast<float>(CurrentTouristCount) * 0.02f) :
-                1.5f);
+        RealTourismOccupancyBars;
     const std::array<float, GEconomyTrendBarCount> EconomyJobOccupancyTrend =
-        BuildPopulationHistoricalLayer(
-            76.f,
-            86.f,
-            80.f,
-            1.8f,
-            0.9f);
+        RealJobOccupancyBars;
     const std::array<float, GEconomyTrendBarCount> EconomyUnemploymentTrend =
-        BuildPopulationHistoricalLayer(
-            0.6f,
-            1.3f,
-            1.0f,
-            0.08f,
-            0.05f);
+        RealUnemploymentPercentBars;
     const long long EconomyTrendMaxRaw =
         (std::max)(
             Snapshot.NationalBudget,
@@ -416,11 +1798,11 @@ void FAlmanacRenderer::ApplyEconomyPage(
     };
     const wchar_t* GEconomyTrendYearLabels[GEconomyTrendXAxisLabelCount] =
     {
-        L"",
-        L"3년전",
-        L"2년전",
-        L"1년전",
-        L"현재 연도"
+        L"24일전",
+        L"18일전",
+        L"12일전",
+        L"6일전",
+        L"오늘"
     };
     std::array<float, GEconomyTrendBarCount> SwissAccountBars = {};
     for (int Index = GEconomyTrendBarCount - 5; Index < GEconomyTrendBarCount; ++Index)
@@ -543,28 +1925,28 @@ void FAlmanacRenderer::ApplyEconomyPage(
         SelectedEconomyIndex == 0);
     SetDetailRowData(
         Widget.mEconomyDetails[1],
-        L"수익 (지난 12개월)",
-        FormatCompactCurrency(EconomyAnnualIncome),
+        L"수익 (최근 12개월)",
+        FormatCompactCurrency(RealAnnualIncome),
         SelectedEconomyIndex == 1);
     SetDetailRowData(
         Widget.mEconomyDetails[2],
-        L"경비 (지난 12개월)",
-        FormatCompactCurrency(EconomyAnnualExpense),
+        L"경비 (최근 12개월)",
+        FormatCompactCurrency(RealAnnualExpense),
         SelectedEconomyIndex == 2);
     SetDetailRowData(
         Widget.mEconomyDetails[3],
-        L"스위스 은행 계좌",
-        L"S$2,000",
+        L"무역 수지",
+        FormatCompactCurrency(RealAnnualTradeBalance),
         SelectedEconomyIndex == 3);
     SetDetailRowData(
         Widget.mEconomyDetails[4],
-        L"부패",
-        L"0",
+        L"징세 효율",
+        FormatPercent(RealCurrentTaxEfficiencyPercent),
         SelectedEconomyIndex == 4);
     SetDetailRowData(
         Widget.mEconomyDetails[5],
-        L"생산 건물",
-        L"",
+        L"자원 재고",
+        FormatInteger(Snapshot.TotalResourceStock),
         SelectedEconomyIndex == 5);
     SetDetailRowData(
         Widget.mEconomyDetails[6],
@@ -1259,20 +2641,11 @@ void FAlmanacRenderer::ApplyEconomyPage(
 
             if (auto YLabel = Widget.mEconomyTrendYAxisLabels[static_cast<size_t>(Index)].lock())
             {
-                if (Index == 0)
-                {
-                    YLabel->SetEnable(true);
-                    YLabel->SetText(L"20");
-                }
-                else if (Index == 2)
-                {
-                    YLabel->SetEnable(true);
-                    YLabel->SetText(L"10");
-                }
-                else
-                {
-                    YLabel->SetEnable(false);
-                }
+                YLabel->SetEnable(true);
+                YLabel->SetText(
+                    std::to_wstring(
+                        RealUnemploymentCountAxisLabels[
+                            static_cast<size_t>(Index)]).c_str());
             }
         }
 
@@ -1286,56 +2659,27 @@ void FAlmanacRenderer::ApplyEconomyPage(
                 GraphWidth / static_cast<float>((std::max)(1, GEconomyTrendBarCount));
             const float SingleBarWidth =
                 (std::max)(4.f, BarGroupWidth * 0.74f);
-            const float MaxValue = 20.f;
+            const float MaxValue =
+                static_cast<float>((std::max)(1, RealUnemploymentCountAxisMax));
 
             for (int Index = 0; Index < GEconomyTrendBarCount; ++Index)
             {
                 const float BarX =
                     GraphLeft + BarGroupWidth * static_cast<float>(Index) +
                     (BarGroupWidth - SingleBarWidth) * 0.5f;
-                const float UneducatedHeight =
+                const float TotalHeight =
                     GraphHeight *
-                    Clamp01(PopulationUnemployedUneducatedBars[static_cast<size_t>(Index)] / MaxValue);
-                const float HighSchoolHeight =
-                    GraphHeight *
-                    Clamp01(PopulationUnemployedHighSchoolBars[static_cast<size_t>(Index)] / MaxValue);
-                const float CollegeHeight =
-                    GraphHeight *
-                    Clamp01(PopulationUnemployedCollegeBars[static_cast<size_t>(Index)] / MaxValue);
-                const float UneducatedTop = GraphTop + GraphHeight - UneducatedHeight;
-                const float HighSchoolTop = UneducatedTop - HighSchoolHeight;
-                const float CollegeTop = HighSchoolTop - CollegeHeight;
+                    Clamp01(RealUnemployedCountBars[static_cast<size_t>(Index)] / MaxValue);
+                const float BarTop = GraphTop + GraphHeight - TotalHeight;
 
                 if (Index < static_cast<int>(Widget.mEconomyTrendBars.size()))
                 {
                     if (auto Bar = Widget.mEconomyTrendBars[static_cast<size_t>(Index)].lock())
                     {
-                        Bar->SetTint(0.30f, 0.48f, 0.78f, 0.94f);
-                        Bar->SetEnable(UneducatedHeight > 0.f);
-                        Bar->SetPos(BarX, UneducatedTop);
-                        Bar->SetSize(SingleBarWidth, (std::max)(2.f, UneducatedHeight));
-                    }
-                }
-
-                if (Index < static_cast<int>(Widget.mEconomyTrendSecondaryBars.size()))
-                {
-                    if (auto Bar = Widget.mEconomyTrendSecondaryBars[static_cast<size_t>(Index)].lock())
-                    {
-                        Bar->SetTint(0.78f, 0.26f, 0.22f, 0.92f);
-                        Bar->SetEnable(HighSchoolHeight > 0.f);
-                        Bar->SetPos(BarX, HighSchoolTop);
-                        Bar->SetSize(SingleBarWidth, (std::max)(2.f, HighSchoolHeight));
-                    }
-                }
-
-                if (Index < static_cast<int>(Widget.mEconomyTrendTertiaryBars.size()))
-                {
-                    if (auto Bar = Widget.mEconomyTrendTertiaryBars[static_cast<size_t>(Index)].lock())
-                    {
-                        Bar->SetTint(0.56f, 0.68f, 0.24f, 0.92f);
-                        Bar->SetEnable(CollegeHeight > 0.f);
-                        Bar->SetPos(BarX, CollegeTop);
-                        Bar->SetSize(SingleBarWidth, (std::max)(2.f, CollegeHeight));
+                        Bar->SetTint(0.74f, 0.22f, 0.18f, 0.94f);
+                        Bar->SetEnable(TotalHeight > 0.f);
+                        Bar->SetPos(BarX, BarTop);
+                        Bar->SetSize(SingleBarWidth, (std::max)(2.f, TotalHeight));
                     }
                 }
             }
@@ -1343,16 +2687,6 @@ void FAlmanacRenderer::ApplyEconomyPage(
     }
     else if (ShowEconomyVacancyScreen)
     {
-        const int VacancyLabels[GEconomyTrendYAxisLabelCount] =
-        {
-            750,
-            600,
-            450,
-            300,
-            150,
-            0
-        };
-
         for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
         {
             if (Index >= static_cast<int>(Widget.mEconomyTrendYAxisLabels.size()))
@@ -1361,7 +2695,9 @@ void FAlmanacRenderer::ApplyEconomyPage(
             if (auto YLabel = Widget.mEconomyTrendYAxisLabels[static_cast<size_t>(Index)].lock())
             {
                 YLabel->SetEnable(true);
-                YLabel->SetText(std::to_wstring(VacancyLabels[Index]).c_str());
+                YLabel->SetText(
+                    std::to_wstring(
+                        RealVacancyAxisLabels[static_cast<size_t>(Index)]).c_str());
             }
         }
 
@@ -1375,7 +2711,8 @@ void FAlmanacRenderer::ApplyEconomyPage(
                 GraphWidth / static_cast<float>((std::max)(1, GEconomyTrendBarCount));
             const float SingleBarWidth =
                 (std::max)(4.f, BarGroupWidth * 0.72f);
-            const float MaxValue = 750.f;
+            const float MaxValue =
+                static_cast<float>((std::max)(1, RealVacancyAxisMax));
 
             for (int Index = 0; Index < GEconomyTrendBarCount; ++Index)
             {
@@ -2061,14 +3398,24 @@ void FAlmanacRenderer::ApplyEconomyPage(
         SetMetricRowData(
             Widget.mEconomyMetrics[0],
             L"현재 실업률",
-            L"1%",
+            FormatInteger(
+                Snapshot.ActiveCitizenCount > 0 ?
+                    RoundToInt(
+                        static_cast<double>(Snapshot.UnemployedCount) * 100.0 /
+                        static_cast<double>(Snapshot.ActiveCitizenCount)) :
+                    0) + L"%",
             0.f,
             FVector4(0.74f, 0.22f, 0.18f, 0.94f),
             false);
         SetMetricRowData(
             Widget.mEconomyMetrics[1],
             L"현재 직장 점유율",
-            L"76%",
+            FormatInteger(
+                Snapshot.JobCapacity > 0 ?
+                    RoundToInt(
+                        static_cast<double>(Snapshot.AssignedJobCount) * 100.0 /
+                        static_cast<double>(Snapshot.JobCapacity)) :
+                    0) + L"%",
             0.f,
             FVector4(0.24f, 0.42f, 0.74f, 0.94f),
             false);
@@ -2097,14 +3444,14 @@ void FAlmanacRenderer::ApplyEconomyPage(
         const wchar_t* BreakdownLabels[GEconomyBreakdownRowCount] =
         {
             L"▷ 빈 일자리",
-            L"▷ 폐쇄된 직업",
+            L"▷ 배정 일자리",
             L"▷ 실업자 시민"
         };
-        const wchar_t* BreakdownValues[GEconomyBreakdownRowCount] =
+        const std::wstring BreakdownValues[GEconomyBreakdownRowCount] =
         {
-            L"730",
-            L"0",
-            L"5"
+            FormatInteger((std::max)(0, Snapshot.JobCapacity - Snapshot.AssignedJobCount)),
+            FormatInteger(Snapshot.AssignedJobCount),
+            FormatInteger(Snapshot.UnemployedCount)
         };
 
         for (int Index = 0; Index < 3; ++Index)

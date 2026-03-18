@@ -31,6 +31,9 @@ void CCitizenInfoWidget::ResetBuildingModeState()
     BuildingState.SelectedTab = EBuildingInfoTab::Overview;
     BuildingState.TrackedBuildingName.clear();
     BuildingState.CustomsModeSelectionOpen = false;
+    BuildingState.OperationModeCount = 0;
+    BuildingState.OperationModeSelectionPageIndex = -1;
+    BuildingState.OperationModeSelectionPageCount = 0;
     BuildingState.OverviewMetricScrollActive = false;
     BuildingState.OverviewMetricScrollOffset = 0;
     BuildingState.OverviewMetricScrollVisibleLineCount = 0;
@@ -248,6 +251,7 @@ void CCitizenInfoWidget::RefreshFromState()
             mState.Building.TrackedBuildingName,
             SelectedTabIndex,
             mState.Building.CustomsModeSelectionOpen,
+            mState.Building.OperationModeSelectionPageIndex,
             mState.Building.OverviewMetricScrollOffset);
     }
 
@@ -260,6 +264,7 @@ void CCitizenInfoWidget::RefreshFromState()
     }
 
     SetEnable(true);
+    SyncOperationModeSelectionState(Snapshot);
     SyncOverviewMetricScrollState(Snapshot);
     FCitizenInfoRenderer::ApplySnapshot(*this, Snapshot);
     FCitizenInfoRenderer::RefreshLayout(*this);
@@ -295,7 +300,7 @@ bool CCitizenInfoWidget::SelectCitizenTab(ECitizenInfoTab Tab)
         return false;
 
     auto& BuildingState = mState.Building;
-    BuildingState.CustomsModeSelectionOpen = false;
+    CloseOperationModeSelection();
     BuildingState.OverviewMetricScrollActive = false;
     BuildingState.OverviewMetricScrollOffset = 0;
     BuildingState.OverviewMetricScrollVisibleLineCount = 0;
@@ -312,18 +317,21 @@ bool CCitizenInfoWidget::SelectBuildingTab(EBuildingInfoTab Tab)
     if (BuildingState.SelectedTab == Tab)
     {
         if (Tab == EBuildingInfoTab::Overview &&
-            IsTrackedCustomsOffice())
+            (IsTrackedCustomsOffice() ||
+                HasTrackedBuildingOperationModes()))
         {
             BuildingState.OverviewMetricScrollOffset = 0;
-            BuildingState.CustomsModeSelectionOpen =
-                !BuildingState.CustomsModeSelectionOpen;
+            if (BuildingState.CustomsModeSelectionOpen)
+                CloseOperationModeSelection();
+            else
+                TryOpenOperationModeSelection();
             return true;
         }
 
         return false;
     }
 
-    BuildingState.CustomsModeSelectionOpen = false;
+    CloseOperationModeSelection();
     BuildingState.OverviewMetricScrollActive = false;
     BuildingState.OverviewMetricScrollOffset = 0;
     BuildingState.OverviewMetricScrollVisibleLineCount = 0;
@@ -455,6 +463,64 @@ bool CCitizenInfoWidget::MoveOverviewMetricScroll(int DeltaLines)
     return true;
 }
 
+void CCitizenInfoWidget::CloseOperationModeSelection()
+{
+    auto& BuildingState = mState.Building;
+    BuildingState.CustomsModeSelectionOpen = false;
+    BuildingState.OperationModeSelectionPageIndex = -1;
+    BuildingState.OperationModeSelectionPageCount = 0;
+}
+
+bool CCitizenInfoWidget::HasTrackedBuildingOperationModes() const
+{
+    return mState.Building.OperationModeCount > 0;
+}
+
+bool CCitizenInfoWidget::TryOpenOperationModeSelection()
+{
+    auto& BuildingState = mState.Building;
+
+    if (mState.PanelMode != EPanelMode::Building ||
+        BuildingState.SelectedTab != EBuildingInfoTab::Overview ||
+        BuildingState.TrackedBuildingName.empty() ||
+        BuildingState.OperationModeCount <= 0)
+    {
+        return false;
+    }
+
+    BuildingState.CustomsModeSelectionOpen = true;
+    BuildingState.OperationModeSelectionPageIndex = -1;
+    return true;
+}
+
+bool CCitizenInfoWidget::CycleOperationModeSelectionPage()
+{
+    auto& BuildingState = mState.Building;
+
+    if (!BuildingState.CustomsModeSelectionOpen ||
+        BuildingState.OperationModeCount <= 0)
+    {
+        return false;
+    }
+
+    const int PageCount = (std::max)(
+        1,
+        BuildingState.OperationModeSelectionPageCount);
+
+    if (PageCount <= 1)
+    {
+        CloseOperationModeSelection();
+        return true;
+    }
+
+    const int CurrentPageIndex = (std::max)(
+        0,
+        BuildingState.OperationModeSelectionPageIndex);
+    BuildingState.OperationModeSelectionPageIndex =
+        (CurrentPageIndex + 1) % PageCount;
+    return true;
+}
+
 void CCitizenInfoWidget::SyncOverviewMetricScrollState(
     const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot)
 {
@@ -476,6 +542,27 @@ void CCitizenInfoWidget::SyncOverviewMetricScrollState(
         (std::min)(Snapshot.OverviewMetricScrollOffset, MaxOffset));
 }
 
+void CCitizenInfoWidget::SyncOperationModeSelectionState(
+    const CitizenInfoDataProvider::FCitizenInfoSnapshot& Snapshot)
+{
+    auto& BuildingState = mState.Building;
+    BuildingState.OperationModeCount = Snapshot.OperationModeCount;
+
+    if (Snapshot.ShowOperationModeSelectionPage)
+    {
+        BuildingState.CustomsModeSelectionOpen = true;
+        BuildingState.OperationModeSelectionPageIndex =
+            Snapshot.OperationModeSelectionPageIndex;
+        BuildingState.OperationModeSelectionPageCount =
+            Snapshot.OperationModeSelectionPageCount;
+        return;
+    }
+
+    BuildingState.CustomsModeSelectionOpen = false;
+    BuildingState.OperationModeSelectionPageIndex = -1;
+    BuildingState.OperationModeSelectionPageCount = 0;
+}
+
 bool CCitizenInfoWidget::IsTrackedCustomsOffice() const
 {
     if (mState.Building.TrackedBuildingName.empty())
@@ -489,11 +576,23 @@ bool CCitizenInfoWidget::IsTrackedCustomsOffice() const
             mState.Building.TrackedBuildingName);
 }
 
-bool CCitizenInfoWidget::TrySelectCustomsOperationMode(int ModeIndex)
+bool CCitizenInfoWidget::TrySelectOperationMode(int VisibleModeIndex)
 {
     if (!mState.Building.CustomsModeSelectionOpen ||
         mState.Building.SelectedTab != EBuildingInfoTab::Overview ||
-        !IsTrackedCustomsOffice())
+        !HasTrackedBuildingOperationModes())
+    {
+        return false;
+    }
+
+    const int PageIndex = (std::max)(
+        0,
+        mState.Building.OperationModeSelectionPageIndex);
+    const int ModeIndex =
+        PageIndex * GBudgetLevelCount + VisibleModeIndex;
+
+    if (ModeIndex < 0 ||
+        ModeIndex >= mState.Building.OperationModeCount)
     {
         return false;
     }
@@ -515,6 +614,7 @@ bool CCitizenInfoWidget::TrySelectCustomsOperationMode(int ModeIndex)
         return false;
     }
 
+    CloseOperationModeSelection();
     RefreshFromState();
     return true;
 }
@@ -528,7 +628,7 @@ bool CCitizenInfoWidget::OpenTradeWidget()
     if (!InteractionSource || !InteractionSource->OpenTradeWidget())
         return false;
 
-    mState.Building.CustomsModeSelectionOpen = false;
+    CloseOperationModeSelection();
     SetEnable(false);
     return true;
 }
@@ -632,13 +732,31 @@ void CCitizenInfoWidget::OnOverviewCommandButtonClick()
     {
         if (mState.Building.CustomsModeSelectionOpen)
         {
-            mState.Building.CustomsModeSelectionOpen = false;
+            CloseOperationModeSelection();
             RefreshFromState();
             return;
         }
 
         OpenTradeWidget();
         return;
+    }
+
+    if (mState.Building.SelectedTab == EBuildingInfoTab::Overview &&
+        HasTrackedBuildingOperationModes())
+    {
+        if (mState.Building.CustomsModeSelectionOpen)
+        {
+            if (CycleOperationModeSelectionPage())
+            {
+                RefreshFromState();
+                return;
+            }
+        }
+        else if (TryOpenOperationModeSelection())
+        {
+            RefreshFromState();
+            return;
+        }
     }
 
     std::wstring FeedbackMessage;
@@ -656,7 +774,7 @@ void CCitizenInfoWidget::OnOverviewCommandButtonClick()
 
 void CCitizenInfoWidget::OnBudgetLevel1Click()
 {
-    if (TrySelectCustomsOperationMode(0))
+    if (TrySelectOperationMode(0))
         return;
 
     SetBuildingBudgetLevel(1);
@@ -664,7 +782,7 @@ void CCitizenInfoWidget::OnBudgetLevel1Click()
 
 void CCitizenInfoWidget::OnBudgetLevel2Click()
 {
-    if (TrySelectCustomsOperationMode(1))
+    if (TrySelectOperationMode(1))
         return;
 
     SetBuildingBudgetLevel(2);
@@ -672,7 +790,7 @@ void CCitizenInfoWidget::OnBudgetLevel2Click()
 
 void CCitizenInfoWidget::OnBudgetLevel3Click()
 {
-    if (TrySelectCustomsOperationMode(2))
+    if (TrySelectOperationMode(2))
         return;
 
     SetBuildingBudgetLevel(3);
@@ -680,7 +798,7 @@ void CCitizenInfoWidget::OnBudgetLevel3Click()
 
 void CCitizenInfoWidget::OnBudgetLevel4Click()
 {
-    if (TrySelectCustomsOperationMode(3))
+    if (TrySelectOperationMode(3))
         return;
 
     SetBuildingBudgetLevel(4);
@@ -688,7 +806,7 @@ void CCitizenInfoWidget::OnBudgetLevel4Click()
 
 void CCitizenInfoWidget::OnBudgetLevel5Click()
 {
-    if (TrySelectCustomsOperationMode(4))
+    if (TrySelectOperationMode(4))
         return;
 
     SetBuildingBudgetLevel(5);

@@ -32,10 +32,15 @@ void FCitizenInfoRenderer::ValidateSnapshotForDebug(
     assert(Snapshot.SelectedTabIndex < VisibleTabCount);
     assert(Snapshot.BudgetLevel >= 1);
     assert(Snapshot.BudgetLevel <= GBudgetLevelCount);
+    assert(Snapshot.SelectedBudgetButtonIndex >= -1);
+    assert(Snapshot.SelectedBudgetButtonIndex < GBudgetLevelCount);
     assert(Snapshot.OverviewResidentCount >= 0);
     assert(Snapshot.OverviewResidentCapacity >= 0);
     assert(Snapshot.OverviewVisitorCount >= 0);
     assert(Snapshot.OverviewVisitorCapacity >= 0);
+    assert(Snapshot.OperationModeCount >= 0);
+    assert(Snapshot.OperationModeSelectionPageIndex >= 0);
+    assert(Snapshot.OperationModeSelectionPageCount >= 0);
     assert(Snapshot.OverviewMetricScrollOffset >= 0);
     assert(Snapshot.OverviewMetricScrollVisibleLineCount >= 0);
     assert(Snapshot.OverviewMetricScrollTotalLineCount >= 0);
@@ -268,7 +273,12 @@ void FCitizenInfoRenderer::ApplySnapshot(
     {
         auto Button = Widget.mBudgetButtons[static_cast<size_t>(Index)].lock();
         auto Label = Widget.mBudgetButtonTexts[static_cast<size_t>(Index)].lock();
-        const bool Selected = Snapshot.BudgetLevel == Index + 1;
+        const bool Selected =
+            Snapshot.ShowOperationModeSelectionPage ?
+                Snapshot.SelectedBudgetButtonIndex == Index :
+            Snapshot.SelectedBudgetButtonIndex >= 0 ?
+                Snapshot.SelectedBudgetButtonIndex == Index :
+                Snapshot.BudgetLevel == Index + 1;
 
         if (Button)
         {

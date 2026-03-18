@@ -282,6 +282,7 @@
     <ClCompile Include="UI\UILayoutConfig.cpp" />
     <ClCompile Include="UI\TopHudDataProvider.cpp" />
     <ClCompile Include="UI\TopHudRenderer.cpp" />
+    <ClCompile Include="UI\TaskWidget.cpp" />
     <ClCompile Include="UI\TopHudWidget.cpp" />
     <ClCompile Include="UI\CitizenInfoWidget.cpp" />
     <ClCompile Include="UI\Inventory.cpp" />
@@ -305,6 +306,7 @@
     <ClCompile Include="World\MainWorldSystemAccess.cpp" />
     <ClCompile Include="World\MainWorldTradeAccess.cpp" />
     <ClCompile Include="World\MainWorldUiReadAccess.cpp" />
+    <ClCompile Include="World\WorldUIAccess.cpp" />
     <ClCompile Include="World\MainWorldElectionService.cpp" />
     <ClCompile Include="World\MainWorldInfrastructureRuntime.cpp" />
     <ClCompile Include="World\MainWorldPoliticalDemandService.cpp" />
@@ -314,6 +316,18 @@
     <ClCompile Include="World\MainWorldAccess.cpp" />
     <ClCompile Include="World\MainWorldBootstrap.cpp" />
     <ClCompile Include="World\MainWorldPopulation.cpp" />
+    <ClCompile Include="World\BuildingSubsystem.cpp" />
+    <ClCompile Include="World\CrisisSubsystem.cpp" />
+    <ClCompile Include="World\EdictSubsystem.cpp" />
+    <ClCompile Include="World\EconomySubsystem.cpp" />
+    <ClCompile Include="World\EraSubsystem.cpp" />
+    <ClCompile Include="World\InfrastructureSubsystem.cpp" />
+    <ClCompile Include="World\KnowledgeSubsystem.cpp" />
+    <ClCompile Include="World\PoliticsSubsystem.cpp" />
+    <ClCompile Include="World\PopulationSubsystem.cpp" />
+    <ClCompile Include="World\ScenarioSubsystem.cpp" />
+    <ClCompile Include="World\SimulationSubsystem.cpp" />
+    <ClCompile Include="World\TradeDiplomacySubsystem.cpp" />
     <ClCompile Include="World\MainWorldSimulation.cpp" />
     <ClCompile Include="World\BusRouteSystem.cpp" />
     <ClCompile Include="World\RoadNetwork.cpp" />
@@ -408,6 +422,7 @@
     <ClInclude Include="UI\TopHudWidgetState.h" />
     <ClInclude Include="UI\AlmanacWidget.h" />
     <ClInclude Include="UI\EdictWidget.h" />
+    <ClInclude Include="UI\TaskWidget.h" />
     <ClInclude Include="UI\TradeWidget.h" />
     <ClInclude Include="UI\TradeWidgetRuntime.h" />
     <ClInclude Include="UI\UILayoutApplier.h" />
@@ -442,6 +457,7 @@
     <ClInclude Include="World\MainWorldSystemAccess.h" />
     <ClInclude Include="World\MainWorldTradeAccess.h" />
     <ClInclude Include="World\MainWorldUiReadAccess.h" />
+    <ClInclude Include="World\IWorldUIAccess.h" />
     <ClInclude Include="World\MainWorldElectionService.h" />
     <ClInclude Include="World\MainWorldInfrastructureRuntime.h" />
     <ClInclude Include="World\MainWorldPoliticalDemandService.h" />

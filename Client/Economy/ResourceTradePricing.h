@@ -2,6 +2,7 @@
 
 #include "../Building/BuildingTypes.h"
 #include "TradeDiplomacyRuntime.h"
+#include "../GameConstants.h"
 #include "../Politics/PoliticalTypes.h"
 #include "../World/WorldStatsSnapshot.h"
 #include <algorithm>
@@ -165,14 +166,32 @@ namespace ResourceTradePricing
         }
     }
 
+    inline FTradePrice GetConfiguredTradePrice(EResourceType Type)
+    {
+        FTradePrice Result = GetTradePrice(Type);
+
+        if (Result.ExportUnitPrice > 0)
+        {
+            Result.ExportUnitPrice = (std::max)(
+                1,
+                static_cast<int>(std::lround(
+                    static_cast<double>(Result.ExportUnitPrice) *
+                    static_cast<double>((std::max)(
+                        0.f,
+                        GameConstants::Economy::ExportPriceBaseMultiplier)))));
+        }
+
+        return Result;
+    }
+
     inline int GetBaseExportPricePerStockUnit(EResourceType Type)
     {
-        return GetTradePrice(Type).ExportUnitPrice;
+        return GetConfiguredTradePrice(Type).ExportUnitPrice;
     }
 
     inline int GetBaseImportPricePerStockUnit(EResourceType Type)
     {
-        return GetTradePrice(Type).ImportUnitPrice;
+        return GetConfiguredTradePrice(Type).ImportUnitPrice;
     }
 
     inline FWorldMarketPriceState BuildDefaultWorldMarketPriceState()
@@ -185,7 +204,7 @@ namespace ResourceTradePricing
         {
             const EResourceType ResourceType =
                 static_cast<EResourceType>(ResourceIndex);
-            const FTradePrice BasePrice = GetTradePrice(ResourceType);
+            const FTradePrice BasePrice = GetConfiguredTradePrice(ResourceType);
             FResourceMarketPricePoint& Point =
                 Result.Resources[static_cast<size_t>(ResourceType)];
             Point.CurrentExportUnitPrice = BasePrice.ExportUnitPrice;
@@ -413,7 +432,7 @@ namespace ResourceTradePricing
         {
             const EResourceType ResourceType =
                 static_cast<EResourceType>(ResourceIndex);
-            const FTradePrice BasePrice = GetTradePrice(ResourceType);
+            const FTradePrice BasePrice = GetConfiguredTradePrice(ResourceType);
 
             if (BasePrice.ExportUnitPrice <= 0 ||
                 BasePrice.ImportUnitPrice <= 0)
@@ -636,7 +655,7 @@ namespace ResourceTradePricing
 
     inline int GetExportPricePerStockUnit(EResourceType Type)
     {
-        const FTradePrice BasePrice = GetTradePrice(Type);
+        const FTradePrice BasePrice = GetConfiguredTradePrice(Type);
 
         if (BasePrice.ExportUnitPrice <= 0)
             return 0;
@@ -648,7 +667,7 @@ namespace ResourceTradePricing
 
     inline int GetImportPricePerStockUnit(EResourceType Type)
     {
-        const FTradePrice BasePrice = GetTradePrice(Type);
+        const FTradePrice BasePrice = GetConfiguredTradePrice(Type);
 
         if (BasePrice.ImportUnitPrice <= 0)
             return 0;
@@ -660,7 +679,7 @@ namespace ResourceTradePricing
 
     inline int GetPreviousExportPricePerStockUnit(EResourceType Type)
     {
-        const FTradePrice BasePrice = GetTradePrice(Type);
+        const FTradePrice BasePrice = GetConfiguredTradePrice(Type);
         const int PreviousPrice =
             GetMarketPricePoint(Type).PreviousExportUnitPrice;
         return PreviousPrice > 0 ? PreviousPrice : BasePrice.ExportUnitPrice;
@@ -668,7 +687,7 @@ namespace ResourceTradePricing
 
     inline int GetPreviousImportPricePerStockUnit(EResourceType Type)
     {
-        const FTradePrice BasePrice = GetTradePrice(Type);
+        const FTradePrice BasePrice = GetConfiguredTradePrice(Type);
         const int PreviousPrice =
             GetMarketPricePoint(Type).PreviousImportUnitPrice;
         return PreviousPrice > 0 ? PreviousPrice : BasePrice.ImportUnitPrice;

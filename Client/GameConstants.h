@@ -30,6 +30,9 @@ namespace GameConstants
     namespace Politics
     {
         extern float CitizenPoliticalShiftIntervalSeconds;
+        extern float ApprovalLerpRate;
+        extern float ApprovalMaxDecreasePerDay;
+        extern float ApprovalMaxIncreasePerDay;
     }
 
     namespace Economy
@@ -38,6 +41,10 @@ namespace GameConstants
         extern int HarborImportMaxPerResourcePerShip;
         extern float ProductionInputBufferSeconds;
         extern float ProductionMaxBufferedUnits;
+        extern float BuildingWageBaseMultiplier;
+        extern float BuildingUpkeepBaseMultiplier;
+        extern float ExportPriceBaseMultiplier;
+        extern float NegativeTradePolicyBudgetDeltaMultiplier;
         extern double DailyConsumptionSpendBase;
         extern double DailyWorkerIncomeBase;
         extern double DailyResidenceValueBase;
@@ -68,6 +75,11 @@ namespace GameConstants
 
     namespace MainWorld
     {
+        // Era-based difficulty scaling arrays (indices: 0=Colonial, 1=WorldWars, 2=ColdWar, 3=Modern)
+        extern float EraDemandThresholdMultipliers[4];
+        extern float EraCrisisCooldownMultipliers[4];
+        extern float EraFactionMemberMinMultipliers[4];
+
         namespace Trade
         {
             extern int MaxActiveTradeRouteCount;

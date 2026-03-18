@@ -86,60 +86,6 @@ namespace
         return Result;
     }
 
-    std::wstring BuildAutoImportSelectionText(
-        const TradePolicy::FImportTradePolicy& Policy)
-    {
-        return TradePolicy::BuildImportPolicySelectionDisplayText(Policy);
-    }
-
-    std::wstring BuildImportCapSelectionText(
-        const TradePolicy::FImportTradePolicy& Policy)
-    {
-        switch (TradePolicy::GetImportMaxUnitsPerResource(Policy))
-        {
-        case 500:
-            return L"낮음 (500)";
-        case 1500:
-            return L"표준 (1,500)";
-        case 3000:
-            return L"확대 (3,000)";
-        case 6000:
-            return L"최대 (6,000)";
-        default:
-            return L"사용자 지정 (" +
-                FormatInteger(
-                    TradePolicy::GetImportMaxUnitsPerResource(Policy)) +
-                L")";
-        }
-    }
-
-    std::wstring BuildImportBudgetSelectionText(
-        const TradePolicy::FImportTradePolicy& Policy)
-    {
-        const int BudgetCap = TradePolicy::GetDailyImportBudgetCap(Policy);
-
-        if (BudgetCap <= 0)
-            return L"무제한";
-
-        const std::wstring AmountText =
-            L"$" + FormatInteger(BudgetCap);
-
-        if (TradePolicy::AllowsEmergencyImports(Policy))
-            return L"긴급 대응 (" + AmountText + L")";
-
-        switch (BudgetCap)
-        {
-        case 12000:
-            return L"절약 (" + AmountText + L")";
-        case 24000:
-            return L"표준 (" + AmountText + L")";
-        case 36000:
-            return L"대량 (" + AmountText + L")";
-        default:
-            return L"사용자 지정 (" + AmountText + L")";
-        }
-    }
-
     std::wstring BuildExportBlockedSelectionText(
         const TradePolicy::FExportTradePolicy& Policy)
     {
@@ -167,27 +113,6 @@ namespace
             return L"없음";
 
         return JoinLabels(BlockedResources, L", ");
-    }
-
-    std::wstring BuildDomesticReserveSelectionText(
-        const TradePolicy::FExportTradePolicy& Policy)
-    {
-        switch (TradePolicy::GetDomesticReserveBufferUnits(Policy))
-        {
-        case 0:
-            return L"부족분만";
-        case 1000:
-            return L"표준 (+1,000)";
-        case 3000:
-            return L"강화 (+3,000)";
-        case 6000:
-            return L"최우선 (+6,000)";
-        default:
-            return L"사용자 지정 (+" +
-                FormatInteger(
-                    TradePolicy::GetDomesticReserveBufferUnits(Policy)) +
-                L")";
-        }
     }
 
     bool StartsWith(const std::wstring& Text, const wchar_t* Prefix)
@@ -636,14 +561,10 @@ namespace
         if (InputType == EResourceType::FeedCrops)
         {
             return Building.GetProductionInputCompatibleResourceStock(
-                       InputType) +
-                Building
-                    .GetProductionInputCompatibleReservedIncomingResourceAmount(
-                        InputType);
+                InputType);
         }
 
-        return Building.GetResourceStock(InputType) +
-            Building.GetReservedIncomingResourceAmount(InputType);
+        return Building.GetResourceStock(InputType);
     }
 
     int ResolveProductionInputMaxStock(
@@ -1362,27 +1283,11 @@ namespace
                     &mMainWorldPolicyAccess->GetGovernmentProfile().
                         ExportTradePolicy :
                     nullptr;
-            const TradePolicy::FImportTradePolicy* ImportPolicy =
-                mMainWorldPolicyAccess ?
-                    &mMainWorldPolicyAccess->GetGovernmentProfile().
-                        ImportTradePolicy :
-                    nullptr;
             const TradePolicy::FExportTradePolicy DefaultPolicy;
-            const TradePolicy::FImportTradePolicy DefaultImportPolicy;
             const TradePolicy::FExportTradePolicy& ActivePolicy =
                 ExportPolicy ? *ExportPolicy : DefaultPolicy;
-            const TradePolicy::FImportTradePolicy& ActiveImportPolicy =
-                ImportPolicy ? *ImportPolicy : DefaultImportPolicy;
-            OutRecord.HarborDomesticReserveSelectionText =
-                BuildDomesticReserveSelectionText(ActivePolicy);
             OutRecord.HarborExportSelectionText =
                 BuildExportBlockedSelectionText(ActivePolicy);
-            OutRecord.HarborImportCapSelectionText =
-                BuildImportCapSelectionText(ActiveImportPolicy);
-            OutRecord.HarborImportBudgetSelectionText =
-                BuildImportBudgetSelectionText(ActiveImportPolicy);
-            OutRecord.HarborImportSelectionText =
-                BuildAutoImportSelectionText(ActiveImportPolicy);
 
             OutRecord.HarborPolicyLines.push_back(
                 std::wstring(L"선적 방식: ") +
@@ -1395,65 +1300,12 @@ namespace
                     TradePolicy::GetHarborExportShipCapacityUnits(
                         ActivePolicy)));
             OutRecord.HarborPolicyLines.push_back(
-                L"내수 비축 기준: " +
-                OutRecord.HarborDomesticReserveSelectionText +
-                L" / 부족분 + " +
-                FormatInteger(
-                    TradePolicy::GetDomesticReserveBufferUnits(
-                        ActivePolicy)));
-
-            OutRecord.HarborPolicyLines.push_back(
                 L"수출 금지: " + OutRecord.HarborExportSelectionText);
-            OutRecord.HarborPolicyLines.push_back(
-                L"자동 수입 대상: " +
-                OutRecord.HarborImportSelectionText);
-            OutRecord.HarborPolicyLines.push_back(
-                L"자원별 수입 한도: " +
-                OutRecord.HarborImportCapSelectionText);
-            OutRecord.HarborPolicyLines.push_back(
-                L"일일 수입 예산: " +
-                OutRecord.HarborImportBudgetSelectionText);
-            OutRecord.HarborPolicyLines.push_back(
-                std::wstring(L"긴급 수입: ") +
-                (TradePolicy::AllowsEmergencyImports(ActiveImportPolicy) ?
-                    L"허용 (1.5배 비용)" :
-                    L"일반 수입만"));
 
             std::wstring ProductionFocusLine =
                 ActivePolicy.PrioritizeHighValueCargo ?
                     L"생산 유도: 제조·사치재 수출 우대" :
                     L"생산 유도: 식품·원자재 대량 수출 우대";
-
-            if (TradePolicy::GetDomesticReserveBufferUnits(ActivePolicy) >=
-                3000)
-            {
-                ProductionFocusLine += L" / 내수 우선";
-            }
-
-            switch (ActiveImportPolicy.Mode)
-            {
-            case TradePolicy::EImportPolicyMode::None:
-                ProductionFocusLine += L" / 국내 공급망 중심";
-                break;
-            case TradePolicy::EImportPolicyMode::SingleResource:
-                ProductionFocusLine += L" / ";
-                {
-                    const std::wstring SelectionText =
-                        TradePolicy::BuildImportPolicySelectionDisplayText(
-                            ActiveImportPolicy);
-                    ProductionFocusLine +=
-                        SelectionText == L"없음" ? L"선택 자원" : SelectionText;
-                }
-                ProductionFocusLine += L" 투입 산업 우대";
-                break;
-            case TradePolicy::EImportPolicyMode::AllResources:
-            default:
-                if (TradePolicy::AllowsEmergencyImports(ActiveImportPolicy))
-                    ProductionFocusLine += L" / 수입 의존 산업 확장";
-                else
-                    ProductionFocusLine += L" / 균형 조달";
-                break;
-            }
 
             auto FormatSignedCurrency = [&](long long Value) -> std::wstring
             {
@@ -1471,7 +1323,7 @@ namespace
             const long long ForecastBudgetDelta =
                 TradePolicyRuntime::ComputeDailyTradePolicyBudgetDelta(
                     ActivePolicy,
-                    ActiveImportPolicy,
+                    TradePolicy::FImportTradePolicy(),
                     mMainWorldPolicyAccess ?
                         mMainWorldPolicyAccess->GetLastDailyExportIncome() :
                         0,

@@ -68,6 +68,10 @@ public:
 	}
 
 public:
+	virtual bool IsSimulationPaused() const { return false; }
+	virtual int GetSimulationSpeedMultiplier() const { return 1; }
+
+public:
 	void InputActive();
 	void InputDeactive();
 	virtual bool Init();

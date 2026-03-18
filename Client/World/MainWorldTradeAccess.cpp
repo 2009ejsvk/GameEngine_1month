@@ -27,6 +27,12 @@ public:
         return mOwner->GetCompletedTradeRoutes();
     }
 
+    const std::vector<FTradeOfferRuntimeState>&
+        GetAvailableTradeOffers() const override
+    {
+        return mOwner->GetAvailableTradeOffers();
+    }
+
     int GetTradeRouteCompletionNotificationVersion() const override
     {
         return mOwner->GetTradeRouteCompletionNotificationVersion();

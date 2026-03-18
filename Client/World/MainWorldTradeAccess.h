@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Economy/TradeDiplomacyRuntime.h"
+#include "../Economy/TradeOfferRuntimeState.h"
 #include "../Economy/TradeRouteRuntimeState.h"
 #include "../Building/BuildingTypes.h"
 #include <array>
@@ -21,6 +22,8 @@ public:
         GetActiveTradeRoutes() const = 0;
     virtual const std::vector<FTradeRouteCompletionRecord>&
         GetCompletedTradeRoutes() const = 0;
+    virtual const std::vector<FTradeOfferRuntimeState>&
+        GetAvailableTradeOffers() const = 0;
     virtual int GetTradeRouteCompletionNotificationVersion() const = 0;
     virtual int GetCustomsExportTradePriceModifierPercent() const = 0;
     virtual int GetCustomsImportTradePriceModifierPercent() const = 0;

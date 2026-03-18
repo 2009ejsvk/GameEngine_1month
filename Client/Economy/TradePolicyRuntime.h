@@ -2,6 +2,7 @@
 
 #include "../Building/BuildingTypes.h"
 #include "TradePolicy.h"
+#include "../GameConstants.h"
 #include <algorithm>
 
 namespace TradePolicyRuntime
@@ -76,53 +77,13 @@ namespace TradePolicyRuntime
                     break;
                 }
             }
-
-            switch (TradePolicy::GetDomesticReserveBufferUnits(ExportPolicy))
-            {
-            case 0:
-                if (MarketClass == EResourceMarketClass::Food)
-                    Bias -= 3;
-                else if (MarketClass == EResourceMarketClass::RawGoods)
-                    Bias += 2;
-                else if (MarketClass == EResourceMarketClass::ManufacturedGoods)
-                    Bias += 3;
-                else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias += 4;
-                break;
-            case 3000:
-                if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 4;
-                else if (MarketClass == EResourceMarketClass::RawGoods)
-                    Bias += 1;
-                else if (MarketClass == EResourceMarketClass::ManufacturedGoods)
-                    Bias -= 1;
-                else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias -= 2;
-                break;
-            case 6000:
-                if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 8;
-                else if (MarketClass == EResourceMarketClass::RawGoods)
-                    Bias += 2;
-                else if (MarketClass == EResourceMarketClass::ManufacturedGoods)
-                    Bias -= 3;
-                else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias -= 5;
-                break;
-            default:
-                break;
-            }
         }
         else
         {
             switch (MarketClass)
             {
             case EResourceMarketClass::Food:
-                Bias +=
-                    TradePolicy::GetDomesticReserveBufferUnits(ExportPolicy) >=
-                        3000 ?
-                    4 :
-                    -1;
+                Bias -= 1;
                 break;
             case EResourceMarketClass::RawGoods:
                 Bias -= 5;
@@ -235,43 +196,14 @@ namespace TradePolicyRuntime
         const TradePolicy::FExportTradePolicy& ExportPolicy,
         const TradePolicy::FImportTradePolicy& ImportPolicy)
     {
-        int Bias =
+        (void)InputTypes;
+        (void)ImportPolicy;
+        return ClampBiasPercent(
             ComputeExportProductionBiasPercent(
                 ProducedType,
-                ExportPolicy);
-        int InputBiasTotal = 0;
-        int InputCount = 0;
-
-        auto AccumulateInputBias = [&](EResourceType InputType)
-        {
-            if (InputType == EResourceType::None)
-                return;
-
-            InputBiasTotal +=
-                ComputeImportInputBiasPercent(
-                    InputType,
-                    ImportPolicy);
-            ++InputCount;
-        };
-
-        for (int SlotIndex = 0;
-            SlotIndex < GProductionInputSlotCount;
-            ++SlotIndex)
-        {
-            AccumulateInputBias(
-                InputTypes[static_cast<size_t>(SlotIndex)]);
-        }
-
-        if (InputCount > 0)
-        {
-            Bias +=
-                static_cast<int>((InputBiasTotal + (InputCount / 2)) / InputCount);
-
-            if (ImportPolicy.Mode == TradePolicy::EImportPolicyMode::None)
-                Bias -= 2;
-        }
-
-        return ClampBiasPercent(Bias, -22, 22);
+                ExportPolicy),
+            -22,
+            22);
     }
 
     inline float ComputeBuildingProductionMultiplier(
@@ -296,22 +228,6 @@ namespace TradePolicyRuntime
     {
         int Bias =
             ExportPolicy.PrioritizeHighValueCargo ? 4 : 2;
-        const int ReserveBufferUnits =
-            TradePolicy::GetDomesticReserveBufferUnits(ExportPolicy);
-
-        if (ReserveBufferUnits <= 0)
-        {
-            Bias += 2;
-        }
-        else if (ReserveBufferUnits >= 6000)
-        {
-            Bias -= 4;
-        }
-        else if (ReserveBufferUnits >= 3000)
-        {
-            Bias -= 1;
-        }
-
         int BlockedCount = 0;
 
         for (int ResourceIndex = 1;
@@ -396,56 +312,27 @@ namespace TradePolicyRuntime
         long long ExportIncome,
         long long ImportExpense)
     {
+        (void)ImportPolicy;
+        (void)ImportExpense;
         const int ExportBiasPercent =
             ComputeExportBudgetBiasPercent(ExportPolicy);
-        const int ImportBiasPercent =
-            ComputeImportBudgetBiasPercent(ImportPolicy);
-        long long Delta =
+        const long long Delta =
             ExportIncome * static_cast<long long>(ExportBiasPercent) / 100ll;
-        Delta -=
-            ImportExpense * static_cast<long long>(ImportBiasPercent) / 100ll;
 
         long long AdministrativeDelta =
             ExportPolicy.PrioritizeHighValueCargo ? 60ll : 20ll;
-        const int ReserveBufferUnits =
-            TradePolicy::GetDomesticReserveBufferUnits(ExportPolicy);
+        long long Result = Delta + AdministrativeDelta;
 
-        if (ReserveBufferUnits >= 6000)
-            AdministrativeDelta -= 140ll;
-        else if (ReserveBufferUnits >= 3000)
-            AdministrativeDelta -= 60ll;
-        else if (ReserveBufferUnits <= 0)
-            AdministrativeDelta += 40ll;
-
-        switch (ImportPolicy.Mode)
+        if (Result < 0)
         {
-        case TradePolicy::EImportPolicyMode::None:
-            AdministrativeDelta += 110ll;
-            break;
-        case TradePolicy::EImportPolicyMode::SingleResource:
-            AdministrativeDelta += 50ll;
-            break;
-        case TradePolicy::EImportPolicyMode::AllResources:
-        default:
-            AdministrativeDelta -= 20ll;
-            break;
+            Result = static_cast<long long>(std::llround(
+                static_cast<double>(Result) *
+                static_cast<double>((std::max)(
+                    0.f,
+                    GameConstants::Economy::
+                        NegativeTradePolicyBudgetDeltaMultiplier))));
         }
 
-        const int DailyBudgetCap =
-            TradePolicy::GetDailyImportBudgetCap(ImportPolicy);
-
-        if (DailyBudgetCap <= 0)
-            AdministrativeDelta -= 80ll;
-        else if (DailyBudgetCap <= 12000)
-            AdministrativeDelta += 90ll;
-        else if (DailyBudgetCap <= 24000)
-            AdministrativeDelta += 20ll;
-        else
-            AdministrativeDelta -= 40ll;
-
-        if (TradePolicy::AllowsEmergencyImports(ImportPolicy))
-            AdministrativeDelta -= 160ll;
-
-        return Delta + AdministrativeDelta;
+        return Result;
     }
 }

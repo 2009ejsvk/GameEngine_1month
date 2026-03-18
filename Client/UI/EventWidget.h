@@ -43,6 +43,7 @@ public:
     }
 
 private:
+    bool TryRedirectToTaskWidget();
     void RefreshFromState();
     void SetPopupVisible(bool Visible);
     void OnAcceptClick();

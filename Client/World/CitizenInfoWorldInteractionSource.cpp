@@ -146,14 +146,6 @@ namespace
 
             switch (Tab)
             {
-            case EBuildingInfoTab::Overview:
-                return CommandService->CycleAutoImportResource(OutMessage);
-            case EBuildingInfoTab::Statistics:
-                return CommandService->CycleDomesticReservePolicy(OutMessage);
-            case EBuildingInfoTab::Upgrades:
-                return CommandService->CycleImportPerResourceCap(OutMessage);
-            case EBuildingInfoTab::Efficiency:
-                return CommandService->CycleImportBudgetPolicy(OutMessage);
             case EBuildingInfoTab::Information:
                 return CommandService->CycleExportBlockedResource(OutMessage);
             default:

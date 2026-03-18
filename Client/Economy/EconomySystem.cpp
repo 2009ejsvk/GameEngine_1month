@@ -938,34 +938,6 @@ namespace
         return Candidate;
     }
 
-    int ResolveDomesticExportReserveAmount(
-        const FHarborTradeDemandSnapshot& DemandSnapshot,
-        EResourceType ResourceType,
-        const TradePolicy::FExportTradePolicy& ExportPolicy)
-    {
-        if (!IsConcreteEconomicResourceType(ResourceType))
-            return 0;
-
-        const size_t ResourceIndex = static_cast<size_t>(ResourceType);
-
-        if (ResourceIndex >= DemandSnapshot.ConsumerShortageByType.size())
-            return 0;
-
-        const long long BufferWeightMilli =
-            ResourceIndex <
-                DemandSnapshot.ConsumerReserveWeightMilliByType.size() ?
-                DemandSnapshot.ConsumerReserveWeightMilliByType[ResourceIndex] :
-                0;
-        const long long BufferUnits = static_cast<long long>(
-            TradePolicy::GetDomesticReserveBufferUnits(ExportPolicy));
-        const int DistributedBuffer = static_cast<int>(
-            (std::max)(
-                0ll,
-                (BufferUnits * BufferWeightMilli + 999ll) / 1000ll));
-        return DemandSnapshot.ConsumerShortageByType[ResourceIndex] +
-            DistributedBuffer;
-    }
-
     int ResolveEmergencyImportUnitPrice(EResourceType ResourceType)
     {
         const int NormalUnitPrice =
@@ -1032,7 +1004,7 @@ namespace
         {
             EResourceType Type = EResourceType::None;
             int UnitPrice = 0;
-            // Island-wide export allowance after domestic reserve protection.
+            // Island-wide export allowance from currently available stock.
             int GlobalHeadroom = 0;
             // What export hubs can actually ship right now from their current
             // local stock this planning tick.
@@ -1069,11 +1041,7 @@ namespace
             const int GlobalHeadroom = (std::max)(
                 0,
                 InOutDemandSnapshot.RemainingAvailableByType[
-                    ResourceArrayIndex] -
-                    ResolveDomesticExportReserveAmount(
-                        InOutDemandSnapshot,
-                        ResourceType,
-                        ExportPolicy));
+                    ResourceArrayIndex]);
 
             if (GlobalHeadroom <= 0)
                 continue;
@@ -1957,12 +1925,7 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
     std::vector<bool> ShipArrivedByBuilding(BuildingList.size(), false);
     std::vector<std::shared_ptr<EconomyWorldAccess::IEconomyBuildingAccess>>
         ArrivedExportHubs;
-    std::vector<std::shared_ptr<EconomyWorldAccess::IEconomyBuildingAccess>>
-        ArrivedHarbors;
     double PropertyTaxIncome = 0.0;
-    const long long ImportBudgetCap =
-        TradePolicy::GetDailyImportBudgetCap(
-            GovernmentProfile.ImportTradePolicy);
 
     for (size_t i = 0; i < BuildingList.size(); ++i)
     {
@@ -1976,6 +1939,19 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
         Result.WageCost += Building->GetDailyWageCost(DaysInMonth);
         const double BaseDailyUpkeep =
             static_cast<double>(Building->GetDailyUpkeepCost(DaysInMonth));
+        double PropertyTaxUpkeepReference = BaseDailyUpkeep;
+        const double UpkeepReliefMultiplier =
+            static_cast<double>((std::max)(
+                0.f,
+                GameConstants::Economy::BuildingUpkeepBaseMultiplier));
+
+        // Keep property-tax valuation independent from the maintenance relief
+        // multiplier so lowering upkeep does not also erase tax income.
+        if (UpkeepReliefMultiplier > 0.0001)
+        {
+            PropertyTaxUpkeepReference /=
+                UpkeepReliefMultiplier;
+        }
         double EffectiveUpkeepMultiplier = EventEffects.GlobalUpkeepMultiplier;
 
         if (Building->IsResidential())
@@ -1989,7 +1965,7 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
         PropertyTaxIncome +=
             (std::max)(
                 2.0,
-                BaseDailyUpkeep *
+                PropertyTaxUpkeepReference *
                 static_cast<double>(
                     GovernmentProfile.TaxPolicy.PropertyRatePercent) / 100.0);
 
@@ -2001,9 +1977,6 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
             if (ShipArrivedByBuilding[i])
             {
                 ArrivedExportHubs.push_back(Building);
-
-                if (Building->IsHarbor())
-                    ArrivedHarbors.push_back(Building);
             }
         }
     }
@@ -2033,26 +2006,12 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
         }
     }
 
-    AssignHarborImportPlans(
-        ArrivedHarbors,
-        GovernmentProfile.ImportTradePolicy,
-        ImportBudgetCap,
-        HarborTradeDemand,
-        HarborTradeDemand);
-
     for (size_t i = 0; i < BuildingList.size(); ++i)
     {
         const auto& Building = BuildingList[i];
 
         if (!IsOperationalBuilding(Building))
             continue;
-
-        if (Building->IsHarbor() && ShipArrivedByBuilding[i])
-        {
-            Result.ImportExpense += SettleHarborImportExpense(
-                Building,
-                HarborTradeDemand);
-        }
 
         if (Building->IsWarehouse())
             Building->ApplyDailyWarehouseStorageLoss();

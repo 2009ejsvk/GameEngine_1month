@@ -554,16 +554,8 @@ namespace CitizenInfoBuildingRuntime
             BuildingRecord.WarehousePolicySelectionText;
         OutSnapshot.WarehousePrioritySelectionText =
             BuildingRecord.WarehousePrioritySelectionText;
-        OutSnapshot.HarborDomesticReserveSelectionText =
-            BuildingRecord.HarborDomesticReserveSelectionText;
         OutSnapshot.HarborExportSelectionText =
             BuildingRecord.HarborExportSelectionText;
-        OutSnapshot.HarborImportCapSelectionText =
-            BuildingRecord.HarborImportCapSelectionText;
-        OutSnapshot.HarborImportBudgetSelectionText =
-            BuildingRecord.HarborImportBudgetSelectionText;
-        OutSnapshot.HarborImportSelectionText =
-            BuildingRecord.HarborImportSelectionText;
 
         if (OutSnapshot.Warehouse)
         {

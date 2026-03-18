@@ -784,6 +784,39 @@ bool CPlacementController::TryCommitActivePlacement()
     if (!WasPlaced && IsPlaced)
     {
         RegisterBuildingToOrbs(ActivePlacementObject->GetName());
+
+        auto World = mWorld.lock();
+
+        if (World)
+        {
+            auto MainWorldAccess = ResolveMainWorldBuildMenuAccess(World);
+
+            if (MainWorldAccess)
+            {
+                const FBuildingCatalogEntry* Entry =
+                    FindBuildingCatalogEntry(
+                        ActivePlacementObject->GetBuildingId());
+
+                if (Entry)
+                {
+                    int Cost = 0;
+
+                    if (Entry->ConstructionCostState == EBuildingCostState::Known &&
+                        Entry->ConstructionCost > 0)
+                    {
+                        Cost = Entry->ConstructionCost;
+                    }
+                    else if (Entry->BlueprintCostState == EBuildingCostState::Known &&
+                        Entry->BlueprintCost > 0)
+                    {
+                        Cost = Entry->BlueprintCost;
+                    }
+
+                    if (Cost > 0)
+                        MainWorldAccess->SpendBuildingCost(Cost);
+                }
+            }
+        }
     }
 
     if (IsRoadBrushPlacement && IsPlaced)

@@ -44,11 +44,7 @@ namespace CitizenInfoBuildingRuntime
         std::vector<std::wstring> HarborPriorityLines;
         std::wstring WarehousePolicySelectionText;
         std::wstring WarehousePrioritySelectionText;
-        std::wstring HarborDomesticReserveSelectionText;
         std::wstring HarborExportSelectionText;
-        std::wstring HarborImportCapSelectionText;
-        std::wstring HarborImportBudgetSelectionText;
-        std::wstring HarborImportSelectionText;
         std::vector<std::string> Residents;
         std::vector<std::string> AssignedEmployees;
         std::vector<std::string> WorkingEmployees;

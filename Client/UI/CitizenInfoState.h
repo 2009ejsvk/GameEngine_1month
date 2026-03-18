@@ -27,6 +27,9 @@ struct FCitizenInfoBuildingState
         CitizenInfoConstants::EBuildingInfoTab::Overview;
     std::string TrackedBuildingName;
     bool CustomsModeSelectionOpen = false;
+    int OperationModeCount = 0;
+    int OperationModeSelectionPageIndex = -1;
+    int OperationModeSelectionPageCount = 0;
     bool OverviewMetricScrollActive = false;
     int OverviewMetricScrollOffset = 0;
     int OverviewMetricScrollVisibleLineCount = 0;

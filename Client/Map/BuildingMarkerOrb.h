@@ -71,6 +71,8 @@ private:
     bool mHasStartPos = false;
     float mRuntimeTraceAccum = 0.f;
     FOrbAnimationState mAnimationState;
+    float mSmoothedApproval = 50.f;
+    bool mSmoothedApprovalInitialized = false;
 #ifdef _DEBUG
     bool mDebugMissingDependencyLogged = false;
     bool mDebugMissingMarkerLogged = false;
@@ -81,6 +83,32 @@ public:
     float GetOrbDiameter() const
     {
         return mOrbDiameter;
+    }
+
+    float GetSmoothedApproval() const
+    {
+        return mSmoothedApproval;
+    }
+
+    void UpdateSmoothedApproval(float TargetApproval)
+    {
+        if (!mSmoothedApprovalInitialized)
+        {
+            mSmoothedApproval = TargetApproval;
+            mSmoothedApprovalInitialized = true;
+            return;
+        }
+
+        constexpr float LerpRate = 0.08f;
+        constexpr float MaxDecreasePerDay = 4.0f;
+        constexpr float MaxIncreasePerDay = 3.0f;
+        const float Delta = TargetApproval - mSmoothedApproval;
+        const float MaxDelta = (Delta < 0.f) ? -MaxDecreasePerDay : MaxIncreasePerDay;
+        const float ClampedDelta =
+            (std::abs(Delta) > std::abs(MaxDelta)) ? MaxDelta : Delta;
+        mSmoothedApproval += ClampedDelta * LerpRate;
+        mSmoothedApproval =
+            (std::max)(0.f, (std::min)(100.f, mSmoothedApproval));
     }
 
     float GetArrivalDistance() const

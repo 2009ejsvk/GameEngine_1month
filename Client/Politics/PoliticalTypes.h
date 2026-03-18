@@ -74,7 +74,9 @@ enum class EPoliticalActionType
     IndustrialSubsidy,
     LaborTaxRelief,
     PropertyTaxRelief,
-    AusterityProgram
+    AusterityProgram,
+    LaborNegotiation,
+    WelfareSupport
 };
 
 enum class EEdictEra
@@ -145,7 +147,9 @@ enum class EGovernmentEdictType
     SoapOpera,
     LaborTaxRelief,
     PropertyTaxRelief,
-    EmergencyAusterity
+    EmergencyAusterity,
+    LaborNegotiation,
+    EmergencyWelfareSupport
 };
 
 enum class EGovernmentEdictMode

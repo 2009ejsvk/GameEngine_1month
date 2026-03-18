@@ -31,6 +31,9 @@ namespace GameConstants
     namespace Politics
     {
         float CitizenPoliticalShiftIntervalSeconds = 12.f;
+        float ApprovalLerpRate = 0.08f;
+        float ApprovalMaxDecreasePerDay = 4.0f;
+        float ApprovalMaxIncreasePerDay = 3.0f;
     }
 
     namespace Economy
@@ -39,6 +42,10 @@ namespace GameConstants
         int HarborImportMaxPerResourcePerShip = 1500;
         float ProductionInputBufferSeconds = 8.f;
         float ProductionMaxBufferedUnits = 3.f;
+        float BuildingWageBaseMultiplier = 0.85f;
+        float BuildingUpkeepBaseMultiplier = 0.65f;
+        float ExportPriceBaseMultiplier = 1.50f;
+        float NegativeTradePolicyBudgetDeltaMultiplier = 0.35f;
         double DailyConsumptionSpendBase = 30.0;
         double DailyWorkerIncomeBase = 66.6666666667;
         double DailyResidenceValueBase = 11.4285714286;
@@ -69,6 +76,12 @@ namespace GameConstants
 
     namespace MainWorld
     {
+        // Era-based demand threshold multipliers
+        // Indices: 0=Colonial, 1=WorldWars, 2=ColdWar, 3=Modern
+        float EraDemandThresholdMultipliers[4] = { 0.75f, 0.85f, 0.95f, 1.00f };
+        float EraCrisisCooldownMultipliers[4]  = { 1.75f, 1.40f, 1.15f, 1.00f };
+        float EraFactionMemberMinMultipliers[4] = { 1.67f, 1.33f, 1.00f, 1.00f };
+
         namespace Trade
         {
             int MaxActiveTradeRouteCount = 10;
@@ -96,7 +109,7 @@ namespace GameConstants
 
             FHousingDemandTuning Communists =
             {
-                58, 1, 58, 72, 10, 1200, 18, 9, -12, 1.2f, 1.0f, 1.6f
+                46, 1, 58, 72, 10, 1200, 18, 9, -12, 1.2f, 1.0f, 1.6f
             };
             FTaxCeilingDemandTuning Capitalists =
             {
@@ -104,15 +117,15 @@ namespace GameConstants
             };
             FScoreDemandTuning Religious =
             {
-                58, 58, 72, 10, 1500, 8, -11, 1.1f, 1.2f
+                46, 58, 72, 10, 1500, 8, -11, 1.1f, 1.2f
             };
             FScoreDemandTuning Militarists =
             {
-                60, 60, 76, 10, 1700, 8, -11, 1.1f, 1.3f
+                48, 60, 76, 10, 1700, 8, -11, 1.1f, 1.3f
             };
             FScoreDemandTuning Environmentalists =
             {
-                60, 60, 74, 9, 1600, 9, -12, 1.1f, 1.2f
+                48, 60, 74, 9, 1600, 9, -12, 1.1f, 1.2f
             };
             FExportIncomeDemandTuning Industrialists =
             {
@@ -120,7 +133,7 @@ namespace GameConstants
             };
             FScoreDemandTuning Intellectuals =
             {
-                60, 60, 76, 10, 1500, 9, -12, 1.15f, 1.3f
+                48, 60, 76, 10, 1500, 9, -12, 1.15f, 1.3f
             };
             FTaxCeilingDemandTuning Conservatives =
             {
@@ -137,19 +150,19 @@ namespace GameConstants
             };
             FForeignScoreDemandTuning Russia =
             {
-                60, 60, 1.4f
+                48, 60, 1.4f
             };
             FForeignScoreDemandTuning UnitedStates =
             {
-                60, 60, 1.4f
+                48, 60, 1.4f
             };
             FForeignScoreDemandTuning MiddleEast =
             {
-                58, 58, 1.3f
+                46, 58, 1.3f
             };
             FForeignScoreDemandTuning EuropeanUnion =
             {
-                60, 60, 1.4f
+                48, 60, 1.4f
             };
         }
 
@@ -198,7 +211,7 @@ namespace GameConstants
         namespace WorldCrisis
         {
             int RaidDurationDays = 7;
-            int LaborStrikeDurationDays = 8;
+            int LaborStrikeDurationDays = 6;
             int CrimeWaveDurationDays = 9;
             int FiscalEmergencyDurationDays = 8;
             int SuccessCooldownDays = 20;
@@ -206,10 +219,10 @@ namespace GameConstants
             int StartNotificationDays = 6;
             int ResolvedNotificationDays = 8;
 
-            float SeverityDurationDivisorDays = 6.f;
-            float FollowupSuccessBaseCarryover = 0.06f;
-            float FollowupFailureBaseCarryover = 0.18f;
-            float FollowupSeverityCarryoverWeight = 0.18f;
+            float SeverityDurationDivisorDays = 5.f;
+            float FollowupSuccessBaseCarryover = 0.04f;
+            float FollowupFailureBaseCarryover = 0.12f;
+            float FollowupSeverityCarryoverWeight = 0.10f;
             float LightPressureSeverityThreshold = 0.35f;
             float HeavyPressureSeverityThreshold = 0.72f;
 
@@ -264,7 +277,7 @@ namespace GameConstants
             };
             FImmediateBudgetTuning LaborStrikeImmediateBudget =
             {
-                250, 500.f
+                150, 300.f
             };
             FImmediateBudgetTuning CrimeWaveImmediateBudget =
             {
@@ -411,11 +424,18 @@ namespace
         Citizen::BusRouteCapacity = 20;
 
         Politics::CitizenPoliticalShiftIntervalSeconds = 12.f;
+        Politics::ApprovalLerpRate = 0.08f;
+        Politics::ApprovalMaxDecreasePerDay = 4.0f;
+        Politics::ApprovalMaxIncreasePerDay = 3.0f;
 
         Economy::HarborImportTargetStockPerConsumer = 1000;
         Economy::HarborImportMaxPerResourcePerShip = 1500;
         Economy::ProductionInputBufferSeconds = 8.f;
         Economy::ProductionMaxBufferedUnits = 3.f;
+        Economy::BuildingWageBaseMultiplier = 0.85f;
+        Economy::BuildingUpkeepBaseMultiplier = 0.65f;
+        Economy::ExportPriceBaseMultiplier = 1.50f;
+        Economy::NegativeTradePolicyBudgetDeltaMultiplier = 0.35f;
         Economy::DailyConsumptionSpendBase = 30.0;
         Economy::DailyWorkerIncomeBase = 66.6666666667;
         Economy::DailyResidenceValueBase = 11.4285714286;
@@ -441,6 +461,21 @@ namespace
         Orb::PoliticalShiftIntervalSeconds =
             Politics::CitizenPoliticalShiftIntervalSeconds;
 
+        MainWorld::EraDemandThresholdMultipliers[0] = 0.75f;
+        MainWorld::EraDemandThresholdMultipliers[1] = 0.85f;
+        MainWorld::EraDemandThresholdMultipliers[2] = 0.95f;
+        MainWorld::EraDemandThresholdMultipliers[3] = 1.00f;
+
+        MainWorld::EraCrisisCooldownMultipliers[0] = 1.75f;
+        MainWorld::EraCrisisCooldownMultipliers[1] = 1.40f;
+        MainWorld::EraCrisisCooldownMultipliers[2] = 1.15f;
+        MainWorld::EraCrisisCooldownMultipliers[3] = 1.00f;
+
+        MainWorld::EraFactionMemberMinMultipliers[0] = 1.67f;
+        MainWorld::EraFactionMemberMinMultipliers[1] = 1.33f;
+        MainWorld::EraFactionMemberMinMultipliers[2] = 1.00f;
+        MainWorld::EraFactionMemberMinMultipliers[3] = 1.00f;
+
         MainWorld::Trade::MaxActiveTradeRouteCount = 10;
         MainWorld::Trade::MaxCompletedTradeRouteRecordCount = 12;
         MainWorld::Trade::MinAmountUnits = 1000;
@@ -463,7 +498,7 @@ namespace
 
         MainWorld::PoliticalDemand::Communists =
         {
-            58, 1, 58, 72, 10, 1200, 18, 9, -12, 1.2f, 1.0f, 1.6f
+            46, 1, 58, 72, 10, 1200, 18, 9, -12, 1.2f, 1.0f, 1.6f
         };
         MainWorld::PoliticalDemand::Capitalists =
         {
@@ -471,15 +506,15 @@ namespace
         };
         MainWorld::PoliticalDemand::Religious =
         {
-            58, 58, 72, 10, 1500, 8, -11, 1.1f, 1.2f
+            46, 58, 72, 10, 1500, 8, -11, 1.1f, 1.2f
         };
         MainWorld::PoliticalDemand::Militarists =
         {
-            60, 60, 76, 10, 1700, 8, -11, 1.1f, 1.3f
+            48, 60, 76, 10, 1700, 8, -11, 1.1f, 1.3f
         };
         MainWorld::PoliticalDemand::Environmentalists =
         {
-            60, 60, 74, 9, 1600, 9, -12, 1.1f, 1.2f
+            48, 60, 74, 9, 1600, 9, -12, 1.1f, 1.2f
         };
         MainWorld::PoliticalDemand::Industrialists =
         {
@@ -487,7 +522,7 @@ namespace
         };
         MainWorld::PoliticalDemand::Intellectuals =
         {
-            60, 60, 76, 10, 1500, 9, -12, 1.15f, 1.3f
+            48, 60, 76, 10, 1500, 9, -12, 1.15f, 1.3f
         };
         MainWorld::PoliticalDemand::Conservatives =
         {
@@ -503,19 +538,19 @@ namespace
         };
         MainWorld::PoliticalDemand::Russia =
         {
-            60, 60, 1.4f
+            48, 60, 1.4f
         };
         MainWorld::PoliticalDemand::UnitedStates =
         {
-            60, 60, 1.4f
+            48, 60, 1.4f
         };
         MainWorld::PoliticalDemand::MiddleEast =
         {
-            58, 58, 1.3f
+            46, 58, 1.3f
         };
         MainWorld::PoliticalDemand::EuropeanUnion =
         {
-            60, 60, 1.4f
+            48, 60, 1.4f
         };
 
         MainWorld::ElectionPromise::Housing =
@@ -555,7 +590,7 @@ namespace
         MainWorld::TradeDiplomacy::RelationIdleDecayIntervalDays = 30;
 
         MainWorld::WorldCrisis::RaidDurationDays = 7;
-        MainWorld::WorldCrisis::LaborStrikeDurationDays = 8;
+        MainWorld::WorldCrisis::LaborStrikeDurationDays = 6;
         MainWorld::WorldCrisis::CrimeWaveDurationDays = 9;
         MainWorld::WorldCrisis::FiscalEmergencyDurationDays = 8;
         MainWorld::WorldCrisis::SuccessCooldownDays = 20;
@@ -563,10 +598,10 @@ namespace
         MainWorld::WorldCrisis::StartNotificationDays = 6;
         MainWorld::WorldCrisis::ResolvedNotificationDays = 8;
 
-        MainWorld::WorldCrisis::SeverityDurationDivisorDays = 6.f;
-        MainWorld::WorldCrisis::FollowupSuccessBaseCarryover = 0.06f;
-        MainWorld::WorldCrisis::FollowupFailureBaseCarryover = 0.18f;
-        MainWorld::WorldCrisis::FollowupSeverityCarryoverWeight = 0.18f;
+        MainWorld::WorldCrisis::SeverityDurationDivisorDays = 5.f;
+        MainWorld::WorldCrisis::FollowupSuccessBaseCarryover = 0.04f;
+        MainWorld::WorldCrisis::FollowupFailureBaseCarryover = 0.12f;
+        MainWorld::WorldCrisis::FollowupSeverityCarryoverWeight = 0.10f;
         MainWorld::WorldCrisis::LightPressureSeverityThreshold = 0.35f;
         MainWorld::WorldCrisis::HeavyPressureSeverityThreshold = 0.72f;
 
@@ -621,7 +656,7 @@ namespace
         };
         MainWorld::WorldCrisis::LaborStrikeImmediateBudget =
         {
-            250, 500.f
+            150, 300.f
         };
         MainWorld::WorldCrisis::CrimeWaveImmediateBudget =
         {
@@ -1282,6 +1317,14 @@ namespace
                 Economy::ProductionInputBufferSeconds = Value;
             else if (Key == "productionmaxbufferedunits")
                 Economy::ProductionMaxBufferedUnits = Value;
+            else if (Key == "buildingwagebasemultiplier")
+                Economy::BuildingWageBaseMultiplier = Value;
+            else if (Key == "buildingupkeepbasemultiplier")
+                Economy::BuildingUpkeepBaseMultiplier = Value;
+            else if (Key == "exportpricebasemultiplier")
+                Economy::ExportPriceBaseMultiplier = Value;
+            else if (Key == "negativetradepolicybudgetdeltamultiplier")
+                Economy::NegativeTradePolicyBudgetDeltaMultiplier = Value;
             else
                 return false;
 

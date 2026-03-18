@@ -15,6 +15,7 @@ namespace CitizenInfoDataProvider
         const std::string& BuildingName,
         int SelectedBuildingTabIndex,
         bool ShowCustomsModeSelection,
+        int RequestedOperationModeSelectionPageIndex,
         int OverviewMetricScrollOffset)
     {
         FBuildingUiSnapshot BuildingSnapshot;
@@ -43,10 +44,66 @@ namespace CitizenInfoDataProvider
         const bool IsCustomsOffice =
             CitizenInfoBuildingRuntime::IsCustomsOfficeBuilding(
                 BuildingSnapshot);
+        const int OperationModeCount =
+            static_cast<int>(BuildingSnapshot.OperationModes.size());
+        const int VisibleOperationModeButtonCount =
+            static_cast<int>(Result.BudgetButtonLabels.size());
+        const bool SupportsOperationModeSelection =
+            Result.SelectedTabIndex == 0 &&
+            !BuildingSnapshot.Harbor &&
+            OperationModeCount > 0;
+        const bool ShowOperationModeSelectionPage =
+            SupportsOperationModeSelection &&
+            ShowCustomsModeSelection;
         const bool ShowCustomsModePage =
             IsCustomsOffice &&
-            Result.SelectedTabIndex == 0 &&
-            ShowCustomsModeSelection;
+            ShowOperationModeSelectionPage;
+        const bool ShowGenericOperationModeSelectionPage =
+            !IsCustomsOffice &&
+            ShowOperationModeSelectionPage;
+        int OperationModeSelectionPageCount = 0;
+        int OperationModeSelectionPageIndex = 0;
+        int OperationModeSelectionStartIndex = 0;
+
+        if (ShowOperationModeSelectionPage &&
+            VisibleOperationModeButtonCount > 0)
+        {
+            OperationModeSelectionPageCount =
+                (std::max)(
+                    1,
+                    (OperationModeCount +
+                        VisibleOperationModeButtonCount - 1) /
+                        VisibleOperationModeButtonCount);
+
+            const int ActivePageIndex =
+                (std::max)(
+                    0,
+                    (std::min)(
+                        OperationModeSelectionPageCount - 1,
+                        BuildingSnapshot.ActiveOperationModeIndex /
+                            VisibleOperationModeButtonCount));
+            OperationModeSelectionPageIndex =
+                RequestedOperationModeSelectionPageIndex >= 0 ?
+                    (std::max)(
+                        0,
+                        (std::min)(
+                            RequestedOperationModeSelectionPageIndex,
+                            OperationModeSelectionPageCount - 1)) :
+                    ActivePageIndex;
+            OperationModeSelectionStartIndex =
+                OperationModeSelectionPageIndex *
+                VisibleOperationModeButtonCount;
+        }
+
+        Result.OperationModeCount = OperationModeCount;
+        Result.ShowOperationModeSelectionPage =
+            ShowOperationModeSelectionPage;
+        Result.OperationModeSelectionPageIndex =
+            OperationModeSelectionPageIndex;
+        Result.OperationModeSelectionPageCount =
+            OperationModeSelectionPageCount;
+        Result.SelectedBudgetButtonIndex =
+            Result.BudgetLevel - 1;
 
         if (BuildingSnapshot.CatalogEntry)
         {
@@ -93,12 +150,12 @@ namespace CitizenInfoDataProvider
             CitizenInfoPresentation::ResolveBuildingPageTitle(
                 BuildingSnapshot,
                 Result.SelectedTabIndex,
-                ShowCustomsModePage);
+                ShowOperationModeSelectionPage);
         Result.ShowTabButtons = true;
         Result.ShowBudgetControls = Result.SelectedTabIndex == 0;
         Result.ShowActionButtons =
             Result.SelectedTabIndex == 0 &&
-            !ShowCustomsModePage;
+            !ShowOperationModeSelectionPage;
         Result.ShowDemolishButton = Result.ShowActionButtons;
         Result.ShowMoveButton =
             Result.ShowActionButtons &&
@@ -109,7 +166,7 @@ namespace CitizenInfoDataProvider
             BuildingSnapshot.Residential;
         Result.ShowBuildingWorkOverview =
             Result.SelectedTabIndex == 0 &&
-            !ShowCustomsModePage &&
+            !ShowOperationModeSelectionPage &&
             (IsCustomsOffice ||
                 CitizenInfoPresentation::UseGenericBuildingWorkOverview(
                     BuildingSnapshot));
@@ -121,10 +178,8 @@ namespace CitizenInfoDataProvider
             CitizenInfoBuildingRuntime::IsHydroponicFarmBuilding(
                 BuildingSnapshot);
         const bool ShowOperationModeCommand =
-            Result.SelectedTabIndex == 0 &&
-            !BuildingSnapshot.Harbor &&
-            !IsCustomsOffice &&
-            !BuildingSnapshot.OperationModes.empty();
+            SupportsOperationModeSelection &&
+            !IsCustomsOffice;
         const bool ShowOverviewWorkModeCommand =
             ShowOperationModeCommand &&
             (Result.ShowBuildingWorkOverview ||
@@ -146,18 +201,6 @@ namespace CitizenInfoDataProvider
             Result.SelectedTabIndex == 1 &&
             BuildingSnapshot.DamageLevel != EBuildingDamageLevel::None &&
             BuildingSnapshot.RepairAffordable;
-        const bool ShowHarborImportCommand =
-            Result.SelectedTabIndex == 0 &&
-            BuildingSnapshot.Harbor;
-        const bool ShowHarborReserveCommand =
-            Result.SelectedTabIndex == 1 &&
-            BuildingSnapshot.Harbor;
-        const bool ShowHarborImportCapCommand =
-            Result.SelectedTabIndex == 2 &&
-            BuildingSnapshot.Harbor;
-        const bool ShowHarborImportBudgetCommand =
-            Result.SelectedTabIndex == 3 &&
-            BuildingSnapshot.Harbor;
         const bool ShowHarborExportCommand =
             Result.SelectedTabIndex == 4 &&
             BuildingSnapshot.Harbor;
@@ -168,24 +211,23 @@ namespace CitizenInfoDataProvider
         const bool ShowCustomsBackCommand =
             ShowCustomsModePage;
         Result.ShowOverviewWorkModeButton =
-            ShowOverviewWorkModeCommand;
+            ShowOverviewWorkModeCommand &&
+            !ShowOperationModeSelectionPage;
         Result.ShowOverviewCommandButton =
             ShowCustomsTradeCommand ||
             ShowCustomsBackCommand ||
+            ShowGenericOperationModeSelectionPage ||
             ShowRepairCommand ||
             (ShowOperationModeCommand &&
-                !ShowOverviewWorkModeCommand) ||
+                !ShowOverviewWorkModeCommand &&
+                !ShowOperationModeSelectionPage) ||
             ShowWarehousePolicyCommand ||
             ShowRuntimeUpgradeCommand ||
             ShowWarehousePriorityCommand ||
             ShowHydroponicCommand ||
-            ShowHarborImportCommand ||
-            ShowHarborReserveCommand ||
-            ShowHarborImportCapCommand ||
-            ShowHarborImportBudgetCommand ||
             ShowHarborExportCommand;
         Result.OverviewCommandButtonText.clear();
-        Result.ShowBudgetText = !ShowCustomsModePage;
+        Result.ShowBudgetText = !ShowOperationModeSelectionPage;
 
         for (size_t Index = 0; Index < Result.BudgetButtonLabels.size(); ++Index)
         {
@@ -202,6 +244,30 @@ namespace CitizenInfoDataProvider
         {
             Result.OverviewCommandButtonText = L"뒤로";
         }
+        else if (ShowGenericOperationModeSelectionPage)
+        {
+            if (Result.OperationModeSelectionPageCount > 1)
+            {
+                const int CurrentPageNumber =
+                    Result.OperationModeSelectionPageIndex + 1;
+                const int TotalPageCount =
+                    Result.OperationModeSelectionPageCount;
+                Result.OverviewCommandButtonText =
+                    CurrentPageNumber >= TotalPageCount ?
+                        L"처음 선택지" :
+                        L"다음 선택지";
+                Result.OverviewCommandButtonText +=
+                    L" (" +
+                    std::to_wstring(CurrentPageNumber) +
+                    L"/" +
+                    std::to_wstring(TotalPageCount) +
+                    L")";
+            }
+            else
+            {
+                Result.OverviewCommandButtonText = L"뒤로";
+            }
+        }
         else if (ShowRepairCommand)
         {
             Result.OverviewCommandButtonText =
@@ -212,7 +278,7 @@ namespace CitizenInfoDataProvider
         else if (ShowOperationModeCommand)
         {
             Result.OverviewCommandButtonText =
-                Ui(L"citizen_info.action.operation_mode_cycle") +
+                std::wstring(L"운영 모드 선택") +
                 L": " +
                 (BuildingSnapshot.ActiveOperationModeText.empty() ?
                     L"-" :
@@ -245,42 +311,6 @@ namespace CitizenInfoDataProvider
                     L"-" :
                     BuildingSnapshot.WarehousePrioritySelectionText);
         }
-        else if (ShowHarborImportCommand)
-        {
-            Result.OverviewCommandButtonText =
-                Ui(L"citizen_info.action.auto_import_cycle") +
-                L": " +
-                (BuildingSnapshot.HarborImportSelectionText.empty() ?
-                    L"-" :
-                    BuildingSnapshot.HarborImportSelectionText);
-        }
-        else if (ShowHarborReserveCommand)
-        {
-            Result.OverviewCommandButtonText =
-                Ui(L"citizen_info.action.domestic_reserve_cycle") +
-                L": " +
-                (BuildingSnapshot.HarborDomesticReserveSelectionText.empty() ?
-                    L"-" :
-                    BuildingSnapshot.HarborDomesticReserveSelectionText);
-        }
-        else if (ShowHarborImportCapCommand)
-        {
-            Result.OverviewCommandButtonText =
-                Ui(L"citizen_info.action.import_cap_cycle") +
-                L": " +
-                (BuildingSnapshot.HarborImportCapSelectionText.empty() ?
-                    L"-" :
-                    BuildingSnapshot.HarborImportCapSelectionText);
-        }
-        else if (ShowHarborImportBudgetCommand)
-        {
-            Result.OverviewCommandButtonText =
-                Ui(L"citizen_info.action.import_budget_cycle") +
-                L": " +
-                (BuildingSnapshot.HarborImportBudgetSelectionText.empty() ?
-                    L"-" :
-                    BuildingSnapshot.HarborImportBudgetSelectionText);
-        }
         else if (ShowHarborExportCommand)
         {
             Result.OverviewCommandButtonText =
@@ -296,20 +326,31 @@ namespace CitizenInfoDataProvider
                 Ui(L"citizen_info.action.change_resource");
         }
 
-        if (ShowCustomsModePage)
+        if (ShowOperationModeSelectionPage)
         {
-            Result.BudgetLevel =
-                (std::max)(1, BuildingSnapshot.ActiveOperationModeIndex + 1);
+            Result.SelectedBudgetButtonIndex = -1;
 
             for (size_t Index = 0;
                 Index < Result.BudgetButtonLabels.size();
                 ++Index)
             {
-                if (Index < BuildingSnapshot.OperationModes.size())
+                const int ModeIndex =
+                    OperationModeSelectionStartIndex +
+                    static_cast<int>(Index);
+
+                if (ModeIndex < OperationModeCount)
                 {
                     Result.BudgetButtonLabels[Index] =
-                        BuildingSnapshot.OperationModes[Index];
+                        BuildingSnapshot.OperationModes[
+                            static_cast<size_t>(ModeIndex)];
                     Result.BudgetButtonEnabled[Index] = true;
+
+                    if (ModeIndex ==
+                        BuildingSnapshot.ActiveOperationModeIndex)
+                    {
+                        Result.SelectedBudgetButtonIndex =
+                            static_cast<int>(Index);
+                    }
                 }
                 else
                 {
@@ -346,7 +387,7 @@ namespace CitizenInfoDataProvider
         }
 
         if (Result.SelectedTabIndex == 2 &&
-            !ShowCustomsModePage &&
+            !ShowOperationModeSelectionPage &&
             CitizenInfoPresentation::PopulateBuildingUpgradeCard(
                 BuildingSnapshot,
                 Result))
@@ -357,7 +398,7 @@ namespace CitizenInfoDataProvider
         }
 
         if (Result.SelectedTabIndex == 4 &&
-            !ShowCustomsModePage &&
+            !ShowOperationModeSelectionPage &&
             CitizenInfoPresentation::PopulateBuildingInformationPanel(
                 BuildingSnapshot,
                 Result))
@@ -390,7 +431,7 @@ namespace CitizenInfoDataProvider
         }
 
         if (Result.SelectedTabIndex == 0 &&
-            !ShowCustomsModePage)
+            !ShowOperationModeSelectionPage)
         {
             CitizenInfoPresentation::PopulateOverviewStageBadge(
                 BuildingSnapshot,
@@ -420,7 +461,7 @@ namespace CitizenInfoDataProvider
 
         Result.ShowSectionRibbon =
             Result.SelectedTabIndex != 0 &&
-            !ShowCustomsModePage;
+            !ShowOperationModeSelectionPage;
 
         switch (Result.SelectedTabIndex)
         {
@@ -449,7 +490,7 @@ namespace CitizenInfoDataProvider
         case 0:
         default:
             Result.BodyText =
-                ShowCustomsModePage ?
+                ShowOperationModeSelectionPage ?
                     CitizenInfoPresentation::BuildCustomsModeSelectionBody(
                         BuildingSnapshot) :
                 Result.ShowBuildingOverview ?
@@ -467,6 +508,7 @@ namespace CitizenInfoDataProvider
         const std::string& BuildingName,
         int SelectedBuildingTabIndex,
         bool ShowCustomsModeSelection,
+        int RequestedOperationModeSelectionPageIndex,
         int OverviewMetricScrollOffset)
     {
         return BuildTrackedBuildingSnapshot(
@@ -474,6 +516,7 @@ namespace CitizenInfoDataProvider
             BuildingName,
             SelectedBuildingTabIndex,
             ShowCustomsModeSelection,
+            RequestedOperationModeSelectionPageIndex,
             OverviewMetricScrollOffset);
     }
 }

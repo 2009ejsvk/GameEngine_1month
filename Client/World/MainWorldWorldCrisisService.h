@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Politics/PoliticalTypes.h"
+#include "../Building/BuildingTypes.h"
 #include <memory>
 #include <vector>
 
@@ -33,6 +34,7 @@ public:
         long long& NationalBudget;
         long long& LastDailyNetChange;
         double LastDailyTaxCollectionEfficiency = 0.0;
+        EBuildingEra CurrentEra = EBuildingEra::Colonial;
     };
 
 public:
@@ -49,6 +51,18 @@ public:
         return mWorldCrisisStatus;
     }
 
+    bool IsLaborStrikeWarningActive() const
+    {
+        return mLaborStrikeWarningActive;
+    }
+
+    bool IsLaborStrikeImminent() const
+    {
+        return mLaborStrikeImminent;
+    }
+
+    bool ForceEndActiveCrisis(bool Success, EBuildingEra CurrentEra);
+
 private:
     int mRaidPressureDays = 0;
     int mLaborStrikePressureDays = 0;
@@ -60,4 +74,6 @@ private:
     int mQueuedWorldCrisisDelayDays = 0;
     int mQueuedWorldCrisisChainDepth = 0;
     FWorldCrisisStatus mWorldCrisisStatus;
+    bool mLaborStrikeWarningActive = false;
+    bool mLaborStrikeImminent = false;
 };

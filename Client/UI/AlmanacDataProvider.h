@@ -70,6 +70,7 @@ namespace AlmanacDataProvider
         long long DailyImportExpense = 0;
         long long DailyNetChange = 0;
         double TaxCollectionEfficiency = 0.0;
+        FEconomyLedgerHistorySnapshot EconomyLedgerHistory;
         int DaysUntilNextElection = -1;
         double ElectionWarningScore = 0.0;
         FPoliticalWorldSnapshot PoliticalSnapshot;
@@ -145,6 +146,7 @@ namespace AlmanacDataProvider
         long long DailyImportExpense = 0;
         long long DailyNetChange = 0;
         double TaxCollectionEfficiency = 0.0;
+        FEconomyLedgerHistorySnapshot EconomyLedgerHistory;
         int DaysUntilNextElection = -1;
         double ElectionWarningScore = 0.0;
         double AverageFood = 0.0;

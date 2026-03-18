@@ -14,6 +14,36 @@ namespace
 {
     namespace MWWorldCrisis = GameConstants::MainWorld::WorldCrisis;
 
+    int GetEraIndex(EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::WorldWars: return 1;
+        case EBuildingEra::ColdWar:   return 2;
+        case EBuildingEra::Modern:    return 3;
+        case EBuildingEra::Colonial:
+        default:                      return 0;
+        }
+    }
+
+    void ApplyEraCooldownMultiplier(
+        FWorldCrisisStatus& InOutStatus,
+        EBuildingEra Era)
+    {
+        if (InOutStatus.CooldownDays <= 0)
+            return;
+
+        const int EraIndex = GetEraIndex(Era);
+        const float Multiplier =
+            GameConstants::MainWorld::EraCrisisCooldownMultipliers[EraIndex];
+
+        if (Multiplier != 1.0f)
+        {
+            InOutStatus.CooldownDays = static_cast<int>(
+                static_cast<float>(InOutStatus.CooldownDays) * Multiplier + 0.5f);
+        }
+    }
+
     struct FWorldCrisisPressureSnapshot
     {
         double RaidRisk = 0.0;
@@ -891,6 +921,8 @@ void CMainWorldWorldCrisisService::Reset()
     mQueuedWorldCrisisDelayDays = 0;
     mQueuedWorldCrisisChainDepth = 0;
     mWorldCrisisStatus = FWorldCrisisStatus();
+    mLaborStrikeWarningActive = false;
+    mLaborStrikeImminent = false;
 }
 
 void CMainWorldWorldCrisisService::TriggerForcedCrisis(
@@ -961,6 +993,31 @@ void CMainWorldWorldCrisisService::TriggerForcedRaid(
     const FTickContext& Context)
 {
     TriggerForcedCrisis(EWorldCrisisType::Raid, Context);
+}
+
+bool CMainWorldWorldCrisisService::ForceEndActiveCrisis(
+    bool Success,
+    EBuildingEra CurrentEra)
+{
+    if (!mWorldCrisisStatus.Active ||
+        mWorldCrisisStatus.Type == EWorldCrisisType::None)
+    {
+        return false;
+    }
+
+    ResolveWorldCrisisState(mWorldCrisisStatus, Success);
+    ApplyEraCooldownMultiplier(mWorldCrisisStatus, CurrentEra);
+
+    mQueuedWorldCrisisType = EWorldCrisisType::None;
+    mQueuedWorldCrisisRisk = 0.0;
+    mQueuedWorldCrisisDelayDays = 0;
+    mQueuedWorldCrisisChainDepth = 0;
+    mActiveWorldCrisisChainDepth = 0;
+
+    mLaborStrikeWarningActive = false;
+    mLaborStrikeImminent = false;
+
+    return true;
 }
 
 void CMainWorldWorldCrisisService::ApplyDailyEffects(
@@ -1117,9 +1174,9 @@ void CMainWorldWorldCrisisService::ApplyDailyEffects(
     }
     case EWorldCrisisType::LaborStrike:
         ApplyBudgetDelta(
-            -(250LL +
+            -(150LL +
                 static_cast<long long>(std::llround(
-                    550.0 * Severity * ChainIntensity))));
+                    300.0 * Severity * ChainIntensity))));
         break;
     case EWorldCrisisType::CrimeWave:
         ApplyTaxLoss(
@@ -1194,6 +1251,8 @@ void CMainWorldWorldCrisisService::Tick(const FTickContext& Context)
 
     if (mWorldCrisisStatus.Active)
     {
+        mLaborStrikeWarningActive = false;
+        mLaborStrikeImminent = false;
         ++mWorldCrisisStatus.DaysActive;
         const double Severity = GetWorldCrisisSeverity(mWorldCrisisStatus);
         const EWorldCrisisType FollowupType =
@@ -1283,6 +1342,7 @@ void CMainWorldWorldCrisisService::Tick(const FTickContext& Context)
         if (CanResolveEarly && Recovered)
         {
             ResolveWorldCrisisState(mWorldCrisisStatus, true);
+            ApplyEraCooldownMultiplier(mWorldCrisisStatus, Context.CurrentEra);
             ClearQueuedWorldCrisis();
             mActiveWorldCrisisChainDepth = 0;
             return;
@@ -1325,6 +1385,7 @@ void CMainWorldWorldCrisisService::Tick(const FTickContext& Context)
             }
 
             ResolveWorldCrisisState(mWorldCrisisStatus, false);
+            ApplyEraCooldownMultiplier(mWorldCrisisStatus, Context.CurrentEra);
 
             if (mQueuedWorldCrisisType != EWorldCrisisType::None)
             {
@@ -1398,6 +1459,22 @@ void CMainWorldWorldCrisisService::Tick(const FTickContext& Context)
     TickPressure(Pressure.LaborStrikeRisk, 0.56, mLaborStrikePressureDays);
     TickPressure(Pressure.CrimeWaveRisk, 0.55, mCrimeWavePressureDays);
     TickPressure(Pressure.FiscalEmergencyRisk, 0.58, mFiscalEmergencyPressureDays);
+
+    // Labor strike pre-warning flags (LaborStrike TriggerThreshold = 3 days)
+    {
+        const bool NoActiveLaborStrike =
+            !mWorldCrisisStatus.Active ||
+            mWorldCrisisStatus.Type != EWorldCrisisType::LaborStrike;
+        const bool NoCooldown = mWorldCrisisStatus.CooldownDays <= 0;
+        mLaborStrikeWarningActive =
+            mLaborStrikePressureDays >= 1 &&
+            NoActiveLaborStrike &&
+            NoCooldown;
+        mLaborStrikeImminent =
+            mLaborStrikePressureDays >= 2 &&
+            NoActiveLaborStrike &&
+            NoCooldown;
+    }
 
     if (Snapshot.ActiveCitizenCount < 24 || Snapshot.TotalBuildingCount < 8)
         mRaidPressureDays = 0;

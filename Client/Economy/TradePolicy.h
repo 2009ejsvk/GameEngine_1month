@@ -8,17 +8,9 @@
 namespace TradePolicy
 {
     constexpr int GDefaultHarborExportShipCapacityUnits = 8000;
-    constexpr int GDefaultDomesticReserveBufferUnits = 1000;
     constexpr int GDefaultHarborImportPerResourceUnits = 1500;
     constexpr int GDefaultDailyImportBudgetCap = 0;
     constexpr double GEmergencyImportCostMultiplier = 1.5;
-    constexpr std::array<int, 4> GDomesticReserveBufferPresets =
-    {
-        0,
-        1000,
-        3000,
-        6000
-    };
     constexpr std::array<int, 4> GImportPerResourceCapPresets =
     {
         500,
@@ -53,8 +45,6 @@ namespace TradePolicy
         bool PrioritizeHighValueCargo = true;
         int HarborExportShipCapacityUnits =
             GDefaultHarborExportShipCapacityUnits;
-        int DomesticReserveBufferUnits =
-            GDefaultDomesticReserveBufferUnits;
         std::array<bool, static_cast<size_t>(EResourceType::Count)>
             ExportAllowedByType = []()
             {
@@ -95,36 +85,6 @@ namespace TradePolicy
         const FExportTradePolicy& Policy)
     {
         return (std::max)(0, Policy.HarborExportShipCapacityUnits);
-    }
-
-    inline int GetDomesticReserveBufferUnits(
-        const FExportTradePolicy& Policy)
-    {
-        return (std::max)(0, Policy.DomesticReserveBufferUnits);
-    }
-
-    inline void AdvanceDomesticReservePolicySelection(
-        FExportTradePolicy& InOutPolicy)
-    {
-        const int CurrentUnits =
-            GetDomesticReserveBufferUnits(InOutPolicy);
-
-        for (size_t Index = 0;
-            Index < GDomesticReserveBufferPresets.size();
-            ++Index)
-        {
-            if (GDomesticReserveBufferPresets[Index] != CurrentUnits)
-                continue;
-
-            const size_t NextIndex =
-                (Index + 1) % GDomesticReserveBufferPresets.size();
-            InOutPolicy.DomesticReserveBufferUnits =
-                GDomesticReserveBufferPresets[NextIndex];
-            return;
-        }
-
-        InOutPolicy.DomesticReserveBufferUnits =
-            GDomesticReserveBufferPresets[0];
     }
 
     inline EResourceType GetFirstImportableResourceType()

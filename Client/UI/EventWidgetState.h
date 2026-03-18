@@ -13,4 +13,7 @@ struct FEventWidgetState
     std::wstring Body;
     std::wstring AcceptConsequence;
     std::wstring RejectConsequence;
+    bool ShowAcceptButton = true;
+    bool ShowRejectButton = true;
+    float AutoCloseSeconds = 0.f;
 };

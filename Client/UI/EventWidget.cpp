@@ -1,15 +1,24 @@
 #include "EventWidget.h"
+#include "TaskWidget.h"
+#include "TopHudWidget.h"
 #include "TropicoUiAssetCatalog.h"
 #include "../World/GovernmentCommandService.h"
+#include "../ObjectNames.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
 #include "Device.h"
+#include "World/World.h"
+#include "World/WorldUIManager.h"
 
 namespace
 {
     constexpr float GPanelWidth = 400.f;
     constexpr float GPanelHeight = 220.f;
+    constexpr float GAcceptButtonLeftX = -130.f;
+    constexpr float GRejectButtonLeftX = 20.f;
+    constexpr float GSingleButtonLeftX = -55.f;
+    constexpr float GButtonY = 104.f;
 
     void ConfigureButtonTexture(
         const std::shared_ptr<CButton>& Button,
@@ -258,12 +267,67 @@ bool CEventWidget::Init()
 
 void CEventWidget::Update(float DeltaTime)
 {
+    if (mState.Visible &&
+        mState.AutoCloseSeconds > 0.f)
+    {
+        mState.AutoCloseSeconds =
+            (std::max)(0.f, mState.AutoCloseSeconds - DeltaTime);
+
+        if (mState.AutoCloseSeconds <= 0.f)
+            mState.Visible = false;
+    }
+
     CWidgetContainer::Update(DeltaTime);
     RefreshFromState();
 }
 
+bool CEventWidget::TryRedirectToTaskWidget()
+{
+    if (!mState.Visible ||
+        mState.IssuerType == EPoliticalDemandIssuerType::None ||
+        mState.IssuerIndex < 0)
+    {
+        return false;
+    }
+
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    auto UiManager = World->GetUIManager().lock();
+
+    if (!UiManager)
+        return false;
+
+    if (auto TopHud = UiManager->FindWidget<CTopHudWidget>(GTopHudWidgetName).lock())
+    {
+        TopHud->OpenTaskWidgetForDemand(
+            mState.IssuerType,
+            mState.IssuerIndex);
+        mState.Visible = false;
+        SetPopupVisible(false);
+        return true;
+    }
+
+    if (auto TaskWidget = UiManager->FindWidget<CTaskWidget>(GTaskWidgetName).lock())
+    {
+        TaskWidget->OpenForDemand(
+            mState.IssuerType,
+            mState.IssuerIndex);
+        mState.Visible = false;
+        SetPopupVisible(false);
+        return true;
+    }
+
+    return false;
+}
+
 void CEventWidget::RefreshFromState()
 {
+    if (TryRedirectToTaskWidget())
+        return;
+
     SetPopupVisible(mState.Visible);
 
     if (!mState.Visible)
@@ -281,16 +345,51 @@ void CEventWidget::RefreshFromState()
         BodyText->SetText(mState.Body.c_str());
 
     if (auto AcceptText = mAcceptConsequenceText.lock())
+    {
+        const bool Visible = !mState.AcceptConsequence.empty();
         AcceptText->SetText(mState.AcceptConsequence.c_str());
+        AcceptText->SetEnable(Visible);
+    }
 
     if (auto RejectText = mRejectConsequenceText.lock())
+    {
+        const bool Visible = !mState.RejectConsequence.empty();
         RejectText->SetText(mState.RejectConsequence.c_str());
+        RejectText->SetEnable(Visible);
+    }
+
+    const bool ShowAcceptButton = mState.ShowAcceptButton;
+    const bool ShowRejectButton = mState.ShowRejectButton;
+    const float AcceptButtonLeftX =
+        ShowAcceptButton && !ShowRejectButton ?
+            GSingleButtonLeftX :
+            GAcceptButtonLeftX;
 
     if (auto AcceptButton = mAcceptButton.lock())
-        AcceptButton->ButtonEnable(true);
+    {
+        AcceptButton->SetEnable(ShowAcceptButton);
+        AcceptButton->SetPos(AcceptButtonLeftX, GButtonY);
+        AcceptButton->ButtonEnable(ShowAcceptButton);
+    }
 
     if (auto RejectButton = mRejectButton.lock())
-        RejectButton->ButtonEnable(true);
+    {
+        RejectButton->SetEnable(ShowRejectButton);
+        RejectButton->SetPos(GRejectButtonLeftX, GButtonY);
+        RejectButton->ButtonEnable(ShowRejectButton);
+    }
+
+    if (auto AcceptButtonText = mAcceptButtonText.lock())
+    {
+        AcceptButtonText->SetEnable(ShowAcceptButton);
+        AcceptButtonText->SetPos(AcceptButtonLeftX, GButtonY);
+    }
+
+    if (auto RejectButtonText = mRejectButtonText.lock())
+    {
+        RejectButtonText->SetEnable(ShowRejectButton);
+        RejectButtonText->SetPos(GRejectButtonLeftX, GButtonY);
+    }
 }
 
 void CEventWidget::SetPopupVisible(bool Visible)
@@ -330,6 +429,15 @@ void CEventWidget::SetPopupVisible(bool Visible)
 
 void CEventWidget::OnAcceptClick()
 {
+    if (mState.IssuerType == EPoliticalDemandIssuerType::None ||
+        mState.IssuerIndex < 0)
+    {
+        mState.Visible = false;
+        mState.AutoCloseSeconds = 0.f;
+        RefreshFromState();
+        return;
+    }
+
     auto CommandService = ResolveGovernmentCommandService(mWorld.lock());
     std::wstring Message;
 
@@ -348,6 +456,15 @@ void CEventWidget::OnAcceptClick()
 
 void CEventWidget::OnRejectClick()
 {
+    if (mState.IssuerType == EPoliticalDemandIssuerType::None ||
+        mState.IssuerIndex < 0)
+    {
+        mState.Visible = false;
+        mState.AutoCloseSeconds = 0.f;
+        RefreshFromState();
+        return;
+    }
+
     auto CommandService = ResolveGovernmentCommandService(mWorld.lock());
     std::wstring Message;
 

@@ -48,6 +48,7 @@ namespace CitizenInfoDataProvider
         bool ShowBuildingMetricRows = false;
         bool ShowBuildingUpgradeCard = false;
         bool ShowBuildingInformationParagraphs = false;
+        bool ShowOperationModeSelectionPage = false;
         std::wstring InformationAccentText;
         std::wstring InformationTopText;
         std::wstring InformationBottomText;
@@ -67,6 +68,10 @@ namespace CitizenInfoDataProvider
         int OverviewResidentCapacity = 0;
         int OverviewVisitorCount = 0;
         int OverviewVisitorCapacity = 0;
+        int OperationModeCount = 0;
+        int OperationModeSelectionPageIndex = 0;
+        int OperationModeSelectionPageCount = 0;
+        int SelectedBudgetButtonIndex = -1;
         std::array<std::wstring, 5> BudgetButtonLabels;
         std::array<bool, 5> BudgetButtonEnabled =
         {

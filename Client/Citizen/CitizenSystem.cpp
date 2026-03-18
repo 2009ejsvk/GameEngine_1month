@@ -916,6 +916,7 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         int Capacity = 0;
         int JobCap = 0;
         int Occupied = 0;
+        int StandingNow = 0;
         int MinRequired = 0;
         ECitizenEducationLevel RequiredEducation =
             ECitizenEducationLevel::Uneducated;
@@ -1151,18 +1152,6 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         WorkInfos.push_back(std::move(Info));
     }
 
-    auto SyncWorkBuildingOccupancy = [&]()
-    {
-        for (size_t i = 0; i < WorkInfos.size(); ++i)
-        {
-            if (WorkInfos[i].Building)
-            {
-                WorkInfos[i].Building->SetCurrentWorkerOccupancy(
-                    WorkInfos[i].Occupied);
-            }
-        }
-    };
-
     std::unordered_map<std::string, size_t> HomeIndexByName;
     HomeIndexByName.reserve(HomeInfos.size());
 
@@ -1223,7 +1212,11 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
 
     if (ActiveOrbs.empty())
     {
-        SyncWorkBuildingOccupancy();
+        for (size_t i = 0; i < WorkInfos.size(); ++i)
+        {
+            if (WorkInfos[i].Building)
+                WorkInfos[i].Building->SetCurrentWorkerOccupancy(0);
+        }
         return;
     }
 
@@ -1233,6 +1226,39 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
     std::vector<int> OrbHealthIndex(ActiveOrbs.size(), -1);
     std::vector<int> OrbFaithIndex(ActiveOrbs.size(), -1);
     std::vector<int> OrbWorkIndex(ActiveOrbs.size(), -1);
+
+    auto SyncWorkBuildingOccupancy = [&]()
+    {
+        for (size_t i = 0; i < WorkInfos.size(); ++i)
+            WorkInfos[i].StandingNow = 0;
+
+        for (size_t OrbIdx = 0; OrbIdx < ActiveOrbs.size(); ++OrbIdx)
+        {
+            const int WorkIdx = OrbWorkIndex[OrbIdx];
+
+            if (WorkIdx < 0 ||
+                WorkIdx >= static_cast<int>(WorkInfos.size()))
+            {
+                continue;
+            }
+
+            const auto& Orb = ActiveOrbs[OrbIdx];
+
+            if (!Orb || Orb->GetCitizenState() != ECitizenState::AtWork)
+                continue;
+
+            ++WorkInfos[static_cast<size_t>(WorkIdx)].StandingNow;
+        }
+
+        for (size_t i = 0; i < WorkInfos.size(); ++i)
+        {
+            if (WorkInfos[i].Building)
+            {
+                WorkInfos[i].Building->SetCurrentWorkerOccupancy(
+                    WorkInfos[i].StandingNow);
+            }
+        }
+    };
 
     auto IsFoodAssignmentLocked = [&](int OrbIdx) -> bool
     {

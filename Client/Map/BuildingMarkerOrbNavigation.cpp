@@ -903,9 +903,31 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
         }
 
         if (LoadedCargo && !Delivery.DestinationName.empty())
+        {
             TransitionFsm(ECitizenState::GoingToTeamsterConsumerTarget);
+        }
         else
+        {
+            // Pickup failed — release the consumer building's incoming
+            // reservation before returning to the office.
+            if (World &&
+                Delivery.HasDestinationReservation() &&
+                !Delivery.DestinationName.empty())
+            {
+                auto DestBuilding =
+                    World->FindObject<CPlacementAreaObject>(
+                        Delivery.DestinationName).lock();
+
+                if (DestBuilding)
+                {
+                    DestBuilding->ReleaseIncomingResource(
+                        Delivery.ReservedDestinationType,
+                        Delivery.ReservedDestinationAmount);
+                }
+            }
+
             TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+        }
     }
     else if (mCitizenState == ECitizenState::GoingToTeamsterConsumerTarget)
     {
@@ -1065,7 +1087,14 @@ void CBuildingMarkerOrb::Update(float DeltaTime)
 
     const float CurrentZ = GetWorldPos().z;
 
-    Movement->SetSpeed(mMoveSpeed);
+    {
+        const float EffectiveSpeed =
+            World->IsSimulationPaused()
+            ? 0.f
+            : mMoveSpeed * static_cast<float>(
+                (std::max)(1, World->GetSimulationSpeedMultiplier()));
+        Movement->SetSpeed(EffectiveSpeed);
+    }
     mPathRetryAccum += DeltaTime;
 
     // 체류 상태 (At* 상태): 타이머 소모 후 다음 상태 전환

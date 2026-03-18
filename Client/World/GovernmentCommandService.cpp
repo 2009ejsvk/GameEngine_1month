@@ -58,34 +58,10 @@ public:
         return mOwner->AdjustTaxPolicy(Type, DeltaPercent, OutMessage);
     }
 
-    bool CycleDomesticReservePolicy(
-        std::wstring& OutMessage) override
-    {
-        return mOwner->CycleDomesticReservePolicy(OutMessage);
-    }
-
-    bool CycleImportPerResourceCap(
-        std::wstring& OutMessage) override
-    {
-        return mOwner->CycleImportPerResourceCap(OutMessage);
-    }
-
-    bool CycleImportBudgetPolicy(
-        std::wstring& OutMessage) override
-    {
-        return mOwner->CycleImportBudgetPolicy(OutMessage);
-    }
-
     bool CycleExportBlockedResource(
         std::wstring& OutMessage) override
     {
         return mOwner->CycleExportBlockedResource(OutMessage);
-    }
-
-    bool CycleAutoImportResource(
-        std::wstring& OutMessage) override
-    {
-        return mOwner->CycleAutoImportResource(OutMessage);
     }
 
     bool ExecuteTradeProposal(

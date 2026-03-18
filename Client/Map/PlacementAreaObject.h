@@ -1622,7 +1622,7 @@ public:
         return mOperations.TryAddResourceStock(Type, Amount);
     }
 
-    // AtWork 시민이 매 프레임 호출 - float 누적 후 int 단위로 재고에 추가
+    // 건물 단위로 매 프레임 호출 - float 누적 후 int 단위로 재고에 추가
     void AddProduction(float UnitsPerSec, float DeltaTime)
     {
         if (UnitsPerSec <= 0.f ||

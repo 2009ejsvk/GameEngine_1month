@@ -256,6 +256,7 @@ namespace
         Snapshot.DailyNetChange = MainWorldRecord.DailyNetChange;
         Snapshot.TaxCollectionEfficiency =
             MainWorldRecord.TaxCollectionEfficiency;
+        Snapshot.EconomyLedgerHistory = MainWorldRecord.EconomyLedgerHistory;
         Snapshot.PoliticalSnapshot = MainWorldRecord.PoliticalSnapshot;
         Snapshot.GovernmentProfile = MainWorldRecord.GovernmentProfile;
         Snapshot.ElectionStatus = MainWorldRecord.ElectionStatus;

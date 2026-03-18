@@ -485,6 +485,51 @@ namespace
         return Result;
     }
 
+    std::vector<FTradeProposal> BuildStoredTradeProposals(
+        const std::vector<FTradeOfferRuntimeState>& StoredOffers,
+        const std::array<
+            TradeDiplomacyRuntime::FForeignPowerWorldState,
+            TradeDiplomacyRuntime::GForeignPowerCount>& ForeignPowers,
+        EBuildingEra CurrentEra)
+    {
+        std::vector<FTradeProposal> Result;
+        Result.reserve(StoredOffers.size());
+
+        for (size_t Index = 0; Index < StoredOffers.size(); ++Index)
+        {
+            const FTradeOfferRuntimeState& Offer = StoredOffers[Index];
+            FTradeProposal Proposal;
+            Proposal.ImportRoute = Offer.ImportRoute;
+            Proposal.ResourceType = Offer.ResourceType;
+            Proposal.MarketClass = Offer.MarketClass;
+            Proposal.ForeignPowerIndex = Offer.ForeignPowerIndex;
+            Proposal.BasePricePerThousand = Offer.BasePricePerThousand;
+            Proposal.OfferPricePerThousand = Offer.OfferPricePerThousand;
+            Proposal.MarginPercent = Offer.MarginPercent;
+            Proposal.MaxAmount = Offer.MaxAmount;
+            Proposal.AvailabilityUnits = Offer.AvailabilityUnits;
+            Proposal.Score = Offer.Score;
+            Proposal.CategoryName =
+                GetResourceMarketClassDisplayName(Proposal.MarketClass);
+            Proposal.PartnerName = MainWorldTradeRuntime::GetForeignPowerName(
+                Offer.ForeignPowerIndex,
+                CurrentEra);
+
+            const int SafeIndex = ClampInt(
+                Offer.ForeignPowerIndex,
+                0,
+                TradeDiplomacyRuntime::GForeignPowerCount - 1);
+            const auto& Partner = ForeignPowers[static_cast<size_t>(SafeIndex)];
+            Proposal.Relation = Partner.Relation;
+            Proposal.Standing = Partner.Standing;
+            Proposal.TradeModifier = Partner.TradeModifier;
+
+            Result.push_back(std::move(Proposal));
+        }
+
+        return Result;
+    }
+
     std::vector<FActiveTradeRouteView> BuildActiveTradeRouteViews(
         const std::shared_ptr<CWorld>& World)
     {
@@ -1178,6 +1223,7 @@ namespace TradeWidgetRuntime
 
         auto ReadAccess = ResolveMainWorldAlmanacAccess(World);
         auto HudAccess = ResolveMainWorldHudAccess(World);
+        auto TradeAccess = ResolveMainWorldTradeAccess(World);
 
         if (!ReadAccess || !HudAccess)
             return Snapshot;
@@ -1293,13 +1339,19 @@ namespace TradeWidgetRuntime
             std::to_wstring(BuildMonthsUntilNextProposal(SimulationMonth)) +
             L"개월";
 
-        std::vector<FTradeProposal> Proposals = BuildTradeProposals(
-            World,
-            HudAccess->GetSimulationYear(),
-            HudAccess->GetSimulationMonth(),
-            ReadAccess->GetGovernmentProfile(),
-            ReadAccess->GetGovernmentEdictStates(),
-            HudAccess->GetTaxPolicyEventStatus());
+        std::vector<FTradeProposal> Proposals =
+            TradeAccess && TradeAccess->GetCurrentEra() == EBuildingEra::Colonial ?
+                BuildStoredTradeProposals(
+                    TradeAccess->GetAvailableTradeOffers(),
+                    TradeAccess->GetForeignPowerStates(),
+                    TradeAccess->GetCurrentEra()) :
+                BuildTradeProposals(
+                    World,
+                    HudAccess->GetSimulationYear(),
+                    HudAccess->GetSimulationMonth(),
+                    ReadAccess->GetGovernmentProfile(),
+                    ReadAccess->GetGovernmentEdictStates(),
+                    HudAccess->GetTaxPolicyEventStatus());
 
         const ETradeFilterType FilterType =
             static_cast<ETradeFilterType>(
@@ -1403,13 +1455,19 @@ namespace TradeWidgetRuntime
             if (ReadAccess && HudAccess)
             {
                 const std::vector<FTradeProposal> AllProposals =
-                    BuildTradeProposals(
-                        World,
-                        HudAccess->GetSimulationYear(),
-                        HudAccess->GetSimulationMonth(),
-                        ReadAccess->GetGovernmentProfile(),
-                        ReadAccess->GetGovernmentEdictStates(),
-                        HudAccess->GetTaxPolicyEventStatus());
+                    TradeAccess &&
+                        TradeAccess->GetCurrentEra() == EBuildingEra::Colonial ?
+                            BuildStoredTradeProposals(
+                                TradeAccess->GetAvailableTradeOffers(),
+                                TradeAccess->GetForeignPowerStates(),
+                                TradeAccess->GetCurrentEra()) :
+                            BuildTradeProposals(
+                                World,
+                                HudAccess->GetSimulationYear(),
+                                HudAccess->GetSimulationMonth(),
+                                ReadAccess->GetGovernmentProfile(),
+                                ReadAccess->GetGovernmentEdictStates(),
+                                HudAccess->GetTaxPolicyEventStatus());
 
                 for (size_t Index = 0; Index < AllProposals.size(); ++Index)
                 {

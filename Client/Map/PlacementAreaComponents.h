@@ -498,12 +498,20 @@ struct FBuildingOperationsState
 
     int GetMonthlyWageCost() const
     {
-        return ApplyEconomyScale(BaseMonthlyWage);
+        const float Scaled =
+            static_cast<float>(BaseMonthlyWage) *
+            GetBudgetSatisfactionScale() *
+            (std::max)(0.f, GameConstants::Economy::BuildingWageBaseMultiplier);
+        return (std::max)(0, static_cast<int>(roundf(Scaled)));
     }
 
     int GetMonthlyUpkeepCost() const
     {
-        return ApplyEconomyScale(BaseMonthlyUpkeep);
+        const float Scaled =
+            static_cast<float>(BaseMonthlyUpkeep) *
+            GetBudgetSatisfactionScale() *
+            (std::max)(0.f, GameConstants::Economy::BuildingUpkeepBaseMultiplier);
+        return (std::max)(0, static_cast<int>(roundf(Scaled)));
     }
 
     int GetDailyWageCost(int DaysInMonth) const
@@ -1208,8 +1216,7 @@ struct FBuildingOperationsState
         const float EffectiveOutputPerSec =
             UnitsPerSec *
             (std::max)(0.f, ProductionMultiplier) *
-            WorkforceCoverage /
-            static_cast<float>(SafeCurrentWorkers);
+            WorkforceCoverage;
 
         if (EffectiveOutputPerSec <= 0.f ||
             ProducedResourceType == EResourceType::None)
@@ -1221,50 +1228,6 @@ struct FBuildingOperationsState
         const float EffectiveInputMultiplier =
             (std::max)(0.f, InputConsumptionMultiplier);
         const int InputCount = GetProductionInputCount();
-        float SupplyCoverage = 1.f;
-
-        if (InputCount > 0)
-        {
-            for (int SlotIndex = 0;
-                 SlotIndex < GProductionInputSlotCount;
-                 ++SlotIndex)
-            {
-                const EResourceType InputType =
-                    ProductionInputTypes[SlotIndex];
-                const int InputAmount = ProductionInputAmounts[SlotIndex];
-                const float EffectiveInputAmount =
-                    static_cast<float>(InputAmount) *
-                    EffectiveInputMultiplier;
-
-                if (InputType == EResourceType::None ||
-                    InputAmount <= 0 ||
-                    EffectiveInputAmount <= 0.f)
-                {
-                    continue;
-                }
-
-                const float RequiredPerSecond =
-                    EffectiveOutputPerSec * EffectiveInputAmount;
-                const float BufferDemand = (std::max)(
-                    1.f,
-                    RequiredPerSecond *
-                        GameConstants::Economy::ProductionInputBufferSeconds);
-                const float AvailableStock = static_cast<float>(
-                    GetProductionInputCompatibleResourceStock(InputType));
-                const float Coverage = (std::max)(
-                    0.f,
-                    (std::min)(1.f, AvailableStock / BufferDemand));
-                SupplyCoverage = (std::min)(SupplyCoverage, Coverage);
-            }
-        }
-
-        LastProductionEfficiency = SupplyCoverage * WorkforceCoverage;
-
-        if (SupplyCoverage <= 0.f)
-        {
-            ClampResourceProductionAccumToFractional();
-            return;
-        }
 
         const int OutputCapacityLeft = (std::max)(
             0,
@@ -1278,24 +1241,10 @@ struct FBuildingOperationsState
             return;
         }
 
-        ResourceProductionAccumScaled = (std::min)(
-            ResourceProductionAccumScaled +
-                ResolveScaledProductionUnits(
-                    static_cast<double>(EffectiveOutputPerSec) *
-                    static_cast<double>(DeltaTime) *
-                    static_cast<double>(SupplyCoverage)),
-            ResolveScaledProductionBufferCap());
-        int Whole = static_cast<int>((std::min)(
-            ResourceProductionAccumScaled / ProductionAccumScale,
-            static_cast<long long>((std::numeric_limits<int>::max)())));
-
-        if (Whole <= 0)
-            return;
+        int MaxUnitsByInputs = (std::numeric_limits<int>::max)();
 
         if (InputCount > 0)
         {
-            int MaxUnitsByInputs = (std::numeric_limits<int>::max)();
-
             for (int SlotIndex = 0;
                  SlotIndex < GProductionInputSlotCount;
                  ++SlotIndex)
@@ -1323,10 +1272,42 @@ struct FBuildingOperationsState
                         EffectiveInputAmount)));
             }
 
-            Whole = (std::min)(Whole, MaxUnitsByInputs);
+            if (MaxUnitsByInputs <= 0)
+            {
+                ClampResourceProductionAccumToFractional();
+                LastProductionEfficiency = 0.f;
+                return;
+            }
         }
 
+        LastProductionEfficiency = WorkforceCoverage;
+        ResourceProductionAccumScaled = (std::min)(
+            ResourceProductionAccumScaled +
+                ResolveScaledProductionUnits(
+                    static_cast<double>(EffectiveOutputPerSec) *
+                    static_cast<double>(DeltaTime)),
+            ResolveScaledProductionBufferCap());
+        const int WholeRequested = static_cast<int>((std::min)(
+            ResourceProductionAccumScaled / ProductionAccumScale,
+            static_cast<long long>((std::numeric_limits<int>::max)())));
+
+        if (WholeRequested <= 0)
+            return;
+
+        int Whole = WholeRequested;
+        Whole = (std::min)(Whole, MaxUnitsByInputs);
         Whole = (std::min)(Whole, OutputCapacityLeft);
+
+        const float InputCoverage =
+            WholeRequested > 0 ?
+                (std::max)(
+                    0.f,
+                    (std::min)(
+                        1.f,
+                        static_cast<float>(Whole) /
+                            static_cast<float>(WholeRequested))) :
+                1.f;
+        LastProductionEfficiency = WorkforceCoverage * InputCoverage;
 
         if (Whole <= 0)
         {

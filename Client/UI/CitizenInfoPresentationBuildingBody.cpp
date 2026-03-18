@@ -937,7 +937,14 @@ namespace CitizenInfoPresentation
         const FBuildingUiSnapshot& Snapshot)
     {
         std::wstring Body =
-            L"해당 건물의 근무 형태를 선택하십시오.";
+            L"해당 건물의 운영 모드를 선택하십시오.";
+
+        if (!Snapshot.ActiveOperationModeText.empty())
+        {
+            AppendLine(Body, L"");
+            AppendLine(Body, L"현재 선택: " + Snapshot.ActiveOperationModeText);
+        }
+
         const std::wstring Description =
             CitizenInfoBuildingRuntime::ResolveCustomsModeDescription(
                 Snapshot,
@@ -946,7 +953,7 @@ namespace CitizenInfoPresentation
         if (!Description.empty())
         {
             AppendLine(Body, L"");
-            AppendLine(Body, Description);
+            AppendLine(Body, L"효과: " + Description);
         }
 
         return Body;

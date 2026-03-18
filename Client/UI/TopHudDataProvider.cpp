@@ -1,6 +1,6 @@
 #include "TopHudDataProvider.h"
 #include "UIStrings.h"
-#include "../World/MainWorldAccess.h"
+#include "../World/IWorldUIAccess.h"
 #include "World/World.h"
 #include <algorithm>
 #include <cmath>
@@ -521,36 +521,35 @@ namespace TopHudDataProvider
         if (!World)
             return Result;
 
-        auto MainWorld = ResolveMainWorldHudAccess(World);
-        auto KnowledgeAccess =
-            ResolveMainWorldKnowledgeAccess(World);
+        auto* Access = ResolveWorldUIAccess(World.get());
 
-        if (!MainWorld)
+        if (!Access)
             return Result;
 
         const FElectionStatus& ElectionStatus =
-            MainWorld->GetElectionStatus();
+            Access->Read().GetElectionStatus();
         const FTaxPolicyEventStatus& TaxEventStatus =
-            MainWorld->GetTaxPolicyEventStatus();
+            Access->Read().GetTaxPolicyEventStatus();
         const FWorldCrisisStatus& WorldCrisisStatus =
-            MainWorld->GetWorldCrisisStatus();
-        const int DaysUntilElection = MainWorld->GetDaysUntilNextElection();
-        const double ElectionWarningScore = MainWorld->GetElectionWarningScore();
+            Access->Read().GetWorldCrisisStatus();
+        const int DaysUntilElection = Access->Read().GetDaysUntilNextElection();
+        const double ElectionWarningScore =
+            Access->Read().GetElectionWarningScore();
         const bool ElectionScheduled = HasElectionSchedule(ElectionStatus);
         const bool ElectionWarningActive =
             HasElectionWarning(DaysUntilElection, ElectionWarningScore);
         const FPoliticalWorldSnapshot& PoliticalSnapshot =
-            MainWorld->GetPoliticalSnapshot();
+            Access->Read().GetPoliticalSnapshot();
         const auto& FactionDemandPressureDays =
-            MainWorld->GetFactionDemandPressureDays();
+            Access->Read().GetFactionDemandPressureDays();
         const auto& FactionDemandStates =
-            MainWorld->GetFactionDemandStates();
+            Access->Read().GetFactionDemandStates();
         const FPoliticalDemandNotice& PoliticalDemandNotice =
-            MainWorld->GetPoliticalDemandNotice();
+            Access->Read().GetPoliticalDemandNotice();
         const FEraProgressState& EraProgress =
-            MainWorld->GetEraProgress();
+            Access->Read().GetEraProgress();
         const FEraTransitionState& EraTransitionState =
-            MainWorld->GetEraTransitionState();
+            Access->Read().GetEraTransitionState();
         const FPoliticalEscalationHudInfo PoliticalEscalationHudInfo =
             BuildPoliticalEscalationHudInfo(
                 FactionDemandPressureDays,
@@ -559,9 +558,9 @@ namespace TopHudDataProvider
         const std::wstring PromiseSummary =
             BuildElectionPromiseHudSummary(ElectionStatus);
 
-        Result.GamePaused = MainWorld->IsSimulationPaused();
+        Result.GamePaused = Access->Read().IsSimulationPaused();
         Result.GameSpeedMultiplier = (std::max)(
-            1, MainWorld->GetSimulationSpeedMultiplier());
+            1, Access->Read().GetSimulationSpeedMultiplier());
         Result.EraTransitionButtonEnabled = true;
         Result.EraTransitionAvailable =
             EraTransitionState.Stage == EEraTransitionStage::Available;
@@ -578,7 +577,7 @@ namespace TopHudDataProvider
             Result.EraTransitionConfirmText = L"전환 승인";
         else
             Result.EraTransitionConfirmText = L"조건 미충족";
-        Result.BudgetText = FormatCurrency(MainWorld->GetNationalBudget());
+        Result.BudgetText = FormatCurrency(Access->Read().GetNationalBudget());
         Result.NpcText = std::to_wstring(ActiveNpcCount);
 
         int SupportPercent = 0;
@@ -592,26 +591,23 @@ namespace TopHudDataProvider
 
         SupportPercent = (std::max)(0, (std::min)(100, SupportPercent));
         Result.SupportText = std::to_wstring(SupportPercent) + L"%";
-        if (KnowledgeAccess)
-        {
-            Result.ResearchText =
-                FormatInteger(KnowledgeAccess->GetKnowledgePoints());
+        Result.ResearchText =
+            FormatInteger(Access->Read().GetKnowledgePoints());
 
-            if (KnowledgeAccess->GetDailyKnowledgeGeneration() > 0)
-            {
-                Result.ResearchText += L" (+";
-                Result.ResearchText += FormatInteger(
-                    KnowledgeAccess->GetDailyKnowledgeGeneration());
-                Result.ResearchText += L")";
-            }
+        if (Access->Read().GetDailyKnowledgeGeneration() > 0)
+        {
+            Result.ResearchText += L" (+";
+            Result.ResearchText += FormatInteger(
+                Access->Read().GetDailyKnowledgeGeneration());
+            Result.ResearchText += L")";
         }
         Result.DateText = FormatHudDate(
-            MainWorld->GetSimulationYear(),
-            MainWorld->GetSimulationMonth(),
-            MainWorld->GetSimulationDay());
+            Access->Read().GetSimulationYear(),
+            Access->Read().GetSimulationMonth(),
+            Access->Read().GetSimulationDay());
         Result.DateText += L" | ";
         Result.DateText += GetCompactEraLabel(
-            MainWorld->GetCurrentEra());
+            Access->Read().GetCurrentEra());
 
         if (ElectionStatus.GameLost)
         {
@@ -671,7 +667,7 @@ namespace TopHudDataProvider
         }
 
         Result.TaxPolicyText =
-            FormatTaxPolicyCompact(MainWorld->GetTaxPolicy());
+            FormatTaxPolicyCompact(Access->Read().GetTaxPolicy());
 
         Result.EventText = UIStrings::Get(L"top_hud.placeholder.event_stable");
         Result.EventTextColor = MakeColor(208, 226, 198, 255);
@@ -847,6 +843,13 @@ namespace TopHudDataProvider
                 WorldCrisisStatus.Summary;
             Result.EventTextColor = MakeColor(228, 214, 188, 255);
         }
+        else if (Access->Read().GetLastDailyExportIncome() > 0)
+        {
+            Result.EventText =
+                L"수출 수입: +" +
+                FormatCurrency(Access->Read().GetLastDailyExportIncome());
+            Result.EventTextColor = MakeColor(160, 218, 160, 255);
+        }
 
         Result.GameLost = ElectionStatus.GameLost;
         Result.CanUseButtons = !ElectionStatus.GameLost;
@@ -869,7 +872,7 @@ namespace TopHudDataProvider
                 });
         }
 
-        const float MonthProgress = MainWorld->GetSimulationMonthProgress();
+        const float MonthProgress = Access->Read().GetSimulationMonthProgress();
         Result.MonthProgress = (std::max)(0.f, (std::min)(1.f, MonthProgress));
         return Result;
     }

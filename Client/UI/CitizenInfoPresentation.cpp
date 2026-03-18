@@ -2057,12 +2057,6 @@ namespace CitizenInfoPresentation
                     L"정렬 우선순위: " +
                         Snapshot.WarehousePrioritySelectionText);
             }
-            if (!Snapshot.HarborImportSelectionText.empty())
-            {
-                AppendLine(
-                    Text,
-                    L"자동 수입: " + Snapshot.HarborImportSelectionText);
-            }
             if (!Snapshot.HarborExportSelectionText.empty())
             {
                 AppendLine(
@@ -2156,7 +2150,7 @@ namespace CitizenInfoPresentation
         bool ShowCustomsModeSelection)
     {
         if (TabIndex == 0 && ShowCustomsModeSelection)
-            return L"근무 형태";
+            return L"운영 모드";
 
         switch (TabIndex)
         {
@@ -3324,7 +3318,6 @@ namespace CitizenInfoPresentation
         case EBuildingUiProfile::Logistics:
             if (!Snapshot.WarehousePolicySelectionText.empty() ||
                 !Snapshot.WarehousePrioritySelectionText.empty() ||
-                !Snapshot.HarborImportSelectionText.empty() ||
                 !Snapshot.HarborExportSelectionText.empty())
             {
                 Result.UpgradeCardTitle = L"물류 정책";
@@ -3341,12 +3334,6 @@ namespace CitizenInfoPresentation
                         Result.UpgradeCardDescription,
                         L"정렬 우선순위: " +
                             Snapshot.WarehousePrioritySelectionText);
-                }
-                if (!Snapshot.HarborImportSelectionText.empty())
-                {
-                    AppendLine(
-                        Result.UpgradeCardDescription,
-                        L"자동 수입: " + Snapshot.HarborImportSelectionText);
                 }
                 if (!Snapshot.HarborExportSelectionText.empty())
                 {
