@@ -56,6 +56,10 @@ std::string GetCatalogEntrySpriteTexturePathUtf8(
     EBuildingCategory Category,
     int CategoryLocalIndex);
 
+// 카탈로그 텍스처 경로를 실제 파일 시스템 경로로 해석한다.
+// 이미 절대 경로면 그대로 반환한다.
+std::wstring ResolveCatalogTextureFullPath(const wchar_t* Path);
+
 std::wstring GetBuildingProducedResourceDisplayName(
     const FBuildingCatalogEntry& Entry);
 

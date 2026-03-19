@@ -586,6 +586,9 @@ namespace
         return Result;
     }
 
+    void AppendBuildingCatalogLoadTraceLine(
+        const std::wstring& Message);
+
     bool LoadUtf8TextFile(
         const std::wstring& FullPath,
         std::string& OutText)
@@ -1078,13 +1081,24 @@ namespace
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
             BuildingCatalogLoader::BuildCatalogDataCandidatePaths();
+        AppendBuildingCatalogLoadTraceLine(
+            L"=== LoadExternalCatalogRecords ===");
 
         for (size_t PathIndex = 0; PathIndex < CandidatePaths.size(); ++PathIndex)
         {
             std::string FileContent;
+            AppendBuildingCatalogLoadTraceLine(
+                L"Try: " + CandidatePaths[PathIndex]);
 
             if (!LoadUtf8TextFile(CandidatePaths[PathIndex], FileContent))
+            {
+                AppendBuildingCatalogLoadTraceLine(
+                    L"Miss: " + CandidatePaths[PathIndex]);
                 continue;
+            }
+
+            AppendBuildingCatalogLoadTraceLine(
+                L"Loaded text: " + CandidatePaths[PathIndex]);
 
             size_t Cursor = 0;
 
@@ -1271,10 +1285,15 @@ namespace
 
                         return A.LocalIndex < B.LocalIndex;
                     });
+                AppendBuildingCatalogLoadTraceLine(
+                    L"Success: " + CandidatePaths[PathIndex] +
+                    L" rows=" + std::to_wstring(OutRecords.size()));
                 return true;
             }
         }
 
+        AppendBuildingCatalogLoadTraceLine(
+            L"Failure: BuildingCatalog.tsv candidates exhausted");
         OutputDebugStringW(
             L"[BuildingCatalog] Failed to load BuildingCatalog.tsv\n");
         return false;
@@ -2852,7 +2871,7 @@ namespace
         return false;
     }
 
-    std::wstring ResolveTextureFullPath(const std::wstring& Path)
+    std::wstring ResolveCatalogTextureFullPathImpl(const std::wstring& Path)
     {
         if (Path.empty())
             return std::wstring();
@@ -2950,6 +2969,20 @@ namespace
         return std::wstring();
     }
 
+    std::wstring ResolveBuildingCatalogLoadTracePath()
+    {
+        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
+        {
+            const std::wstring DebugDirectory =
+                JoinPath(RootPath, L"Debug");
+            return JoinPath(
+                DebugDirectory,
+                L"BuildingCatalogLoadTrace.log");
+        }
+
+        return std::wstring();
+    }
+
     bool EnsureDirectoryExists(const std::wstring& DirectoryPath)
     {
         if (DirectoryPath.empty())
@@ -2992,9 +3025,9 @@ namespace
         for (const FBuildingCatalogEntry& Entry : Entries)
         {
             const std::wstring FullIconPath =
-                ResolveTextureFullPath(Entry.IconPath);
+                ResolveCatalogTextureFullPathImpl(Entry.IconPath);
             const std::wstring FullSpritePath =
-                ResolveTextureFullPath(Entry.SpriteTexturePath);
+                ResolveCatalogTextureFullPathImpl(Entry.SpriteTexturePath);
 
             Buffer += WideToUtf8(SanitizeAuditTsvField(Entry.DisplayName));
             Buffer += "\t";
@@ -3043,6 +3076,29 @@ namespace
         OutputDebugStringW(Output.c_str());
     }
 
+    void AppendBuildingCatalogLoadTraceLine(
+        const std::wstring& Message)
+    {
+        const std::wstring TracePath =
+            ResolveBuildingCatalogLoadTracePath();
+        if (TracePath.empty())
+            return;
+
+        const std::wstring TraceDirectory =
+            GetParentDirectoryPath(TracePath);
+        if (!EnsureDirectoryExists(TraceDirectory))
+            return;
+
+        FILE* File = nullptr;
+        if (_wfopen_s(&File, TracePath.c_str(), L"ab") != 0 || !File)
+            return;
+
+        const std::string Utf8Line =
+            WideToUtf8(Message) + "\r\n";
+        fwrite(Utf8Line.data(), 1, Utf8Line.size(), File);
+        fclose(File);
+    }
+
     void ValidateBuildingCatalogEntries(
         const std::vector<FBuildingCatalogEntry>& Entries)
     {
@@ -3078,7 +3134,7 @@ namespace
                 ++NonEmptyIconPathCount;
 
                 const std::wstring FullIconPath =
-                    ResolveTextureFullPath(Entry.IconPath);
+                    ResolveCatalogTextureFullPathImpl(Entry.IconPath);
                 if (!DoesFileExist(FullIconPath))
                 {
                     ++MissingIconFileCount;
@@ -3099,7 +3155,7 @@ namespace
                 ++NonEmptySpritePathCount;
 
                 const std::wstring FullSpritePath =
-                    ResolveTextureFullPath(Entry.SpriteTexturePath);
+                    ResolveCatalogTextureFullPathImpl(Entry.SpriteTexturePath);
                 if (!DoesFileExist(FullSpritePath))
                 {
                     ++MissingSpriteFileCount;
@@ -3861,6 +3917,13 @@ const wchar_t* GetCatalogEntrySpriteTexturePath(
 
     return GetCatalogEntrySpriteTexturePathInternal(
         BuildCatalogEntryId(Category, CategoryLocalIndex));
+}
+
+std::wstring ResolveCatalogTextureFullPath(const wchar_t* Path)
+{
+    return Path ?
+        ResolveCatalogTextureFullPathImpl(std::wstring(Path)) :
+        std::wstring();
 }
 
 namespace

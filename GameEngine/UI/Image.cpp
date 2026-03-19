@@ -74,6 +74,31 @@ bool CImage::SetTexture(const std::string& Name, const TCHAR* FileName,
 	return true;
 }
 
+bool CImage::SetTextureFullPath(
+	const std::string& Name,
+	const TCHAR* FullPath)
+{
+	auto	World = mWorld.lock();
+
+	if (!World)
+		return false;
+
+	auto	AssetMgr = World->GetWorldAssetManager().lock();
+
+	if (!AssetMgr)
+		return false;
+
+	if (!AssetMgr->LoadTextureFullPath(Name, FullPath))
+		return false;
+
+	std::weak_ptr<CTexture>	Texture =
+		AssetMgr->FindTexture(Name);
+
+	mBrush.Texture = Texture;
+
+	return true;
+}
+
 void CImage::SetTint(const FVector4& Tint)
 {
 	mBrush.Tint = Tint;

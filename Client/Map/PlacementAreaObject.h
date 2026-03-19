@@ -613,6 +613,7 @@ public:
         int BaseMonthlyWage = -1,
         int BaseMonthlyUpkeep = -1);
     void ApplyCatalogEntry(const FBuildingCatalogEntry& Entry);
+    void RecoverCatalogEntryIfNeeded();
 
     void SetRequiredEducationLevel(ECitizenEducationLevel Level)
     {

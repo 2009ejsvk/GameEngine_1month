@@ -8,6 +8,7 @@
 #include "World/World.h"
 #include "World/WorldAssetManager.h"
 #include "../Building/BuildingCatalog.h"
+#include "../StringUtils.h"
 #include <string>
 #include <vector>
 
@@ -161,14 +162,16 @@ bool CBuildingVisual::BindSpriteTexture(
 
 	if (!ExplicitTexturePath.empty())
 	{
-		const std::wstring WideTexturePath(
-			ExplicitTexturePath.begin(),
-			ExplicitTexturePath.end());
+		const std::wstring WideTexturePath =
+			ResolveCatalogTextureFullPath(
+				StringUtils::Utf8ToWide(ExplicitTexturePath).c_str());
 		const std::string ExplicitTextureKey =
 			TexturePrefix + GenerationSuffix + "explicit";
 
-		if (AssetMgr->LoadTexture(
-			ExplicitTextureKey, WideTexturePath.c_str(), "Texture"))
+		if (!WideTexturePath.empty() &&
+			AssetMgr->LoadTextureFullPath(
+				ExplicitTextureKey,
+				WideTexturePath.c_str()))
 		{
 			auto ExplicitTexture =
 				AssetMgr->FindTexture(ExplicitTextureKey);
@@ -214,9 +217,9 @@ bool CBuildingVisual::BindSpriteTexture(
 		}
 	}
 
-	mLoadedBuildingId = BuildingId;
+	mLoadedBuildingId.clear();
 	mLoadedTextureFile.clear();
-	mLoadedCatalogGeneration = CatalogGeneration;
+	mLoadedCatalogGeneration = 0;
 	return false;
 }
 

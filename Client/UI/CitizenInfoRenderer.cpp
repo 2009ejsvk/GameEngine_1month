@@ -1,6 +1,7 @@
 #include "CitizenInfoRenderer.h"
 #include "CitizenInfoRendererInternal.h"
 #include "CitizenInfoWidget.h"
+#include "../Building/BuildingCatalog.h"
 #include "TropicoUiTheme.h"
 #include "UILayoutValues.h"
 #include "UI/Button.h"
@@ -184,13 +185,21 @@ void FCitizenInfoRenderer::ApplySnapshot(
 
     if (TitleIcon)
     {
+        const std::wstring FullIconPath =
+            Snapshot.TitleIconPath ?
+                ResolveCatalogTextureFullPath(Snapshot.TitleIconPath) :
+                std::wstring();
         const bool IconEnabled =
             Snapshot.Mode == CitizenInfoDataProvider::EPanelMode::Building &&
             Snapshot.ShowTitleIcon &&
             Snapshot.TitleIconPath &&
-            TitleIcon->SetTexture(
-                Snapshot.TitleIconTextureKey,
-                Snapshot.TitleIconPath);
+            (!FullIconPath.empty() ?
+                TitleIcon->SetTextureFullPath(
+                    Snapshot.TitleIconTextureKey,
+                    FullIconPath.c_str()) :
+                TitleIcon->SetTexture(
+                    Snapshot.TitleIconTextureKey,
+                    Snapshot.TitleIconPath));
 
         TitleIcon->SetEnable(IconEnabled);
     }
@@ -824,12 +833,20 @@ void FCitizenInfoRenderer::ApplySnapshot(
 
     if (auto Icon = Widget.mUpgradeCardIcon.lock())
     {
+        const std::wstring FullIconPath =
+            Snapshot.UpgradeCardIconPath ?
+                ResolveCatalogTextureFullPath(Snapshot.UpgradeCardIconPath) :
+                std::wstring();
         const bool Enabled =
             ShowUpgradeCard &&
             Snapshot.UpgradeCardIconPath &&
-            Icon->SetTexture(
-                Snapshot.UpgradeCardIconTextureKey,
-                Snapshot.UpgradeCardIconPath);
+            (!FullIconPath.empty() ?
+                Icon->SetTextureFullPath(
+                    Snapshot.UpgradeCardIconTextureKey,
+                    FullIconPath.c_str()) :
+                Icon->SetTexture(
+                    Snapshot.UpgradeCardIconTextureKey,
+                    Snapshot.UpgradeCardIconPath));
         Icon->SetEnable(Enabled);
     }
 

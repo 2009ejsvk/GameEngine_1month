@@ -26,6 +26,9 @@ public:
 	virtual bool SetTexture(const std::string& Name,
 		const TCHAR* FileName,
 		const std::string& PathName = "Texture");
+	virtual bool SetTextureFullPath(
+		const std::string& Name,
+		const TCHAR* FullPath);
 	void SetTint(const FVector4& Tint);
 	void SetTint(float r, float g, float b, float a);
 	void SetBrushAnimation(bool Animation);

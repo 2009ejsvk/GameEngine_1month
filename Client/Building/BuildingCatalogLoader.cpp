@@ -5,15 +5,44 @@
 
 namespace
 {
+    std::wstring TrimTrailingSeparators(const std::wstring& Path)
+    {
+        std::wstring Result = Path;
+
+        while (!Result.empty())
+        {
+            const wchar_t Last = Result.back();
+
+            if (Last != L'\\' && Last != L'/')
+                break;
+
+            // Preserve a drive root such as "C:\".
+            if (Result.size() == 3 &&
+                Result[1] == L':' &&
+                (Result[2] == L'\\' || Result[2] == L'/'))
+            {
+                break;
+            }
+
+            Result.pop_back();
+        }
+
+        return Result;
+    }
+
     std::wstring GetParentDirectoryPath(const std::wstring& Path)
     {
-        if (Path.empty())
+        const std::wstring NormalizedPath =
+            TrimTrailingSeparators(Path);
+
+        if (NormalizedPath.empty())
             return std::wstring();
 
-        const size_t LastSeparator = Path.find_last_of(L"\\/");
+        const size_t LastSeparator =
+            NormalizedPath.find_last_of(L"\\/");
         return LastSeparator == std::wstring::npos ?
             std::wstring() :
-            Path.substr(0, LastSeparator);
+            NormalizedPath.substr(0, LastSeparator);
     }
 
     std::wstring JoinPath(
@@ -33,6 +62,19 @@ namespace
         return Result;
     }
 
+    void AppendUniquePath(
+        std::vector<std::wstring>& Paths,
+        const std::wstring& Path)
+    {
+        if (Path.empty())
+            return;
+
+        if (std::find(Paths.begin(), Paths.end(), Path) != Paths.end())
+            return;
+
+        Paths.push_back(Path);
+    }
+
     std::vector<std::wstring> BuildCatalogCandidatePaths(
         const wchar_t* RepoRelativePath,
         const wchar_t* AssetRelativePath)
@@ -41,15 +83,36 @@ namespace
 
         if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
         {
+            const std::wstring ExeDirectory =
+                TrimTrailingSeparators(std::wstring(RootPath));
             const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
+                GetParentDirectoryPath(ExeDirectory);
 
             if (!RepoRoot.empty())
-                Paths.push_back(JoinPath(RepoRoot, RepoRelativePath));
+            {
+                AppendUniquePath(
+                    Paths,
+                    JoinPath(RepoRoot, RepoRelativePath));
+            }
+
+            if (!ExeDirectory.empty())
+            {
+                // Support packaging runtime data under Binary\Data\...
+                // while also handling the repo layout under Client\...
+                AppendUniquePath(
+                    Paths,
+                    JoinPath(ExeDirectory, AssetRelativePath));
+            }
         }
 
         if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-            Paths.push_back(JoinPath(AssetPath, AssetRelativePath));
+        {
+            AppendUniquePath(
+                Paths,
+                JoinPath(
+                    TrimTrailingSeparators(std::wstring(AssetPath)),
+                    AssetRelativePath));
+        }
 
         return Paths;
     }

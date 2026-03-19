@@ -1,6 +1,7 @@
 #include "BuildMenuRenderer.h"
 #include "BuildMenuWidget.h"
 #include "TropicoUiStyle.h"
+#include "../Building/BuildingCatalog.h"
 #include "../Building/BuildingCategoryInfo.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -106,10 +107,17 @@ void FBuildMenuRenderer::ApplySnapshot(
 
         if (ButtonIcon && Slot.Enabled && Slot.IconPath)
         {
-            ButtonIcon->SetTexture(
-                Slot.IconTextureKey,
-                Slot.IconPath);
-            ButtonIcon->SetEnable(true);
+            const std::wstring FullIconPath =
+                ResolveCatalogTextureFullPath(Slot.IconPath);
+            const bool IconLoaded =
+                !FullIconPath.empty() ?
+                    ButtonIcon->SetTextureFullPath(
+                        Slot.IconTextureKey,
+                        FullIconPath.c_str()) :
+                    ButtonIcon->SetTexture(
+                        Slot.IconTextureKey,
+                        Slot.IconPath);
+            ButtonIcon->SetEnable(IconLoaded);
             ButtonIcon->SetTint(1.f, 1.f, 1.f, 1.f);
         }
         else if (ButtonIcon)

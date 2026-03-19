@@ -340,6 +340,36 @@ void CPlacementAreaObject::ApplyCatalogEntry(
     ApplyRuntimeResourceBehavior();
 }
 
+void CPlacementAreaObject::RecoverCatalogEntryIfNeeded()
+{
+    const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+    if (!Entry)
+        return;
+
+    const bool MissingDisplayInfo =
+        mBuildingDisplayName.empty() ||
+        mBuildingDisplayName == mBuildingId ||
+        mBuildingCategoryName.empty();
+    const bool MissingSpritePath =
+        mBuildingSpriteTexturePath.empty() &&
+        (!Entry->SpriteTexturePath.empty() || !Entry->IconPath.empty());
+
+    if (!MissingDisplayInfo && !MissingSpritePath)
+        return;
+
+    ApplyCatalogEntry(*Entry);
+
+    if (MissingSpritePath)
+    {
+        const std::string SpriteTexturePath =
+            GetCatalogEntrySpriteTexturePathUtf8(*Entry);
+
+        if (!SpriteTexturePath.empty())
+            mBuildingSpriteTexturePath = SpriteTexturePath;
+    }
+}
+
 bool CPlacementAreaObject::Init()
 {
     CGameObject::Init();
@@ -351,6 +381,7 @@ void CPlacementAreaObject::Update(float DeltaTime)
 {
     CGameObject::Update(DeltaTime);
     EnsurePlacementObject();
+    RecoverCatalogEntryIfNeeded();
     if (HasPlacedArea())
     {
         mOperations.TickServiceStock(
