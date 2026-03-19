@@ -11,6 +11,8 @@
 
 namespace
 {
+    using StringUtils::SplitLines;
+    using StringUtils::Trim;
     using StringUtils::Utf8ToWide;
 
     struct FHouseholdSnapshotInfo
@@ -59,6 +61,15 @@ namespace
         return BuildingName == L"예배당" ||
             BuildingName == L"교회" ||
             BuildingName == L"성당";
+    }
+
+    bool ShouldCountBuildingInSnapshot(
+        const CPlacementAreaObject& Building,
+        const FBuildingCatalogEntry* Entry)
+    {
+        return Entry != nullptr &&
+            !Building.IsRoad() &&
+            Entry->BuildingKind != EPlacementBuildingKind::Road;
     }
 
     int ResolveResidentialWealthTier(const FBuildingCatalogEntry& Entry)
@@ -133,45 +144,6 @@ namespace
         return Iter != ActiveBuildingsByName.end() ? Iter->second : nullptr;
     }
 
-    std::vector<std::wstring> SplitLines(const std::wstring& Text)
-    {
-        std::vector<std::wstring> Lines;
-        std::wstring Current;
-
-        for (wchar_t Ch : Text)
-        {
-            if (Ch == L'\r')
-                continue;
-
-            if (Ch == L'\n')
-            {
-                Lines.push_back(Current);
-                Current.clear();
-                continue;
-            }
-
-            Current.push_back(Ch);
-        }
-
-        if (!Current.empty())
-            Lines.push_back(Current);
-
-        return Lines;
-    }
-
-    std::wstring TrimCopy(const std::wstring& Text)
-    {
-        size_t Start = 0;
-        while (Start < Text.size() && iswspace(Text[Start]))
-            ++Start;
-
-        size_t End = Text.size();
-        while (End > Start && iswspace(Text[End - 1]))
-            --End;
-
-        return Text.substr(Start, End - Start);
-    }
-
     bool StartsWith(const std::wstring& Text, const wchar_t* Prefix)
     {
         if (!Prefix)
@@ -193,7 +165,7 @@ namespace
 
         for (const std::wstring& RawLine : Lines)
         {
-            const std::wstring Line = TrimCopy(RawLine);
+            const std::wstring Line = Trim(RawLine);
             if (!StartsWith(Line, Prefix))
                 continue;
 
@@ -303,6 +275,12 @@ namespace WorldStats
                 {
                     continue;
                 }
+
+                const FBuildingCatalogEntry* Entry =
+                    FindBuildingCatalogEntry(Building->GetBuildingId());
+
+                if (!ShouldCountBuildingInSnapshot(*Building, Entry))
+                    continue;
 
                 ++Snapshot.TotalBuildingCount;
                 Snapshot.MonthlyWageCost += Building->GetMonthlyWageCost();
@@ -527,12 +505,6 @@ namespace WorldStats
                                 ReservedPickup;
                     }
                 }
-
-                const FBuildingCatalogEntry* Entry =
-                    FindBuildingCatalogEntry(Building->GetBuildingId());
-
-                if (!Entry)
-                    continue;
 
                 const int CategoryIndex = static_cast<int>(Entry->Category);
 

@@ -11,20 +11,17 @@
 namespace
 {
     using namespace CitizenInfoBuildingRuntime;
+    using StringUtils::SplitLines;
+    using StringUtils::Trim;
 
-    std::wstring Trim(const std::wstring& Text)
+    const std::wstring& Ui(const wchar_t* Key)
     {
-        size_t Start = 0;
+        return UIStrings::Get(Key);
+    }
 
-        while (Start < Text.size() && iswspace(Text[Start]))
-            ++Start;
-
-        size_t End = Text.size();
-
-        while (End > Start && iswspace(Text[End - 1]))
-            --End;
-
-        return Text.substr(Start, End - Start);
+    const wchar_t* UiText(const wchar_t* Key)
+    {
+        return UIStrings::Get(Key).c_str();
     }
 
     bool StartsWith(const std::wstring& Text, const wchar_t* Prefix)
@@ -38,34 +35,6 @@ namespace
             return false;
 
         return Text.compare(0, PrefixLength, Prefix) == 0;
-    }
-
-    std::vector<std::wstring> SplitLines(const std::wstring& Text)
-    {
-        std::vector<std::wstring> Lines;
-        std::wstring Current;
-
-        for (size_t Index = 0; Index < Text.size(); ++Index)
-        {
-            const wchar_t Ch = Text[Index];
-
-            if (Ch == L'\r')
-                continue;
-
-            if (Ch == L'\n')
-            {
-                Lines.push_back(Current);
-                Current.clear();
-                continue;
-            }
-
-            Current.push_back(Ch);
-        }
-
-        if (!Current.empty() || Text.empty())
-            Lines.push_back(Current);
-
-        return Lines;
     }
 
     std::wstring FormatMoney(long long Value)
@@ -133,14 +102,20 @@ namespace
         case GBuildingWealthMaskWellOff |
             GBuildingWealthMaskRich |
             GBuildingWealthMaskFilthyRich:
-            return UIStrings::Get(L"citizen.wealth.well_off") + L" 이상";
+            return UIStrings::Format(
+                L"citizen_info.wealth.at_least_template",
+                { Ui(L"citizen.wealth.well_off") });
         case GBuildingWealthMaskRich | GBuildingWealthMaskFilthyRich:
-            return UIStrings::Get(L"citizen.wealth.rich") + L" 이상";
+            return UIStrings::Format(
+                L"citizen_info.wealth.at_least_template",
+                { Ui(L"citizen.wealth.rich") });
         case GBuildingWealthMaskPoor |
             GBuildingWealthMaskWellOff |
             GBuildingWealthMaskRich |
             GBuildingWealthMaskFilthyRich:
-            return UIStrings::Get(L"citizen.wealth.poor") + L" 이상";
+            return UIStrings::Format(
+                L"citizen_info.wealth.at_least_template",
+                { Ui(L"citizen.wealth.poor") });
         default:
             return std::wstring();
         }
@@ -219,6 +194,30 @@ namespace
     std::vector<std::wstring> ExtractNarrativeLines(
         const std::wstring& DetailText)
     {
+        const wchar_t* SkipPrefixes[] =
+        {
+            UiText(L"citizen_info.detail.prefix.construction_cost"),
+            UiText(L"citizen_info.detail.prefix.blueprint_cost"),
+            UiText(L"citizen_info.detail.prefix.unlock_era"),
+            UiText(L"citizen_info.detail.prefix.required_workers"),
+            UiText(L"citizen_info.detail.prefix.required_power"),
+            UiText(L"citizen_info.detail.prefix.produced_power"),
+            UiText(L"citizen_info.detail.prefix.size"),
+            UiText(L"citizen_info.detail.prefix.job_quality"),
+            UiText(L"citizen_info.detail.prefix.service_quality"),
+            UiText(L"citizen_info.detail.prefix.service_capacity"),
+            UiText(L"citizen_info.detail.prefix.household_capacity"),
+            UiText(L"citizen_info.detail.prefix.wealth_requirement"),
+            UiText(L"citizen_info.detail.prefix.required_wealth"),
+            UiText(L"citizen_info.detail.prefix.tourist_wealth"),
+            UiText(L"citizen_info.detail.prefix.tourist_preference"),
+            UiText(L"citizen_info.detail.prefix.operation_mode"),
+            UiText(L"citizen_info.detail.prefix.upgrade")
+        };
+        const std::wstring& EffectPrefix =
+            Ui(L"citizen_info.detail.prefix.effect");
+        const std::wstring& NotePrefix =
+            Ui(L"citizen_info.detail.prefix.note");
         std::vector<std::wstring> Result;
         const std::vector<std::wstring> Lines = SplitLines(DetailText);
 
@@ -229,43 +228,35 @@ namespace
             if (Line.empty())
                 continue;
 
-            if (Line[0] == L'-' ||
-                StartsWith(Line, L"건설 비용:") ||
-                StartsWith(Line, L"설계도 비용:") ||
-                StartsWith(Line, L"등장 시기:") ||
-                StartsWith(Line, L"필요 인력:") ||
-                StartsWith(Line, L"필요 전력:") ||
-                StartsWith(Line, L"생산 전력:") ||
-                StartsWith(Line, L"크기:") ||
-                StartsWith(Line, L"직업 품질:") ||
-                StartsWith(Line, L"서비스 품질:") ||
-                StartsWith(Line, L"수용 인원:") ||
-                StartsWith(Line, L"수용 가구:") ||
-                StartsWith(Line, L"재산 요구치:") ||
-                StartsWith(Line, L"필요 재산:") ||
-                StartsWith(Line, L"관광객 재산:") ||
-                StartsWith(Line, L"선호 관광객:") ||
-                StartsWith(Line, L"운영 모드:") ||
-                StartsWith(Line, L"업그레이드"))
+            bool SkipLine = Line[0] == L'-';
+
+            for (const wchar_t* Prefix : SkipPrefixes)
             {
-                continue;
+                if (StartsWith(Line, Prefix))
+                {
+                    SkipLine = true;
+                    break;
+                }
             }
 
-            if (StartsWith(Line, L"효과:"))
+            if (SkipLine)
+                continue;
+
+            if (StartsWith(Line, EffectPrefix.c_str()))
             {
                 Result.push_back(
                     UIStrings::Get(L"citizen_info.section.main_effect") +
                     L": " +
-                    Trim(Line.substr(wcslen(L"효과:"))));
+                    Trim(Line.substr(EffectPrefix.size())));
                 continue;
             }
 
-            if (StartsWith(Line, L"비고:"))
+            if (StartsWith(Line, NotePrefix.c_str()))
             {
                 Result.push_back(
                     UIStrings::Get(L"citizen_info.section.note") +
                     L": " +
-                    Trim(Line.substr(wcslen(L"비고:"))));
+                    Trim(Line.substr(NotePrefix.size())));
                 continue;
             }
 
@@ -284,7 +275,8 @@ namespace CitizenInfoBuildingRuntime
     bool IsHydroponicFarmBuilding(const FBuildingUiSnapshot& Snapshot)
     {
         return Snapshot.BuildingId == "build_2_10" ||
-            Snapshot.DisplayName == L"대규모 수경 농장";
+            (Snapshot.CatalogEntry &&
+                Snapshot.CatalogEntry->Id == "build_2_10");
     }
 
     bool IsCustomsOfficeBuilding(const FBuildingUiSnapshot& Snapshot)
@@ -391,13 +383,13 @@ namespace CitizenInfoBuildingRuntime
             return false;
         }
 
+        using FBuildingRecord =
+            CitizenInfoDataProvider::FCitizenInfoBuildingRecord;
+
         OutSnapshot = FBuildingUiSnapshot();
+        static_cast<FBuildingRecord&>(OutSnapshot) = std::move(BuildingRecord);
         OutSnapshot.CatalogEntry =
-            FindBuildingCatalogEntry(BuildingRecord.BuildingId);
-        OutSnapshot.BuildingId = BuildingRecord.BuildingId;
-        OutSnapshot.ObjectName = BuildingRecord.ObjectName;
-        OutSnapshot.DisplayName = BuildingRecord.DisplayName;
-        OutSnapshot.CategoryName = BuildingRecord.CategoryName;
+            FindBuildingCatalogEntry(OutSnapshot.BuildingId);
         OutSnapshot.DetailText = OutSnapshot.CatalogEntry ?
             OutSnapshot.CatalogEntry->DetailText :
             std::wstring();
@@ -413,158 +405,36 @@ namespace CitizenInfoBuildingRuntime
         OutSnapshot.ConstructionCost = OutSnapshot.CatalogEntry ?
             OutSnapshot.CatalogEntry->ConstructionCost :
             0;
-        OutSnapshot.RequiredEducationLevel =
-            BuildingRecord.RequiredEducationLevel;
-        OutSnapshot.Residential = BuildingRecord.Residential;
-        OutSnapshot.WorkProvider = BuildingRecord.WorkProvider;
-        OutSnapshot.FoodProvider = BuildingRecord.FoodProvider;
-        OutSnapshot.EntertainmentProvider =
-            BuildingRecord.EntertainmentProvider;
-        OutSnapshot.HealthProvider = BuildingRecord.HealthProvider;
-        OutSnapshot.FaithProvider = BuildingRecord.FaithProvider;
-        OutSnapshot.UsesResourceStock = BuildingRecord.UsesResourceStock;
-        OutSnapshot.Harbor = BuildingRecord.Harbor;
-        OutSnapshot.Warehouse = BuildingRecord.Warehouse;
-        OutSnapshot.IsRoad = BuildingRecord.IsRoad;
-        OutSnapshot.CanGenerateWorkOutput =
-            BuildingRecord.CanGenerateWorkOutput;
-        OutSnapshot.Capacity = BuildingRecord.Capacity;
-        OutSnapshot.CurrentWorkerOccupancy =
-            BuildingRecord.CurrentWorkerOccupancy;
         OutSnapshot.HouseholdCapacity = OutSnapshot.CatalogEntry ?
             (std::max)(0, OutSnapshot.CatalogEntry->HouseholdCapacity) :
             0;
         OutSnapshot.ServiceCapacityUsesHouseholds =
             OutSnapshot.CatalogEntry &&
             OutSnapshot.CatalogEntry->ServiceCapacityUsesHouseholds;
-        OutSnapshot.BudgetLevel = BuildingRecord.BudgetLevel;
-        OutSnapshot.DaysInMonth = BuildingRecord.DaysInMonth;
-        OutSnapshot.MonthlyWageCost = BuildingRecord.MonthlyWageCost;
-        OutSnapshot.MonthlyUpkeepCost = BuildingRecord.MonthlyUpkeepCost;
-        OutSnapshot.DailyWageCost = BuildingRecord.DailyWageCost;
-        OutSnapshot.DailyUpkeepCost = BuildingRecord.DailyUpkeepCost;
-        OutSnapshot.HousingCap = BuildingRecord.HousingCap;
-        OutSnapshot.JobCap = BuildingRecord.JobCap;
-        OutSnapshot.FoodCap = BuildingRecord.FoodCap;
-        OutSnapshot.FunCap = BuildingRecord.FunCap;
-        OutSnapshot.HealthCap = BuildingRecord.HealthCap;
-        OutSnapshot.FaithCap = BuildingRecord.FaithCap;
-        OutSnapshot.PollutionOutput = BuildingRecord.PollutionOutput;
-        OutSnapshot.PollutionMitigation = BuildingRecord.PollutionMitigation;
-        OutSnapshot.LocalPollutionExposure =
-            BuildingRecord.LocalPollutionExposure;
-        OutSnapshot.ResourceStock = BuildingRecord.ResourceStock;
-        OutSnapshot.ExportableStock = BuildingRecord.ExportableStock;
-        OutSnapshot.MaxResourceStock = BuildingRecord.MaxResourceStock;
         OutSnapshot.ProducedResourceType =
-            BuildingRecord.ProducedResourceType != EResourceType::None ?
-                BuildingRecord.ProducedResourceType :
+            OutSnapshot.ProducedResourceType != EResourceType::None ?
+                OutSnapshot.ProducedResourceType :
                 (OutSnapshot.CatalogEntry ?
                     OutSnapshot.CatalogEntry->ProducedResourceType :
                     EResourceType::None);
-        OutSnapshot.ProducedResourceStock =
-            BuildingRecord.ProducedResourceStock;
-        OutSnapshot.CurrentProductionUnitsPerSecond =
-            BuildingRecord.CurrentProductionUnitsPerSecond;
-        OutSnapshot.EstimatedDailyProductionUnits =
-            BuildingRecord.EstimatedDailyProductionUnits;
-        OutSnapshot.EstimatedMonthlyProductionUnits =
-            BuildingRecord.EstimatedMonthlyProductionUnits;
-        OutSnapshot.ProducedPowerMW = BuildingRecord.ProducedPowerMW;
-        OutSnapshot.RequiredPowerMW = BuildingRecord.RequiredPowerMW;
-        OutSnapshot.TotalProducedPowerMW =
-            BuildingRecord.TotalProducedPowerMW;
-        OutSnapshot.TotalRequiredPowerMW =
-            BuildingRecord.TotalRequiredPowerMW;
-        OutSnapshot.LastDailyExportIncome =
-            BuildingRecord.LastDailyExportIncome;
-        OutSnapshot.LastDailyImportExpense =
-            BuildingRecord.LastDailyImportExpense;
-        OutSnapshot.TradeRouteExportFulfilledUnits =
-            BuildingRecord.TradeRouteExportFulfilledUnits;
-        OutSnapshot.TradeRouteImportFulfilledUnits =
-            BuildingRecord.TradeRouteImportFulfilledUnits;
-        OutSnapshot.TradeRouteExportContractUnits =
-            BuildingRecord.TradeRouteExportContractUnits;
-        OutSnapshot.TourismArrivalCount =
-            BuildingRecord.TourismArrivalCount;
-        OutSnapshot.ChainStage = BuildingRecord.ChainStage;
-        OutSnapshot.BudgetScale = BuildingRecord.BudgetScale;
-        OutSnapshot.AccessibilityScore =
-            BuildingRecord.AccessibilityScore;
-        OutSnapshot.PowerSupplyRatio = BuildingRecord.PowerSupplyRatio;
-        OutSnapshot.LastProductionEfficiency =
-            BuildingRecord.LastProductionEfficiency;
-        OutSnapshot.DamageEfficiencyMultiplier =
-            BuildingRecord.DamageEfficiencyMultiplier;
-        OutSnapshot.HarborShipProgressPercent =
-            BuildingRecord.HarborShipProgressPercent;
-        OutSnapshot.ActiveOperationModeIndex =
-            BuildingRecord.ActiveOperationModeIndex;
-        OutSnapshot.ActiveRuntimeUpgradeIndex =
-            BuildingRecord.ActiveRuntimeUpgradeIndex;
-        OutSnapshot.KnowledgePoints =
-            BuildingRecord.KnowledgePoints;
-        OutSnapshot.DailyKnowledgeGeneration =
-            BuildingRecord.DailyKnowledgeGeneration;
-        OutSnapshot.RepairCost =
-            BuildingRecord.RepairCost;
-        OutSnapshot.RepairAffordable =
-            BuildingRecord.RepairAffordable;
-        OutSnapshot.DamageLevel =
-            BuildingRecord.DamageLevel;
-        OutSnapshot.ActiveOperationModeText =
-            BuildingRecord.ActiveOperationModeText;
-        OutSnapshot.ActiveOperationModeEffectSummary =
-            BuildingRecord.ActiveOperationModeEffectSummary;
-        OutSnapshot.ActiveRuntimeUpgradeText =
-            BuildingRecord.ActiveRuntimeUpgradeText;
-        OutSnapshot.ActiveRuntimeUpgradeEffectSummary =
-            BuildingRecord.ActiveRuntimeUpgradeEffectSummary;
-        OutSnapshot.OperationModeResearchLocked =
-            BuildingRecord.OperationModeResearchLocked;
-        OutSnapshot.OperationModeResearchCosts =
-            BuildingRecord.OperationModeResearchCosts;
-        OutSnapshot.OperationModeResearchLabels =
-            BuildingRecord.OperationModeResearchLabels;
         OutSnapshot.ProductionChainStageText =
-            !BuildingRecord.ProductionChainStageText.empty() ?
-                BuildingRecord.ProductionChainStageText :
+            !OutSnapshot.ProductionChainStageText.empty() ?
+                OutSnapshot.ProductionChainStageText :
                 (OutSnapshot.ChainStage !=
                         CitizenInfoDataProvider::EProductionChainStage::None ?
                     std::wstring(
                         GetProductionChainStageDisplayName(
                             OutSnapshot.ChainStage)) :
                     std::wstring());
-        OutSnapshot.SupplyChainSummaryText =
-            !BuildingRecord.SupplyChainSummaryText.empty() ?
-                BuildingRecord.SupplyChainSummaryText :
-                std::wstring();
-        OutSnapshot.LogisticsLines = BuildingRecord.LogisticsLines;
-        OutSnapshot.ProductionInputs = BuildingRecord.ProductionInputs;
-        OutSnapshot.Residents = BuildingRecord.Residents;
-        OutSnapshot.AssignedEmployees = BuildingRecord.AssignedEmployees;
-        OutSnapshot.WorkingEmployees = BuildingRecord.WorkingEmployees;
-        OutSnapshot.AssignedVisitors = BuildingRecord.AssignedVisitors;
-        OutSnapshot.ArrivedVisitors = BuildingRecord.ArrivedVisitors;
-        OutSnapshot.IncomingVisitors = BuildingRecord.IncomingVisitors;
-        OutSnapshot.HarborPolicyLines = BuildingRecord.HarborPolicyLines;
-        OutSnapshot.HarborPriorityLines = BuildingRecord.HarborPriorityLines;
-        OutSnapshot.WarehousePolicySelectionText =
-            BuildingRecord.WarehousePolicySelectionText;
-        OutSnapshot.WarehousePrioritySelectionText =
-            BuildingRecord.WarehousePrioritySelectionText;
-        OutSnapshot.HarborExportSelectionText =
-            BuildingRecord.HarborExportSelectionText;
 
         if (OutSnapshot.Warehouse)
         {
             for (size_t SlotIndex = 0;
-                SlotIndex < BuildingRecord.WarehouseSlots.size();
+                SlotIndex < OutSnapshot.WarehouseSlots.size();
                 ++SlotIndex)
             {
                 const CitizenInfoDataProvider::FWarehouseSlotRecord& SlotRecord =
-                    BuildingRecord.WarehouseSlots[SlotIndex];
+                    OutSnapshot.WarehouseSlots[SlotIndex];
                 std::wstring SlotValue;
 
                 if (SlotRecord.Type == EResourceType::None)
@@ -611,11 +481,11 @@ namespace CitizenInfoBuildingRuntime
         if (OutSnapshot.Harbor)
         {
             for (size_t SlotIndex = 0;
-                SlotIndex < BuildingRecord.HarborResourceSlots.size();
+                SlotIndex < OutSnapshot.HarborResourceSlots.size();
                 ++SlotIndex)
             {
                 const CitizenInfoDataProvider::FWarehouseSlotRecord& SlotRecord =
-                    BuildingRecord.HarborResourceSlots[SlotIndex];
+                    OutSnapshot.HarborResourceSlots[SlotIndex];
 
                 if (SlotRecord.Type == EResourceType::None || SlotRecord.Stock <= 0)
                     continue;
@@ -651,15 +521,19 @@ namespace CitizenInfoBuildingRuntime
         OutSnapshot.TouristPreferenceText =
             BuildTouristPreferenceText(OutSnapshot.CatalogEntry);
         OutSnapshot.EffectText =
-            ExtractDetailValue(OutSnapshot.DetailText, L"효과:");
+            ExtractDetailValue(
+                OutSnapshot.DetailText,
+                UiText(L"citizen_info.detail.prefix.effect"));
         OutSnapshot.NoteText =
-            ExtractDetailValue(OutSnapshot.DetailText, L"비고:");
+            ExtractDetailValue(
+                OutSnapshot.DetailText,
+                UiText(L"citizen_info.detail.prefix.note"));
 
         const int CatalogServiceCapacity = OutSnapshot.CatalogEntry ?
             (std::max)(0, OutSnapshot.CatalogEntry->ServiceCapacity) :
             0;
         OutSnapshot.ServiceCapacity = (std::max)(
-            BuildingRecord.ServiceCapacity,
+            OutSnapshot.ServiceCapacity,
             CatalogServiceCapacity);
 
         OutSnapshot.ServiceCapacityText =
@@ -752,7 +626,9 @@ namespace CitizenInfoBuildingRuntime
 
         OutSnapshot.UpgradeHints = OutSnapshot.CatalogEntry ?
             OutSnapshot.CatalogEntry->UpgradeHints :
-            ExtractBulletSection(OutSnapshot.DetailText, L"업그레이드");
+            ExtractBulletSection(
+                OutSnapshot.DetailText,
+                UiText(L"citizen_info.detail.prefix.upgrade"));
         OutSnapshot.NarrativeLines =
             ExtractNarrativeLines(OutSnapshot.DetailText);
         return true;

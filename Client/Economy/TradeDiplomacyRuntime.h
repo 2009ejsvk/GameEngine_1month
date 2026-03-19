@@ -314,6 +314,7 @@ namespace TradeDiplomacyRuntime
         EBuildingEra Era = EBuildingEra::Modern)
     {
         FForeignTradeRuntimeData Result;
+        static_cast<void>(TaxEventActive);
 
         if (!IsForeignPowerActiveForEra(Index, Era))
             return Result;
@@ -370,8 +371,7 @@ namespace TradeDiplomacyRuntime
                     Context.LibertyStrength * 22.0 +
                     Context.TourismStrength * 16.0 +
                     Context.EducationStrength * 12.0 -
-                    (MartialLawActive ? 12.0 : 0.0) -
-                    (TaxEventActive ? 6.0 : 0.0))),
+                    (MartialLawActive ? 12.0 : 0.0))),
                 0,
                 100);
             break;

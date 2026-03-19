@@ -7,6 +7,50 @@
 #include <cmath>
 #include <vector>
 
+namespace
+{
+    template <typename TValueContainer>
+    float ResolveTrendSeriesMax(
+        const TValueContainer& Values,
+        float Minimum)
+    {
+        float Result = Minimum;
+
+        for (float Value : Values)
+            Result = (std::max)(Result, Value);
+
+        return Result;
+    }
+
+    int ResolveTrendAxisStep(int RawMax)
+    {
+        const int TargetStep = (std::max)(1, (RawMax + 4) / 5);
+        int Magnitude = 1;
+
+        while (Magnitude * 10 < TargetStep)
+            Magnitude *= 10;
+
+        if (TargetStep <= Magnitude * 2)
+            return Magnitude * 2;
+        if (TargetStep <= Magnitude * 5)
+            return Magnitude * 5;
+        return Magnitude * 10;
+    }
+
+    std::array<int, GEconomyTrendYAxisLabelCount> BuildTrendAxisLabels(
+        int AxisMax)
+    {
+        std::array<int, GEconomyTrendYAxisLabelCount> Labels = {};
+        const int Step = (std::max)(1, AxisMax / 5);
+
+        for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
+            Labels[static_cast<size_t>(Index)] =
+                (std::max)(0, AxisMax - Step * Index);
+
+        return Labels;
+    }
+}
+
 using namespace AlmanacCalc;
 void FAlmanacRenderer::ApplyEconomyPage(
     CAlmanacWidget& Widget,
@@ -149,43 +193,6 @@ void FAlmanacRenderer::ApplyEconomyPage(
         }
 
         return Total;
-    };
-
-    auto ResolveSeriesMax = [](const auto& Values, float Minimum)
-    {
-        float Result = Minimum;
-
-        for (float Value : Values)
-            Result = (std::max)(Result, Value);
-
-        return Result;
-    };
-
-    auto ResolveRealAxisStep = [](int RawMax)
-    {
-        const int TargetStep = (std::max)(1, (RawMax + 4) / 5);
-        int Magnitude = 1;
-
-        while (Magnitude * 10 < TargetStep)
-            Magnitude *= 10;
-
-        if (TargetStep <= Magnitude * 2)
-            return Magnitude * 2;
-        if (TargetStep <= Magnitude * 5)
-            return Magnitude * 5;
-        return Magnitude * 10;
-    };
-
-    auto BuildRealAxisLabels = [](int AxisMax)
-    {
-        std::array<int, GEconomyTrendYAxisLabelCount> Labels = {};
-        const int Step = (std::max)(1, AxisMax / 5);
-
-        for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
-            Labels[static_cast<size_t>(Index)] =
-                (std::max)(0, AxisMax - Step * Index);
-
-        return Labels;
     };
 
     const long long RealDailyIncome = LatestDailyEconomyRecord.GetTotalIncome();
@@ -459,45 +466,45 @@ void FAlmanacRenderer::ApplyEconomyPage(
             });
 
     const int RealTreasuryAxisMax =
-        ResolveRealAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 1000,
                 RoundToInt(
-                    ResolveSeriesMax(
+                    ResolveTrendSeriesMax(
                         RealTreasuryBars,
                         static_cast<float>(Snapshot.NationalBudget))))) * 5;
     const int RealIncomeAxisMax =
-        ResolveRealAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 1000,
-                RoundToInt(ResolveSeriesMax(RealMonthlyIncomeBars, 0.f)))) * 5;
+                RoundToInt(ResolveTrendSeriesMax(RealMonthlyIncomeBars, 0.f)))) * 5;
     const int RealExpenseAxisMax =
-        ResolveRealAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 1000,
-                RoundToInt(ResolveSeriesMax(RealMonthlyExpenseBars, 0.f)))) * 5;
+                RoundToInt(ResolveTrendSeriesMax(RealMonthlyExpenseBars, 0.f)))) * 5;
     const int RealTradeAxisMax =
-        ResolveRealAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 500,
                 RoundToInt(
                     (std::max)(
-                        ResolveSeriesMax(RealMonthlyExportBars, 0.f),
-                        ResolveSeriesMax(RealMonthlyImportBars, 0.f))))) * 5;
+                        ResolveTrendSeriesMax(RealMonthlyExportBars, 0.f),
+                        ResolveTrendSeriesMax(RealMonthlyImportBars, 0.f))))) * 5;
     const int RealUnemploymentCountAxisMax =
-        ResolveRealAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 10,
                 RoundToInt(
-                    ResolveSeriesMax(
+                    ResolveTrendSeriesMax(
                         RealUnemployedCountBars,
                         static_cast<float>(Snapshot.UnemployedCount))))) * 5;
     const int RealVacancyAxisMax =
-        ResolveRealAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 10,
                 RoundToInt(
-                    ResolveSeriesMax(
+                    ResolveTrendSeriesMax(
                         RealVacancyBars,
                         static_cast<float>(
                             (std::max)(
@@ -505,31 +512,31 @@ void FAlmanacRenderer::ApplyEconomyPage(
                                 Snapshot.JobCapacity -
                                     Snapshot.AssignedJobCount)))))) * 5;
     const int RealChangeAxisMax =
-        ResolveRealAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 500,
                 RoundToInt(
                     (std::max)(
-                        ResolveSeriesMax(RealDailyIncomeBars, 0.f),
-                        ResolveSeriesMax(RealDailyExpenseBars, 0.f))))) * 3;
+                        ResolveTrendSeriesMax(RealDailyIncomeBars, 0.f),
+                        ResolveTrendSeriesMax(RealDailyExpenseBars, 0.f))))) * 3;
     const std::array<int, GEconomyTrendYAxisLabelCount>
         RealTreasuryAxisLabels =
-            BuildRealAxisLabels(RealTreasuryAxisMax);
+            BuildTrendAxisLabels(RealTreasuryAxisMax);
     const std::array<int, GEconomyTrendYAxisLabelCount>
         RealIncomeAxisLabels =
-            BuildRealAxisLabels(RealIncomeAxisMax);
+            BuildTrendAxisLabels(RealIncomeAxisMax);
     const std::array<int, GEconomyTrendYAxisLabelCount>
         RealExpenseAxisLabels =
-            BuildRealAxisLabels(RealExpenseAxisMax);
+            BuildTrendAxisLabels(RealExpenseAxisMax);
     const std::array<int, GEconomyTrendYAxisLabelCount>
         RealTradeAxisLabels =
-            BuildRealAxisLabels(RealTradeAxisMax);
+            BuildTrendAxisLabels(RealTradeAxisMax);
     const std::array<int, GEconomyTrendYAxisLabelCount>
         RealUnemploymentCountAxisLabels =
-            BuildRealAxisLabels(RealUnemploymentCountAxisMax);
+            BuildTrendAxisLabels(RealUnemploymentCountAxisMax);
     const std::array<int, GEconomyTrendYAxisLabelCount>
         RealVacancyAxisLabels =
-            BuildRealAxisLabels(RealVacancyAxisMax);
+            BuildTrendAxisLabels(RealVacancyAxisMax);
     const std::array<int, GEconomyTrendYAxisLabelCount>
         RealPercentAxisLabels =
     {
@@ -1636,50 +1643,24 @@ void FAlmanacRenderer::ApplyEconomyPage(
                         (std::min)(8, Snapshot.HarborCount * 2))) :
             0;
 
-    auto ResolveAxisStep = [](int RawMax)
-    {
-        const int TargetStep = (std::max)(1, (RawMax + 4) / 5);
-        int Magnitude = 1;
-        while (Magnitude * 10 < TargetStep)
-            Magnitude *= 10;
-
-        if (TargetStep <= Magnitude * 2)
-            return Magnitude * 2;
-        if (TargetStep <= Magnitude * 5)
-            return Magnitude * 5;
-        return Magnitude * 10;
-    };
-
-    auto BuildAxisLabels = [](int AxisMax)
-    {
-        std::array<int, GEconomyTrendYAxisLabelCount> Labels = {};
-        const int Step = (std::max)(1, AxisMax / 5);
-
-        for (int Index = 0; Index < GEconomyTrendYAxisLabelCount; ++Index)
-            Labels[static_cast<size_t>(Index)] =
-                (std::max)(0, AxisMax - Step * Index);
-
-        return Labels;
-    };
-
     const int CurrentTouristAxisMax =
-        ResolveAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 25,
                 RoundToInt(
-                    ResolveSeriesMax(RealTouristCountBars, 0.f)))) * 5;
+                    ResolveTrendSeriesMax(RealTouristCountBars, 0.f)))) * 5;
     const int TourismCapacityAxisMax =
-        ResolveAxisStep(
+        ResolveTrendAxisStep(
             (std::max)(
                 50,
                 RoundToInt(
                     (std::max)(
-                        ResolveSeriesMax(RealTourismCapacityBars, 0.f),
-                        ResolveSeriesMax(RealTourismOccupancyBars, 0.f))))) * 5;
+                        ResolveTrendSeriesMax(RealTourismCapacityBars, 0.f),
+                        ResolveTrendSeriesMax(RealTourismOccupancyBars, 0.f))))) * 5;
     const std::array<int, GEconomyTrendYAxisLabelCount> CurrentTouristAxisLabels =
-        BuildAxisLabels(CurrentTouristAxisMax);
+        BuildTrendAxisLabels(CurrentTouristAxisMax);
     const std::array<int, GEconomyTrendYAxisLabelCount> TourismCapacityAxisLabels =
-        BuildAxisLabels(TourismCapacityAxisMax);
+        BuildTrendAxisLabels(TourismCapacityAxisMax);
     const std::array<float, GPopulationDistributionBarCount> EconomyTreasuryBars =
         BuildPopulationHistoricalLayer(
             Snapshot.NationalBudget > 0 ?

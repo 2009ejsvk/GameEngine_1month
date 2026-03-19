@@ -67,6 +67,24 @@ inline int GetCitizenWealthRank(ECitizenWealthLevel Level)
     return (std::max)(0, (std::min)(GCitizenWealthLevelCount - 1, Rank));
 }
 
+inline bool IsLowWealthCitizen(ECitizenWealthLevel WealthLevel)
+{
+    return GetCitizenWealthRank(WealthLevel) <=
+        GetCitizenWealthRank(ECitizenWealthLevel::Poor);
+}
+
+inline bool IsAffluentCitizen(ECitizenWealthLevel WealthLevel)
+{
+    return GetCitizenWealthRank(WealthLevel) >=
+        GetCitizenWealthRank(ECitizenWealthLevel::Rich);
+}
+
+inline bool IsLuxuryWealthCitizen(ECitizenWealthLevel WealthLevel)
+{
+    return GetCitizenWealthRank(WealthLevel) >=
+        GetCitizenWealthRank(ECitizenWealthLevel::FilthyRich);
+}
+
 inline const wchar_t* GetCitizenWealthDisplayName(ECitizenWealthLevel Level)
 {
     switch (Level)

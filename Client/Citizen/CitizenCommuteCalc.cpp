@@ -7,12 +7,6 @@
 
 namespace
 {
-    bool IsAffluentCitizen(ECitizenWealthLevel WealthLevel)
-    {
-        return GetCitizenWealthRank(WealthLevel) >=
-            GetCitizenWealthRank(ECitizenWealthLevel::Rich);
-    }
-
     float Clamp01(float Value)
     {
         return (std::max)(0.f, (std::min)(1.f, Value));

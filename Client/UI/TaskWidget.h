@@ -80,6 +80,7 @@ public:
     virtual void Update(float DeltaTime) override;
     void ToggleOpen();
     void SetOpen(bool Open);
+    void OpenEraTransitionTask();
     void OpenForDemand(
         EPoliticalDemandIssuerType IssuerType,
         int IssuerIndex);

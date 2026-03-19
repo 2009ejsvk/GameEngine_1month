@@ -342,9 +342,13 @@ private:
     void ReleaseTeamsterReservations();
     void ReleaseServiceVisitReservations();
     bool TryStartTeamsterDelivery();
-    bool TryPlanTeamsterConsumerDelivery(
+    bool TryPlanTeamsterWarehouseBufferDelivery(
         const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
         FTeamsterDeliveryState& OutDelivery) const;
+    bool TryPlanTeamsterConsumerDelivery(
+        const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
+        FTeamsterDeliveryState& OutDelivery,
+        bool CriticalOnly) const;
     bool TryPlanTeamsterExportDelivery(
         const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
         FTeamsterDeliveryState& OutDelivery) const;

@@ -647,40 +647,6 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         0.f : UIConfig::BuildingTitleTextWidthAdjust;
     const float TitleTextHeightAdjust = Context.IsCitizenMode ?
         0.f : UIConfig::BuildingTitleTextHeightAdjust;
-    const float WorkModeLabelOffsetX = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeLabelOffsetX;
-    const float WorkModeLabelOffsetY = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeLabelOffsetY;
-    const float WorkModeLabelWidthAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeLabelWidthAdjust;
-    const float WorkModeBackgroundOffsetX = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeBackgroundOffsetX;
-    const float WorkModeBackgroundOffsetY = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeBackgroundOffsetY;
-    const float WorkModeBackgroundWidthAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeBackgroundWidthAdjust;
-    const float WorkModeBackgroundHeightAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeBackgroundHeightAdjust;
-    const float WorkModeTextOffsetX = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeTextOffsetX;
-    const float WorkModeTextOffsetY = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeTextOffsetY;
-    const float WorkModeTextWidthAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeTextWidthAdjust;
-    const float WorkModeTextHeightAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewWorkModeTextHeightAdjust;
-    const float BudgetLabelOffsetX = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewBudgetLabelOffsetX;
-    const float BudgetLabelOffsetY = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewBudgetLabelOffsetY;
-    const float BudgetLabelWidthAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewBudgetLabelWidthAdjust;
-    const float BudgetValueOffsetX = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewBudgetValueOffsetX;
-    const float BudgetValueOffsetY = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewBudgetValueOffsetY;
-    const float BudgetValueWidthAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingOverviewBudgetValueWidthAdjust;
     // 폰트 크기
     if (auto TitleTxt = Widget.mTitleText.lock())
         TitleTxt->SetFontSize(
@@ -954,10 +920,10 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowWorkOverview)
         {
             Text->SetPos(
-                BudgetMargin + WorkModeLabelOffsetX,
-                WorkModeTop + WorkModeLabelOffsetY);
+                BudgetMargin,
+                WorkModeTop);
             Text->SetSize(
-                PanelWidth * 0.5f + WorkModeLabelWidthAdjust,
+                PanelWidth * 0.5f,
                 Layout.CompactControlHeight);
         }
         else
@@ -972,11 +938,11 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowWorkOverview)
         {
             Background->SetPos(
-                BudgetMargin + WorkModeBackgroundOffsetX,
-                WorkModeBoxTop + WorkModeBackgroundOffsetY);
+                BudgetMargin,
+                WorkModeBoxTop);
             Background->SetSize(
-                PanelWidth - BudgetMargin * 2.f + WorkModeBackgroundWidthAdjust,
-                34.f + WorkModeBackgroundHeightAdjust);
+                PanelWidth - BudgetMargin * 2.f,
+                34.f);
         }
         else
         {
@@ -990,11 +956,11 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowWorkOverview)
         {
             Button->SetPos(
-                BudgetMargin + WorkModeBackgroundOffsetX,
-                WorkModeBoxTop + WorkModeBackgroundOffsetY);
+                BudgetMargin,
+                WorkModeBoxTop);
             Button->SetSize(
-                PanelWidth - BudgetMargin * 2.f + WorkModeBackgroundWidthAdjust,
-                34.f + WorkModeBackgroundHeightAdjust);
+                PanelWidth - BudgetMargin * 2.f,
+                34.f);
         }
         else
         {
@@ -1008,12 +974,11 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowWorkOverview)
         {
             Text->SetPos(
-                BudgetMargin + 12.f + WorkModeTextOffsetX,
-                WorkModeBoxTop + 2.f + WorkModeTextOffsetY);
+                BudgetMargin + 12.f,
+                WorkModeBoxTop + 2.f);
             Text->SetSize(
-                PanelWidth - BudgetMargin * 2.f - 24.f +
-                    WorkModeTextWidthAdjust,
-                30.f + WorkModeTextHeightAdjust);
+                PanelWidth - BudgetMargin * 2.f - 24.f,
+                30.f);
         }
         else
         {
@@ -1027,10 +992,10 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowResidentialWorkMode)
         {
             Text->SetPos(
-                BudgetMargin + WorkModeLabelOffsetX,
-                WorkModeTop + WorkModeLabelOffsetY);
+                BudgetMargin,
+                WorkModeTop);
             Text->SetSize(
-                PanelWidth * 0.5f + WorkModeLabelWidthAdjust,
+                PanelWidth * 0.5f,
                 Layout.CompactControlHeight);
         }
         else
@@ -1045,11 +1010,11 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowResidentialWorkMode)
         {
             Background->SetPos(
-                BudgetMargin + WorkModeBackgroundOffsetX,
-                WorkModeBoxTop + WorkModeBackgroundOffsetY);
+                BudgetMargin,
+                WorkModeBoxTop);
             Background->SetSize(
-                PanelWidth - BudgetMargin * 2.f + WorkModeBackgroundWidthAdjust,
-                34.f + WorkModeBackgroundHeightAdjust);
+                PanelWidth - BudgetMargin * 2.f,
+                34.f);
         }
         else
         {
@@ -1063,11 +1028,11 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowResidentialWorkMode)
         {
             Button->SetPos(
-                BudgetMargin + WorkModeBackgroundOffsetX,
-                WorkModeBoxTop + WorkModeBackgroundOffsetY);
+                BudgetMargin,
+                WorkModeBoxTop);
             Button->SetSize(
-                PanelWidth - BudgetMargin * 2.f + WorkModeBackgroundWidthAdjust,
-                34.f + WorkModeBackgroundHeightAdjust);
+                PanelWidth - BudgetMargin * 2.f,
+                34.f);
         }
         else
         {
@@ -1081,12 +1046,11 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowResidentialWorkMode)
         {
             Text->SetPos(
-                BudgetMargin + 12.f + WorkModeTextOffsetX,
-                WorkModeBoxTop + 2.f + WorkModeTextOffsetY);
+                BudgetMargin + 12.f,
+                WorkModeBoxTop + 2.f);
             Text->SetSize(
-                PanelWidth - BudgetMargin * 2.f - 24.f +
-                    WorkModeTextWidthAdjust,
-                30.f + WorkModeTextHeightAdjust);
+                PanelWidth - BudgetMargin * 2.f - 24.f,
+                30.f);
         }
         else
         {
@@ -1100,10 +1064,10 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowWorkOverview)
         {
             Text->SetPos(
-                BudgetMargin + BudgetLabelOffsetX,
-                BudgetBaseY - Layout.BudgetLabelOffsetY + BudgetLabelOffsetY);
+                BudgetMargin,
+                BudgetBaseY - Layout.BudgetLabelOffsetY);
             Text->SetSize(
-                PanelWidth * 0.5f + BudgetLabelWidthAdjust,
+                PanelWidth * 0.5f,
                 Layout.CompactControlHeight);
         }
         else
@@ -1118,10 +1082,10 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowWorkOverview)
         {
             Text->SetPos(
-                PanelWidth - BudgetMargin - 120.f + BudgetValueOffsetX,
-                BudgetBaseY - Layout.BudgetLabelOffsetY + BudgetValueOffsetY);
+                PanelWidth - BudgetMargin - 120.f,
+                BudgetBaseY - Layout.BudgetLabelOffsetY);
             Text->SetSize(
-                120.f + BudgetValueWidthAdjust,
+                120.f,
                 Layout.CompactControlHeight);
         }
         else
@@ -1206,10 +1170,10 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowCustomOverview)
         {
             Text->SetPos(
-                BudgetMargin + BudgetLabelOffsetX,
-                BudgetBaseY - Layout.BudgetLabelOffsetY + BudgetLabelOffsetY);
+                BudgetMargin,
+                BudgetBaseY - Layout.BudgetLabelOffsetY);
             Text->SetSize(
-                PanelWidth * 0.5f + BudgetLabelWidthAdjust,
+                PanelWidth * 0.5f,
                 Layout.CompactControlHeight);
         }
         else
@@ -1224,10 +1188,10 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (ShowCustomOverview)
         {
             Text->SetPos(
-                PanelWidth - BudgetMargin - 120.f + BudgetValueOffsetX,
-                BudgetBaseY - Layout.BudgetLabelOffsetY + BudgetValueOffsetY);
+                PanelWidth - BudgetMargin - 120.f,
+                BudgetBaseY - Layout.BudgetLabelOffsetY);
             Text->SetSize(
-                120.f + BudgetValueWidthAdjust,
+                120.f,
                 Layout.CompactControlHeight);
         }
         else

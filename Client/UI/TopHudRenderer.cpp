@@ -25,6 +25,11 @@ namespace
     constexpr int GMenuEraTransitionIndex = 3;
     constexpr int GMenuTradeIndex = 4;
     constexpr int GMenuAlmanacIndex = 7;
+    constexpr int GConstitutionTopicTabCount =
+        static_cast<int>(GConstitutionTopicCount);
+    constexpr int GConstitutionTabSlotCount =
+        GConstitutionTopicTabCount + 1;
+    constexpr int GConstitutionOptionCardCount = 3;
 
     constexpr const TCHAR* GSpeedPanelTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Gamespeed\\T_gamespeed_deco_bg.png");
@@ -80,7 +85,7 @@ namespace
         L"top_hud.menu.mission",
         L"top_hud.menu.construction",
         L"top_hud.menu.edict",
-        L"top_hud.menu.era_transition",
+        L"top_hud.menu.constitution",
         L"top_hud.menu.trade",
         L"top_hud.menu.raid",
         L"top_hud.menu.research",
@@ -134,6 +139,27 @@ namespace
         Text->EnableShadow(true);
         Text->SetShadowOffset(1.f, 1.f);
         Text->SetShadowTextColor(16, 16, 16, 220);
+    }
+
+    void ConfigureConstitutionText(
+        const std::shared_ptr<CTextBlock>& Text,
+        float FontSize,
+        ETextAlignH AlignH,
+        ETextAlignV AlignV,
+        unsigned char R,
+        unsigned char G,
+        unsigned char B)
+    {
+        if (!Text)
+            return;
+
+        Text->SetFontSize(FontSize);
+        Text->SetAlignH(AlignH);
+        Text->SetAlignV(AlignV);
+        Text->SetTextColor(R, G, B, 255);
+        Text->EnableShadow(true);
+        Text->SetShadowOffset(1.f, 1.f);
+        Text->SetShadowTextColor(245, 239, 220, 96);
     }
 
     const TCHAR* GetSpeedStateIconPath(
@@ -501,17 +527,6 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         Widget.mGameOverBodyText = GameOverBodyText;
     }
 
-    auto EraTransitionDim =
-        Widget.CreateWidget<CImage>("TopHud_EraTransitionDim", 94).lock();
-
-    if (EraTransitionDim)
-    {
-        EraTransitionDim->SetTexture("TopHudEraTransitionDim", GStatusBarTexture);
-        EraTransitionDim->SetTint(0.03f, 0.03f, 0.03f, 0.70f);
-        EraTransitionDim->SetEnable(false);
-        Widget.mEraTransitionDim = EraTransitionDim;
-    }
-
     auto EraTransitionPanel =
         Widget.CreateWidget<CImage>("TopHud_EraTransitionPanel", 95).lock();
 
@@ -726,6 +741,392 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
         }
     }
 
+    auto ConstitutionPanel =
+        Widget.CreateWidget<CImage>("TopHud_ConstitutionPanel", 94).lock();
+
+    if (ConstitutionPanel)
+    {
+        ConstitutionPanel->SetTexture(
+            "TopHudConstitutionPanel",
+            GModernPanelTexture);
+        ConstitutionPanel->SetTint(1.f, 1.f, 1.f, 0.99f);
+        ConstitutionPanel->SetEnable(false);
+        Widget.mConstitutionPanel = ConstitutionPanel;
+    }
+
+    auto ConstitutionTitleRibbon =
+        Widget.CreateWidget<CImage>(
+            "TopHud_ConstitutionTitleRibbon",
+            95).lock();
+
+    if (ConstitutionTitleRibbon)
+    {
+        ConstitutionTitleRibbon->SetTexture(
+            "TopHudConstitutionTitleRibbon",
+            GMenuTitleRibbonTexture);
+        ConstitutionTitleRibbon->SetTint(1.f, 1.f, 1.f, 1.f);
+        ConstitutionTitleRibbon->SetEnable(false);
+        Widget.mConstitutionTitleRibbon = ConstitutionTitleRibbon;
+    }
+
+    auto ConstitutionTitleText =
+        Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionTitleText",
+            96).lock();
+
+    if (ConstitutionTitleText)
+    {
+        ConstitutionTitleText->SetText(
+            UIStrings::Get(L"constitution.panel.title").c_str());
+        ConfigureConstitutionText(
+            ConstitutionTitleText,
+            28.f,
+            ETextAlignH::Center,
+            ETextAlignV::Middle,
+            78, 56, 28);
+        ConstitutionTitleText->SetEnable(false);
+        Widget.mConstitutionTitleText = ConstitutionTitleText;
+    }
+
+    auto ConstitutionSubtitleText =
+        Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionSubtitleText",
+            96).lock();
+
+    if (ConstitutionSubtitleText)
+    {
+        ConstitutionSubtitleText->SetText(
+            UIStrings::Get(L"constitution.panel.subtitle").c_str());
+        ConfigureConstitutionText(
+            ConstitutionSubtitleText,
+            18.f,
+            ETextAlignH::Left,
+            ETextAlignV::Top,
+            98, 82, 52);
+        ConstitutionSubtitleText->SetEnable(false);
+        Widget.mConstitutionSubtitleText = ConstitutionSubtitleText;
+    }
+
+    auto ConstitutionPendingText =
+        Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionPendingText",
+            96).lock();
+
+    if (ConstitutionPendingText)
+    {
+        ConstitutionPendingText->SetText(TEXT(""));
+        ConfigureConstitutionText(
+            ConstitutionPendingText,
+            17.f,
+            ETextAlignH::Right,
+            ETextAlignV::Top,
+            144, 72, 24);
+        ConstitutionPendingText->SetEnable(false);
+        Widget.mConstitutionPendingText = ConstitutionPendingText;
+    }
+
+    auto ConstitutionCloseButton =
+        Widget.CreateWidget<CButton>(
+            "TopHud_ConstitutionCloseButton",
+            97).lock();
+
+    if (ConstitutionCloseButton)
+    {
+        ApplyButtonTextureSet(
+            ConstitutionCloseButton,
+            "TopHudConstitutionCloseButton",
+            GRoundButtonTexture,
+            GRoundButtonHoverTexture,
+            GRoundButtonSelectedTexture,
+            GRoundButtonTexture);
+        ConfigureIconSlotButtonStyle(ConstitutionCloseButton);
+        ConstitutionCloseButton->SetEnable(false);
+        ConstitutionCloseButton->SetEventCallback<CTopHudWidget>(
+            EButtonEventState::Click,
+            &Widget,
+            &CTopHudWidget::OnConstitutionCloseButtonClick);
+
+        auto CloseText =
+            CWidget::CreateStaticWidget<CTextBlock>(
+                "TopHud_ConstitutionCloseText",
+                Widget.mWorld);
+
+        if (CloseText)
+        {
+            CloseText->SetText(TEXT("X"));
+            ConfigureConstitutionText(
+                CloseText,
+                22.f,
+                ETextAlignH::Center,
+                ETextAlignV::Middle,
+                95, 68, 18);
+            ConstitutionCloseButton->SetChild(CloseText);
+        }
+
+        Widget.mConstitutionCloseButton = ConstitutionCloseButton;
+    }
+
+    auto ConstitutionOverviewButton =
+        Widget.CreateWidget<CButton>(
+            "TopHud_ConstitutionOverviewButton",
+            96).lock();
+
+    if (ConstitutionOverviewButton)
+    {
+        ApplyButtonTextureSet(
+            ConstitutionOverviewButton,
+            "TopHudConstitutionOverviewButton",
+            GCategoryTabTextureSelected,
+            GCategoryTabTextureSelected,
+            GCategoryTabTextureSelected,
+            GCategoryTabTextureHidden);
+        ConfigureCategoryTabButtonStyle(ConstitutionOverviewButton, false);
+        ConstitutionOverviewButton->SetEnable(false);
+        ConstitutionOverviewButton->SetEventCallback<CTopHudWidget>(
+            EButtonEventState::Click,
+            &Widget,
+            &CTopHudWidget::OnConstitutionOverviewButtonClick);
+        Widget.mConstitutionOverviewButton = ConstitutionOverviewButton;
+
+        auto OverviewText =
+            ConstitutionOverviewButton->CreateChildWidget<CTextBlock>(
+                "TopHud_ConstitutionOverviewButtonText",
+                97).lock();
+
+        if (OverviewText)
+        {
+            OverviewText->SetText(
+                UIStrings::Get(
+                    L"constitution.panel.overview_button").c_str());
+            ConfigureConstitutionText(
+                OverviewText,
+                14.f,
+                ETextAlignH::Center,
+                ETextAlignV::Middle,
+                64, 54, 36);
+            Widget.mConstitutionOverviewButtonText = OverviewText;
+        }
+    }
+
+    Widget.mConstitutionTopicTabButtons.resize(GConstitutionTopicTabCount);
+    Widget.mConstitutionTopicTabTexts.resize(GConstitutionTopicTabCount);
+
+    for (int Index = 0; Index < GConstitutionTopicTabCount; ++Index)
+    {
+        auto TabButton = Widget.CreateWidget<CButton>(
+            "TopHud_ConstitutionTab_" + std::to_string(Index + 1),
+            96).lock();
+
+        if (TabButton)
+        {
+            ApplyButtonTextureSet(
+                TabButton,
+                "TopHudConstitutionTab_" + std::to_string(Index),
+                GCategoryTabTextureSelected,
+                GCategoryTabTextureSelected,
+                GCategoryTabTextureSelected,
+                GCategoryTabTextureHidden);
+            ConfigureCategoryTabButtonStyle(TabButton, false);
+            TabButton->SetEnable(false);
+
+            const EConstitutionTopic Topic =
+                static_cast<EConstitutionTopic>(Index);
+
+            TabButton->SetEventCallback(
+                EButtonEventState::Click,
+                [&Widget, Topic]()
+                {
+                    Widget.ShowConstitutionTopic(Topic);
+                    Widget.RefreshFromState();
+                });
+
+            Widget.mConstitutionTopicTabButtons[Index] = TabButton;
+        }
+
+        auto TabText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionTabText_" + std::to_string(Index + 1),
+            97).lock();
+
+        if (TabText)
+        {
+            ConfigureConstitutionText(
+                TabText,
+                14.f,
+                ETextAlignH::Center,
+                ETextAlignV::Middle,
+                64, 54, 36);
+            TabText->SetEnable(false);
+            Widget.mConstitutionTopicTabTexts[Index] = TabText;
+        }
+    }
+
+    Widget.mConstitutionSummaryButtons.resize(GConstitutionTopicTabCount);
+    Widget.mConstitutionSummaryTopicTexts.resize(GConstitutionTopicTabCount);
+    Widget.mConstitutionSummaryValueTexts.resize(GConstitutionTopicTabCount);
+    Widget.mConstitutionSummaryStatusTexts.resize(GConstitutionTopicTabCount);
+
+    for (int Index = 0; Index < GConstitutionTopicTabCount; ++Index)
+    {
+        auto CardButton = Widget.CreateWidget<CButton>(
+            "TopHud_ConstitutionSummaryButton_" + std::to_string(Index + 1),
+            96).lock();
+
+        if (CardButton)
+        {
+            ApplyButtonTextureSet(
+                CardButton,
+                "TopHudConstitutionSummaryButton_" + std::to_string(Index),
+                GDetailInfoPanelTexture,
+                GDetailInfoPanelTexture,
+                GDetailInfoPanelTexture,
+                GDetailInfoPanelTexture);
+            ConfigureDefaultButtonStyle(CardButton);
+            CardButton->SetEnable(false);
+
+            const EConstitutionTopic Topic =
+                static_cast<EConstitutionTopic>(Index);
+
+            CardButton->SetEventCallback(
+                EButtonEventState::Click,
+                [&Widget, Topic]()
+                {
+                    Widget.ShowConstitutionTopic(Topic);
+                    Widget.RefreshFromState();
+                });
+
+            Widget.mConstitutionSummaryButtons[Index] = CardButton;
+        }
+
+        auto TopicText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionSummaryTopic_" + std::to_string(Index + 1),
+            97).lock();
+
+        if (TopicText)
+        {
+            ConfigureConstitutionText(
+                TopicText,
+                18.f,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                72, 56, 34);
+            TopicText->SetEnable(false);
+            Widget.mConstitutionSummaryTopicTexts[Index] = TopicText;
+        }
+
+        auto ValueText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionSummaryValue_" + std::to_string(Index + 1),
+            97).lock();
+
+        if (ValueText)
+        {
+            ConfigureConstitutionText(
+                ValueText,
+                22.f,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                48, 48, 48);
+            ValueText->SetEnable(false);
+            Widget.mConstitutionSummaryValueTexts[Index] = ValueText;
+        }
+
+        auto StatusText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionSummaryStatus_" + std::to_string(Index + 1),
+            97).lock();
+
+        if (StatusText)
+        {
+            ConfigureConstitutionText(
+                StatusText,
+                16.f,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                132, 96, 44);
+            StatusText->SetEnable(false);
+            Widget.mConstitutionSummaryStatusTexts[Index] = StatusText;
+        }
+    }
+
+    Widget.mConstitutionOptionButtons.resize(GConstitutionOptionCardCount);
+    Widget.mConstitutionOptionTitleTexts.resize(GConstitutionOptionCardCount);
+    Widget.mConstitutionOptionSummaryTexts.resize(GConstitutionOptionCardCount);
+    Widget.mConstitutionOptionBodyTexts.resize(GConstitutionOptionCardCount);
+
+    for (int Index = 0; Index < GConstitutionOptionCardCount; ++Index)
+    {
+        auto OptionButton = Widget.CreateWidget<CButton>(
+            "TopHud_ConstitutionOptionButton_" + std::to_string(Index + 1),
+            96).lock();
+
+        if (OptionButton)
+        {
+            ApplyButtonTextureSet(
+                OptionButton,
+                "TopHudConstitutionOptionButton_" + std::to_string(Index),
+                GDetailInfoPanelTexture,
+                GDetailInfoPanelTexture,
+                GDetailInfoPanelTexture,
+                GDetailInfoPanelTexture);
+            ConfigureDefaultButtonStyle(OptionButton);
+            OptionButton->SetEnable(false);
+            OptionButton->SetEventCallback(
+                EButtonEventState::Click,
+                [&Widget, Index]()
+                {
+                    Widget.TrySelectViewedConstitutionOption(
+                        static_cast<size_t>(Index));
+                });
+            Widget.mConstitutionOptionButtons[Index] = OptionButton;
+        }
+
+        auto TitleText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionOptionTitle_" + std::to_string(Index + 1),
+            97).lock();
+
+        if (TitleText)
+        {
+            ConfigureConstitutionText(
+                TitleText,
+                22.f,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                74, 54, 24);
+            TitleText->SetEnable(false);
+            Widget.mConstitutionOptionTitleTexts[Index] = TitleText;
+        }
+
+        auto SummaryText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionOptionSummary_" + std::to_string(Index + 1),
+            97).lock();
+
+        if (SummaryText)
+        {
+            ConfigureConstitutionText(
+                SummaryText,
+                16.f,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                116, 84, 42);
+            SummaryText->SetEnable(false);
+            Widget.mConstitutionOptionSummaryTexts[Index] = SummaryText;
+        }
+
+        auto BodyText = Widget.CreateWidget<CTextBlock>(
+            "TopHud_ConstitutionOptionBody_" + std::to_string(Index + 1),
+            97).lock();
+
+        if (BodyText)
+        {
+            ConfigureConstitutionText(
+                BodyText,
+                17.f,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                62, 60, 54);
+            BodyText->SetEnable(false);
+            Widget.mConstitutionOptionBodyTexts[Index] = BodyText;
+        }
+    }
+
     Widget.mSpeedButtons.resize(GSpeedButtonCount);
     Widget.mSpeedButtonIcons.resize(GSpeedButtonCount);
 
@@ -882,10 +1283,13 @@ void FTopHudRenderer::ApplySnapshot(
     auto GameOverPanel = Widget.mGameOverPanel.lock();
     auto GameOverTitleText = Widget.mGameOverTitleText.lock();
     auto GameOverBodyText = Widget.mGameOverBodyText.lock();
-    auto EraTransitionDim = Widget.mEraTransitionDim.lock();
     auto EraTransitionPanel = Widget.mEraTransitionPanel.lock();
     auto EraTransitionTitleText = Widget.mEraTransitionTitleText.lock();
     auto EraTransitionBodyText = Widget.mEraTransitionBodyText.lock();
+    auto ConstitutionPanel = Widget.mConstitutionPanel.lock();
+    auto ConstitutionTitleRibbon = Widget.mConstitutionTitleRibbon.lock();
+    auto ConstitutionCloseButton =
+        Widget.mConstitutionCloseButton.lock();
     auto PopupRightButton = Widget.mPopupRightButton.lock();
     auto PopupLeftButton = Widget.mPopupLeftButton.lock();
     auto ConstitutionRightButton =
@@ -903,9 +1307,10 @@ void FTopHudRenderer::ApplySnapshot(
     const bool ShowPopupOverlay =
         Widget.GetState().EraTransitionPopupOpen &&
         !Snapshot.GameLost;
-    const bool ShowConstitutionPopup =
-        ShowPopupOverlay &&
-        Widget.GetState().ConstitutionPopupActive;
+    const bool ShowConstitutionPanel =
+        Widget.GetState().ConstitutionPanelOpen &&
+        !Snapshot.GameLost;
+    const bool ShowConstitutionPopup = false;
     const bool ShowEraTransitionPopup =
         ShowPopupOverlay &&
         !ShowConstitutionPopup;
@@ -957,7 +1362,9 @@ void FTopHudRenderer::ApplySnapshot(
         if (Button)
         {
             Button->ButtonEnable(
-                Snapshot.CanUseButtons && !ShowEraTransitionPopup);
+                Snapshot.CanUseButtons &&
+                !ShowEraTransitionPopup &&
+                !ShowConstitutionPanel);
         }
     }
 
@@ -1000,18 +1407,15 @@ void FTopHudRenderer::ApplySnapshot(
 
         if (Button)
         {
-            const bool EraTransitionButton =
+            const bool ConstitutionMenuButton =
                 static_cast<int>(i) == GMenuEraTransitionIndex;
             const bool Enabled =
                 Snapshot.CanUseButtons &&
                 !ShowEraTransitionPopup &&
-                (!EraTransitionButton || Snapshot.EraTransitionButtonEnabled);
+                (!ShowConstitutionPanel || ConstitutionMenuButton);
             Button->ButtonEnable(Enabled);
         }
     }
-
-    if (EraTransitionDim)
-        EraTransitionDim->SetEnable(ShowPopupOverlay);
 
     if (EraTransitionPanel)
         EraTransitionPanel->SetEnable(ShowPopupOverlay);
@@ -1026,6 +1430,19 @@ void FTopHudRenderer::ApplySnapshot(
     {
         EraTransitionBodyText->SetText(Snapshot.EraTransitionBody.c_str());
         EraTransitionBodyText->SetEnable(ShowPopupOverlay);
+    }
+
+    if (ConstitutionPanel)
+        ConstitutionPanel->SetEnable(ShowConstitutionPanel);
+
+    if (ConstitutionTitleRibbon)
+        ConstitutionTitleRibbon->SetEnable(ShowConstitutionPanel);
+
+    if (ConstitutionCloseButton)
+    {
+        ConstitutionCloseButton->SetEnable(ShowConstitutionPanel);
+        ConstitutionCloseButton->ButtonEnable(
+            ShowConstitutionPanel && Snapshot.CanUseButtons);
     }
 
     if (PopupRightButton)
@@ -1123,10 +1540,20 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     auto GameOverPanel = Widget.mGameOverPanel.lock();
     auto GameOverTitleText = Widget.mGameOverTitleText.lock();
     auto GameOverBodyText = Widget.mGameOverBodyText.lock();
-    auto EraTransitionDim = Widget.mEraTransitionDim.lock();
     auto EraTransitionPanel = Widget.mEraTransitionPanel.lock();
     auto EraTransitionTitleText = Widget.mEraTransitionTitleText.lock();
     auto EraTransitionBodyText = Widget.mEraTransitionBodyText.lock();
+    auto ConstitutionPanel = Widget.mConstitutionPanel.lock();
+    auto ConstitutionTitleRibbon = Widget.mConstitutionTitleRibbon.lock();
+    auto ConstitutionTitleText = Widget.mConstitutionTitleText.lock();
+    auto ConstitutionSubtitleText = Widget.mConstitutionSubtitleText.lock();
+    auto ConstitutionPendingText = Widget.mConstitutionPendingText.lock();
+    auto ConstitutionCloseButton =
+        Widget.mConstitutionCloseButton.lock();
+    auto ConstitutionOverviewButton =
+        Widget.mConstitutionOverviewButton.lock();
+    auto ConstitutionOverviewButtonText =
+        Widget.mConstitutionOverviewButtonText.lock();
     auto PopupRightButton = Widget.mPopupRightButton.lock();
     auto PopupLeftButton = Widget.mPopupLeftButton.lock();
     auto ConstitutionRightButton =
@@ -1479,12 +1906,6 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
     const float EraConfirmButtonX =
         EraPanelX + EraPanelWidth * 0.5f + EraButtonGap * 0.5f;
 
-    if (EraTransitionDim)
-    {
-        EraTransitionDim->SetPos(0.f, 0.f);
-        EraTransitionDim->SetSize(OverlayWidth, OverlayHeight);
-    }
-
     if (EraTransitionPanel)
     {
         EraTransitionPanel->SetPos(EraPanelX, EraPanelY);
@@ -1565,5 +1986,308 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
         ConstitutionRightButtonText->SetSize(
             EraButtonWidth,
             EraButtonHeight);
+    }
+
+    const float ConstitutionScale =
+        (std::max)(0.72f, (std::min)(
+            1.0f,
+            (std::min)(ScreenWidth / 1920.f, ScreenHeight / 1080.f)));
+    const float ConstitutionPanelWidth =
+        (std::min)(ScreenWidth - 220.f * ConstitutionScale,
+            1060.f * ConstitutionScale);
+    const float ConstitutionPanelHeight =
+        (std::min)(ScreenHeight - 110.f * ConstitutionScale,
+            860.f * ConstitutionScale);
+    const float ConstitutionPanelLeft =
+        (ScreenWidth - ConstitutionPanelWidth) * 0.5f;
+    const float ConstitutionPanelTop =
+        (ScreenHeight - ConstitutionPanelHeight) * 0.5f;
+    const float ConstitutionInnerPadding = 34.f * ConstitutionScale;
+    const float ConstitutionTabWidth =
+        (ConstitutionPanelWidth - ConstitutionInnerPadding * 2.f -
+            12.f * ConstitutionScale * static_cast<float>(
+                (std::max)(0, GConstitutionTabSlotCount - 1))) /
+        static_cast<float>((std::max)(1, GConstitutionTabSlotCount));
+    const float ConstitutionTabHeight = 62.f * ConstitutionScale;
+    const float ConstitutionTabBaseY =
+        ConstitutionPanelTop - 44.f * ConstitutionScale;
+    const float ConstitutionTitleRibbonWidth =
+        (std::min)(420.f * ConstitutionScale,
+            ConstitutionPanelWidth - 180.f * ConstitutionScale);
+    const float ConstitutionTitleRibbonHeight =
+        46.f * ConstitutionScale;
+    const float ConstitutionRibbonLeft =
+        ConstitutionPanelLeft +
+        (ConstitutionPanelWidth - ConstitutionTitleRibbonWidth) * 0.5f;
+    const float ConstitutionHeaderTop =
+        ConstitutionPanelTop + 18.f * ConstitutionScale;
+    const float ConstitutionCloseSize = 38.f * ConstitutionScale;
+    const float ConstitutionInfoTop =
+        ConstitutionPanelTop + 74.f * ConstitutionScale;
+    const float ConstitutionContentTop =
+        ConstitutionPanelTop + 130.f * ConstitutionScale;
+    const float ConstitutionContentWidth =
+        ConstitutionPanelWidth - ConstitutionInnerPadding * 2.f;
+    const float ConstitutionSummaryGap = 18.f * ConstitutionScale;
+    const float ConstitutionSummaryWidth =
+        (ConstitutionContentWidth - ConstitutionSummaryGap) * 0.5f;
+    const float ConstitutionSummaryHeight = 116.f * ConstitutionScale;
+    const float ConstitutionOptionGap = 18.f * ConstitutionScale;
+    const float ConstitutionOptionWidth = ConstitutionContentWidth;
+    const float ConstitutionOptionHeight =
+        (ConstitutionPanelHeight -
+            (ConstitutionContentTop - ConstitutionPanelTop) -
+            ConstitutionInnerPadding -
+            ConstitutionOptionGap * 2.f) / 3.f;
+
+    if (ConstitutionPanel)
+    {
+        ConstitutionPanel->SetPos(
+            ConstitutionPanelLeft,
+            ConstitutionPanelTop);
+        ConstitutionPanel->SetSize(
+            ConstitutionPanelWidth,
+            ConstitutionPanelHeight);
+    }
+
+    if (ConstitutionTitleRibbon)
+    {
+        ConstitutionTitleRibbon->SetPos(
+            ConstitutionRibbonLeft,
+            ConstitutionHeaderTop);
+        ConstitutionTitleRibbon->SetSize(
+            ConstitutionTitleRibbonWidth,
+            ConstitutionTitleRibbonHeight);
+    }
+
+    if (ConstitutionTitleText)
+    {
+        ConstitutionTitleText->SetPos(
+            ConstitutionRibbonLeft + 22.f * ConstitutionScale,
+            ConstitutionHeaderTop);
+        ConstitutionTitleText->SetSize(
+            ConstitutionTitleRibbonWidth - 44.f * ConstitutionScale,
+            ConstitutionTitleRibbonHeight);
+    }
+
+    if (ConstitutionCloseButton)
+    {
+        ConstitutionCloseButton->SetPos(
+            ConstitutionPanelLeft + ConstitutionPanelWidth -
+                ConstitutionCloseSize - 12.f * ConstitutionScale,
+            ConstitutionPanelTop + 10.f * ConstitutionScale);
+        ConstitutionCloseButton->SetSize(
+            ConstitutionCloseSize,
+            ConstitutionCloseSize);
+    }
+
+    if (ConstitutionOverviewButton)
+    {
+        const float SelectedOffset =
+            Widget.GetState().ConstitutionOverviewMode ?
+            8.f * ConstitutionScale :
+            0.f;
+        ConstitutionOverviewButton->SetPos(
+            ConstitutionPanelLeft + ConstitutionInnerPadding,
+            ConstitutionTabBaseY + SelectedOffset);
+        ConstitutionOverviewButton->SetSize(
+            ConstitutionTabWidth,
+            ConstitutionTabHeight);
+    }
+
+    if (ConstitutionOverviewButtonText)
+    {
+        ConstitutionOverviewButtonText->SetPos(
+            10.f * ConstitutionScale,
+            6.f * ConstitutionScale);
+        ConstitutionOverviewButtonText->SetSize(
+            ConstitutionTabWidth - 20.f * ConstitutionScale,
+            ConstitutionTabHeight - 12.f * ConstitutionScale);
+    }
+
+    if (ConstitutionSubtitleText)
+    {
+        ConstitutionSubtitleText->SetPos(
+            ConstitutionPanelLeft + ConstitutionInnerPadding,
+            ConstitutionInfoTop);
+        ConstitutionSubtitleText->SetSize(
+            ConstitutionContentWidth * 0.58f,
+            40.f * ConstitutionScale);
+    }
+
+    if (ConstitutionPendingText)
+    {
+        ConstitutionPendingText->SetPos(
+            ConstitutionPanelLeft + ConstitutionInnerPadding +
+                ConstitutionContentWidth * 0.40f,
+            ConstitutionInfoTop);
+        ConstitutionPendingText->SetSize(
+            ConstitutionContentWidth * 0.60f,
+            40.f * ConstitutionScale);
+    }
+
+    for (size_t Index = 0;
+        Index < Widget.mConstitutionTopicTabButtons.size();
+        ++Index)
+    {
+        auto Button = Widget.mConstitutionTopicTabButtons[Index].lock();
+        auto Text = Index < Widget.mConstitutionTopicTabTexts.size() ?
+            Widget.mConstitutionTopicTabTexts[Index].lock() :
+            nullptr;
+
+        const float SelectedOffset =
+            (!Widget.GetState().ConstitutionOverviewMode &&
+                static_cast<size_t>(
+                    Widget.GetState().ConstitutionViewedTopic) == Index) ?
+            8.f * ConstitutionScale : 0.f;
+        const float TabX =
+            ConstitutionPanelLeft + ConstitutionInnerPadding +
+            (ConstitutionTabWidth + 12.f * ConstitutionScale) *
+                static_cast<float>(Index + 1);
+
+        if (Button)
+        {
+            Button->SetPos(TabX, ConstitutionTabBaseY + SelectedOffset);
+            Button->SetSize(
+                ConstitutionTabWidth,
+                ConstitutionTabHeight);
+        }
+
+        if (Text)
+        {
+            Text->SetPos(
+                TabX + 10.f * ConstitutionScale,
+                ConstitutionTabBaseY + SelectedOffset +
+                    6.f * ConstitutionScale);
+            Text->SetSize(
+                ConstitutionTabWidth - 20.f * ConstitutionScale,
+                ConstitutionTabHeight - 12.f * ConstitutionScale);
+        }
+    }
+
+    for (size_t Index = 0;
+        Index < Widget.mConstitutionSummaryButtons.size();
+        ++Index)
+    {
+        const int Column = static_cast<int>(Index % 2);
+        const int Row = static_cast<int>(Index / 2);
+        const float CardX =
+            ConstitutionPanelLeft + ConstitutionInnerPadding +
+            (ConstitutionSummaryWidth + ConstitutionSummaryGap) *
+                static_cast<float>(Column);
+        const float CardY =
+            ConstitutionContentTop +
+            (ConstitutionSummaryHeight + ConstitutionSummaryGap) *
+                static_cast<float>(Row);
+
+        auto Button = Widget.mConstitutionSummaryButtons[Index].lock();
+        auto TopicText = Index < Widget.mConstitutionSummaryTopicTexts.size() ?
+            Widget.mConstitutionSummaryTopicTexts[Index].lock() :
+            nullptr;
+        auto ValueText = Index < Widget.mConstitutionSummaryValueTexts.size() ?
+            Widget.mConstitutionSummaryValueTexts[Index].lock() :
+            nullptr;
+        auto StatusText = Index < Widget.mConstitutionSummaryStatusTexts.size() ?
+            Widget.mConstitutionSummaryStatusTexts[Index].lock() :
+            nullptr;
+
+        if (Button)
+        {
+            Button->SetPos(CardX, CardY);
+            Button->SetSize(
+                ConstitutionSummaryWidth,
+                ConstitutionSummaryHeight);
+        }
+
+        if (TopicText)
+        {
+            TopicText->SetPos(
+                CardX + 22.f * ConstitutionScale,
+                CardY + 18.f * ConstitutionScale);
+            TopicText->SetSize(
+                ConstitutionSummaryWidth - 44.f * ConstitutionScale,
+                28.f * ConstitutionScale);
+        }
+
+        if (ValueText)
+        {
+            ValueText->SetPos(
+                CardX + 22.f * ConstitutionScale,
+                CardY + 48.f * ConstitutionScale);
+            ValueText->SetSize(
+                ConstitutionSummaryWidth - 44.f * ConstitutionScale,
+                32.f * ConstitutionScale);
+        }
+
+        if (StatusText)
+        {
+            StatusText->SetPos(
+                CardX + 22.f * ConstitutionScale,
+                CardY + 82.f * ConstitutionScale);
+            StatusText->SetSize(
+                ConstitutionSummaryWidth - 44.f * ConstitutionScale,
+                24.f * ConstitutionScale);
+        }
+    }
+
+    for (size_t Index = 0;
+        Index < Widget.mConstitutionOptionButtons.size();
+        ++Index)
+    {
+        const float CardX =
+            ConstitutionPanelLeft + ConstitutionInnerPadding;
+        const float CardY =
+            ConstitutionContentTop +
+            (ConstitutionOptionHeight + ConstitutionOptionGap) *
+                static_cast<float>(Index);
+
+        auto Button = Widget.mConstitutionOptionButtons[Index].lock();
+        auto TitleText = Index < Widget.mConstitutionOptionTitleTexts.size() ?
+            Widget.mConstitutionOptionTitleTexts[Index].lock() :
+            nullptr;
+        auto SummaryText = Index < Widget.mConstitutionOptionSummaryTexts.size() ?
+            Widget.mConstitutionOptionSummaryTexts[Index].lock() :
+            nullptr;
+        auto BodyText = Index < Widget.mConstitutionOptionBodyTexts.size() ?
+            Widget.mConstitutionOptionBodyTexts[Index].lock() :
+            nullptr;
+
+        if (Button)
+        {
+            Button->SetPos(CardX, CardY);
+            Button->SetSize(
+                ConstitutionOptionWidth,
+                ConstitutionOptionHeight);
+        }
+
+        if (TitleText)
+        {
+            TitleText->SetPos(
+                CardX + 24.f * ConstitutionScale,
+                CardY + 18.f * ConstitutionScale);
+            TitleText->SetSize(
+                ConstitutionOptionWidth - 48.f * ConstitutionScale,
+                32.f * ConstitutionScale);
+        }
+
+        if (SummaryText)
+        {
+            SummaryText->SetPos(
+                CardX + 24.f * ConstitutionScale,
+                CardY + 56.f * ConstitutionScale);
+            SummaryText->SetSize(
+                ConstitutionOptionWidth - 48.f * ConstitutionScale,
+                24.f * ConstitutionScale);
+        }
+
+        if (BodyText)
+        {
+            BodyText->SetPos(
+                CardX + 24.f * ConstitutionScale,
+                CardY + 84.f * ConstitutionScale);
+            BodyText->SetSize(
+                ConstitutionOptionWidth - 48.f * ConstitutionScale,
+                ConstitutionOptionHeight - 104.f * ConstitutionScale);
+        }
     }
 }

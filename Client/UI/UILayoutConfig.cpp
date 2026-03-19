@@ -80,18 +80,9 @@ namespace UIConfig
     // 하단 메뉴 아이콘 버튼
     float MenuButtonSize        = 60.f;
     float MenuButtonGap         = 10.f;
-    float MenuLabelGap          = 8.f;
-    float MenuButtonStartOffsetX = 26.f;
-    float MenuButtonOffsetY     = 8.f;
-    float MenuMinWidth          = 120.f;
-    float MenuRightMargin       = 14.f;
     float MenuMinScaleFactor    = 0.70f;
-    float MenuLabelBaseFontSize = 12.5f;
-    float MenuLabelBaseHeight   = 18.f;
 
     // 칙령 UI
-    float EdictPanelWidth           = 1120.f;
-    float EdictPanelHeight          = 760.f;
     float EdictHeaderTopPadding     = 40.f;
     float EdictHeaderHeight         = 48.f;
     float EdictHorizontalMargin     = 24.f;
@@ -108,7 +99,6 @@ namespace UIConfig
     float EdictSlotGapX             = 12.f;
     float EdictSlotGapY             = 14.f;
     float EdictDetailTitleFontSize  = 23.f;
-    float EdictDetailBodyFontSize   = 15.f;
     float EdictDetailCostFontSize   = 18.f;
     float EdictTitleTextOffsetX     = 0.f;
     float EdictTitleTextOffsetY     = 0.f;
@@ -269,23 +259,6 @@ namespace UIConfig
     float BuildingSectionDividerHeight     = 14.f;
     float BuildingBudgetBaseOffsetY        = 36.f;
     float BuildingBudgetLabelOffsetY       = 2.f;
-    float BuildingOverviewWorkModeLabelOffsetX = 0.f;
-    float BuildingOverviewWorkModeLabelOffsetY = 0.f;
-    float BuildingOverviewWorkModeLabelWidthAdjust = 0.f;
-    float BuildingOverviewWorkModeBackgroundOffsetX = 0.f;
-    float BuildingOverviewWorkModeBackgroundOffsetY = 0.f;
-    float BuildingOverviewWorkModeBackgroundWidthAdjust = 0.f;
-    float BuildingOverviewWorkModeBackgroundHeightAdjust = 0.f;
-    float BuildingOverviewWorkModeTextOffsetX = 0.f;
-    float BuildingOverviewWorkModeTextOffsetY = 0.f;
-    float BuildingOverviewWorkModeTextWidthAdjust = 0.f;
-    float BuildingOverviewWorkModeTextHeightAdjust = 0.f;
-    float BuildingOverviewBudgetLabelOffsetX = 0.f;
-    float BuildingOverviewBudgetLabelOffsetY = 0.f;
-    float BuildingOverviewBudgetLabelWidthAdjust = 0.f;
-    float BuildingOverviewBudgetValueOffsetX = 0.f;
-    float BuildingOverviewBudgetValueOffsetY = 0.f;
-    float BuildingOverviewBudgetValueWidthAdjust = 0.f;
     float BuildingBudgetCustomButtonsOffsetY = 20.f;
     float BuildingBudgetWorkButtonsOffsetY = 78.f;
     float BuildingBudgetDefaultButtonsOffsetY = 26.f;
@@ -397,8 +370,18 @@ namespace UIConfig
             TOptionalOverrideValue<bool> Enable;
         };
 
+        enum class EWidgetOverrideSelectorType
+        {
+            PathExact,
+            NameExact,
+            PathPrefix,
+            NamePrefix
+        };
+
         std::unordered_map<std::string, FWidgetOverrideRule> GWidgetPathOverrides;
         std::unordered_map<std::string, FWidgetOverrideRule> GWidgetNameOverrides;
+        std::unordered_map<std::string, FWidgetOverrideRule> GWidgetPathPrefixOverrides;
+        std::unordered_map<std::string, FWidgetOverrideRule> GWidgetNamePrefixOverrides;
         unsigned long long GLastDumpedWidgetPathGeneration = 0;
         unsigned long long GLastWidgetTreeSignature = 0;
         unsigned long long GConfigGeneration = 0;
@@ -467,7 +450,7 @@ namespace UIConfig
 
         bool ParseWidgetOverrideKey(
             const std::string& Key,
-            bool& OutByName,
+            EWidgetOverrideSelectorType& OutSelectorType,
             std::string& OutTarget,
             std::string& OutProperty)
         {
@@ -475,13 +458,23 @@ namespace UIConfig
 
             if (Key.rfind("Widget.", 0) == 0)
             {
-                OutByName = false;
+                OutSelectorType = EWidgetOverrideSelectorType::PathExact;
                 PrefixLength = 7;
             }
             else if (Key.rfind("WidgetName.", 0) == 0)
             {
-                OutByName = true;
+                OutSelectorType = EWidgetOverrideSelectorType::NameExact;
                 PrefixLength = 11;
+            }
+            else if (Key.rfind("WidgetPathPrefix.", 0) == 0)
+            {
+                OutSelectorType = EWidgetOverrideSelectorType::PathPrefix;
+                PrefixLength = 17;
+            }
+            else if (Key.rfind("WidgetNamePrefix.", 0) == 0)
+            {
+                OutSelectorType = EWidgetOverrideSelectorType::NamePrefix;
+                PrefixLength = 17;
             }
             else
             {
@@ -504,25 +497,89 @@ namespace UIConfig
             return !OutTarget.empty() && !OutProperty.empty();
         }
 
+        std::unordered_map<std::string, FWidgetOverrideRule>& GetOverrideRuleMap(
+            EWidgetOverrideSelectorType SelectorType)
+        {
+            switch (SelectorType)
+            {
+            case EWidgetOverrideSelectorType::PathExact:
+                return GWidgetPathOverrides;
+            case EWidgetOverrideSelectorType::NameExact:
+                return GWidgetNameOverrides;
+            case EWidgetOverrideSelectorType::PathPrefix:
+                return GWidgetPathPrefixOverrides;
+            case EWidgetOverrideSelectorType::NamePrefix:
+            default:
+                return GWidgetNamePrefixOverrides;
+            }
+        }
+
         FWidgetOverrideRule* FindOverrideRule(
-            bool ByName,
+            EWidgetOverrideSelectorType SelectorType,
             const std::string& Target)
         {
-            auto& SourceMap = ByName ? GWidgetNameOverrides : GWidgetPathOverrides;
-            return &SourceMap[Target];
+            return &GetOverrideRuleMap(SelectorType)[Target];
+        }
+
+        const FWidgetOverrideRule* FindExistingOverrideRule(
+            EWidgetOverrideSelectorType SelectorType,
+            const std::string& Target)
+        {
+            const auto& SourceMap = GetOverrideRuleMap(SelectorType);
+            const auto RuleIt = SourceMap.find(Target);
+            return RuleIt == SourceMap.end() ? nullptr : &RuleIt->second;
+        }
+
+        void MergeMatchingPrefixOverrideRules(
+            const std::unordered_map<std::string, FWidgetOverrideRule>& SourceMap,
+            const std::string& Target,
+            FWidgetOverrideRule& OutRule,
+            bool& OutHasOverride)
+        {
+            std::vector<std::pair<std::string, const FWidgetOverrideRule*>> Matches;
+
+            for (const auto& Entry : SourceMap)
+            {
+                if (Target.rfind(Entry.first, 0) == 0)
+                {
+                    Matches.emplace_back(Entry.first, &Entry.second);
+                }
+            }
+
+            if (Matches.empty())
+                return;
+
+            std::stable_sort(
+                Matches.begin(),
+                Matches.end(),
+                [](const std::pair<std::string, const FWidgetOverrideRule*>& Src,
+                    const std::pair<std::string, const FWidgetOverrideRule*>& Dest)
+                {
+                    if (Src.first.size() != Dest.first.size())
+                        return Src.first.size() < Dest.first.size();
+
+                    return Src.first < Dest.first;
+                });
+
+            for (const auto& Match : Matches)
+            {
+                MergeOverrideRule(OutRule, *Match.second);
+                OutHasOverride = true;
+            }
         }
 
         bool ApplyWidgetOverrideValue(const std::string& Key, float Val)
         {
-            bool ByName = false;
+            EWidgetOverrideSelectorType SelectorType =
+                EWidgetOverrideSelectorType::PathExact;
             std::string Target;
             std::string Property;
 
-            if (!ParseWidgetOverrideKey(Key, ByName, Target, Property))
+            if (!ParseWidgetOverrideKey(Key, SelectorType, Target, Property))
                 return false;
 
             FWidgetOverrideRule* const Rule =
-                FindOverrideRule(ByName, Target);
+                FindOverrideRule(SelectorType, Target);
 
             if (!Rule)
                 return false;
@@ -554,17 +611,18 @@ namespace UIConfig
 
         bool ApplyWidgetOverrideFlag(const std::string& Key, bool Val)
         {
-            bool ByName = false;
+            EWidgetOverrideSelectorType SelectorType =
+                EWidgetOverrideSelectorType::PathExact;
             std::string Target;
             std::string Property;
 
-            if (!ParseWidgetOverrideKey(Key, ByName, Target, Property))
+            if (!ParseWidgetOverrideKey(Key, SelectorType, Target, Property))
                 return false;
 
             if (Property != "Enable")
                 return false;
 
-            SetOverrideValue(FindOverrideRule(ByName, Target)->Enable, Val);
+            SetOverrideValue(FindOverrideRule(SelectorType, Target)->Enable, Val);
             return true;
         }
 
@@ -591,18 +649,32 @@ namespace UIConfig
             FWidgetOverrideRule& OutRule)
         {
             bool HasOverride = false;
-            const auto NameIt = GWidgetNameOverrides.find(WidgetName);
-            const auto PathIt = GWidgetPathOverrides.find(WidgetPath);
 
-            if (NameIt != GWidgetNameOverrides.end())
+            MergeMatchingPrefixOverrideRules(
+                GWidgetNamePrefixOverrides,
+                WidgetName,
+                OutRule,
+                HasOverride);
+
+            if (const auto NameRule = FindExistingOverrideRule(
+                EWidgetOverrideSelectorType::NameExact,
+                WidgetName))
             {
-                MergeOverrideRule(OutRule, NameIt->second);
+                MergeOverrideRule(OutRule, *NameRule);
                 HasOverride = true;
             }
 
-            if (PathIt != GWidgetPathOverrides.end())
+            MergeMatchingPrefixOverrideRules(
+                GWidgetPathPrefixOverrides,
+                WidgetPath,
+                OutRule,
+                HasOverride);
+
+            if (const auto PathRule = FindExistingOverrideRule(
+                EWidgetOverrideSelectorType::PathExact,
+                WidgetPath))
             {
-                MergeOverrideRule(OutRule, PathIt->second);
+                MergeOverrideRule(OutRule, *PathRule);
                 HasOverride = true;
             }
 
@@ -924,6 +996,12 @@ namespace UIConfig
                 << NewLine;
             Stream << "# Full-path syntax: Widget.TopHudWidget/TopHud_DateText"
                 << ".OffsetY = -4" << NewLine;
+            Stream << "# Path-prefix syntax: WidgetPathPrefix.TopHudWidget/"
+                << "TopHud_MenuButton_.OffsetY = -4" << NewLine;
+            Stream << "# Name syntax: WidgetName.TopHud_DateText.OffsetY = -4"
+                << NewLine;
+            Stream << "# Name-prefix syntax: WidgetNamePrefix.TopHud_MenuButton_"
+                << ".WidthAdd = 10" << NewLine;
             Stream << "# Supported props: PosX PosY OffsetX OffsetY Width Height"
                 << " WidthAdd HeightAdd PivotX PivotY Opacity ZOrder TintR"
                 << " TintG TintB TintA FontSize FontSizeAdd ShadowOffsetX"
@@ -964,7 +1042,9 @@ namespace UIConfig
                 TrimString(Key);
 
                 if (Key.rfind("Widget.", 0) == 0 ||
-                    Key.rfind("WidgetName.", 0) == 0)
+                    Key.rfind("WidgetName.", 0) == 0 ||
+                    Key.rfind("WidgetPathPrefix.", 0) == 0 ||
+                    Key.rfind("WidgetNamePrefix.", 0) == 0)
                 {
                     OutKeys.insert(Key);
                 }
@@ -1333,7 +1413,9 @@ namespace UIConfig
 
             File << "# Auto-generated widget path list for UILayout.ini\n";
             File << "# Full-path syntax: Widget.TopHudWidget/TopHud_DateText.OffsetY = -4\n";
+            File << "# Path-prefix syntax: WidgetPathPrefix.TopHudWidget/TopHud_MenuButton_.OffsetY = -4\n";
             File << "# Name-wide syntax: WidgetName.TopHud_DateText.OffsetY = -4\n";
+            File << "# Name-prefix syntax: WidgetNamePrefix.TopHud_MenuButton_.WidthAdd = 10\n";
             File << "# Supported props: PosX PosY OffsetX OffsetY Width Height WidthAdd HeightAdd\n";
             File << "#                  PivotX PivotY Opacity ZOrder TintR TintG TintB TintA\n";
             File << "#                  FontSize FontSizeAdd ShadowOffsetX ShadowOffsetY Enable\n\n";
@@ -1402,6 +1484,8 @@ namespace UIConfig
         {
             GWidgetPathOverrides.clear();
             GWidgetNameOverrides.clear();
+            GWidgetPathPrefixOverrides.clear();
+            GWidgetNamePrefixOverrides.clear();
 
             StatusBarX              = 14.f;
             StatusBarY              = 10.f;
@@ -1457,17 +1541,8 @@ namespace UIConfig
 
             MenuButtonSize         = 60.f;
             MenuButtonGap          = 10.f;
-            MenuLabelGap           = 8.f;
-            MenuButtonStartOffsetX = 26.f;
-            MenuButtonOffsetY      = 8.f;
-            MenuMinWidth           = 120.f;
-            MenuRightMargin        = 14.f;
             MenuMinScaleFactor     = 0.70f;
-            MenuLabelBaseFontSize  = 12.5f;
-            MenuLabelBaseHeight    = 18.f;
 
-            EdictPanelWidth            = 1120.f;
-            EdictPanelHeight           = 760.f;
             EdictHeaderTopPadding      = 40.f;
             EdictHeaderHeight          = 48.f;
             EdictHorizontalMargin      = 24.f;
@@ -1484,7 +1559,6 @@ namespace UIConfig
             EdictSlotGapX              = 12.f;
             EdictSlotGapY              = 14.f;
             EdictDetailTitleFontSize   = 23.f;
-            EdictDetailBodyFontSize    = 15.f;
             EdictDetailCostFontSize    = 18.f;
             EdictTitleTextOffsetX      = 0.f;
             EdictTitleTextOffsetY      = 0.f;
@@ -1643,23 +1717,6 @@ namespace UIConfig
             BuildingSectionDividerHeight     = 14.f;
             BuildingBudgetBaseOffsetY        = 36.f;
             BuildingBudgetLabelOffsetY       = 2.f;
-            BuildingOverviewWorkModeLabelOffsetX = 0.f;
-            BuildingOverviewWorkModeLabelOffsetY = 0.f;
-            BuildingOverviewWorkModeLabelWidthAdjust = 0.f;
-            BuildingOverviewWorkModeBackgroundOffsetX = 0.f;
-            BuildingOverviewWorkModeBackgroundOffsetY = 0.f;
-            BuildingOverviewWorkModeBackgroundWidthAdjust = 0.f;
-            BuildingOverviewWorkModeBackgroundHeightAdjust = 0.f;
-            BuildingOverviewWorkModeTextOffsetX = 0.f;
-            BuildingOverviewWorkModeTextOffsetY = 0.f;
-            BuildingOverviewWorkModeTextWidthAdjust = 0.f;
-            BuildingOverviewWorkModeTextHeightAdjust = 0.f;
-            BuildingOverviewBudgetLabelOffsetX = 0.f;
-            BuildingOverviewBudgetLabelOffsetY = 0.f;
-            BuildingOverviewBudgetLabelWidthAdjust = 0.f;
-            BuildingOverviewBudgetValueOffsetX = 0.f;
-            BuildingOverviewBudgetValueOffsetY = 0.f;
-            BuildingOverviewBudgetValueWidthAdjust = 0.f;
             BuildingBudgetCustomButtonsOffsetY = 20.f;
             BuildingBudgetWorkButtonsOffsetY = 78.f;
             BuildingBudgetDefaultButtonsOffsetY = 26.f;
@@ -1851,14 +1908,7 @@ namespace UIConfig
         {
             if      (Key == "MenuButtonSize")         MenuButtonSize         = Val;
             else if (Key == "MenuButtonGap")          MenuButtonGap          = Val;
-            else if (Key == "MenuLabelGap")           MenuLabelGap           = Val;
-            else if (Key == "MenuButtonStartOffsetX") MenuButtonStartOffsetX = Val;
-            else if (Key == "MenuButtonOffsetY")      MenuButtonOffsetY      = Val;
-            else if (Key == "MenuMinWidth")           MenuMinWidth           = Val;
-            else if (Key == "MenuRightMargin")        MenuRightMargin        = Val;
             else if (Key == "MenuMinScaleFactor")     MenuMinScaleFactor     = Val;
-            else if (Key == "MenuLabelBaseFontSize")  MenuLabelBaseFontSize  = Val;
-            else if (Key == "MenuLabelBaseHeight")    MenuLabelBaseHeight    = Val;
             else if (Key == "GameOverPanelWidth")        GameOverPanelWidth        = Val;
             else if (Key == "GameOverPanelHeight")       GameOverPanelHeight       = Val;
             else if (Key == "GameOverTitlePaddingX")     GameOverTitlePaddingX     = Val;
@@ -1873,9 +1923,7 @@ namespace UIConfig
 
         bool ApplyValue_Edict(const std::string& Key, float Val)
         {
-            if      (Key == "EdictPanelWidth")          EdictPanelWidth          = Val;
-            else if (Key == "EdictPanelHeight")         EdictPanelHeight         = Val;
-            else if (Key == "EdictHeaderTopPadding")    EdictHeaderTopPadding    = Val;
+            if      (Key == "EdictHeaderTopPadding")    EdictHeaderTopPadding    = Val;
             else if (Key == "EdictHeaderHeight")        EdictHeaderHeight        = Val;
             else if (Key == "EdictHorizontalMargin")    EdictHorizontalMargin    = Val;
             else if (Key == "EdictVerticalMargin")      EdictVerticalMargin      = Val;
@@ -1891,7 +1939,6 @@ namespace UIConfig
             else if (Key == "EdictSlotGapX")            EdictSlotGapX            = Val;
             else if (Key == "EdictSlotGapY")            EdictSlotGapY            = Val;
             else if (Key == "EdictDetailTitleFontSize") EdictDetailTitleFontSize = Val;
-            else if (Key == "EdictDetailBodyFontSize")  EdictDetailBodyFontSize  = Val;
             else if (Key == "EdictDetailCostFontSize")  EdictDetailCostFontSize  = Val;
             else if (Key == "EdictTitleTextOffsetX")    EdictTitleTextOffsetX    = Val;
             else if (Key == "EdictTitleTextOffsetY")    EdictTitleTextOffsetY    = Val;
@@ -2033,23 +2080,6 @@ namespace UIConfig
             else if (Key == "BuildingSectionDividerHeight")     BuildingSectionDividerHeight     = Val;
             else if (Key == "BuildingBudgetBaseOffsetY")        BuildingBudgetBaseOffsetY        = Val;
             else if (Key == "BuildingBudgetLabelOffsetY")       BuildingBudgetLabelOffsetY       = Val;
-            else if (Key == "BuildingOverviewWorkModeLabelOffsetX") BuildingOverviewWorkModeLabelOffsetX = Val;
-            else if (Key == "BuildingOverviewWorkModeLabelOffsetY") BuildingOverviewWorkModeLabelOffsetY = Val;
-            else if (Key == "BuildingOverviewWorkModeLabelWidthAdjust") BuildingOverviewWorkModeLabelWidthAdjust = Val;
-            else if (Key == "BuildingOverviewWorkModeBackgroundOffsetX") BuildingOverviewWorkModeBackgroundOffsetX = Val;
-            else if (Key == "BuildingOverviewWorkModeBackgroundOffsetY") BuildingOverviewWorkModeBackgroundOffsetY = Val;
-            else if (Key == "BuildingOverviewWorkModeBackgroundWidthAdjust") BuildingOverviewWorkModeBackgroundWidthAdjust = Val;
-            else if (Key == "BuildingOverviewWorkModeBackgroundHeightAdjust") BuildingOverviewWorkModeBackgroundHeightAdjust = Val;
-            else if (Key == "BuildingOverviewWorkModeTextOffsetX") BuildingOverviewWorkModeTextOffsetX = Val;
-            else if (Key == "BuildingOverviewWorkModeTextOffsetY") BuildingOverviewWorkModeTextOffsetY = Val;
-            else if (Key == "BuildingOverviewWorkModeTextWidthAdjust") BuildingOverviewWorkModeTextWidthAdjust = Val;
-            else if (Key == "BuildingOverviewWorkModeTextHeightAdjust") BuildingOverviewWorkModeTextHeightAdjust = Val;
-            else if (Key == "BuildingOverviewBudgetLabelOffsetX") BuildingOverviewBudgetLabelOffsetX = Val;
-            else if (Key == "BuildingOverviewBudgetLabelOffsetY") BuildingOverviewBudgetLabelOffsetY = Val;
-            else if (Key == "BuildingOverviewBudgetLabelWidthAdjust") BuildingOverviewBudgetLabelWidthAdjust = Val;
-            else if (Key == "BuildingOverviewBudgetValueOffsetX") BuildingOverviewBudgetValueOffsetX = Val;
-            else if (Key == "BuildingOverviewBudgetValueOffsetY") BuildingOverviewBudgetValueOffsetY = Val;
-            else if (Key == "BuildingOverviewBudgetValueWidthAdjust") BuildingOverviewBudgetValueWidthAdjust = Val;
             else if (Key == "BuildingBudgetCustomButtonsOffsetY") BuildingBudgetCustomButtonsOffsetY = Val;
             else if (Key == "BuildingBudgetWorkButtonsOffsetY") BuildingBudgetWorkButtonsOffsetY = Val;
             else if (Key == "BuildingBudgetDefaultButtonsOffsetY") BuildingBudgetDefaultButtonsOffsetY = Val;
@@ -2251,8 +2281,13 @@ namespace UIConfig
             GLastWidgetTreeSignature = WidgetTreeSignature;
         }
 
-        if (GWidgetPathOverrides.empty() && GWidgetNameOverrides.empty())
+        if (GWidgetPathOverrides.empty() &&
+            GWidgetNameOverrides.empty() &&
+            GWidgetPathPrefixOverrides.empty() &&
+            GWidgetNamePrefixOverrides.empty())
+        {
             return;
+        }
 
         const auto& WidgetList = UIManager->GetWidgetList();
 

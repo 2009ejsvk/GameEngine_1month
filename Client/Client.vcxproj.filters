@@ -192,6 +192,9 @@
     <ClCompile Include="Building\BuildingCatalogDerived.cpp">
       <Filter>12. Building</Filter>
     </ClCompile>
+    <ClCompile Include="Building\BuildingCatalogLoader.cpp">
+      <Filter>12. Building</Filter>
+    </ClCompile>
     <ClCompile Include="Building\BuildingCatalogQuery.cpp">
       <Filter>12. Building</Filter>
     </ClCompile>
@@ -970,6 +973,15 @@
       <Filter>06. Setting\UILayout</Filter>
     </None>
     <None Include="..\Binary\UILayout\12_StartLoading_Examples.ini">
+      <Filter>06. Setting\UILayout</Filter>
+    </None>
+    <None Include="..\Binary\UILayout\13_WidgetOverrides_TaskWidget.ini">
+      <Filter>06. Setting\UILayout</Filter>
+    </None>
+    <None Include="..\Binary\UILayout\14_WidgetOverrides_Constitution.ini">
+      <Filter>06. Setting\UILayout</Filter>
+    </None>
+    <None Include="..\Binary\UILayout\15_WidgetOverrides_Constitution_Integrated.ini">
       <Filter>06. Setting\UILayout</Filter>
     </None>
   </ItemGroup>

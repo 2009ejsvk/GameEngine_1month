@@ -12,7 +12,36 @@
 
 namespace
 {
+    constexpr bool GDisableWorldCrisisSystem = true;
     namespace MWWorldCrisis = GameConstants::MainWorld::WorldCrisis;
+
+    void ClearDisabledWorldCrisisState(
+        int& InOutRaidPressureDays,
+        int& InOutLaborStrikePressureDays,
+        int& InOutCrimeWavePressureDays,
+        int& InOutFiscalEmergencyPressureDays,
+        int& InOutActiveWorldCrisisChainDepth,
+        EWorldCrisisType& InOutQueuedWorldCrisisType,
+        double& InOutQueuedWorldCrisisRisk,
+        int& InOutQueuedWorldCrisisDelayDays,
+        int& InOutQueuedWorldCrisisChainDepth,
+        FWorldCrisisStatus& InOutWorldCrisisStatus,
+        bool& InOutLaborStrikeWarningActive,
+        bool& InOutLaborStrikeImminent)
+    {
+        InOutRaidPressureDays = 0;
+        InOutLaborStrikePressureDays = 0;
+        InOutCrimeWavePressureDays = 0;
+        InOutFiscalEmergencyPressureDays = 0;
+        InOutActiveWorldCrisisChainDepth = 0;
+        InOutQueuedWorldCrisisType = EWorldCrisisType::None;
+        InOutQueuedWorldCrisisRisk = 0.0;
+        InOutQueuedWorldCrisisDelayDays = 0;
+        InOutQueuedWorldCrisisChainDepth = 0;
+        InOutWorldCrisisStatus = FWorldCrisisStatus();
+        InOutLaborStrikeWarningActive = false;
+        InOutLaborStrikeImminent = false;
+    }
 
     int GetEraIndex(EBuildingEra Era)
     {
@@ -688,12 +717,11 @@ namespace
             InOutLaborStrikePressureDays,
             InOutCrimeWavePressureDays,
             InOutFiscalEmergencyPressureDays);
+        static_cast<void>(ImmediateBudgetDelta);
+        static_cast<void>(InOutNationalBudget);
+        static_cast<void>(InOutLastDailyNetChange);
 
-        if (ImmediateBudgetDelta != 0)
-        {
-            InOutNationalBudget += ImmediateBudgetDelta;
-            InOutLastDailyNetChange += ImmediateBudgetDelta;
-        }
+        // Immediate budget damage from world crises is temporarily disabled.
     }
 
     void ResolveWorldCrisisState(
@@ -911,24 +939,43 @@ namespace
 
 void CMainWorldWorldCrisisService::Reset()
 {
-    mRaidPressureDays = 0;
-    mLaborStrikePressureDays = 0;
-    mCrimeWavePressureDays = 0;
-    mFiscalEmergencyPressureDays = 0;
-    mActiveWorldCrisisChainDepth = 0;
-    mQueuedWorldCrisisType = EWorldCrisisType::None;
-    mQueuedWorldCrisisRisk = 0.0;
-    mQueuedWorldCrisisDelayDays = 0;
-    mQueuedWorldCrisisChainDepth = 0;
-    mWorldCrisisStatus = FWorldCrisisStatus();
-    mLaborStrikeWarningActive = false;
-    mLaborStrikeImminent = false;
+    ClearDisabledWorldCrisisState(
+        mRaidPressureDays,
+        mLaborStrikePressureDays,
+        mCrimeWavePressureDays,
+        mFiscalEmergencyPressureDays,
+        mActiveWorldCrisisChainDepth,
+        mQueuedWorldCrisisType,
+        mQueuedWorldCrisisRisk,
+        mQueuedWorldCrisisDelayDays,
+        mQueuedWorldCrisisChainDepth,
+        mWorldCrisisStatus,
+        mLaborStrikeWarningActive,
+        mLaborStrikeImminent);
 }
 
 void CMainWorldWorldCrisisService::TriggerForcedCrisis(
     EWorldCrisisType Type,
     const FTickContext& Context)
 {
+    if (GDisableWorldCrisisSystem)
+    {
+        ClearDisabledWorldCrisisState(
+            mRaidPressureDays,
+            mLaborStrikePressureDays,
+            mCrimeWavePressureDays,
+            mFiscalEmergencyPressureDays,
+            mActiveWorldCrisisChainDepth,
+            mQueuedWorldCrisisType,
+            mQueuedWorldCrisisRisk,
+            mQueuedWorldCrisisDelayDays,
+            mQueuedWorldCrisisChainDepth,
+            mWorldCrisisStatus,
+            mLaborStrikeWarningActive,
+            mLaborStrikeImminent);
+        return;
+    }
+
     if (!Context.World || Type == EWorldCrisisType::None)
         return;
 
@@ -999,6 +1046,24 @@ bool CMainWorldWorldCrisisService::ForceEndActiveCrisis(
     bool Success,
     EBuildingEra CurrentEra)
 {
+    if (GDisableWorldCrisisSystem)
+    {
+        ClearDisabledWorldCrisisState(
+            mRaidPressureDays,
+            mLaborStrikePressureDays,
+            mCrimeWavePressureDays,
+            mFiscalEmergencyPressureDays,
+            mActiveWorldCrisisChainDepth,
+            mQueuedWorldCrisisType,
+            mQueuedWorldCrisisRisk,
+            mQueuedWorldCrisisDelayDays,
+            mQueuedWorldCrisisChainDepth,
+            mWorldCrisisStatus,
+            mLaborStrikeWarningActive,
+            mLaborStrikeImminent);
+        return false;
+    }
+
     if (!mWorldCrisisStatus.Active ||
         mWorldCrisisStatus.Type == EWorldCrisisType::None)
     {
@@ -1028,192 +1093,31 @@ void CMainWorldWorldCrisisService::ApplyDailyEffects(
     {
         return;
     }
+    static_cast<void>(Context);
 
-    const double Severity = GetWorldCrisisSeverity(mWorldCrisisStatus);
-    const double ChainIntensity =
-        1.0 + static_cast<double>(mActiveWorldCrisisChainDepth) * 0.14;
-
-    if (Context.World)
-    {
-        std::vector<std::weak_ptr<CBuildingMarkerOrb>> CitizenList;
-
-        if (Context.World->FindObjectListByType<CBuildingMarkerOrb>(CitizenList))
-        {
-            float FoodDelta = 0.f;
-            float HealthDelta = 0.f;
-            float FunDelta = 0.f;
-            float FaithDelta = 0.f;
-            float HousingDelta = 0.f;
-            float JobDelta = 0.f;
-            float FreedomDelta = 0.f;
-            float SecurityDelta = 0.f;
-
-            switch (mWorldCrisisStatus.Type)
-            {
-            case EWorldCrisisType::Raid:
-                FoodDelta = static_cast<float>(
-                    (-0.35 - 0.55 * Severity) * ChainIntensity);
-                FunDelta = static_cast<float>(
-                    (-0.45 - 0.45 * Severity) * ChainIntensity);
-                HousingDelta = static_cast<float>(
-                    (-0.30 - 0.40 * Severity) * ChainIntensity);
-                JobDelta = static_cast<float>(
-                    (-0.70 - 0.90 * Severity) * ChainIntensity);
-                FreedomDelta = static_cast<float>(
-                    (-0.20 - 0.30 * Severity) * ChainIntensity);
-                SecurityDelta = static_cast<float>(
-                    (-2.20 - 2.80 * Severity) * ChainIntensity);
-                break;
-            case EWorldCrisisType::LaborStrike:
-                FunDelta = static_cast<float>(
-                    (-0.30 - 0.35 * Severity) * ChainIntensity);
-                JobDelta = static_cast<float>(
-                    (-1.40 - 1.60 * Severity) * ChainIntensity);
-                FreedomDelta =
-                    0.08f + static_cast<float>(0.02 * mActiveWorldCrisisChainDepth);
-                SecurityDelta = static_cast<float>(
-                    (-0.80 - 0.90 * Severity) * ChainIntensity);
-                break;
-            case EWorldCrisisType::CrimeWave:
-                FunDelta = static_cast<float>(
-                    (-0.35 - 0.30 * Severity) * ChainIntensity);
-                HousingDelta = static_cast<float>(
-                    (-0.55 - 0.45 * Severity) * ChainIntensity);
-                JobDelta = static_cast<float>(
-                    (-0.60 - 0.55 * Severity) * ChainIntensity);
-                FreedomDelta = static_cast<float>(
-                    (-0.30 - 0.30 * Severity) * ChainIntensity);
-                SecurityDelta = static_cast<float>(
-                    (-2.60 - 2.60 * Severity) * ChainIntensity);
-                break;
-            case EWorldCrisisType::FiscalEmergency:
-                FoodDelta = static_cast<float>(
-                    (-0.35 - 0.40 * Severity) * ChainIntensity);
-                FunDelta = static_cast<float>(
-                    (-0.45 - 0.40 * Severity) * ChainIntensity);
-                HousingDelta = static_cast<float>(
-                    (-0.40 - 0.40 * Severity) * ChainIntensity);
-                JobDelta = static_cast<float>(
-                    (-0.90 - 1.00 * Severity) * ChainIntensity);
-                FreedomDelta = static_cast<float>(
-                    (-0.18 - 0.18 * Severity) * ChainIntensity);
-                SecurityDelta = static_cast<float>(
-                    (-0.60 - 0.70 * Severity) * ChainIntensity);
-                break;
-            case EWorldCrisisType::None:
-            default:
-                break;
-            }
-
-            for (size_t Index = 0; Index < CitizenList.size(); ++Index)
-            {
-                auto Citizen = CitizenList[Index].lock();
-
-                if (!Citizen || !Citizen->GetAlive())
-                    continue;
-
-                Citizen->ApplySatisfactionDelta(
-                    FoodDelta,
-                    HealthDelta,
-                    FunDelta,
-                    FaithDelta,
-                    HousingDelta,
-                    JobDelta,
-                    FreedomDelta,
-                    SecurityDelta);
-            }
-        }
-    }
-
-    auto ApplyBudgetDelta =
-        [&](long long Delta)
-        {
-            if (Delta == 0)
-                return;
-
-            Context.NationalBudget += Delta;
-            Context.LastDailyNetChange += Delta;
-        };
-
-    auto ApplyTaxLoss =
-        [&](long long& TaxField, long long& TotalTaxField, double LossRatio)
-        {
-            if (TaxField <= 0 || LossRatio <= 0.0)
-                return;
-
-            const long long LossAmount = static_cast<long long>(std::llround(
-                static_cast<double>(TaxField) * LossRatio));
-            const long long ClampedLoss = (std::min)(TaxField, LossAmount);
-
-            if (ClampedLoss <= 0)
-                return;
-
-            TaxField -= ClampedLoss;
-            TotalTaxField = (std::max)(0LL, TotalTaxField - ClampedLoss);
-            ApplyBudgetDelta(-ClampedLoss);
-        };
-
-    switch (mWorldCrisisStatus.Type)
-    {
-    case EWorldCrisisType::Raid:
-    {
-        const int TargetAmount =
-            8 + static_cast<int>(std::round(10.0 * Severity));
-        const int StolenAmount =
-            ApplyRaidResourceTheft(Context.World.get(), TargetAmount);
-        const int DamagedBuildingCount =
-            ApplyRaidBuildingDamage(Context.World, Severity, ChainIntensity);
-        const long long BudgetDamage =
-            -(1200LL +
-                static_cast<long long>(std::llround(
-                    1800.0 * Severity * ChainIntensity)) +
-                static_cast<long long>(StolenAmount) * 42LL +
-                static_cast<long long>(DamagedBuildingCount) * 180LL);
-        ApplyBudgetDelta(BudgetDamage);
-        break;
-    }
-    case EWorldCrisisType::LaborStrike:
-        ApplyBudgetDelta(
-            -(150LL +
-                static_cast<long long>(std::llround(
-                    300.0 * Severity * ChainIntensity))));
-        break;
-    case EWorldCrisisType::CrimeWave:
-        ApplyTaxLoss(
-            Context.LastDailyPropertyTaxIncome,
-            Context.LastDailyTaxIncome,
-            0.08 + 0.12 * Severity);
-        ApplyBudgetDelta(
-            -(550LL +
-                static_cast<long long>(std::llround(
-                    1450.0 * Severity * ChainIntensity))));
-        break;
-    case EWorldCrisisType::FiscalEmergency:
-        ApplyTaxLoss(
-            Context.LastDailyConsumptionTaxIncome,
-            Context.LastDailyTaxIncome,
-            0.06 + 0.08 * Severity);
-        ApplyTaxLoss(
-            Context.LastDailyIncomeTaxIncome,
-            Context.LastDailyTaxIncome,
-            0.08 + 0.10 * Severity);
-        ApplyTaxLoss(
-            Context.LastDailyPropertyTaxIncome,
-            Context.LastDailyTaxIncome,
-            0.05 + 0.08 * Severity);
-        ApplyBudgetDelta(
-            -(1200LL +
-                static_cast<long long>(std::llround(
-                    2600.0 * Severity * ChainIntensity))));
-        break;
-    case EWorldCrisisType::None:
-    default:
-        break;
-    }
+    // World-crisis gameplay penalties are temporarily disabled.
 }
 
 void CMainWorldWorldCrisisService::Tick(const FTickContext& Context)
 {
+    if (GDisableWorldCrisisSystem)
+    {
+        ClearDisabledWorldCrisisState(
+            mRaidPressureDays,
+            mLaborStrikePressureDays,
+            mCrimeWavePressureDays,
+            mFiscalEmergencyPressureDays,
+            mActiveWorldCrisisChainDepth,
+            mQueuedWorldCrisisType,
+            mQueuedWorldCrisisRisk,
+            mQueuedWorldCrisisDelayDays,
+            mQueuedWorldCrisisChainDepth,
+            mWorldCrisisStatus,
+            mLaborStrikeWarningActive,
+            mLaborStrikeImminent);
+        return;
+    }
+
     if (mWorldCrisisStatus.NotificationDays > 0)
         --mWorldCrisisStatus.NotificationDays;
 

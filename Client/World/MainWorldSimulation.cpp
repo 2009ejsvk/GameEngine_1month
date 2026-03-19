@@ -12,6 +12,7 @@
 #include "../Politics/EdictSystem.h"
 #include "../Politics/PoliticsSystem.h"
 #include "World/WorldUIManager.h"
+#include <Windows.h>
 #include <algorithm>
 #include <cmath>
 
@@ -20,6 +21,23 @@ namespace
     constexpr int GScenarioForeignDemandDurationDays = 365;
     constexpr int GScenarioReligiousDemandDurationDays = 60;
     constexpr float GExportSettlementPopupSeconds = 8.f;
+
+    template <typename T>
+    std::shared_ptr<T> LockOrWarn(
+        const std::weak_ptr<T>& Weak,
+        const char* Context)
+    {
+        auto Locked = Weak.lock();
+
+        if (!Locked)
+        {
+            OutputDebugStringA("[MainWorld] expired: ");
+            OutputDebugStringA(Context);
+            OutputDebugStringA("\n");
+        }
+
+        return Locked;
+    }
 
     std::wstring FormatSignedCurrency(long long Value)
     {
@@ -155,13 +173,17 @@ namespace
         const std::wstring& AcceptConsequence,
         const std::wstring& RejectConsequence)
     {
-        auto UiManager = WeakUiManager.lock();
+        auto UiManager = LockOrWarn(
+            WeakUiManager,
+            "ShowScenarioEventWidget.UiManager");
 
         if (!UiManager)
             return;
 
         auto EventWidget =
-            UiManager->FindWidget<CEventWidget>(GEventWidgetName).lock();
+            LockOrWarn(
+                UiManager->FindWidget<CEventWidget>(GEventWidgetName),
+                "ShowScenarioEventWidget.EventWidget");
 
         if (!EventWidget)
             return;
@@ -193,13 +215,17 @@ namespace
         if (ExportIncome <= 0)
             return;
 
-        auto UiManager = WeakUiManager.lock();
+        auto UiManager = LockOrWarn(
+            WeakUiManager,
+            "ShowExportSettlementWidget.UiManager");
 
         if (!UiManager)
             return;
 
         auto EventWidget =
-            UiManager->FindWidget<CEventWidget>(GEventWidgetName).lock();
+            LockOrWarn(
+                UiManager->FindWidget<CEventWidget>(GEventWidgetName),
+                "ShowExportSettlementWidget.EventWidget");
 
         if (!EventWidget)
             return;
@@ -243,11 +269,22 @@ namespace
 
 void CMainWorld::OnUiManagerUpdated()
 {
-    UILayoutApplier::ApplyWidgetOverrides(GetUIManager().lock());
+    UILayoutApplier::ApplyWidgetOverrides(
+        LockOrWarn(
+            GetUIManager(),
+            "CMainWorld::OnUiManagerUpdated.UiManager"));
 }
 
 void CMainWorld::Update(float DeltaTime)
 {
+    mEconomy->WorkerTaxPressureDays = 0;
+    mEconomy->PropertyTaxPressureDays = 0;
+    mEconomy->BudgetCrisisPressureDays = 0;
+    mEconomy->TaxEventStatus = FTaxPolicyEventStatus();
+
+    if (mCrisis && mCrisis->WorldCrisisService)
+        mCrisis->WorldCrisisService->Reset();
+
     UILayoutLoader::ReloadIfChanged(DeltaTime);
     RuntimeConfigRegistry::PollAll(DeltaTime);
 
@@ -372,6 +409,14 @@ void CMainWorld::TickPoliticalRefresh(float DeltaTime)
 
 void CMainWorld::AdvanceSimulationDay()
 {
+    mEconomy->WorkerTaxPressureDays = 0;
+    mEconomy->PropertyTaxPressureDays = 0;
+    mEconomy->BudgetCrisisPressureDays = 0;
+    mEconomy->TaxEventStatus = FTaxPolicyEventStatus();
+
+    if (mCrisis && mCrisis->WorldCrisisService)
+        mCrisis->WorldCrisisService->Reset();
+
     mInfrastructure->RefreshPowerGridCoverage();
     mInfrastructure->RefreshBuildingPollutionExposure();
     mKnowledgeState->RefreshKnowledgeGeneration();

@@ -462,7 +462,7 @@ namespace CitizenInfoPresentation
                 Ui(L"citizen_info.label.working_now") + L": " +
                 std::to_wstring((std::max)(
                     0,
-                    Snapshot.CurrentWorkerOccupancy)));
+                    Snapshot.WorkingNowOccupancy)));
             AppendLine(
                 Body,
                 Ui(L"citizen_info.label.representative_worker") + L": " +

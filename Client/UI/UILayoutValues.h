@@ -55,14 +55,7 @@ namespace UIConfig
     // ── 하단 메뉴 아이콘 버튼 ────────────────────────────────
     extern float MenuButtonSize;
     extern float MenuButtonGap;
-    extern float MenuLabelGap;
-    extern float MenuButtonStartOffsetX;
-    extern float MenuButtonOffsetY;
-    extern float MenuMinWidth;
-    extern float MenuRightMargin;
     extern float MenuMinScaleFactor;
-    extern float MenuLabelBaseFontSize;
-    extern float MenuLabelBaseHeight;
 
     // ── 게임 오버 팝업 ───────────────────────────────────────
     extern float GameOverPanelWidth;
@@ -75,8 +68,6 @@ namespace UIConfig
     extern float GameOverBodyBottomPadding;
 
     // ── 칙령 UI ──────────────────────────────────────────────
-    extern float EdictPanelWidth;
-    extern float EdictPanelHeight;
     extern float EdictHeaderTopPadding;
     extern float EdictHeaderHeight;
     extern float EdictHorizontalMargin;
@@ -93,7 +84,6 @@ namespace UIConfig
     extern float EdictSlotGapX;
     extern float EdictSlotGapY;
     extern float EdictDetailTitleFontSize;
-    extern float EdictDetailBodyFontSize;
     extern float EdictDetailCostFontSize;
     extern float EdictTitleTextOffsetX;
     extern float EdictTitleTextOffsetY;
@@ -254,23 +244,6 @@ namespace UIConfig
     extern float BuildingSectionDividerHeight;
     extern float BuildingBudgetBaseOffsetY;
     extern float BuildingBudgetLabelOffsetY;
-    extern float BuildingOverviewWorkModeLabelOffsetX;
-    extern float BuildingOverviewWorkModeLabelOffsetY;
-    extern float BuildingOverviewWorkModeLabelWidthAdjust;
-    extern float BuildingOverviewWorkModeBackgroundOffsetX;
-    extern float BuildingOverviewWorkModeBackgroundOffsetY;
-    extern float BuildingOverviewWorkModeBackgroundWidthAdjust;
-    extern float BuildingOverviewWorkModeBackgroundHeightAdjust;
-    extern float BuildingOverviewWorkModeTextOffsetX;
-    extern float BuildingOverviewWorkModeTextOffsetY;
-    extern float BuildingOverviewWorkModeTextWidthAdjust;
-    extern float BuildingOverviewWorkModeTextHeightAdjust;
-    extern float BuildingOverviewBudgetLabelOffsetX;
-    extern float BuildingOverviewBudgetLabelOffsetY;
-    extern float BuildingOverviewBudgetLabelWidthAdjust;
-    extern float BuildingOverviewBudgetValueOffsetX;
-    extern float BuildingOverviewBudgetValueOffsetY;
-    extern float BuildingOverviewBudgetValueWidthAdjust;
     extern float BuildingBudgetCustomButtonsOffsetY;
     extern float BuildingBudgetWorkButtonsOffsetY;
     extern float BuildingBudgetDefaultButtonsOffsetY;

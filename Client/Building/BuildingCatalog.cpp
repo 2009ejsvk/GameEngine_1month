@@ -586,303 +586,6 @@ namespace
         return Result;
     }
 
-    std::vector<std::wstring> BuildCatalogDataCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\BuildingCatalog.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\BuildingCatalog.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildProductionRecipeDataCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\BuildingProductionRecipes.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\BuildingProductionRecipes.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogCostOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\Tropico6CostOverrides.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\Tropico6CostOverrides.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogSourceMetadataOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\Tropico6SourceMetadataOverrides.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\Tropico6SourceMetadataOverrides.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogWorkforceOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\Tropico6WorkforceOverrides.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\Tropico6WorkforceOverrides.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogPowerOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\Tropico6PowerOverrides.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\Tropico6PowerOverrides.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogPollutionOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\Tropico6PollutionOverrides.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\Tropico6PollutionOverrides.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogServiceStatsOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\Tropico6ServiceStatsOverrides.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\Tropico6ServiceStatsOverrides.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogSizeOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\BuildingSizeOverrides.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\BuildingSizeOverrides.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogOperationModeOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\BuildingOperationModes.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\BuildingOperationModes.tsv"));
-        }
-
-        return Paths;
-    }
-
-    std::vector<std::wstring> BuildCatalogRuntimeUpgradeOverrideCandidatePaths()
-    {
-        std::vector<std::wstring> Paths;
-
-        if (const TCHAR* RootPath = CPathManager::FindPath("Root"))
-        {
-            const std::wstring RepoRoot =
-                GetParentDirectoryPath(RootPath);
-
-            if (!RepoRoot.empty())
-            {
-                Paths.push_back(JoinPath(
-                    RepoRoot,
-                    L"Client\\Building\\Data\\BuildingUpgrades.tsv"));
-            }
-        }
-
-        if (const TCHAR* AssetPath = CPathManager::FindPath("Asset"))
-        {
-            Paths.push_back(JoinPath(
-                AssetPath,
-                L"Data\\BuildingUpgrades.tsv"));
-        }
-
-        return Paths;
-    }
-
     bool LoadUtf8TextFile(
         const std::wstring& FullPath,
         std::string& OutText)
@@ -1374,7 +1077,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogDataCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogDataCandidatePaths();
 
         for (size_t PathIndex = 0; PathIndex < CandidatePaths.size(); ++PathIndex)
         {
@@ -1582,7 +1285,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildProductionRecipeDataCandidatePaths();
+            BuildingCatalogLoader::BuildProductionRecipeDataCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -1760,7 +1463,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogCostOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogCostOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -1857,7 +1560,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogSourceMetadataOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogSourceMetadataOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -1951,7 +1654,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogWorkforceOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogWorkforceOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -2061,7 +1764,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogPowerOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogPowerOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -2174,7 +1877,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogPollutionOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogPollutionOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -2287,7 +1990,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogServiceStatsOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogServiceStatsOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -2464,7 +2167,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogSizeOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogSizeOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -2549,7 +2252,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogOperationModeOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogOperationModeOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -2884,7 +2587,7 @@ namespace
     {
         OutRecords.clear();
         const std::vector<std::wstring> CandidatePaths =
-            BuildCatalogRuntimeUpgradeOverrideCandidatePaths();
+            BuildingCatalogLoader::BuildCatalogRuntimeUpgradeOverrideCandidatePaths();
 
         for (size_t PathIndex = 0;
             PathIndex < CandidatePaths.size();
@@ -4420,61 +4123,6 @@ namespace
 
 namespace BuildingCatalogLoader
 {
-    std::vector<std::wstring> BuildCatalogDataCandidatePaths()
-    {
-        return ::BuildCatalogDataCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildProductionRecipeDataCandidatePaths()
-    {
-        return ::BuildProductionRecipeDataCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogCostOverrideCandidatePaths()
-    {
-        return ::BuildCatalogCostOverrideCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogSourceMetadataOverrideCandidatePaths()
-    {
-        return ::BuildCatalogSourceMetadataOverrideCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogWorkforceOverrideCandidatePaths()
-    {
-        return ::BuildCatalogWorkforceOverrideCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogPowerOverrideCandidatePaths()
-    {
-        return ::BuildCatalogPowerOverrideCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogPollutionOverrideCandidatePaths()
-    {
-        return ::BuildCatalogPollutionOverrideCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogServiceStatsOverrideCandidatePaths()
-    {
-        return ::BuildCatalogServiceStatsOverrideCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogSizeOverrideCandidatePaths()
-    {
-        return ::BuildCatalogSizeOverrideCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogOperationModeOverrideCandidatePaths()
-    {
-        return ::BuildCatalogOperationModeOverrideCandidatePaths();
-    }
-
-    std::vector<std::wstring> BuildCatalogRuntimeUpgradeOverrideCandidatePaths()
-    {
-        return ::BuildCatalogRuntimeUpgradeOverrideCandidatePaths();
-    }
-
     std::vector<FBuildingCatalogEntry> BuildBuildingCatalogEntries()
     {
         return ::BuildBuildingCatalogEntries();

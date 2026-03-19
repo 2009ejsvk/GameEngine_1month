@@ -63,58 +63,15 @@ namespace
     float ResolveTaxEventProductionMultiplier(
         const FTaxPolicyEventStatus* TaxEventStatus)
     {
-        if (!TaxEventStatus ||
-            !TaxEventStatus->Active ||
-            TaxEventStatus->Type == ETaxPolicyEventType::None)
-        {
-            return 1.f;
-        }
-
-        const float Severity = Clamp<float>(
-            static_cast<float>(TaxEventStatus->DaysActive + 1) / 6.f,
-            0.f,
-            1.f);
-
-        switch (TaxEventStatus->Type)
-        {
-        case ETaxPolicyEventType::WorkerTaxStrike:
-            return 0.74f - 0.30f * Severity;
-        case ETaxPolicyEventType::BudgetCrisis:
-            return 0.92f - 0.18f * Severity;
-        default:
-            return 1.f;
-        }
+        static_cast<void>(TaxEventStatus);
+        return 1.f;
     }
 
     float ResolveWorldCrisisProductionMultiplier(
         const FWorldCrisisStatus* WorldCrisisStatus)
     {
-        if (!WorldCrisisStatus ||
-            !WorldCrisisStatus->Active ||
-            WorldCrisisStatus->Type == EWorldCrisisType::None)
-        {
-            return 1.f;
-        }
-
-        const float Severity = Clamp<float>(
-            static_cast<float>(WorldCrisisStatus->DaysActive + 1) / 6.f,
-            0.f,
-            1.f);
-
-        switch (WorldCrisisStatus->Type)
-        {
-        case EWorldCrisisType::Raid:
-            return 0.90f - 0.14f * Severity;
-        case EWorldCrisisType::LaborStrike:
-            return 0.78f - 0.24f * Severity;
-        case EWorldCrisisType::CrimeWave:
-            return 0.92f - 0.12f * Severity;
-        case EWorldCrisisType::FiscalEmergency:
-            return 0.94f - 0.10f * Severity;
-        case EWorldCrisisType::None:
-        default:
-            return 1.f;
-        }
+        static_cast<void>(WorldCrisisStatus);
+        return 1.f;
     }
 
     int ResolveOperationModeResearchCost(EBuildingEra Era)

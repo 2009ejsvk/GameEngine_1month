@@ -30,18 +30,6 @@ namespace
         }
     }
 
-    bool IsLowWealthCitizen(ECitizenWealthLevel WealthLevel)
-    {
-        return GetCitizenWealthRank(WealthLevel) <=
-            GetCitizenWealthRank(ECitizenWealthLevel::Poor);
-    }
-
-    bool IsAffluentCitizen(ECitizenWealthLevel WealthLevel)
-    {
-        return GetCitizenWealthRank(WealthLevel) >=
-            GetCitizenWealthRank(ECitizenWealthLevel::Rich);
-    }
-
     struct FPlacedPoliticalSignal
     {
         std::string        BuildingName;
@@ -616,91 +604,9 @@ namespace
         const CBuildingMarkerOrb& Citizen,
         const FTaxPolicyEventStatus* TaxEventStatus)
     {
-        if (!TaxEventStatus ||
-            !TaxEventStatus->Active ||
-            TaxEventStatus->Type == ETaxPolicyEventType::None)
-        {
-            return 0.f;
-        }
-
-        const bool IsWorker = !Citizen.GetWorkBuilding().empty();
-        const bool IsResident = !Citizen.GetHomeBuilding().empty();
-        const FNpcPoliticalProfile& PoliticalProfile =
-            Citizen.GetPoliticalProfile();
-        const float Severity =
-            0.55f +
-            (std::min)(
-                1.10f,
-                static_cast<float>(TaxEventStatus->DaysActive) / 4.5f);
-        float Score = -3.5f * Severity;
-        const auto ApplyDemandPressure =
-            [&](EPoliticalAxis Axis,
-                EPoliticalStance DemandingStance,
-                float Strength)
-        {
-            const FNpcPoliticalChoice& Choice = PoliticalProfile.Get(Axis);
-            const float Alignment = GetStanceAlignment(
-                Choice.Stance,
-                DemandingStance);
-            const float Weight = GetSupportLevelWeight(Choice.Support);
-
-            if (Alignment > 0.f)
-                return -Weight * Strength;
-
-            if (Alignment < 0.f)
-                return Weight * Strength * 0.35f;
-
-            return 0.f;
-        };
-
-        switch (TaxEventStatus->Type)
-        {
-        case ETaxPolicyEventType::WorkerTaxStrike:
-            Score += (IsWorker ? -14.0f : -5.2f) * Severity;
-
-            if (IsResident)
-                Score += -2.6f * Severity;
-
-            Score += ApplyDemandPressure(
-                EPoliticalAxis::Economy,
-                EPoliticalStance::Left,
-                5.6f * Severity);
-            Score += ApplyDemandPressure(
-                EPoliticalAxis::IntellectualConservative,
-                EPoliticalStance::Left,
-                3.4f * Severity);
-            break;
-        case ETaxPolicyEventType::PropertyTaxBacklash:
-            Score += (IsResident ? -13.0f : -4.6f) * Severity;
-
-            if (IsWorker)
-                Score += -2.2f * Severity;
-
-            Score += ApplyDemandPressure(
-                EPoliticalAxis::IntellectualConservative,
-                EPoliticalStance::Right,
-                5.0f * Severity);
-            Score += ApplyDemandPressure(
-                EPoliticalAxis::Economy,
-                EPoliticalStance::Left,
-                3.8f * Severity);
-            break;
-        case ETaxPolicyEventType::BudgetCrisis:
-            Score += (IsWorker || IsResident ? -11.5f : -8.0f) * Severity;
-            Score += ApplyDemandPressure(
-                EPoliticalAxis::IntellectualConservative,
-                EPoliticalStance::Right,
-                4.8f * Severity);
-            Score += ApplyDemandPressure(
-                EPoliticalAxis::Economy,
-                EPoliticalStance::Right,
-                4.2f * Severity);
-            break;
-        default:
-            break;
-        }
-
-        return Score;
+        static_cast<void>(Citizen);
+        static_cast<void>(TaxEventStatus);
+        return 0.f;
     }
 
     FCitizenPoliticalEvaluation EvaluateCitizenInternal(
@@ -1697,24 +1603,7 @@ namespace PoliticsSystem
                 0.0;
 
         double EventPressure = 0.0;
-
-        if (TaxEventStatus.Active)
-        {
-            EventPressure =
-                0.40 +
-                Clamp<double>(
-                    static_cast<double>(TaxEventStatus.DaysActive + 1) / 6.0,
-                    0.0,
-                    1.0) * 0.35;
-
-            if (TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis)
-                EventPressure += 0.10;
-        }
-        else if (TaxEventStatus.NotificationDays > 0 &&
-            !TaxEventStatus.Summary.empty())
-        {
-            EventPressure = 0.18;
-        }
+        static_cast<void>(TaxEventStatus);
 
         const double Score =
             0.34 * ProximityPressure +

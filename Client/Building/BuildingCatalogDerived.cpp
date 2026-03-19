@@ -1,5 +1,6 @@
 #include "BuildingCatalogDerived.h"
 #include "BuildingCatalog.h"
+#include "../StringUtils.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -10,6 +11,9 @@
 
 namespace
 {
+    using StringUtils::SplitLines;
+    using StringUtils::Trim;
+
     constexpr std::array<int, 12> GHousingCaps =
     {
         10, 20, 30, 75, 50, 25, 60, 40, 45, 70, 85, 90
@@ -47,49 +51,6 @@ namespace
         Entry.PoliticalSignals.push_back(Signal);
     }
 
-    std::vector<std::wstring> SplitDetailLines(const std::wstring& Text)
-    {
-        std::vector<std::wstring> Lines;
-        std::wstring CurrentLine;
-
-        for (size_t Index = 0; Index < Text.size(); ++Index)
-        {
-            const wchar_t Ch = Text[Index];
-
-            if (Ch == L'\r')
-                continue;
-
-            if (Ch == L'\n')
-            {
-                Lines.push_back(CurrentLine);
-                CurrentLine.clear();
-                continue;
-            }
-
-            CurrentLine.push_back(Ch);
-        }
-
-        if (!CurrentLine.empty() || Text.empty())
-            Lines.push_back(CurrentLine);
-
-        return Lines;
-    }
-
-    std::wstring Trim(const std::wstring& Text)
-    {
-        size_t Start = 0;
-
-        while (Start < Text.size() && iswspace(Text[Start]))
-            ++Start;
-
-        size_t End = Text.size();
-
-        while (End > Start && iswspace(Text[End - 1]))
-            --End;
-
-        return Text.substr(Start, End - Start);
-    }
-
     bool TryExtractDetailLineValue(
         const std::wstring& DetailText,
         const wchar_t* Prefix,
@@ -100,8 +61,7 @@ namespace
         if (!Prefix || !*Prefix)
             return false;
 
-        const std::vector<std::wstring> Lines =
-            SplitDetailLines(DetailText);
+        const std::vector<std::wstring> Lines = SplitLines(DetailText);
 
         for (size_t Index = 0; Index < Lines.size(); ++Index)
         {
@@ -881,7 +841,7 @@ namespace
     {
         std::wstring Result;
         const std::vector<std::wstring> Lines =
-            SplitDetailLines(DetailText);
+            SplitLines(DetailText);
 
         for (size_t Index = 0; Index < Lines.size(); ++Index)
         {
@@ -1612,7 +1572,7 @@ std::vector<std::wstring> ExtractUpgradeHintsFromDetail(
 {
     std::vector<std::wstring> Result;
     const std::vector<std::wstring> Lines =
-        SplitDetailLines(DetailText);
+        SplitLines(DetailText);
     bool Capture = false;
 
     for (size_t Index = 0; Index < Lines.size(); ++Index)
@@ -1941,7 +1901,7 @@ std::vector<FBuildingOperationModeDef> ExtractOperationModeDefsFromEntry(
 {
     std::vector<FBuildingOperationModeDef> Result;
     const std::vector<std::wstring> Lines =
-        SplitDetailLines(Entry.DetailText);
+        SplitLines(Entry.DetailText);
     bool Capture = false;
 
     for (size_t Index = 0; Index < Lines.size(); ++Index)

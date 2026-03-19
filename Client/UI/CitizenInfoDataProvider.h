@@ -56,6 +56,7 @@ namespace CitizenInfoDataProvider
         bool CanGenerateWorkOutput = false;
         int Capacity = 0;
         int CurrentWorkerOccupancy = 0;
+        int WorkingNowOccupancy = 0;
         int BudgetLevel = 3;
         int DaysInMonth = 30;
         int MonthlyWageCost = 0;

@@ -265,6 +265,9 @@ void CTradeWidget::OnActionButtonClick()
 void CTradeWidget::OnCompletionAutoOpenButtonClick()
 {
     mAutoOpenCompletionPage = !mAutoOpenCompletionPage;
-    mFeedbackMessage.clear();
+    mFeedbackMessage =
+        mAutoOpenCompletionPage ?
+            L"무역 완료 시 무역 화면이 자동으로 열립니다." :
+            L"무역 완료 시 무역 화면이 자동으로 열리지 않습니다.";
     RefreshFromState();
 }

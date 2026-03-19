@@ -14,6 +14,7 @@
 
 namespace
 {
+    constexpr bool GDisableTaxPolicyEventSystem = true;
     constexpr size_t GResourceTypeCount =
         static_cast<size_t>(EResourceType::Count);
 
@@ -1726,57 +1727,10 @@ namespace
         const FTaxPolicyEventStatus* TaxEventStatus)
     {
         FTaxEventEconomyEffects Effects;
+        static_cast<void>(TaxEventStatus);
 
-        if (!TaxEventStatus ||
-            !TaxEventStatus->Active ||
-            TaxEventStatus->Type == ETaxPolicyEventType::None)
-        {
-            return Effects;
-        }
-
-        const double Severity = Clamp<double>(
-            static_cast<double>(TaxEventStatus->DaysActive + 1) / 6.0,
-            0.0,
-            1.0);
-
-        switch (TaxEventStatus->Type)
-        {
-        case ETaxPolicyEventType::WorkerTaxStrike:
-            Effects.IncomeTaxLeakage = 0.08 + 0.14 * Severity;
-            Effects.GlobalUpkeepMultiplier = 1.03 + 0.05 * Severity;
-            Effects.CollectionEfficiencyPenalty = 0.03 + 0.05 * Severity;
-            break;
-        case ETaxPolicyEventType::PropertyTaxBacklash:
-            Effects.PropertyTaxLeakage = 0.18 + 0.24 * Severity;
-            Effects.ResidentialUpkeepMultiplier = 1.10 + 0.18 * Severity;
-            Effects.CollectionEfficiencyPenalty = 0.02 + 0.03 * Severity;
-            break;
-        case ETaxPolicyEventType::BudgetCrisis:
-            Effects.ExportMultiplier = 0.82 - 0.18 * Severity;
-            Effects.ConsumptionTaxLeakage = 0.06 + 0.08 * Severity;
-            Effects.IncomeTaxLeakage = 0.05 + 0.08 * Severity;
-            Effects.PropertyTaxLeakage = 0.08 + 0.10 * Severity;
-            Effects.GlobalUpkeepMultiplier = 1.08 + 0.12 * Severity;
-            Effects.CollectionEfficiencyPenalty = 0.08 + 0.08 * Severity;
-            break;
-        default:
-            break;
-        }
-
-        Effects.ExportMultiplier =
-            Clamp<double>(Effects.ExportMultiplier, 0.45, 1.0);
-        Effects.ConsumptionTaxLeakage =
-            Clamp<double>(Effects.ConsumptionTaxLeakage, 0.0, 0.75);
-        Effects.IncomeTaxLeakage =
-            Clamp<double>(Effects.IncomeTaxLeakage, 0.0, 0.75);
-        Effects.PropertyTaxLeakage =
-            Clamp<double>(Effects.PropertyTaxLeakage, 0.0, 0.75);
-        Effects.ResidentialUpkeepMultiplier =
-            (std::max)(1.0, Effects.ResidentialUpkeepMultiplier);
-        Effects.GlobalUpkeepMultiplier =
-            (std::max)(1.0, Effects.GlobalUpkeepMultiplier);
-        Effects.CollectionEfficiencyPenalty =
-            Clamp<double>(Effects.CollectionEfficiencyPenalty, 0.0, 0.35);
+        // Event scaffolding stays visible, but tax-event economy penalties are
+        // temporarily disabled.
         return Effects;
     }
 
@@ -1880,12 +1834,11 @@ namespace
         InOutWorkerTaxPressureDays = 0;
         InOutPropertyTaxPressureDays = 0;
         InOutBudgetCrisisPressureDays = 0;
+        static_cast<void>(ImmediateBudgetDelta);
+        static_cast<void>(InOutNationalBudget);
+        static_cast<void>(InOutLastDailyNetChange);
 
-        if (ImmediateBudgetDelta != 0)
-        {
-            InOutNationalBudget += ImmediateBudgetDelta;
-            InOutLastDailyNetChange += ImmediateBudgetDelta;
-        }
+        // Immediate budget damage from tax events is temporarily disabled.
     }
 
     void ResolveTaxPolicyEventState(
@@ -2084,11 +2037,11 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
         const double AverageOverall = OverallSum / Denominator;
 
         CollectionEfficiency =
-            0.45 +
-            AverageSecurity / 200.0 +
-            AverageOverall / 400.0;
+            0.60 +
+            AverageSecurity / 250.0 +
+            AverageOverall / 500.0;
         CollectionEfficiency =
-            (std::max)(0.45, (std::min)(1.10, CollectionEfficiency));
+            (std::max)(0.60, (std::min)(1.05, CollectionEfficiency));
     }
 
     PropertyTaxIncome += ResidenceTaxIncome;
@@ -2294,68 +2247,9 @@ void EconomySystem::ApplyDailyTaxPolicyEventEffects(
     {
         return;
     }
+    static_cast<void>(TaxEventStatus);
 
-    const float Escalation =
-        1.0f +
-        (std::min)(1.35f,
-            static_cast<float>(TaxEventStatus.DaysActive) / 4.0f);
-    const float ControlBreakdown =
-        1.0f +
-        (std::min)(0.80f,
-            static_cast<float>(TaxEventStatus.DaysActive) / 6.0f);
-    float FoodDelta = 0.f;
-    float HealthDelta = 0.f;
-    float FunDelta = 0.f;
-    float FaithDelta = 0.f;
-    float HousingDelta = 0.f;
-    float JobDelta = 0.f;
-    float FreedomDelta = 0.f;
-    float SecurityDelta = 0.f;
-
-    switch (TaxEventStatus.Type)
-    {
-    case ETaxPolicyEventType::WorkerTaxStrike:
-        JobDelta = -0.80f * Escalation;
-        FreedomDelta = -0.55f * ControlBreakdown;
-        SecurityDelta = -0.25f * ControlBreakdown;
-        FunDelta = -0.16f * Escalation;
-        break;
-    case ETaxPolicyEventType::PropertyTaxBacklash:
-        HousingDelta = -0.85f * Escalation;
-        FreedomDelta = -0.45f * ControlBreakdown;
-        SecurityDelta = -0.20f * ControlBreakdown;
-        HealthDelta = -0.10f * Escalation;
-        break;
-    case ETaxPolicyEventType::BudgetCrisis:
-        FoodDelta = -0.70f * Escalation;
-        JobDelta = -0.55f * Escalation;
-        SecurityDelta = -0.40f * ControlBreakdown;
-        HealthDelta = -0.18f * Escalation;
-        FunDelta = -0.18f * Escalation;
-        break;
-    default:
-        return;
-    }
-
-    const auto OrbList = EconomyWorldAccess::CollectCitizens(World);
-
-    for (size_t i = 0; i < OrbList.size(); ++i)
-    {
-        const auto& Orb = OrbList[i];
-
-        if (!Orb || !Orb->IsOperational())
-            continue;
-
-        Orb->ApplySatisfactionDelta(
-            FoodDelta,
-            HealthDelta,
-            FunDelta,
-            FaithDelta,
-            HousingDelta,
-            JobDelta,
-            FreedomDelta,
-            SecurityDelta);
-    }
+    // Daily tax-event satisfaction penalties are temporarily disabled.
 }
 
 void EconomySystem::TickTaxPolicyEvents(
@@ -2371,6 +2265,15 @@ void EconomySystem::TickTaxPolicyEvents(
     int& InOutBudgetCrisisPressureDays,
     FTaxPolicyEventStatus& InOutTaxEventStatus)
 {
+    if (GDisableTaxPolicyEventSystem)
+    {
+        InOutWorkerTaxPressureDays = 0;
+        InOutPropertyTaxPressureDays = 0;
+        InOutBudgetCrisisPressureDays = 0;
+        InOutTaxEventStatus = FTaxPolicyEventStatus();
+        return;
+    }
+
     if (InOutTaxEventStatus.NotificationDays > 0)
         --InOutTaxEventStatus.NotificationDays;
 
@@ -2467,36 +2370,6 @@ void EconomySystem::TickTaxPolicyEvents(
         {
             ResolveTaxPolicyEventState(InOutTaxEventStatus, false);
             return;
-        }
-
-        long long DailyEventPenalty = 0;
-        const float Escalation =
-            1.0f +
-            (std::min)(1.50f,
-                static_cast<float>(InOutTaxEventStatus.DaysActive) / 4.0f);
-
-        switch (InOutTaxEventStatus.Type)
-        {
-        case ETaxPolicyEventType::WorkerTaxStrike:
-            DailyEventPenalty = static_cast<long long>(std::llround(
-                900.0 + 450.0 * static_cast<double>(Escalation)));
-            break;
-        case ETaxPolicyEventType::PropertyTaxBacklash:
-            DailyEventPenalty = static_cast<long long>(std::llround(
-                750.0 + 360.0 * static_cast<double>(Escalation)));
-            break;
-        case ETaxPolicyEventType::BudgetCrisis:
-            DailyEventPenalty = static_cast<long long>(std::llround(
-                1400.0 + 650.0 * static_cast<double>(Escalation)));
-            break;
-        default:
-            break;
-        }
-
-        if (DailyEventPenalty > 0)
-        {
-            InOutNationalBudget -= DailyEventPenalty;
-            InOutLastDailyNetChange -= DailyEventPenalty;
         }
 
         return;

@@ -26,6 +26,8 @@ namespace CitizenInfoPresentationInternal
         CitizenInfoDataProvider::FProductionInputSlotView;
     using EProductionChainStage =
         CitizenInfoDataProvider::EProductionChainStage;
+    using StringUtils::SplitLines;
+    using StringUtils::Trim;
 
     const std::wstring& Ui(const wchar_t* Key)
     {
@@ -35,21 +37,6 @@ namespace CitizenInfoPresentationInternal
     const wchar_t* UiText(const wchar_t* Key)
     {
         return UIStrings::Get(Key).c_str();
-    }
-
-    std::wstring Trim(const std::wstring& Text)
-    {
-        size_t Start = 0;
-
-        while (Start < Text.size() && iswspace(Text[Start]))
-            ++Start;
-
-        size_t End = Text.size();
-
-        while (End > Start && iswspace(Text[End - 1]))
-            --End;
-
-        return Text.substr(Start, End - Start);
     }
 
     bool StartsWith(const std::wstring& Text, const wchar_t* Prefix)
@@ -63,34 +50,6 @@ namespace CitizenInfoPresentationInternal
             return false;
 
         return Text.compare(0, PrefixLength, Prefix) == 0;
-    }
-
-    std::vector<std::wstring> SplitLines(const std::wstring& Text)
-    {
-        std::vector<std::wstring> Lines;
-        std::wstring Current;
-
-        for (size_t Index = 0; Index < Text.size(); ++Index)
-        {
-            const wchar_t Ch = Text[Index];
-
-            if (Ch == L'\r')
-                continue;
-
-            if (Ch == L'\n')
-            {
-                Lines.push_back(Current);
-                Current.clear();
-                continue;
-            }
-
-            Current.push_back(Ch);
-        }
-
-        if (!Current.empty() || Text.empty())
-            Lines.push_back(Current);
-
-        return Lines;
     }
 
     void AppendLine(std::wstring& Body, const std::wstring& Line)
@@ -2803,7 +2762,7 @@ namespace CitizenInfoPresentation
             Writer.Add(
                 Ui(L"citizen_info.label.working_now"),
                 FormatCountPair(
-                    Snapshot.CurrentWorkerOccupancy,
+                    Snapshot.WorkingNowOccupancy,
                     Snapshot.Capacity));
             Writer.Add(
                 Ui(L"citizen_info.label.output_per_second"),

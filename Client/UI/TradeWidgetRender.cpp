@@ -2203,8 +2203,8 @@ void CTradeWidget::RefreshFromState()
 
     if (CompletionAutoOpenButton)
     {
-        CompletionAutoOpenButton->SetEnable(mOpen && ShowingCompletedRoutes);
-        CompletionAutoOpenButton->ButtonEnable(mOpen && ShowingCompletedRoutes);
+        CompletionAutoOpenButton->SetEnable(mOpen);
+        CompletionAutoOpenButton->ButtonEnable(mOpen);
         CompletionAutoOpenButton->SetTint(
             EButtonState::Normal,
             mAutoOpenCompletionPage ?
@@ -2214,9 +2214,11 @@ void CTradeWidget::RefreshFromState()
 
     if (CompletionAutoOpenButtonText)
     {
-        CompletionAutoOpenButtonText->SetEnable(mOpen && ShowingCompletedRoutes);
+        CompletionAutoOpenButtonText->SetEnable(mOpen);
         CompletionAutoOpenButtonText->SetText(
-            mAutoOpenCompletionPage ? L"[x]" : L"[ ]");
+            mAutoOpenCompletionPage ?
+                L"완료 팝업 켬" :
+                L"완료 팝업 끔");
     }
 
     if (FeedbackText)
@@ -2237,7 +2239,9 @@ void CTradeWidget::RefreshFromState()
         else if (ShowingCompletedRoutes)
         {
             FeedbackText->SetText(
-                L"무역로가 완료/취소되었을 경우 해당 탭의 무역 화면을 자동으로 엽니다.");
+                mAutoOpenCompletionPage ?
+                    L"완료 팝업이 켜져 있습니다. 계약이 종료되면 무역 화면이 자동으로 열립니다." :
+                    L"완료 팝업이 꺼져 있습니다. 계약이 종료되어도 무역 화면이 자동으로 열리지 않습니다.");
         }
         else if (SelectedPrice)
         {

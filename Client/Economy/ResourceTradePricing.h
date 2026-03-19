@@ -309,99 +309,10 @@ namespace ResourceTradePricing
         const FTaxPolicyEventStatus& TaxEventStatus,
         const FWorldCrisisStatus& WorldCrisisStatus)
     {
-        double Bias = 0.0;
-        const EResourceMarketClass MarketClass = GetResourceMarketClass(Type);
-
-        if (TaxEventStatus.Active)
-        {
-            switch (TaxEventStatus.Type)
-            {
-            case ETaxPolicyEventType::WorkerTaxStrike:
-                if (MarketClass == EResourceMarketClass::ManufacturedGoods)
-                    Bias += 0.04;
-                else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias += 0.02;
-                break;
-            case ETaxPolicyEventType::PropertyTaxBacklash:
-                if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias -= 0.04;
-                else if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 0.02;
-                break;
-            case ETaxPolicyEventType::BudgetCrisis:
-                if (MarketClass == EResourceMarketClass::Food ||
-                    MarketClass == EResourceMarketClass::RawGoods)
-                {
-                    Bias += 0.05;
-                }
-                else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                {
-                    Bias -= 0.05;
-                }
-                break;
-            case ETaxPolicyEventType::None:
-            default:
-                break;
-            }
-        }
-
-        if (WorldCrisisStatus.Type != EWorldCrisisType::None &&
-            (WorldCrisisStatus.Active || WorldCrisisStatus.NotificationDays > 0))
-        {
-            const double WorldCrisisBiasWeight =
-                WorldCrisisStatus.Active ?
-                    ClampMultiplier(
-                        0.90 +
-                            ClampMultiplier(
-                                static_cast<double>(
-                                    WorldCrisisStatus.DaysActive + 1) / 6.0,
-                                0.0,
-                                1.0) *
-                                0.55,
-                        0.90,
-                        1.45) :
-                    ClampMultiplier(
-                        static_cast<double>(WorldCrisisStatus.NotificationDays) /
-                            8.0,
-                        0.0,
-                        1.0) *
-                        0.32;
-
-            switch (WorldCrisisStatus.Type)
-            {
-            case EWorldCrisisType::Raid:
-                if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 0.04 * WorldCrisisBiasWeight;
-                else if (MarketClass == EResourceMarketClass::RawGoods)
-                    Bias += 0.03 * WorldCrisisBiasWeight;
-                break;
-            case EWorldCrisisType::LaborStrike:
-                if (MarketClass == EResourceMarketClass::ManufacturedGoods)
-                    Bias += 0.05 * WorldCrisisBiasWeight;
-                else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias += 0.02 * WorldCrisisBiasWeight;
-                break;
-            case EWorldCrisisType::CrimeWave:
-                if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias -= 0.03 * WorldCrisisBiasWeight;
-                else if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 0.02 * WorldCrisisBiasWeight;
-                break;
-            case EWorldCrisisType::FiscalEmergency:
-                if (MarketClass == EResourceMarketClass::Food)
-                    Bias += 0.06 * WorldCrisisBiasWeight;
-                else if (MarketClass == EResourceMarketClass::RawGoods)
-                    Bias += 0.04 * WorldCrisisBiasWeight;
-                else if (MarketClass == EResourceMarketClass::LuxuryGoods)
-                    Bias -= 0.06 * WorldCrisisBiasWeight;
-                break;
-            case EWorldCrisisType::None:
-            default:
-                break;
-            }
-        }
-
-        return Bias;
+        static_cast<void>(Type);
+        static_cast<void>(TaxEventStatus);
+        static_cast<void>(WorldCrisisStatus);
+        return 0.0;
     }
 
     inline void UpdateWorldMarketPriceState(

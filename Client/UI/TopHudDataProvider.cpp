@@ -778,7 +778,7 @@ namespace TopHudDataProvider
             !EraTransitionState.Summary.empty())
         {
             Result.EventText =
-                UIStrings::Get(L"top_hud.fragment.era_ready_prefix") +
+                L"페놀티코 과제 | " +
                 BuildEraTransitionHudSummary(EraTransitionState);
             Result.EventTextColor = MakeColor(236, 206, 118, 255);
         }

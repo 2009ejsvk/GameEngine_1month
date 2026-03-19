@@ -128,6 +128,7 @@ namespace
 
     bool TryResolveConsumerNeed(
         const std::shared_ptr<CPlacementAreaObject>& Building,
+        int RestockThreshold,
         EResourceType& OutType,
         int& OutCurrentStock)
     {
@@ -177,8 +178,7 @@ namespace
                     Building->GetResourceStock(Type) +
                         Building->GetReservedIncomingResourceAmount(Type);
 
-            if (CurrentStock >=
-                GameConstants::Orb::TeamsterConsumerRestockThreshold)
+            if (CurrentStock >= RestockThreshold)
             {
                 return;
             }
@@ -208,6 +208,30 @@ namespace
         }
 
         return FoundNeed;
+    }
+
+    bool HasCoveredWarehouse(
+        const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
+        const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList)
+    {
+        if (!OfficeBuilding)
+            return false;
+
+        for (size_t i = 0; i < BuildingList.size(); ++i)
+        {
+            auto Building = BuildingList[i].lock();
+
+            if (!IsOperationalBuilding(Building) ||
+                !Building->IsWarehouse() ||
+                !IsWithinTeamsterCoverage(OfficeBuilding, Building))
+            {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     bool TryResolveConsumerSupply(
@@ -576,18 +600,23 @@ namespace
         return BestName;
     }
 
-    std::string FindBestWarehouseDropoffName(
+    struct FWarehouseDropoffCandidate
+    {
+        std::string Name;
+        int IncomingCapacity = 0;
+    };
+
+    FWarehouseDropoffCandidate FindBestWarehouseDropoffCandidate(
         const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
         const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList,
         const std::string& ExcludedBuildingName,
-        EResourceType CargoType,
-        int CargoAmount)
+        EResourceType CargoType)
     {
-        if (!OfficeBuilding ||
-            CargoType == EResourceType::None ||
-            CargoAmount <= 0)
+        FWarehouseDropoffCandidate Result;
+
+        if (!OfficeBuilding || CargoType == EResourceType::None)
         {
-            return std::string();
+            return Result;
         }
 
         std::string BestName;
@@ -604,9 +633,7 @@ namespace
                 !Building->IsWarehouse() ||
                 Building->GetName() == ExcludedBuildingName ||
                 !IsWithinTeamsterCoverage(OfficeBuilding, Building) ||
-                !Building->CanStoreResourceType(CargoType) ||
-                Building->GetAvailableIncomingCapacity(CargoType) <
-                    CargoAmount)
+                !Building->CanStoreResourceType(CargoType))
             {
                 continue;
             }
@@ -623,6 +650,9 @@ namespace
                 Building->GetReservedIncomingResourceAmount(CargoType);
             const int IncomingCapacity =
                 Building->GetAvailableIncomingCapacity(CargoType);
+
+            if (IncomingCapacity <= 0)
+                continue;
 
             if (BestName.empty() ||
                 (HasAssignedSlot && !BestHasAssignedSlot) ||
@@ -644,7 +674,30 @@ namespace
             }
         }
 
-        return BestName;
+        Result.Name = BestName;
+        Result.IncomingCapacity = BestIncomingCapacity;
+        return Result;
+    }
+
+    std::string FindBestWarehouseDropoffName(
+        const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
+        const std::vector<std::weak_ptr<CPlacementAreaObject>>& BuildingList,
+        const std::string& ExcludedBuildingName,
+        EResourceType CargoType,
+        int CargoAmount)
+    {
+        if (CargoAmount <= 0)
+            return std::string();
+
+        const FWarehouseDropoffCandidate Candidate =
+            FindBestWarehouseDropoffCandidate(
+                OfficeBuilding,
+                BuildingList,
+                ExcludedBuildingName,
+                CargoType);
+        return Candidate.IncomingCapacity >= CargoAmount ?
+            Candidate.Name :
+            std::string();
     }
 
     FTeamsterExportTriggerInfo TryResolveExportTrigger(
@@ -1139,7 +1192,20 @@ bool CBuildingMarkerOrb::TryStartTeamsterDelivery()
 
     FTeamsterDeliveryState PlannedDelivery;
 
-    if (TryPlanTeamsterConsumerDelivery(WorkBuilding, PlannedDelivery))
+    if (TryPlanTeamsterWarehouseBufferDelivery(WorkBuilding, PlannedDelivery))
+    {
+        mTeamsterDeliveryState = PlannedDelivery;
+        TransitionFsm(ECitizenState::GoingToTeamsterSource);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
+    // Let near-empty consumers interrupt first, but otherwise give exports a
+    // chance before routine input top-ups monopolize teamsters.
+    if (TryPlanTeamsterConsumerDelivery(
+            WorkBuilding,
+            PlannedDelivery,
+            true))
     {
         mTeamsterDeliveryState = PlannedDelivery;
         TransitionFsm(ECitizenState::GoingToTeamsterConsumerSource);
@@ -1147,18 +1213,200 @@ bool CBuildingMarkerOrb::TryStartTeamsterDelivery()
         return true;
     }
 
-    if (!TryPlanTeamsterExportDelivery(WorkBuilding, PlannedDelivery))
+    if (TryPlanTeamsterExportDelivery(WorkBuilding, PlannedDelivery))
+    {
+        mTeamsterDeliveryState = PlannedDelivery;
+        TransitionFsm(ECitizenState::GoingToTeamsterSource);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
+    if (!TryPlanTeamsterConsumerDelivery(
+            WorkBuilding,
+            PlannedDelivery,
+            false))
+    {
         return false;
+    }
 
     mTeamsterDeliveryState = PlannedDelivery;
-    TransitionFsm(ECitizenState::GoingToTeamsterSource);
+    TransitionFsm(ECitizenState::GoingToTeamsterConsumerSource);
     mPathRetryAccum = 0.f;
+    return true;
+}
+
+bool CBuildingMarkerOrb::TryPlanTeamsterWarehouseBufferDelivery(
+    const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
+    FTeamsterDeliveryState& OutDelivery) const
+{
+    OutDelivery.ClearRoute();
+
+    auto World = mWorld.lock();
+
+    if (!OfficeBuilding || !World)
+        return false;
+
+    const int TransferUnit = ResolveOfficeTransferUnit(OfficeBuilding);
+
+    std::vector<std::weak_ptr<CPlacementAreaObject>> BuildingList;
+
+    if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
+        return false;
+
+    if (!HasCoveredWarehouse(OfficeBuilding, BuildingList))
+        return false;
+
+    std::string BestSourceName;
+    std::string BestDropoffName;
+    EResourceType BestCargoType = EResourceType::None;
+    int BestRequestedAmount = 0;
+    int BestIncomingCapacity = -1;
+    float BestSourceDistSq = FLT_MAX;
+    float BestDropoffDistSq = FLT_MAX;
+
+    for (size_t i = 0; i < BuildingList.size(); ++i)
+    {
+        auto SourceBuilding = BuildingList[i].lock();
+
+        if (!IsOperationalBuilding(SourceBuilding) ||
+            SourceBuilding->IsWarehouse() ||
+            !SourceBuilding->SupportsTeamsterPickup() ||
+            !IsWithinTeamsterCoverage(OfficeBuilding, SourceBuilding))
+        {
+            continue;
+        }
+
+        float SourceDistSq = FLT_MAX;
+
+        if (!TryGetCoverageDistanceSq(
+                OfficeBuilding,
+                SourceBuilding,
+                SourceDistSq))
+        {
+            continue;
+        }
+
+        for (size_t ResourceIndex = 1;
+             ResourceIndex < static_cast<size_t>(EResourceType::Count);
+             ++ResourceIndex)
+        {
+            const EResourceType CargoType =
+                static_cast<EResourceType>(ResourceIndex);
+            const int AvailableAmount =
+                SourceBuilding->GetAvailableResourceStock(CargoType);
+
+            if (!IsConcreteEconomicResourceType(CargoType) ||
+                AvailableAmount <= 0)
+            {
+                continue;
+            }
+
+            const FWarehouseDropoffCandidate Candidate =
+                FindBestWarehouseDropoffCandidate(
+                    OfficeBuilding,
+                    BuildingList,
+                    SourceBuilding->GetName(),
+                    CargoType);
+
+            if (Candidate.Name.empty() || Candidate.IncomingCapacity <= 0)
+                continue;
+
+            const int RequestedAmount = ResolveRequestedTransferAmount(
+                AvailableAmount,
+                TransferUnit,
+                Candidate.IncomingCapacity);
+
+            if (RequestedAmount <= 0)
+                continue;
+
+            auto DropoffBuilding =
+                World->FindObject<CPlacementAreaObject>(Candidate.Name).lock();
+
+            if (!DropoffBuilding)
+                continue;
+
+            float DropoffDistSq = FLT_MAX;
+
+            if (!TryGetCoverageDistanceSq(
+                    OfficeBuilding,
+                    DropoffBuilding,
+                    DropoffDistSq))
+            {
+                continue;
+            }
+
+            if (BestSourceName.empty() ||
+                RequestedAmount > BestRequestedAmount ||
+                (RequestedAmount == BestRequestedAmount &&
+                 Candidate.IncomingCapacity > BestIncomingCapacity) ||
+                (RequestedAmount == BestRequestedAmount &&
+                 Candidate.IncomingCapacity == BestIncomingCapacity &&
+                 SourceDistSq < BestSourceDistSq) ||
+                (RequestedAmount == BestRequestedAmount &&
+                 Candidate.IncomingCapacity == BestIncomingCapacity &&
+                 SourceDistSq == BestSourceDistSq &&
+                 DropoffDistSq < BestDropoffDistSq))
+            {
+                BestSourceName = SourceBuilding->GetName();
+                BestDropoffName = Candidate.Name;
+                BestCargoType = CargoType;
+                BestRequestedAmount = RequestedAmount;
+                BestIncomingCapacity = Candidate.IncomingCapacity;
+                BestSourceDistSq = SourceDistSq;
+                BestDropoffDistSq = DropoffDistSq;
+            }
+        }
+    }
+
+    if (BestSourceName.empty() ||
+        BestDropoffName.empty() ||
+        BestCargoType == EResourceType::None ||
+        BestRequestedAmount <= 0)
+    {
+        return false;
+    }
+
+    auto SourceBuilding =
+        World->FindObject<CPlacementAreaObject>(BestSourceName).lock();
+    auto DropoffBuilding =
+        World->FindObject<CPlacementAreaObject>(BestDropoffName).lock();
+
+    if (!SourceBuilding ||
+        !DropoffBuilding ||
+        !SourceBuilding->ReserveTeamsterPickup(
+            BestCargoType,
+            BestRequestedAmount))
+    {
+        return false;
+    }
+
+    if (!DropoffBuilding->ReserveIncomingResource(
+            BestCargoType,
+            BestRequestedAmount))
+    {
+        SourceBuilding->ReleaseTeamsterPickup(
+            BestCargoType,
+            BestRequestedAmount);
+        return false;
+    }
+
+    OutDelivery.Mode = FTeamsterDeliveryState::ERouteMode::Export;
+    OutDelivery.SourceReservationKind =
+        FTeamsterDeliveryState::ESourceReservationKind::Typed;
+    OutDelivery.SourceName = BestSourceName;
+    OutDelivery.DestinationName = BestDropoffName;
+    OutDelivery.RequestedType = BestCargoType;
+    OutDelivery.RequestedAmount = BestRequestedAmount;
+    OutDelivery.SetDestinationReservation(
+        BestCargoType,
+        BestRequestedAmount);
     return true;
 }
 
 bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
-    FTeamsterDeliveryState& OutDelivery) const
+    FTeamsterDeliveryState& OutDelivery,
+    bool CriticalOnly) const
 {
     OutDelivery.ClearRoute();
 
@@ -1173,6 +1421,19 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
 
     if (!World->FindObjectListByType<CPlacementAreaObject>(BuildingList))
         return false;
+
+    const bool HasWarehouseInCoverage =
+        HasCoveredWarehouse(OfficeBuilding, BuildingList);
+    // Start consumer restocks only when stock falls below the configured
+    // trigger threshold. Once a route is chosen, we still top the consumer up
+    // toward TeamsterConsumerTargetStock.
+    const int ConsumerRestockThreshold = (std::max)(
+        1,
+        GameConstants::Orb::TeamsterConsumerRestockThreshold);
+    const int EffectiveRestockThreshold =
+        CriticalOnly ?
+            (std::max)(1, ConsumerRestockThreshold / 2) :
+            ConsumerRestockThreshold;
 
     const TradePolicy::FExportTradePolicy* const ExportPolicy =
         ResolveExportTradePolicy(World);
@@ -1266,13 +1527,16 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
             }
         };
 
-        for (size_t i = 0; i < BuildingList.size(); ++i)
+        if (HasWarehouseInCoverage)
         {
-            ConsiderSource(BuildingList[i].lock(), true, false, false);
-        }
+            for (size_t i = 0; i < BuildingList.size(); ++i)
+            {
+                ConsiderSource(BuildingList[i].lock(), true, false, false);
+            }
 
-        if (!OutSourceName.empty())
-            return true;
+            if (!OutSourceName.empty())
+                return true;
+        }
 
         for (size_t i = 0; i < BuildingList.size(); ++i)
         {
@@ -1293,8 +1557,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     std::string BestConsumerName;
     std::string BestSourceName;
     EResourceType BestResourceType = EResourceType::None;
-    int BestCurrentStock =
-        GameConstants::Orb::TeamsterConsumerRestockThreshold + 1;
+    int BestCurrentStock = EffectiveRestockThreshold + 1;
     int BestRequestedAmount = 0;
     float BestConsumerDistSq = FLT_MAX;
     float BestSourceDistSq = FLT_MAX;
@@ -1309,7 +1572,11 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
         int CurrentStock = 0;
         FTeamsterExportTriggerInfo DeferredExportTrigger;
 
-        if (!TryResolveConsumerNeed(Building, ConsumerType, CurrentStock) ||
+        if (!TryResolveConsumerNeed(
+                Building,
+                EffectiveRestockThreshold,
+                ConsumerType,
+                CurrentStock) ||
             !IsWithinTeamsterCoverage(OfficeBuilding, Building))
         {
             // No restock target here: see if this producer should explicitly

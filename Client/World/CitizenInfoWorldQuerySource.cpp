@@ -19,22 +19,9 @@
 
 namespace
 {
+    using StringUtils::SplitLines;
+    using StringUtils::Trim;
     using StringUtils::Utf8ToWide;
-
-    std::wstring Trim(const std::wstring& Text)
-    {
-        size_t Start = 0;
-
-        while (Start < Text.size() && iswspace(Text[Start]))
-            ++Start;
-
-        size_t End = Text.size();
-
-        while (End > Start && iswspace(Text[End - 1]))
-            --End;
-
-        return Text.substr(Start, End - Start);
-    }
 
     std::wstring FormatInteger(long long Value)
     {
@@ -126,34 +113,6 @@ namespace
             return false;
 
         return Text.compare(0, PrefixLength, Prefix) == 0;
-    }
-
-    std::vector<std::wstring> SplitLines(const std::wstring& Text)
-    {
-        std::vector<std::wstring> Lines;
-        std::wstring Current;
-
-        for (size_t Index = 0; Index < Text.size(); ++Index)
-        {
-            const wchar_t Ch = Text[Index];
-
-            if (Ch == L'\r')
-                continue;
-
-            if (Ch == L'\n')
-            {
-                Lines.push_back(Current);
-                Current.clear();
-                continue;
-            }
-
-            Current.push_back(Ch);
-        }
-
-        if (!Current.empty() || Text.empty())
-            Lines.push_back(Current);
-
-        return Lines;
     }
 
     int ParseLeadingInteger(const std::wstring& Text, int DefaultValue = 0)
@@ -434,60 +393,15 @@ namespace
     float ResolveTaxEventProductionMultiplier(
         const FTaxPolicyEventStatus* TaxEventStatus)
     {
-        if (!TaxEventStatus ||
-            !TaxEventStatus->Active ||
-            TaxEventStatus->Type == ETaxPolicyEventType::None)
-        {
-            return 1.f;
-        }
-
-        const float Severity = (std::max)(
-            0.f,
-            (std::min)(
-                1.f,
-                static_cast<float>(TaxEventStatus->DaysActive + 1) / 6.f));
-
-        switch (TaxEventStatus->Type)
-        {
-        case ETaxPolicyEventType::WorkerTaxStrike:
-            return 0.74f - 0.30f * Severity;
-        case ETaxPolicyEventType::BudgetCrisis:
-            return 0.92f - 0.18f * Severity;
-        default:
-            return 1.f;
-        }
+        static_cast<void>(TaxEventStatus);
+        return 1.f;
     }
 
     float ResolveWorldCrisisProductionMultiplier(
         const FWorldCrisisStatus* WorldCrisisStatus)
     {
-        if (!WorldCrisisStatus ||
-            !WorldCrisisStatus->Active ||
-            WorldCrisisStatus->Type == EWorldCrisisType::None)
-        {
-            return 1.f;
-        }
-
-        const float Severity = (std::max)(
-            0.f,
-            (std::min)(
-                1.f,
-                static_cast<float>(WorldCrisisStatus->DaysActive + 1) / 6.f));
-
-        switch (WorldCrisisStatus->Type)
-        {
-        case EWorldCrisisType::Raid:
-            return 0.90f - 0.14f * Severity;
-        case EWorldCrisisType::LaborStrike:
-            return 0.78f - 0.24f * Severity;
-        case EWorldCrisisType::CrimeWave:
-            return 0.92f - 0.12f * Severity;
-        case EWorldCrisisType::FiscalEmergency:
-            return 0.94f - 0.10f * Severity;
-        case EWorldCrisisType::None:
-        default:
-            return 1.f;
-        }
+        static_cast<void>(WorldCrisisStatus);
+        return 1.f;
     }
 
     float ResolveBaseProductionUnitsPerSecond(
@@ -1041,6 +955,9 @@ namespace
             OutRecord.CurrentWorkerOccupancy = (std::max)(
                 0,
                 Building->GetCurrentWorkerOccupancy());
+            OutRecord.WorkingNowOccupancy = (std::max)(
+                0,
+                Building->GetWorkingNowOccupancy());
 
             if (!Building->CanGenerateWorkOutput() ||
                 Building->GetProducedResourceType() == EResourceType::None)

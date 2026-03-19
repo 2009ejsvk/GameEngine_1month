@@ -17,6 +17,8 @@
 namespace
 {
     constexpr int GSlotsPerPage = 15;
+    using StringUtils::SplitLines;
+    using StringUtils::Trim;
     using StringUtils::Utf8ToWide;
 
     std::wstring TrimTrailingSeparators(const std::wstring& Path)
@@ -409,42 +411,6 @@ namespace
             Text.compare(0, PrefixLength, Prefix) == 0;
     }
 
-    std::wstring TrimCopy(const std::wstring& Text)
-    {
-        size_t Begin = 0;
-        size_t End = Text.size();
-
-        while (Begin < End && iswspace(Text[Begin]))
-            ++Begin;
-
-        while (End > Begin && iswspace(Text[End - 1]))
-            --End;
-
-        return Text.substr(Begin, End - Begin);
-    }
-
-    std::vector<std::wstring> SplitLines(const std::wstring& Text)
-    {
-        std::vector<std::wstring> Lines;
-        size_t Start = 0;
-
-        while (Start <= Text.size())
-        {
-            const size_t End = Text.find(L'\n', Start);
-
-            if (End == std::wstring::npos)
-            {
-                Lines.push_back(Text.substr(Start));
-                break;
-            }
-
-            Lines.push_back(Text.substr(Start, End - Start));
-            Start = End + 1;
-        }
-
-        return Lines;
-    }
-
     std::wstring JoinLines(const std::vector<std::wstring>& Lines)
     {
         std::wstring Result;
@@ -650,7 +616,7 @@ namespace
 
         for (size_t i = 0; i < Lines.size(); ++i)
         {
-            const std::wstring Line = TrimCopy(Lines[i]);
+            const std::wstring Line = Trim(Lines[i]);
 
             if (Line.empty())
                 continue;

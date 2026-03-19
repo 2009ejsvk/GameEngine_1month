@@ -1,4 +1,5 @@
 #include "UIStrings.h"
+#include "../StringUtils.h"
 #include <Windows.h>
 #include <algorithm>
 #include <cctype>
@@ -12,6 +13,10 @@ namespace UIStrings
 {
     namespace
     {
+        using StringUtils::ReplaceAll;
+        using StringUtils::Trim;
+        using StringUtils::Utf8ToWide;
+
         struct FDefaultEntry
         {
             const wchar_t* Key;
@@ -62,6 +67,28 @@ namespace UIStrings
             { L"top_hud.era_transition.unavailable", L"아직 전환 조건이 충족되지 않았습니다." },
             { L"constitution.popup.title_prefix", L"헌법 선택: " },
             { L"constitution.popup.body_prompt", L"헌법을 선택하십시오." },
+            { L"constitution.panel.title", L"트로피코 헌법" },
+            { L"constitution.panel.subtitle", L"개요 화면에서 현재 채택한 조항을 확인하고, 상단 탭으로 주제별 세부 내용을 볼 수 있습니다." },
+            { L"constitution.panel.topic_subtitle", L"현재 주제의 선택지와 효과를 확인하십시오." },
+            { L"constitution.panel.overview_button", L"개요" },
+            { L"constitution.panel.topic_pending", L"이 주제는 지금 바로 결정할 수 있습니다." },
+            { L"constitution.panel.current_selection", L"현재 채택안: " },
+            { L"constitution.summary.pending_prefix", L"선택 필요: " },
+            { L"constitution.summary.review_all", L"현재 헌법 전체를 검토할 수 있습니다." },
+            { L"constitution.summary.pending", L"선택 필요" },
+            { L"constitution.summary.active", L"채택됨" },
+            { L"constitution.summary.waiting", L"검토 가능" },
+            { L"constitution.summary.selection_required", L"아직 선택되지 않음" },
+            { L"constitution.summary.research_required", L"연구 필요" },
+            { L"constitution.summary.locked", L"잠김" },
+            { L"constitution.option.placeholder_title", L"추가 선택지 준비 중" },
+            { L"constitution.option.placeholder_summary", L"새 조항이 해금되면 이 자리가 채워집니다." },
+            { L"constitution.option.placeholder_body", L"현재 구현된 헌법 시스템은 주제별 핵심 조항을 먼저 지원합니다. 이후 연구 및 시대 확장에 맞춰 추가 선택지가 연결될 수 있습니다." },
+            { L"constitution.effect.liberty", L"자유" },
+            { L"constitution.effect.security", L"치안" },
+            { L"constitution.effect.job_quality", L"직업 품질" },
+            { L"constitution.effect.immigration", L"이민" },
+            { L"constitution.effect.no_major_change", L"주요 수치 변화 없음" },
             { L"constitution.topic.voting_rights", L"투표권" },
             { L"constitution.topic.labor_policy", L"노동 정책" },
             { L"constitution.topic.religion_and_state", L"종교와 국가" },
@@ -673,7 +700,110 @@ namespace UIStrings
                 L"콘크리트와 강철로 이루어진 괴물,\n"
                 L"현대식 아파트는 '현대적인 편의 시설\n"
                 L"완비'라는 광고 문구를 이용해\n"
-                L"제정신이 아닌 듯한 월세를 제시합니다." }
+                L"제정신이 아닌 듯한 월세를 제시합니다." },
+            { L"citizen_info.wealth.at_least_template", L"{0} 이상" },
+            { L"citizen_info.detail.prefix.construction_cost", L"건설 비용:" },
+            { L"citizen_info.detail.prefix.blueprint_cost", L"설계도 비용:" },
+            { L"citizen_info.detail.prefix.unlock_era", L"등장 시기:" },
+            { L"citizen_info.detail.prefix.required_workers", L"필요 인력:" },
+            { L"citizen_info.detail.prefix.required_power", L"필요 전력:" },
+            { L"citizen_info.detail.prefix.produced_power", L"생산 전력:" },
+            { L"citizen_info.detail.prefix.size", L"크기:" },
+            { L"citizen_info.detail.prefix.job_quality", L"직업 품질:" },
+            { L"citizen_info.detail.prefix.service_quality", L"서비스 품질:" },
+            { L"citizen_info.detail.prefix.service_capacity", L"수용 인원:" },
+            { L"citizen_info.detail.prefix.household_capacity", L"수용 가구:" },
+            { L"citizen_info.detail.prefix.wealth_requirement", L"재산 요구치:" },
+            { L"citizen_info.detail.prefix.required_wealth", L"필요 재산:" },
+            { L"citizen_info.detail.prefix.tourist_wealth", L"관광객 재산:" },
+            { L"citizen_info.detail.prefix.tourist_preference", L"선호 관광객:" },
+            { L"citizen_info.detail.prefix.operation_mode", L"운영 모드:" },
+            { L"citizen_info.detail.prefix.upgrade", L"업그레이드" },
+            { L"citizen_info.detail.prefix.effect", L"효과:" },
+            { L"citizen_info.detail.prefix.note", L"비고:" },
+            { L"task_widget.title", L"과제" },
+            { L"task_widget.subtitle",
+                L"세력 요구, 외교 요청, 국정 과제를 수락하고 처리할 수 있습니다." },
+            { L"task_widget.empty", L"현재 활성화된 과제가 없습니다." },
+            { L"task_widget.placeholder.none", L"-" },
+            { L"task_widget.value.none", L"없음" },
+            { L"task_widget.action.accept", L"수락" },
+            { L"task_widget.action.decline", L"거절" },
+            { L"task_widget.action.close", L"닫기" },
+            { L"task_widget.action.abandon", L"포기" },
+            { L"task_widget.action.abandon_with_penalty_template",
+                L"포기 ({0})" },
+            { L"task_widget.faction.communists", L"공산주의자" },
+            { L"task_widget.faction.capitalists", L"자본가" },
+            { L"task_widget.faction.religious", L"종교인" },
+            { L"task_widget.faction.militarists", L"군부" },
+            { L"task_widget.faction.environmentalists", L"환경주의자" },
+            { L"task_widget.faction.industrialists", L"산업주의자" },
+            { L"task_widget.faction.intellectuals", L"지식인" },
+            { L"task_widget.faction.conservatives", L"보수주의자" },
+            { L"task_widget.faction.generic", L"세력" },
+            { L"task_widget.objective.completed_template",
+                L"[완료] {0} {1}/{2}" },
+            { L"task_widget.objective.progress_template",
+                L"[진행] {0} {1}/{2}" },
+            { L"task_widget.objective.population", L"인구" },
+            { L"task_widget.objective.buildings", L"건물" },
+            { L"task_widget.objective.food_providers", L"식량 공급처" },
+            { L"task_widget.objective.industry_buildings", L"산업 건물" },
+            { L"task_widget.objective.public_service_buildings",
+                L"공공서비스 건물" },
+            { L"task_widget.objective.entertainment_buildings",
+                L"오락 건물" },
+            { L"task_widget.objective.power_mw", L"전력(MW)" },
+            { L"task_widget.demand.row_subtitle_template", L"{0} / {1}일" },
+            { L"task_widget.demand.status.in_progress", L"수행 중" },
+            { L"task_widget.demand.status.awaiting_response", L"응답 대기" },
+            { L"task_widget.penultimo.issuer_label", L"페놀티코의 과제" },
+            { L"task_widget.penultimo.name", L"페놀티코" },
+            { L"task_widget.era_mission.row_title_template",
+                L"{0} → {1} 시대 진행" },
+            { L"task_widget.era_mission.row_subtitle", L"페놀티코 / 조건 달성 중" },
+            { L"task_widget.era_mission.detail_body_template",
+                L"페놀티코가 보고합니다. {0} 시대로 전환하려면 아래 조건을 달성해야 합니다." },
+            { L"task_widget.era_mission.stage_line", L"국정 과제 / 진행 중" },
+            { L"task_widget.era_mission.reward_template",
+                L"{0} 시대 건물과 칙령 즉시 해금 / 외교 및 시대 진행 상태 갱신" },
+            { L"task_widget.era_transition.default_title", L"시대 전환 과제" },
+            { L"task_widget.era_transition.row_subtitle", L"페놀티코 / 즉시 처리 가능" },
+            { L"task_widget.era_transition.detail_body_template",
+                L"페놀티코가 보고합니다. {0}에서 {1}(으)로 넘어갈 준비가 끝났습니다." },
+            { L"task_widget.era_transition.objective_template", L"결재: {0}" },
+            { L"task_widget.era_transition.stage_line", L"국정 과제 / 준비 완료" },
+            { L"task_widget.era_transition.penalty_text",
+                L"불이익 없음 / 나중에 다시 결재 가능" },
+            { L"task_widget.era_transition.confirm_default", L"시대 전환 승인" },
+            { L"task_widget.demand.issuer_label_template", L"{0} 요구" },
+            { L"task_widget.demand.speaker_label_template", L"{0} 대표" },
+            { L"task_widget.demand.detail_body_template",
+                L"{0} 측이 프레지덴테에게 직접 요구를 전달했습니다." },
+            { L"task_widget.demand.stage_line_template",
+                L"{0} / 압력 {1}일 / 남은 {2}일" },
+            { L"task_widget.foreign.issuer_label_template", L"{0} 요청" },
+            { L"task_widget.foreign.detail_body_template",
+                L"{0} 관련 외교 채널을 통해 새로운 요청이 도착했습니다." },
+            { L"task_widget.foreign.stage_line_template", L"외교 요청 / 남은 {0}일" },
+            { L"task_widget.detail.header.approval", L"결재" },
+            { L"task_widget.detail.header.conditions", L"달성 조건" },
+            { L"task_widget.detail.header.objective", L"목표" },
+            { L"task_widget.detail.header.reward", L"보상" },
+            { L"task_widget.detail.header.effect", L"효과" },
+            { L"task_widget.detail.header.penalty_abandon", L"포기 시 불이익" },
+            { L"task_widget.detail.header.penalty_reject_fail",
+                L"거절/실패 시 불이익" },
+            { L"task_widget.detail.header.defer", L"보류" },
+            { L"task_widget.feedback.no_era_transition_command",
+                L"시대 전환 명령을 확인할 수 없습니다." },
+            { L"task_widget.feedback.era_transition_unavailable",
+                L"아직 시대 전환을 진행할 수 없습니다." },
+            { L"task_widget.feedback.no_admin_command",
+                L"행정 명령을 확인할 수 없습니다." },
+            { L"task_widget.feedback.accepted", L"과제를 수락했습니다." },
+            { L"task_widget.feedback.cleared", L"과제를 정리했습니다." }
         };
 
         std::unordered_map<std::wstring, std::wstring> GTable;
@@ -691,55 +821,6 @@ namespace UIStrings
                 Path = Path.substr(0, Slash + 1);
 
             return Path + L"UIStrings.ini";
-        }
-
-        void TrimString(std::string& Value)
-        {
-            Value.erase(
-                Value.begin(),
-                std::find_if(
-                    Value.begin(),
-                    Value.end(),
-                    [](unsigned char Character)
-                    {
-                        return !std::isspace(Character);
-                    }));
-            Value.erase(
-                std::find_if(
-                    Value.rbegin(),
-                    Value.rend(),
-                    [](unsigned char Character)
-                    {
-                        return !std::isspace(Character);
-                    }).base(),
-                Value.end());
-        }
-
-        std::wstring Utf8ToWide(const std::string& Value)
-        {
-            if (Value.empty())
-                return std::wstring();
-
-            const int RequiredLength = MultiByteToWideChar(
-                CP_UTF8,
-                0,
-                Value.c_str(),
-                static_cast<int>(Value.size()),
-                nullptr,
-                0);
-
-            if (RequiredLength <= 0)
-                return std::wstring(Value.begin(), Value.end());
-
-            std::wstring Result(static_cast<size_t>(RequiredLength), L'\0');
-            MultiByteToWideChar(
-                CP_UTF8,
-                0,
-                Value.c_str(),
-                static_cast<int>(Value.size()),
-                &Result[0],
-                RequiredLength);
-            return Result;
         }
 
         std::wstring ParseTextValue(const std::string& Value)
@@ -823,8 +904,8 @@ namespace UIStrings
 
                 std::string Key = Line.substr(0, EqPos);
                 std::string Value = Line.substr(EqPos + 1);
-                TrimString(Key);
-                TrimString(Value);
+                Key = Trim(Key);
+                Value = Trim(Value);
 
                 if (Key.empty())
                     continue;
@@ -841,23 +922,6 @@ namespace UIStrings
             LoadDefaults();
             LoadOverrides();
             GLoaded = true;
-        }
-
-        void ReplaceAll(
-            std::wstring& Text,
-            const std::wstring& Pattern,
-            const std::wstring& Replacement)
-        {
-            if (Pattern.empty())
-                return;
-
-            size_t Position = 0;
-
-            while ((Position = Text.find(Pattern, Position)) != std::wstring::npos)
-            {
-                Text.replace(Position, Pattern.size(), Replacement);
-                Position += Replacement.size();
-            }
         }
     }
 

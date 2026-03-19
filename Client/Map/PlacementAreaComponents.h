@@ -111,7 +111,10 @@ struct FBuildingOperationsState
     long long ResourceProductionAccumScaled = 0ll;
     float LastProductionEfficiency = 1.f;
     int LastDailyStorageLoss = 0;
+    // Assigned workforce count used for production and per-worker scaling.
     int CurrentWorkerOccupancy = 0;
+    // On-site workers currently in AtWork state for UI and observability.
+    int WorkingNowOccupancy = 0;
     std::array<int, GBuildingServiceTypeCount> ActiveServiceVisitors = {};
     std::array<int, GBuildingServiceTypeCount> ServiceVisitCaps = {};
     std::array<int, GBuildingServiceTypeCount> ServiceStocks = {};
@@ -957,6 +960,16 @@ struct FBuildingOperationsState
     int GetCurrentWorkerOccupancy() const
     {
         return (std::max)(0, CurrentWorkerOccupancy);
+    }
+
+    void SetWorkingNowOccupancy(int Occupancy)
+    {
+        WorkingNowOccupancy = (std::max)(0, Occupancy);
+    }
+
+    int GetWorkingNowOccupancy() const
+    {
+        return (std::max)(0, WorkingNowOccupancy);
     }
 
     int GetServiceVisitCapacity(

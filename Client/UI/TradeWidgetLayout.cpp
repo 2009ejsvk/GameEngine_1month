@@ -51,6 +51,8 @@ void CTradeWidget::RefreshLayout()
     const float ContentHeight = PanelHeight - HeaderHeight - 48.f * Scale;
     const float FilterHeight = 44.f * Scale;
     const float SortHeight = 34.f * Scale;
+    const float CompletionAutoOpenButtonWidth = 150.f * Scale;
+    const float CompletionAutoOpenButtonGap = 14.f * Scale;
     const float ListTop =
         (ShowingActiveRoutes || ShowingCompletedRoutes) ?
             ContentTop + 12.f * Scale :
@@ -463,27 +465,39 @@ void CTradeWidget::RefreshLayout()
         CompletionAutoOpenButton->SetPos(
             RightLeft + 28.f * Scale,
             ContentTop + 548.f * Scale);
-        CompletionAutoOpenButton->SetSize(54.f * Scale, 40.f * Scale);
+        CompletionAutoOpenButton->SetSize(
+            CompletionAutoOpenButtonWidth,
+            40.f * Scale);
     }
 
     if (CompletionAutoOpenButtonText)
     {
         CompletionAutoOpenButtonText->SetPos(0.f, 0.f);
-        CompletionAutoOpenButtonText->SetSize(54.f * Scale, 40.f * Scale);
-        CompletionAutoOpenButtonText->SetFontSize(16.f * Scale);
+        CompletionAutoOpenButtonText->SetSize(
+            CompletionAutoOpenButtonWidth,
+            40.f * Scale);
+        CompletionAutoOpenButtonText->SetFontSize(15.f * Scale);
     }
 
     if (FeedbackText)
     {
+        const float FeedbackLeftOffset =
+            ShowingPriceModifiers ?
+                28.f * Scale :
+                28.f * Scale +
+                    CompletionAutoOpenButtonWidth +
+                    CompletionAutoOpenButtonGap;
+        const float FeedbackRightPadding = 28.f * Scale;
+
         FeedbackText->SetPos(
-            RightLeft + (ShowingCompletedRoutes ? 92.f * Scale : 28.f * Scale),
+            RightLeft + FeedbackLeftOffset,
             ShowingPriceModifiers ?
                 ContentTop + 56.f * Scale :
             ShowingCompletedRoutes ?
                 ContentTop + 552.f * Scale :
                 ContentTop + 558.f * Scale);
         FeedbackText->SetSize(
-            RightWidth - (ShowingCompletedRoutes ? 120.f * Scale : 56.f * Scale),
+            RightWidth - FeedbackLeftOffset - FeedbackRightPadding,
             ShowingPriceModifiers ?
                 112.f * Scale :
             ShowingCompletedRoutes ?

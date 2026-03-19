@@ -201,6 +201,7 @@
     <ClCompile Include="Building\BuildingCatalog.cpp" />
     <ClCompile Include="Building\BuildingCatalogData.cpp" />
     <ClCompile Include="Building\BuildingCatalogDerived.cpp" />
+    <ClCompile Include="Building\BuildingCatalogLoader.cpp" />
     <ClCompile Include="Building\BuildingCatalogQuery.cpp" />
     <ClCompile Include="Building\BuildingCatalogRegistry.cpp" />
     <ClCompile Include="Citizen\CitizenCommuteCalc.cpp" />
@@ -495,6 +496,9 @@
     <None Include="..\Binary\UILayout\10_WidgetOverrides_Guide.ini" />
     <None Include="..\Binary\UILayout\11_WidgetOverrides_CitizenInfo.ini" />
     <None Include="..\Binary\UILayout\12_StartLoading_Examples.ini" />
+    <None Include="..\Binary\UILayout\13_WidgetOverrides_TaskWidget.ini" />
+    <None Include="..\Binary\UILayout\14_WidgetOverrides_Constitution.ini" />
+    <None Include="..\Binary\UILayout\15_WidgetOverrides_Constitution_Integrated.ini" />
     <None Include="Copy.bat" />
   </ItemGroup>
   <ItemGroup>

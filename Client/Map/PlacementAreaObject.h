@@ -1145,6 +1145,18 @@ public:
         mOperations.SetCurrentWorkerOccupancy(Occupancy);
     }
 
+    int GetWorkingNowOccupancy() const
+    {
+        return (std::min)(
+            GetCapacity(),
+            mOperations.GetWorkingNowOccupancy());
+    }
+
+    void SetWorkingNowOccupancy(int Occupancy)
+    {
+        mOperations.SetWorkingNowOccupancy(Occupancy);
+    }
+
     int GetHousingSatisfactionCap() const
     {
         const FBuildingOperationModeEffect& Effect =
@@ -1386,8 +1398,24 @@ public:
     {
         const FBuildingOperationModeEffect& Effect =
             ResolveRuntimeEffect();
+        const int SafeCapacity = GetCapacity();
+        float OccupancyRatio = 0.f;
+
+        if (SafeCapacity > 0)
+        {
+            OccupancyRatio = (std::max)(
+                0.f,
+                (std::min)(
+                    1.f,
+                    static_cast<float>(GetCurrentWorkerOccupancy()) /
+                        static_cast<float>(SafeCapacity)));
+        }
+
+        const int OccupancyScaledWage = static_cast<int>(roundf(
+            static_cast<float>(mOperations.GetMonthlyWageCost()) *
+            OccupancyRatio));
         return ApplyOperationModeEconomyEffect(
-            mOperations.GetMonthlyWageCost(),
+            OccupancyScaledWage,
             Effect.WageMultiplier,
             Effect.WageFlatDelta);
     }

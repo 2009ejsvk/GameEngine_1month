@@ -1,7 +1,10 @@
 #include "TaskWidget.h"
 #include "TropicoUiAssetCatalog.h"
 #include "TropicoUiStyle.h"
+#include "UIStrings.h"
+#include "../StringUtils.h"
 #include "../World/GovernmentCommandService.h"
+#include "../World/IWorldUIAccess.h"
 #include "../World/MainWorldTradeRuntime.h"
 #include "../World/MainWorldUiReadAccess.h"
 #include "Device.h"
@@ -18,7 +21,19 @@ namespace
 {
     using namespace TropicoUiStyle;
 
+    const std::wstring& Ui(const wchar_t* Key)
+    {
+        return UIStrings::Get(Key);
+    }
+
+    const wchar_t* UiText(const wchar_t* Key)
+    {
+        return UIStrings::Get(Key).c_str();
+    }
+
     constexpr int GVisibleEntryCount = 6;
+    constexpr const TCHAR* GPenultimoTaskIcon = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Icons\\TaskIcons\\T_ICO_tasks_demands.png");
     constexpr const TCHAR* GTaskPanelTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Tasks\\T_tasks_bg.png");
     constexpr const TCHAR* GTaskTabTexture = TEXT(
@@ -50,6 +65,14 @@ namespace
 
     struct FTaskEntry
     {
+        enum class EKind
+        {
+            PoliticalDemand = 0,
+            EraMission,
+            EraTransition
+        };
+
+        EKind Kind = EKind::PoliticalDemand;
         FPoliticalDemandState Demand;
         EPoliticalDemandIssuerType IssuerType =
             EPoliticalDemandIssuerType::None;
@@ -65,6 +88,9 @@ namespace
         std::wstring StageLine;
         std::wstring RewardText;
         std::wstring PenaltyText;
+        std::wstring PrimaryButtonLabel = Ui(L"task_widget.action.accept");
+        std::wstring SecondaryButtonLabel =
+            Ui(L"task_widget.action.decline");
         const TCHAR* IconPath = nullptr;
         const TCHAR* PortraitPath = nullptr;
     };
@@ -72,40 +98,6 @@ namespace
     int ClampInt(int Value, int MinValue, int MaxValue)
     {
         return (std::max)(MinValue, (std::min)(MaxValue, Value));
-    }
-
-    void ReplaceAll(
-        std::wstring& InOutText,
-        const std::wstring& From,
-        const std::wstring& To)
-    {
-        if (From.empty())
-            return;
-
-        size_t Position = 0;
-
-        while ((Position = InOutText.find(From, Position)) != std::wstring::npos)
-        {
-            InOutText.replace(Position, From.size(), To);
-            Position += To.size();
-        }
-    }
-
-    std::wstring TrimCopy(std::wstring Text)
-    {
-        while (!Text.empty() &&
-            (Text.front() == L' ' || Text.front() == L'\n' || Text.front() == L'\t'))
-        {
-            Text.erase(Text.begin());
-        }
-
-        while (!Text.empty() &&
-            (Text.back() == L' ' || Text.back() == L'\n' || Text.back() == L'\t'))
-        {
-            Text.pop_back();
-        }
-
-        return Text;
     }
 
     std::wstring Ellipsize(const std::wstring& Text, size_t MaxChars)
@@ -123,32 +115,32 @@ namespace
         if (!TexturePath)
             return BaseKey + "_none";
 
-        constexpr unsigned long long OffsetBasis = 1469598103934665603ull;
-        constexpr unsigned long long Prime = 1099511628211ull;
-        unsigned long long Hash = OffsetBasis;
-
-        for (const TCHAR* Cursor = TexturePath; *Cursor != 0; ++Cursor)
-        {
-            Hash ^= static_cast<unsigned long long>(*Cursor);
-            Hash *= Prime;
-        }
-
-        return BaseKey + "_" + std::to_string(Hash);
+        return BaseKey + "_" +
+            std::to_string(StringUtils::HashFnv1a64(TexturePath));
     }
 
     const wchar_t* GetFactionName(EPoliticalFaction Faction)
     {
         switch (Faction)
         {
-        case EPoliticalFaction::Communists: return L"공산주의자";
-        case EPoliticalFaction::Capitalists: return L"자본가";
-        case EPoliticalFaction::Religious: return L"종교인";
-        case EPoliticalFaction::Militarists: return L"군부";
-        case EPoliticalFaction::Environmentalists: return L"환경주의자";
-        case EPoliticalFaction::Industrialists: return L"산업주의자";
-        case EPoliticalFaction::Intellectuals: return L"지식인";
-        case EPoliticalFaction::Conservatives: return L"보수주의자";
-        default: return L"세력";
+        case EPoliticalFaction::Communists:
+            return UiText(L"task_widget.faction.communists");
+        case EPoliticalFaction::Capitalists:
+            return UiText(L"task_widget.faction.capitalists");
+        case EPoliticalFaction::Religious:
+            return UiText(L"task_widget.faction.religious");
+        case EPoliticalFaction::Militarists:
+            return UiText(L"task_widget.faction.militarists");
+        case EPoliticalFaction::Environmentalists:
+            return UiText(L"task_widget.faction.environmentalists");
+        case EPoliticalFaction::Industrialists:
+            return UiText(L"task_widget.faction.industrialists");
+        case EPoliticalFaction::Intellectuals:
+            return UiText(L"task_widget.faction.intellectuals");
+        case EPoliticalFaction::Conservatives:
+            return UiText(L"task_widget.faction.conservatives");
+        default:
+            return UiText(L"task_widget.faction.generic");
         }
     }
 
@@ -156,11 +148,15 @@ namespace
     {
         switch (Stage)
         {
-        case EPoliticalDemandStage::Warning: return L"경고";
-        case EPoliticalDemandStage::Ultimatum: return L"최후통첩";
-        case EPoliticalDemandStage::Revolt: return L"봉기";
+        case EPoliticalDemandStage::Warning:
+            return Ui(L"escalation.stage.warning");
+        case EPoliticalDemandStage::Ultimatum:
+            return Ui(L"escalation.stage.ultimatum");
+        case EPoliticalDemandStage::Revolt:
+            return Ui(L"escalation.stage.revolt");
         case EPoliticalDemandStage::Demand:
-        default: return L"요구";
+        default:
+            return Ui(L"escalation.stage.demand");
         }
     }
 
@@ -365,17 +361,119 @@ namespace
         }
     }
 
+    const TCHAR* GetPenultimoPortraitPath(EBuildingEra Era)
+    {
+        switch (Era)
+        {
+        case EBuildingEra::Colonial:
+            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_CE_broker.png");
+        case EBuildingEra::WorldWars:
+            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_WW_broker.png");
+        case EBuildingEra::ColdWar:
+            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_CW_broker.png");
+        case EBuildingEra::Modern:
+        default:
+            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_MT_broker.png");
+        }
+    }
+
+    std::wstring BuildEraMissionObjectiveText(const FEraProgressState& EraProgress)
+    {
+        if (!EraProgress.HasNextEra)
+            return Ui(L"task_widget.placeholder.none");
+
+        const FEraUnlockRequirement& Req = EraProgress.NextRequirement;
+        std::wstring Result;
+
+        auto AddReq = [&](const wchar_t* LabelKey, int Current, int Required)
+        {
+            if (Required <= 0)
+                return;
+            const bool Met = Current >= Required;
+            Result += UIStrings::Format(
+                Met ?
+                    L"task_widget.objective.completed_template" :
+                    L"task_widget.objective.progress_template",
+                {
+                    Ui(LabelKey),
+                    std::to_wstring(Current),
+                    std::to_wstring(Required)
+                });
+            Result += L"\n";
+        };
+
+        AddReq(
+            L"task_widget.objective.population",
+            EraProgress.Population,
+            Req.MinPopulation);
+        AddReq(
+            L"task_widget.objective.buildings",
+            EraProgress.TotalBuildings,
+            Req.MinTotalBuildings);
+        AddReq(
+            L"task_widget.objective.food_providers",
+            EraProgress.FoodProviders,
+            Req.MinFoodProviders);
+        AddReq(
+            L"task_widget.objective.industry_buildings",
+            EraProgress.IndustryBuildings,
+            Req.MinIndustryBuildings);
+        AddReq(
+            L"task_widget.objective.public_service_buildings",
+            EraProgress.PublicServiceBuildings,
+            Req.MinPublicServiceBuildings);
+        AddReq(
+            L"task_widget.objective.entertainment_buildings",
+            EraProgress.EntertainmentBuildings,
+            Req.MinEntertainmentBuildings);
+        AddReq(
+            L"task_widget.objective.power_mw",
+            EraProgress.PowerMW,
+            Req.MinPowerMW);
+
+        if (!Result.empty() && Result.back() == L'\n')
+            Result.pop_back();
+
+        return Result;
+    }
+
     std::wstring BuildListText(const std::wstring& Text)
     {
-        std::wstring Result = TrimCopy(Text);
+        std::wstring Result = StringUtils::Trim(Text);
 
         if (Result.empty())
-            return L"-";
+            return Ui(L"task_widget.placeholder.none");
 
-        ReplaceAll(Result, L" / ", L"\n");
-        ReplaceAll(Result, L"\n", L"\n* ");
+        StringUtils::ReplaceAll(Result, L" / ", L"\n");
+        StringUtils::ReplaceAll(Result, L"\n", L"\n* ");
         Result = L"* " + Result;
         return Result;
+    }
+
+    std::wstring BuildDemandRowSubtitle(bool Accepted, int RemainingDays)
+    {
+        return UIStrings::Format(
+            L"task_widget.demand.row_subtitle_template",
+            {
+                Ui(
+                    Accepted ?
+                        L"task_widget.demand.status.in_progress" :
+                        L"task_widget.demand.status.awaiting_response"),
+                std::to_wstring(RemainingDays)
+            });
+    }
+
+    std::wstring BuildObjectiveLine(
+        const std::wstring& ObjectiveText,
+        const std::wstring& CounterText)
+    {
+        if (CounterText.empty())
+            return ObjectiveText;
+
+        if (ObjectiveText.empty())
+            return CounterText;
+
+        return ObjectiveText + L" " + CounterText;
     }
 
     std::vector<FTaskEntry> BuildEntries(const std::shared_ptr<CWorld>& World)
@@ -399,6 +497,92 @@ namespace
         const auto ForeignStates =
             AlmanacAccess ? AlmanacAccess->GetForeignDemandStates() :
                 std::array<FPoliticalDemandState, TradeDiplomacyRuntime::GForeignPowerCount>();
+        const FEraProgressState EraProgress =
+            HudAccess ? HudAccess->GetEraProgress() :
+                FEraProgressState();
+        const FEraTransitionState EraTransitionState =
+            HudAccess ? HudAccess->GetEraTransitionState() :
+                FEraTransitionState();
+
+        if (EraProgress.HasNextEra && !EraProgress.NextEraReady)
+        {
+            FTaskEntry Entry;
+            Entry.Kind = FTaskEntry::EKind::EraMission;
+            Entry.RowTitle = UIStrings::Format(
+                L"task_widget.era_mission.row_title_template",
+                {
+                    std::wstring(
+                        GetBuildingEraDisplayName(EraProgress.CurrentEra)),
+                    std::wstring(
+                        GetBuildingEraDisplayName(EraProgress.NextEra))
+                });
+            Entry.RowSubtitle = Ui(L"task_widget.era_mission.row_subtitle");
+            Entry.IssuerLabel = Ui(L"task_widget.penultimo.issuer_label");
+            Entry.SpeakerLabel = Ui(L"task_widget.penultimo.name");
+            Entry.DetailBody = UIStrings::Format(
+                L"task_widget.era_mission.detail_body_template",
+                { std::wstring(GetBuildingEraDisplayName(EraProgress.NextEra)) });
+            Entry.ObjectiveLine = BuildEraMissionObjectiveText(EraProgress);
+            Entry.StageLine = Ui(L"task_widget.era_mission.stage_line");
+            Entry.RewardText = BuildListText(UIStrings::Format(
+                L"task_widget.era_mission.reward_template",
+                { std::wstring(GetBuildingEraDisplayName(EraProgress.NextEra)) }));
+            Entry.PenaltyText = BuildListText(Ui(L"task_widget.value.none"));
+            Entry.PrimaryButtonLabel = Ui(L"task_widget.action.close");
+            Entry.SecondaryButtonLabel = Ui(L"task_widget.action.close");
+            Entry.Demand.Stage = EPoliticalDemandStage::Warning;
+            Entry.IconPath = GPenultimoTaskIcon;
+            Entry.PortraitPath = GetPenultimoPortraitPath(Era);
+            Result.push_back(std::move(Entry));
+        }
+        else if (EraTransitionState.Stage == EEraTransitionStage::Available &&
+            EraTransitionState.CanStart)
+        {
+            FTaskEntry Entry;
+            Entry.Kind = FTaskEntry::EKind::EraTransition;
+            Entry.RowTitle =
+                EraTransitionState.Title.empty() ?
+                    Ui(L"task_widget.era_transition.default_title") :
+                    EraTransitionState.Title;
+            Entry.RowSubtitle = Ui(L"task_widget.era_transition.row_subtitle");
+            Entry.IssuerLabel = Ui(L"task_widget.penultimo.issuer_label");
+            Entry.SpeakerLabel = Ui(L"task_widget.penultimo.name");
+            Entry.DetailBody = UIStrings::Format(
+                L"task_widget.era_transition.detail_body_template",
+                {
+                    std::wstring(
+                        GetBuildingEraDisplayName(EraProgress.CurrentEra)),
+                    std::wstring(
+                        GetBuildingEraDisplayName(
+                            EraTransitionState.TargetEra))
+                });
+            if (!EraTransitionState.Summary.empty())
+                Entry.DetailBody += L"\n\n" + EraTransitionState.Summary;
+            const std::wstring ConfirmText =
+                EraTransitionState.ConfirmText.empty() ?
+                    Ui(L"task_widget.era_transition.confirm_default") :
+                    EraTransitionState.ConfirmText;
+            Entry.ObjectiveLine = UIStrings::Format(
+                L"task_widget.era_transition.objective_template",
+                { ConfirmText });
+            Entry.StageLine = Ui(L"task_widget.era_transition.stage_line");
+            Entry.RewardText = BuildListText(UIStrings::Format(
+                L"task_widget.era_mission.reward_template",
+                {
+                    std::wstring(
+                        GetBuildingEraDisplayName(
+                            EraTransitionState.TargetEra))
+                }));
+            Entry.PenaltyText = BuildListText(
+                Ui(L"task_widget.era_transition.penalty_text"));
+            Entry.PrimaryButtonLabel =
+                ConfirmText;
+            Entry.SecondaryButtonLabel = Ui(L"top_hud.era_transition.cancel");
+            Entry.Demand.Stage = EPoliticalDemandStage::Warning;
+            Entry.IconPath = GPenultimoTaskIcon;
+            Entry.PortraitPath = GetPenultimoPortraitPath(Era);
+            Result.push_back(std::move(Entry));
+        }
 
         for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
         {
@@ -411,28 +595,35 @@ namespace
             Entry.IssuerType = EPoliticalDemandIssuerType::Faction;
             Entry.IssuerIndex = Index;
             Entry.PressureDays = FactionPressure[static_cast<size_t>(Index)];
-            Entry.IssuerLabel = std::wstring(GetFactionName(
-                static_cast<EPoliticalFaction>(Index))) + L" 요구";
-            Entry.SpeakerLabel = std::wstring(GetFactionName(
-                static_cast<EPoliticalFaction>(Index))) + L" 대표";
+            const std::wstring FactionName =
+                GetFactionName(static_cast<EPoliticalFaction>(Index));
+            Entry.IssuerLabel = UIStrings::Format(
+                L"task_widget.demand.issuer_label_template",
+                { FactionName });
+            Entry.SpeakerLabel = UIStrings::Format(
+                L"task_widget.demand.speaker_label_template",
+                { FactionName });
             Entry.RowTitle =
                 Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText;
-            Entry.RowSubtitle =
-                (IsPoliticalDemandAccepted(Demand) ? L"수행 중" : L"응답 대기") +
-                std::wstring(L" / ") +
-                std::to_wstring(Demand.RemainingDays) + L"일";
+            Entry.RowSubtitle = BuildDemandRowSubtitle(
+                IsPoliticalDemandAccepted(Demand),
+                Demand.RemainingDays);
             Entry.CounterText = BuildCounterText(Demand);
-            Entry.DetailBody = Entry.IssuerLabel + L" 측이 프레지덴테에게 직접 요구를 전달했습니다.";
+            Entry.DetailBody = UIStrings::Format(
+                L"task_widget.demand.detail_body_template",
+                { Entry.IssuerLabel });
             if (!Demand.Summary.empty())
                 Entry.DetailBody += L"\n\n" + Demand.Summary;
-            Entry.ObjectiveLine =
-                (Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText) +
-                std::wstring(L" ") + Entry.CounterText;
-            Entry.StageLine = GetStageLabel(Demand.Stage) +
-                std::wstring(L" / 압력 ") +
-                std::to_wstring(Entry.PressureDays) +
-                L"일 / 남은 " +
-                std::to_wstring(Demand.RemainingDays) + L"일";
+            Entry.ObjectiveLine = BuildObjectiveLine(
+                Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText,
+                Entry.CounterText);
+            Entry.StageLine = UIStrings::Format(
+                L"task_widget.demand.stage_line_template",
+                {
+                    GetStageLabel(Demand.Stage),
+                    std::to_wstring(Entry.PressureDays),
+                    std::to_wstring(Demand.RemainingDays)
+                });
             Entry.RewardText = BuildListText(Demand.RewardText);
             Entry.PenaltyText = BuildListText(Demand.PenaltyText);
             Entry.IconPath = GetFactionIconPath(Index);
@@ -452,23 +643,27 @@ namespace
             Entry.IssuerIndex = Index;
             const std::wstring ForeignPowerName =
                 MainWorldTradeRuntime::GetForeignPowerName(Index, Era);
-            Entry.IssuerLabel = ForeignPowerName + L" 요청";
+            Entry.IssuerLabel = UIStrings::Format(
+                L"task_widget.foreign.issuer_label_template",
+                { ForeignPowerName });
             Entry.SpeakerLabel = ForeignPowerName;
             Entry.RowTitle =
                 Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText;
-            Entry.RowSubtitle =
-                (IsPoliticalDemandAccepted(Demand) ? L"수행 중" : L"응답 대기") +
-                std::wstring(L" / ") +
-                std::to_wstring(Demand.RemainingDays) + L"일";
+            Entry.RowSubtitle = BuildDemandRowSubtitle(
+                IsPoliticalDemandAccepted(Demand),
+                Demand.RemainingDays);
             Entry.CounterText = BuildCounterText(Demand);
-            Entry.DetailBody = Entry.IssuerLabel + L" 관련 외교 채널을 통해 새로운 요청이 도착했습니다.";
+            Entry.DetailBody = UIStrings::Format(
+                L"task_widget.foreign.detail_body_template",
+                { Entry.IssuerLabel });
             if (!Demand.Summary.empty())
                 Entry.DetailBody += L"\n\n" + Demand.Summary;
-            Entry.ObjectiveLine =
-                (Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText) +
-                std::wstring(L" ") + Entry.CounterText;
-            Entry.StageLine = L"외교 요청 / 남은 " +
-                std::to_wstring(Demand.RemainingDays) + L"일";
+            Entry.ObjectiveLine = BuildObjectiveLine(
+                Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText,
+                Entry.CounterText);
+            Entry.StageLine = UIStrings::Format(
+                L"task_widget.foreign.stage_line_template",
+                { std::to_wstring(Demand.RemainingDays) });
             Entry.RewardText = BuildListText(Demand.RewardText);
             Entry.PenaltyText = BuildListText(Demand.PenaltyText);
             Entry.IconPath = GetForeignIconPath(Index, Era);
@@ -477,6 +672,23 @@ namespace
         }
 
         return Result;
+    }
+
+    int FindEraTransitionEntryIndex(
+        const std::vector<FTaskEntry>& Entries)
+    {
+        for (int Index = 0; Index < static_cast<int>(Entries.size()); ++Index)
+        {
+            if (Entries[static_cast<size_t>(Index)].Kind ==
+                FTaskEntry::EKind::EraMission ||
+            Entries[static_cast<size_t>(Index)].Kind ==
+                FTaskEntry::EKind::EraTransition)
+            {
+                return Index;
+            }
+        }
+
+        return -1;
     }
 
     int FindEntryIndex(
@@ -513,7 +725,7 @@ bool CTaskWidget::Init()
     auto Title = CreateWidget<CTextBlock>("TaskWidget_Title", 8).lock();
     if (Title)
     {
-        Title->SetText(L"과제");
+        Title->SetText(UiText(L"task_widget.title"));
         Title->SetAlignH(ETextAlignH::Center);
         Title->SetAlignV(ETextAlignV::Middle);
         Title->SetTextColor(98, 75, 36, 255);
@@ -826,6 +1038,21 @@ void CTaskWidget::SetOpen(bool Open)
     RefreshFromState();
 }
 
+void CTaskWidget::OpenEraTransitionTask()
+{
+    mFeedbackMessage.clear();
+    const std::vector<FTaskEntry> Entries = BuildEntries(mWorld.lock());
+    const int EntryIndex = FindEraTransitionEntryIndex(Entries);
+
+    SetOpen(true);
+
+    if (EntryIndex >= 0)
+        mSelectedDemandIndex = EntryIndex;
+
+    RefreshLayout();
+    RefreshFromState();
+}
+
 void CTaskWidget::OpenForDemand(
     EPoliticalDemandIssuerType IssuerType,
     int IssuerIndex)
@@ -1033,7 +1260,8 @@ void CTaskWidget::RefreshFromState()
     mHasSelectedDemand = !Entries.empty();
 
     if (auto Subtitle = mSubtitleText.lock())
-        Subtitle->SetText(L"세력 요구와 외교 요청을 수락, 진행, 포기할 수 있습니다.");
+        Subtitle->SetText(
+            UiText(L"task_widget.subtitle"));
 
     if (!mHasSelectedDemand)
     {
@@ -1041,7 +1269,7 @@ void CTaskWidget::RefreshFromState()
         if (auto Empty = mEmptyText.lock())
         {
             Empty->SetEnable(true);
-            Empty->SetText(L"현재 활성화된 과제가 없습니다.");
+            Empty->SetText(UiText(L"task_widget.empty"));
         }
         if (auto Detail = mDetailTitleText.lock()) Detail->SetEnable(false);
         if (auto Detail = mDetailMetaText.lock()) Detail->SetEnable(false);
@@ -1183,13 +1411,27 @@ void CTaskWidget::RefreshFromState()
     SetText(mDetailTitleText, Selected.IssuerLabel);
     SetText(mDetailMetaText, Selected.StageLine);
     SetText(mDetailBodyText, Selected.DetailBody);
-    SetText(mObjectiveHeaderText, L"목표");
+    SetText(
+        mObjectiveHeaderText,
+        Selected.Kind == FTaskEntry::EKind::EraTransition ?
+            Ui(L"task_widget.detail.header.approval") :
+        Selected.Kind == FTaskEntry::EKind::EraMission ?
+            Ui(L"task_widget.detail.header.conditions") :
+            Ui(L"task_widget.detail.header.objective"));
     SetText(mObjectiveText, Selected.ObjectiveLine);
-    SetText(mRewardHeaderText, L"보상");
+    SetText(
+        mRewardHeaderText,
+        Selected.Kind == FTaskEntry::EKind::PoliticalDemand ?
+            Ui(L"task_widget.detail.header.reward") :
+            Ui(L"task_widget.detail.header.effect"));
     SetText(mRewardText, Selected.RewardText);
     SetText(
         mPenaltyHeaderText,
-        mSelectedDemandAccepted ? L"포기 시 불이익" : L"거절/실패 시 불이익");
+        Selected.Kind == FTaskEntry::EKind::PoliticalDemand ?
+            (mSelectedDemandAccepted ?
+                Ui(L"task_widget.detail.header.penalty_abandon") :
+                Ui(L"task_widget.detail.header.penalty_reject_fail")) :
+            Ui(L"task_widget.detail.header.defer"));
     SetText(mPenaltyText, Selected.PenaltyText);
     SetText(mPortraitNameText, Selected.SpeakerLabel);
 
@@ -1205,25 +1447,34 @@ void CTaskWidget::RefreshFromState()
     if (auto PortraitNameBackdrop = mPortraitNameBackdrop.lock())
         PortraitNameBackdrop->SetEnable(true);
 
+    const bool ShowPrimary =
+        Selected.Kind == FTaskEntry::EKind::EraMission ?
+            false :
+            !mSelectedDemandAccepted;
     if (auto Primary = mPrimaryButton.lock())
-        Primary->SetEnable(!mSelectedDemandAccepted);
+        Primary->SetEnable(ShowPrimary);
     if (auto PrimaryText = mPrimaryButtonText.lock())
     {
-        PrimaryText->SetEnable(!mSelectedDemandAccepted);
-        PrimaryText->SetText(L"수락");
+        PrimaryText->SetEnable(ShowPrimary);
+        PrimaryText->SetText(Selected.PrimaryButtonLabel.c_str());
     }
     if (auto Secondary = mSecondaryButton.lock())
         Secondary->SetEnable(true);
     if (auto SecondaryText = mSecondaryButtonText.lock())
     {
-        std::wstring ButtonLabel = L"거절";
+        std::wstring ButtonLabel = Selected.SecondaryButtonLabel;
 
-        if (mSelectedDemandAccepted)
+        if (Selected.Kind == FTaskEntry::EKind::PoliticalDemand &&
+            mSelectedDemandAccepted)
         {
             const std::wstring PenaltyText =
-                Ellipsize(TrimCopy(Selected.Demand.PenaltyText), 22);
+                Ellipsize(StringUtils::Trim(Selected.Demand.PenaltyText), 22);
             ButtonLabel =
-                PenaltyText.empty() ? L"포기" : L"포기 (" + PenaltyText + L")";
+                PenaltyText.empty() ?
+                    Ui(L"task_widget.action.abandon") :
+                    UIStrings::Format(
+                        L"task_widget.action.abandon_with_penalty_template",
+                        { PenaltyText });
         }
 
         SecondaryText->SetEnable(true);
@@ -1263,19 +1514,51 @@ void CTaskWidget::OnPrimaryButtonClick()
     if (Entries.empty())
         return;
 
-    auto CommandService = ResolveGovernmentCommandService(mWorld.lock());
-
-    if (!CommandService)
-    {
-        mFeedbackMessage = L"행정 명령을 확인할 수 없습니다.";
-        RefreshFromState();
-        return;
-    }
-
     const FTaskEntry& Selected = Entries[static_cast<size_t>(ClampInt(
         mSelectedDemandIndex,
         0,
         static_cast<int>(Entries.size()) - 1))];
+
+    if (Selected.Kind == FTaskEntry::EKind::EraMission)
+    {
+        SetOpen(false);
+        return;
+    }
+
+    if (Selected.Kind == FTaskEntry::EKind::EraTransition)
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
+        if (!Access)
+        {
+            mFeedbackMessage =
+                Ui(L"task_widget.feedback.no_era_transition_command");
+            RefreshFromState();
+            return;
+        }
+
+        if (Access->Commands().TryExecuteEraTransition(
+                EEraTransitionChoice::Confirm))
+        {
+            mFeedbackMessage.clear();
+            SetOpen(false);
+            return;
+        }
+
+        mFeedbackMessage = Ui(L"task_widget.feedback.era_transition_unavailable");
+        RefreshFromState();
+        return;
+    }
+
+    auto CommandService = ResolveGovernmentCommandService(mWorld.lock());
+
+    if (!CommandService)
+    {
+        mFeedbackMessage = Ui(L"task_widget.feedback.no_admin_command");
+        RefreshFromState();
+        return;
+    }
+
     std::wstring ResponseMessage;
     CommandService->RespondPoliticalDemand(
         Selected.IssuerType,
@@ -1283,7 +1566,9 @@ void CTaskWidget::OnPrimaryButtonClick()
         true,
         ResponseMessage);
     mFeedbackMessage =
-        ResponseMessage.empty() ? L"과제를 수락했습니다." : ResponseMessage;
+        ResponseMessage.empty() ?
+            Ui(L"task_widget.feedback.accepted") :
+            ResponseMessage;
     RefreshFromState();
 }
 
@@ -1294,19 +1579,28 @@ void CTaskWidget::OnSecondaryButtonClick()
     if (Entries.empty())
         return;
 
-    auto CommandService = ResolveGovernmentCommandService(mWorld.lock());
-
-    if (!CommandService)
-    {
-        mFeedbackMessage = L"행정 명령을 확인할 수 없습니다.";
-        RefreshFromState();
-        return;
-    }
-
     const FTaskEntry& Selected = Entries[static_cast<size_t>(ClampInt(
         mSelectedDemandIndex,
         0,
         static_cast<int>(Entries.size()) - 1))];
+
+    if (Selected.Kind == FTaskEntry::EKind::EraMission ||
+        Selected.Kind == FTaskEntry::EKind::EraTransition)
+    {
+        mFeedbackMessage.clear();
+        SetOpen(false);
+        return;
+    }
+
+    auto CommandService = ResolveGovernmentCommandService(mWorld.lock());
+
+    if (!CommandService)
+    {
+        mFeedbackMessage = Ui(L"task_widget.feedback.no_admin_command");
+        RefreshFromState();
+        return;
+    }
+
     std::wstring ResponseMessage;
     CommandService->RespondPoliticalDemand(
         Selected.IssuerType,
@@ -1314,6 +1608,8 @@ void CTaskWidget::OnSecondaryButtonClick()
         false,
         ResponseMessage);
     mFeedbackMessage =
-        ResponseMessage.empty() ? L"과제를 정리했습니다." : ResponseMessage;
+        ResponseMessage.empty() ?
+            Ui(L"task_widget.feedback.cleared") :
+            ResponseMessage;
     RefreshFromState();
 }

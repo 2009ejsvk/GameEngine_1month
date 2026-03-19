@@ -31,24 +31,6 @@ namespace
         return (std::max)(0.f, (std::min)(1.f, Value));
     }
 
-    bool IsLowWealthCitizen(ECitizenWealthLevel WealthLevel)
-    {
-        return GetCitizenWealthRank(WealthLevel) <=
-            GetCitizenWealthRank(ECitizenWealthLevel::Poor);
-    }
-
-    bool IsAffluentCitizen(ECitizenWealthLevel WealthLevel)
-    {
-        return GetCitizenWealthRank(WealthLevel) >=
-            GetCitizenWealthRank(ECitizenWealthLevel::Rich);
-    }
-
-    bool IsLuxuryWealthCitizen(ECitizenWealthLevel WealthLevel)
-    {
-        return GetCitizenWealthRank(WealthLevel) >=
-            GetCitizenWealthRank(ECitizenWealthLevel::FilthyRich);
-    }
-
     bool IsAssignablePlacedBuilding(
         const std::shared_ptr<CPlacementAreaObject>& Building)
     {
@@ -669,7 +651,6 @@ namespace
             // EntertainmentProvider 전용 건물(주점 등)은 제외
             if (!B->IsResidential() &&
                 B->GetCapacity() > 0 &&
-                !B->IsHarbor() &&
                 (!B->IsEntertainmentProvider() || B->IsFoodProvider()))
             {
                 Out.push_back(B->GetName());
@@ -1212,10 +1193,19 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
 
     if (ActiveOrbs.empty())
     {
+        const bool HasCitizenOrbRecords = !OrbList.empty();
+
         for (size_t i = 0; i < WorkInfos.size(); ++i)
         {
             if (WorkInfos[i].Building)
-                WorkInfos[i].Building->SetCurrentWorkerOccupancy(0);
+            {
+                if (HasCitizenOrbRecords)
+                {
+                    WorkInfos[i].Building->SetCurrentWorkerOccupancy(0);
+                }
+
+                WorkInfos[i].Building->SetWorkingNowOccupancy(0);
+            }
         }
         return;
     }
@@ -1230,7 +1220,14 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
     auto SyncWorkBuildingOccupancy = [&]()
     {
         for (size_t i = 0; i < WorkInfos.size(); ++i)
-            WorkInfos[i].StandingNow = 0;
+        {
+            if (WorkInfos[i].Building)
+            {
+                WorkInfos[i].StandingNow = 0;
+                WorkInfos[i].Building->SetCurrentWorkerOccupancy(
+                    WorkInfos[i].Occupied);
+            }
+        }
 
         for (size_t OrbIdx = 0; OrbIdx < ActiveOrbs.size(); ++OrbIdx)
         {
@@ -1254,7 +1251,7 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         {
             if (WorkInfos[i].Building)
             {
-                WorkInfos[i].Building->SetCurrentWorkerOccupancy(
+                WorkInfos[i].Building->SetWorkingNowOccupancy(
                     WorkInfos[i].StandingNow);
             }
         }
@@ -2547,7 +2544,12 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         if (FoodDemandIt != FoodDemandByBuilding.end() &&
             FoodDemandIt->second > 0)
         {
-            Info.MinRequired = 1;
+            const int RequiredForDemand =
+                (FoodDemandIt->second + Info.Capacity - 1) / Info.Capacity;
+            const int MaxLockedWorkers =
+                (std::max)(1, Info.Capacity / 2);
+            Info.MinRequired =
+                (std::min)(RequiredForDemand, MaxLockedWorkers);
         }
     }
 
@@ -2813,7 +2815,12 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         return BestOrbIdx;
     };
 
-    while (true)
+    const int MaxFoodDeficitAssignments =
+        (std::max)(1, static_cast<int>(ActiveOrbs.size()) + 1);
+
+    for (int Iteration = 0;
+        Iteration < MaxFoodDeficitAssignments;
+        ++Iteration)
     {
         const int DeficitWorkIdx = FindFoodDeficitWork();
 
@@ -2846,6 +2853,74 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
         for (size_t WorkIdx = 0; WorkIdx < WorkInfos.size(); ++WorkIdx)
         {
             if (!CanOrbWorkAt(OrbIdx, static_cast<int>(WorkIdx)) ||
+                !HasWorkVacancyForOrb(OrbIdx, static_cast<int>(WorkIdx)))
+            {
+                continue;
+            }
+
+            const float CandidateScore =
+                ScoreWorkCandidate(OrbIdx, static_cast<int>(WorkIdx));
+
+            if (CandidateScore > BestScore + 0.0001f)
+            {
+                BestScore = CandidateScore;
+                BestIdx = static_cast<int>(WorkIdx);
+            }
+        }
+
+        return BestIdx;
+    };
+
+    auto IsWorkOverstaffed = [&](int WorkIdx) -> bool
+    {
+        if (WorkIdx < 0 || WorkIdx >= static_cast<int>(WorkInfos.size()))
+            return false;
+
+        const auto& Info = WorkInfos[WorkIdx];
+
+        if (Info.Capacity <= 0)
+            return false;
+
+        const int OverstaffedThreshold = (std::max)(
+            Info.MinRequired,
+            static_cast<int>(ceilf(static_cast<float>(Info.Capacity) * 0.80f)));
+        return Info.Occupied > OverstaffedThreshold;
+    };
+
+    auto IsWorkUnderstaffed = [&](int WorkIdx) -> bool
+    {
+        if (WorkIdx < 0 || WorkIdx >= static_cast<int>(WorkInfos.size()))
+            return false;
+
+        const auto& Info = WorkInfos[WorkIdx];
+
+        if (Info.Capacity <= 0 || Info.Occupied >= Info.Capacity)
+            return false;
+
+        const int UnderstaffedThreshold = (std::max)(
+            (std::max)(1, Info.MinRequired),
+            static_cast<int>(floorf(static_cast<float>(Info.Capacity) * 0.40f)));
+        return Info.Occupied < UnderstaffedThreshold;
+    };
+
+    auto FindBestUnderstaffedWorkForOrb =
+        [&](int OrbIdx, float MinImprovement) -> int
+    {
+        if (OrbIdx < 0 || OrbIdx >= static_cast<int>(ActiveOrbs.size()))
+            return -1;
+
+        const int CurrentWorkIdx = OrbWorkIndex[OrbIdx];
+        const float CurrentScore =
+            CurrentWorkIdx >= 0 ?
+                ScoreWorkCandidate(OrbIdx, CurrentWorkIdx) :
+                -0.10f;
+        int BestIdx = -1;
+        float BestScore = CurrentScore + MinImprovement;
+
+        for (size_t WorkIdx = 0; WorkIdx < WorkInfos.size(); ++WorkIdx)
+        {
+            if (!IsWorkUnderstaffed(static_cast<int>(WorkIdx)) ||
+                !CanOrbWorkAt(OrbIdx, static_cast<int>(WorkIdx)) ||
                 !HasWorkVacancyForOrb(OrbIdx, static_cast<int>(WorkIdx)))
             {
                 continue;
@@ -2897,6 +2972,32 @@ void CitizenSystem::ReassignCitizenNeeds(CWorld* World)
 
         if (BetterWorkIdx >= 0 && BetterWorkIdx != CurrentWorkIdx)
             AssignOrbToWork(static_cast<int>(OrbIdx), BetterWorkIdx);
+    }
+
+    for (size_t OrbIdx = 0; OrbIdx < ActiveOrbs.size(); ++OrbIdx)
+    {
+        const int CurrentWorkIdx = OrbWorkIndex[OrbIdx];
+
+        if (CurrentWorkIdx < 0 ||
+            CurrentWorkIdx >= static_cast<int>(WorkInfos.size()) ||
+            !IsWorkOverstaffed(CurrentWorkIdx))
+        {
+            continue;
+        }
+
+        if (WorkInfos[CurrentWorkIdx].Occupied <=
+            WorkInfos[CurrentWorkIdx].MinRequired)
+        {
+            continue;
+        }
+
+        const int RebalanceWorkIdx =
+            FindBestUnderstaffedWorkForOrb(static_cast<int>(OrbIdx), 0.02f);
+
+        if (RebalanceWorkIdx >= 0 && RebalanceWorkIdx != CurrentWorkIdx)
+        {
+            AssignOrbToWork(static_cast<int>(OrbIdx), RebalanceWorkIdx);
+        }
     }
 
     SyncWorkBuildingOccupancy();
