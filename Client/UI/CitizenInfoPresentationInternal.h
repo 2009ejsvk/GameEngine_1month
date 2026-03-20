@@ -2,6 +2,9 @@
 
 #include "CitizenInfoBuildingRuntime.h"
 #include "CitizenInfoPresentation.h"
+#include "UIStringShorthand.h"
+#include "../StringUtils.h"
+#include <utility>
 #include <vector>
 
 namespace CitizenInfoPresentationInternal
@@ -11,18 +14,17 @@ namespace CitizenInfoPresentationInternal
         CitizenInfoDataProvider::FProductionInputSlotView;
     using EProductionChainStage =
         CitizenInfoDataProvider::EProductionChainStage;
-
-    const std::wstring& Ui(const wchar_t* Key);
-    const wchar_t* UiText(const wchar_t* Key);
-    void AppendLine(std::wstring& Body, const std::wstring& Line);
-    std::wstring JoinLines(const std::vector<std::wstring>& Lines);
+    using UIStringShorthand::Ui;
+    using UIStringShorthand::UiText;
+    using StringUtils::AppendLine;
+    using StringUtils::JoinLines;
+    using StringUtils::StartsWith;
     bool HasLockedOperationModeResearch(const FBuildingUiSnapshot& Snapshot);
     std::wstring BuildKnowledgeSummaryText(
         const FBuildingUiSnapshot& Snapshot);
     std::wstring BuildOperationModeResearchSuffix(
         const FBuildingUiSnapshot& Snapshot,
         size_t Index);
-    std::wstring GetDamageLevelDisplayName(EBuildingDamageLevel Level);
     std::wstring FormatCatalogCostValue(
         EBuildingCostState State,
         int Value);
@@ -35,14 +37,34 @@ namespace CitizenInfoPresentationInternal
         const FBuildingRuntimeUpgradeDef& UpgradeDef,
         bool Active,
         const std::wstring* OverrideEffectSummary = nullptr);
+    void AppendScrollableOverviewMetricLines(
+        CitizenInfoDataProvider::FCitizenInfoSnapshot& Result,
+        const std::vector<std::pair<std::wstring, std::wstring>>& Lines,
+        int ScrollOffset);
+    std::wstring ResolveOverviewBudgetValue(
+        const FBuildingUiSnapshot& Snapshot);
     std::wstring FormatPowerCoverageValue(float Ratio);
+    std::wstring ResolveWorkerOverviewEfficiency(
+        const FBuildingUiSnapshot& Snapshot);
+    std::wstring ResolveWorkerOverviewJobQuality(
+        const FBuildingUiSnapshot& Snapshot);
+    std::wstring ResolveWorkerOverviewVisitorValue(
+        const FBuildingUiSnapshot& Snapshot);
     const wchar_t* GetServiceCapacityLabelKey(
+        const FBuildingUiSnapshot& Snapshot);
+    std::wstring ResolveWorkerOverviewPreferredType(
         const FBuildingUiSnapshot& Snapshot);
     std::wstring ResolveRequiredPowerDisplayText(
         const FBuildingUiSnapshot& Snapshot);
     std::wstring ResolveProducedPowerDisplayText(
         const FBuildingUiSnapshot& Snapshot);
+    std::wstring ResolveWorkerOverviewPowerValue(
+        const FBuildingUiSnapshot& Snapshot);
     bool HasProductionInputRecords(const FBuildingUiSnapshot& Snapshot);
+    bool HasProductionInputShortage(const FBuildingUiSnapshot& Snapshot);
+    bool HasLowProductionInputStock(const FBuildingUiSnapshot& Snapshot);
+    std::wstring BuildProductionInputRequirementSummary(
+        const FBuildingUiSnapshot& Snapshot);
     bool HasProductionFlowEstimate(const FBuildingUiSnapshot& Snapshot);
     void AppendProductionInputLines(
         std::wstring& Body,
@@ -50,6 +72,12 @@ namespace CitizenInfoPresentationInternal
     void AppendProductionFlowLines(
         std::wstring& Body,
         const FBuildingUiSnapshot& Snapshot);
+    EProductionChainStage ResolveProductionChainStage(
+        const FBuildingUiSnapshot& Snapshot);
+    std::wstring ResolveProductionChainStageBadgeText(
+        EProductionChainStage Stage);
+    FVector4 ResolveProductionChainStageBadgeColor(
+        EProductionChainStage Stage);
     std::wstring ResolveSupplyChainSummaryText(
         const FBuildingUiSnapshot& Snapshot);
     std::wstring ResolveProductionChainStageText(
@@ -88,4 +116,28 @@ namespace CitizenInfoPresentationInternal
     const wchar_t* GetCitizenPoliticalIntensityDisplayName(
         EPoliticalAxis Axis,
         EPoliticalSupportLevel Support);
+}
+
+namespace CitizenInfoPresentation
+{
+    enum class EBuildingUiProfile
+    {
+        Residential,
+        Customs,
+        Logistics,
+        Power,
+        Tourism,
+        Service,
+        Production,
+        Generic
+    };
+
+    bool HasStableProductionProfileIdentity(
+        const CitizenInfoPresentationInternal::FBuildingUiSnapshot& Snapshot);
+    EBuildingUiProfile ResolveBuildingUiProfileInternal(
+        const CitizenInfoPresentationInternal::FBuildingUiSnapshot& Snapshot);
+    std::wstring ResolveProfileTabTitle(
+        EBuildingUiProfile Profile,
+        int TabIndex,
+        bool ShowCustomsModeSelection);
 }

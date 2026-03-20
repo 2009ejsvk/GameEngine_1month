@@ -1476,14 +1476,17 @@ public:
         return ResolveRuntimeEffect().ImportTradeRoutePriceDeltaPercent;
     }
 
-    bool AdvanceHarborShipProgressAndCheckArrival(int DaysInMonth)
+    bool AdvanceHarborShipProgressAndCheckArrival(
+        int DaysInMonth,
+        float EdictMultiplier = 1.f)
     {
         return mOperations.AdvanceHarborShipProgressAndCheckArrival(
             CanExportStoredResources(),
             DaysInMonth,
             ResolveOperationModeHarborProgressMultiplier() *
                 ResolvePowerOperationalMultiplier() *
-                ResolveDamageOperationalMultiplier());
+                ResolveDamageOperationalMultiplier() *
+                EdictMultiplier);
     }
 
     float GetHarborShipProgressPercent() const

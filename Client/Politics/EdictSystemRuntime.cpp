@@ -49,6 +49,10 @@ namespace
             Effect.FarmBuildingEfficiencyMultiplier;
         InOutModifiers.ExportPriceMultiplier *=
             Effect.ExportPriceMultiplier;
+        InOutModifiers.HarborUpkeepMultiplier *=
+            Effect.HarborUpkeepMultiplier;
+        InOutModifiers.HarborShipProgressMultiplier *=
+            Effect.HarborShipProgressMultiplier;
         InOutModifiers.PollutionPerIndustryBuildingDelta +=
             Effect.PollutionPerIndustryBuildingDelta;
         InOutModifiers.DailyBudgetDeltaPerIndustryBuilding +=

@@ -1,6 +1,7 @@
-#include "CitizenInfoRenderer.h"
+﻿#include "CitizenInfoRenderer.h"
 #include "CitizenInfoRendererInternal.h"
 #include "CitizenInfoWidget.h"
+#include "CitizenInfoLayoutMetrics.h"
 #include "UILayoutValues.h"
 #include "Device.h"
 #include "UI/Button.h"
@@ -13,664 +14,74 @@
 
 using namespace CitizenInfoRendererInternal;
 
-struct FCitizenLayoutMetrics
-{
-    float PanelInnerTopOffset;
-    float PanelInnerBottomInset;
-    float ScrollBottomInset;
-    float ScrollThumbTopOffset;
-    float CloseButtonOffsetY;
-    float TitleIconInsetX;
-    float TitleTextInsetX;
-    float TitleIconGap;
-    float SubtitleOffsetY;
-    float SectionRibbonOffsetY;
-    float CollapsedSectionGap;
-    float BudgetBaseOffsetY;
-    float BudgetLabelOffsetY;
-    float BudgetCustomButtonsOffsetY;
-    float BudgetWorkButtonsOffsetY;
-    float BudgetDefaultButtonsOffsetY;
-    float BudgetCompactGap;
-    float BudgetDefaultGap;
-    float OccupancyGapY;
-    float CompactControlHeight;
-    float CompactBudgetButtonWidth;
-    float SectionDividerWidth;
-    float SectionDividerHeight;
-    float ActionCompactIconSize;
-    float ActionCompactIconOffsetY;
-    float MoveCompactRightOffset;
-    float FocusCompactRightOffset;
-    float OverviewCommandGap;
-    float CitizenActionButtonHeight;
-    float CitizenActionGap;
-    float ActionStackTopOffset;
-    float ActionIconInset;
-    float ActionIconSize;
-    float FooterBottomInset;
-    float BodyGapAfterSection;
-    float BodyGapAfterActions;
-    float BodyGapBeforeActions;
-    float BodyFallbackOffset;
-    float BodyBottomInset;
-};
-
-struct FCitizenInfoLayoutContext
-{
-    FCitizenLayoutMetrics Metrics{};
-    float OuterTop = 0.f;
-    float PanelWidth = 0.f;
-    float PanelHeight = 0.f;
-    float InnerMarginX = 0.f;
-    float InnerLeft = 0.f;
-    float InnerTop = 0.f;
-    float InnerWidth = 0.f;
-    float InnerHeight = 0.f;
-    float ScrollTrackWidth = 0.f;
-    float ScrollThumbHeight = 0.f;
-    float TitleRibbonHeight = 0.f;
-    float SectionRibbonHeight = 0.f;
-    float CloseButtonSize = 0.f;
-    float IconSize = 0.f;
-    bool IsCitizenMode = false;
-    int VisibleTabCount = 0;
-    float TabWidth = 0.f;
-    float TabHeight = 0.f;
-    float TabGap = 0.f;
-    float TotalTabsWidth = 0.f;
-    float TabStartX = 0.f;
-    float RibbonOffsetX = 0.f;
-    float RibbonOffsetY = 0.f;
-    float CloseOffsetX = 0.f;
-    bool TitleIconVisible = false;
-    float TitleLeft = 0.f;
-    bool ShowSectionRibbon = false;
-    bool ShowCitizenProfile = false;
-    bool ShowCitizenPolitics = false;
-    bool ShowCitizenThoughts = false;
-    float SectionRibbonY = 0.f;
-    bool ShowWorkOverview = false;
-    bool ShowCustomOverview = false;
-    bool ShowResidentialWorkMode = false;
-    bool ShowAnyOverview = false;
-    bool ShowCompactRows = false;
-    bool ShowUpgradeCard = false;
-    bool ShowInformationParagraphs = false;
-    bool ShowOverviewCommandButton = false;
-    float BudgetBaseY = 0.f;
-    float BudgetButtonHeight = 0.f;
-    float BudgetButtonTop = 0.f;
-    float WorkModeTop = 0.f;
-    float WorkModeBoxTop = 0.f;
-    float BudgetMargin = 0.f;
-    float BudgetGap = 0.f;
-    float BudgetButtonWidth = 0.f;
-    float OccupancyTop = 0.f;
-    bool ShowActions = false;
-    float ActionTop = 0.f;
-};
-
-namespace
-{
-constexpr float GMinimumTabStartInset = 4.f;
-constexpr float GCustomOverviewMetricRowHeight = 21.f;
-constexpr float GWorkOverviewMetricRowHeight = 20.f;
-constexpr float GCompactMetricRowHeight = 24.f;
-
-template <typename T>
-bool IsEnabled(const std::weak_ptr<T>& Widget)
-{
-    if (auto Pinned = Widget.lock())
-    {
-        return Pinned->GetEnable();
-    }
-
-    return false;
-}
-
-FCitizenLayoutMetrics MakeLayoutMetrics(bool IsCitizenMode)
-{
-    const float TitleIconInsetX = IsCitizenMode ?
-        6.f : UIConfig::BuildingTitleIconInsetX;
-    const float TitleTextInsetX = IsCitizenMode ?
-        14.f : UIConfig::BuildingTitleTextInsetX;
-    const float TitleIconGap = IsCitizenMode ?
-        6.f : UIConfig::BuildingTitleIconGap;
-    const float SubtitleOffsetY = IsCitizenMode ?
-        4.f : UIConfig::BuildingSubtitleOffsetY;
-    const float CollapsedSectionGap = IsCitizenMode ?
-        6.f : UIConfig::BuildingCollapsedSectionGap;
-    const float BudgetLabelOffsetY = IsCitizenMode ?
-        2.f : UIConfig::BuildingBudgetLabelOffsetY;
-    const float BudgetCustomButtonsOffsetY = IsCitizenMode ?
-        20.f : UIConfig::BuildingBudgetCustomButtonsOffsetY;
-    const float BudgetWorkButtonsOffsetY = IsCitizenMode ?
-        78.f : UIConfig::BuildingBudgetWorkButtonsOffsetY;
-    const float BudgetDefaultButtonsOffsetY = IsCitizenMode ?
-        26.f : UIConfig::BuildingBudgetDefaultButtonsOffsetY;
-    const float BudgetCompactGap = IsCitizenMode ?
-        6.f : UIConfig::BuildingBudgetCompactGap;
-    const float BudgetDefaultGap = IsCitizenMode ?
-        8.f : UIConfig::BuildingBudgetDefaultGap;
-    const float OccupancyGapY = IsCitizenMode ?
-        18.f : UIConfig::BuildingOccupancyGapY;
-    const float CompactControlHeight = IsCitizenMode ?
-        22.f : UIConfig::BuildingCompactControlHeight;
-    const float CompactBudgetButtonWidth = IsCitizenMode ?
-        36.f : UIConfig::BuildingCompactBudgetButtonWidth;
-    const float SectionDividerWidth = IsCitizenMode ?
-        172.f : UIConfig::BuildingSectionDividerWidth;
-    const float SectionDividerHeight = IsCitizenMode ?
-        14.f : UIConfig::BuildingSectionDividerHeight;
-    const float ActionCompactIconSize = IsCitizenMode ?
-        34.f : UIConfig::BuildingActionCompactIconSize;
-    const float ActionCompactIconOffsetY = IsCitizenMode ?
-        2.f : UIConfig::BuildingActionCompactIconOffsetY;
-    const float MoveCompactRightOffset = IsCitizenMode ?
-        82.f : UIConfig::BuildingMoveCompactRightOffset;
-    const float FocusCompactRightOffset = IsCitizenMode ?
-        40.f : UIConfig::BuildingFocusCompactRightOffset;
-    const float OverviewCommandGap = IsCitizenMode ?
-        10.f : UIConfig::BuildingOverviewCommandGap;
-    const float CitizenActionButtonHeight = 38.f;
-    const float CitizenActionGap = 4.f;
-    const float ActionIconInset = 8.f;
-    const float ActionIconSize = CompactControlHeight;
-    const float BodyGapAfterSection = IsCitizenMode ?
-        8.f : UIConfig::BuildingBodyGapAfterSection;
-    const float BodyGapAfterActions = IsCitizenMode ?
-        14.f : UIConfig::BuildingBodyGapAfterActions;
-    const float BodyGapBeforeActions = IsCitizenMode ?
-        12.f : UIConfig::BuildingBodyGapBeforeActions;
-    const float BodyFallbackOffset = IsCitizenMode ?
-        4.f : UIConfig::BuildingBodyFallbackOffset;
-
-    return
-    {
-        IsCitizenMode ?
-            UIConfig::CitizenPanelInnerTopOffset :
-            UIConfig::BuildingPanelInnerMarginTop,
-        IsCitizenMode ?
-            UIConfig::CitizenPanelInnerBottomInset :
-            UIConfig::BuildingPanelInnerBottomInset,
-        IsCitizenMode ?
-            UIConfig::CitizenScrollBottomInset :
-            UIConfig::BuildingScrollBottomInset,
-        IsCitizenMode ?
-            UIConfig::CitizenScrollThumbTopOffset :
-            UIConfig::BuildingScrollThumbTopOffset,
-        IsCitizenMode ?
-            UIConfig::CitizenCloseButtonOffsetY :
-            UIConfig::BuildingCloseButtonOffsetY,
-        TitleIconInsetX,
-        TitleTextInsetX,
-        TitleIconGap,
-        SubtitleOffsetY,
-        IsCitizenMode ?
-            UIConfig::CitizenSectionRibbonOffsetY :
-            UIConfig::BuildingSectionRibbonOffsetY,
-        CollapsedSectionGap,
-        IsCitizenMode ?
-            UIConfig::CitizenBudgetBaseOffsetY :
-            UIConfig::BuildingBudgetBaseOffsetY,
-        BudgetLabelOffsetY,
-        BudgetCustomButtonsOffsetY,
-        BudgetWorkButtonsOffsetY,
-        BudgetDefaultButtonsOffsetY,
-        BudgetCompactGap,
-        BudgetDefaultGap,
-        OccupancyGapY,
-        CompactControlHeight,
-        CompactBudgetButtonWidth,
-        SectionDividerWidth,
-        SectionDividerHeight,
-        ActionCompactIconSize,
-        ActionCompactIconOffsetY,
-        MoveCompactRightOffset,
-        FocusCompactRightOffset,
-        OverviewCommandGap,
-        CitizenActionButtonHeight,
-        CitizenActionGap,
-        UIConfig::CitizenActionStackTopOffset,
-        ActionIconInset,
-        ActionIconSize,
-        UIConfig::CitizenFooterBottomInset,
-        BodyGapAfterSection,
-        BodyGapAfterActions,
-        BodyGapBeforeActions,
-        BodyFallbackOffset,
-        IsCitizenMode ?
-            UIConfig::CitizenBodyBottomInset :
-            UIConfig::BuildingBodyBottomInset
-    };
-}
-
-void LayoutOverviewMetricScrollWidgets(
-    CCitizenInfoWidget& Owner,
-    const FCitizenInfoLayoutContext& Context,
-    float MetricsTop,
-    float MetricRowH)
-{
-    auto Widget = Owner.GetRendererView();
-    auto ScrollTrack = Widget.mScrollTrack.lock();
-    auto ScrollThumb = Widget.mScrollThumb.lock();
-
-    if (!ScrollTrack || !ScrollThumb)
-        return;
-
-    if (Widget.mPanelMode != CCitizenInfoWidget::EPanelMode::Building ||
-        !Owner.HasOverviewMetricScroll() ||
-        Owner.GetOverviewMetricScrollVisibleLineCount() <= 0 ||
-        Owner.GetOverviewMetricScrollTotalLineCount() <= 0 ||
-        Owner.GetOverviewMetricScrollFirstRowIndex() >=
-            CCitizenInfoWidget::GOverviewMetricRowCount)
-    {
-        ScrollTrack->SetPos(0.f, 0.f);
-        ScrollTrack->SetSize(0.f, 0.f);
-        ScrollTrack->SetEnable(false);
-        ScrollThumb->SetPos(0.f, 0.f);
-        ScrollThumb->SetSize(0.f, 0.f);
-        ScrollThumb->SetEnable(false);
-        return;
-    }
-
-    const int FirstRowIndex = (std::max)(0, Owner.GetOverviewMetricScrollFirstRowIndex());
-    const int VisibleLineCount =
-        Owner.GetOverviewMetricScrollVisibleLineCount();
-    const int TotalLineCount =
-        (std::max)(
-            VisibleLineCount,
-            Owner.GetOverviewMetricScrollTotalLineCount());
-    const int MaxOffset = (std::max)(0, TotalLineCount - VisibleLineCount);
-    const float TrackLeft =
-        Context.InnerMarginX * 0.5f - Context.ScrollTrackWidth * 0.5f;
-    const float TrackTop =
-        MetricsTop + static_cast<float>(FirstRowIndex) * MetricRowH + 2.f;
-    const float TrackHeight = (std::max)(
-        24.f,
-        static_cast<float>(VisibleLineCount) * MetricRowH - 4.f);
-    const float ThumbHeight = (std::max)(
-        18.f,
-        TrackHeight *
-            (static_cast<float>(VisibleLineCount) /
-                static_cast<float>(TotalLineCount)));
-    const float ThumbTravel = (std::max)(0.f, TrackHeight - ThumbHeight);
-    const float ThumbRatio =
-        MaxOffset > 0 ?
-            static_cast<float>(Owner.GetOverviewMetricScrollOffset()) /
-                static_cast<float>(MaxOffset) :
-            0.f;
-
-    ScrollTrack->SetPos(TrackLeft, TrackTop);
-    ScrollTrack->SetSize(Context.ScrollTrackWidth, TrackHeight);
-    ScrollTrack->SetEnable(true);
-
-    ScrollThumb->SetPos(
-        TrackLeft + 0.5f,
-        TrackTop + ThumbTravel * ThumbRatio);
-    ScrollThumb->SetSize(Context.ScrollTrackWidth - 1.f, ThumbHeight);
-    ScrollThumb->SetEnable(true);
-}
-} // namespace
-
-void FCitizenInfoRenderer::RefreshLayout(CCitizenInfoWidget& Owner)
-{
-    auto Widget = Owner.GetRendererView();
-    (void)Widget.mRequestedScreenPos;
-    const bool IsCitizenMode =
-        Widget.mPanelMode == CCitizenInfoWidget::EPanelMode::Citizen;
-
-    const FResolution& Resolution = CDevice::GetInst()->GetResolution();
-    const float ScreenWidth = static_cast<float>(Resolution.Width);
-    const float ScreenHeight = static_cast<float>(Resolution.Height);
-
-    Widget.mPanelWidth = (std::min)(
-        IsCitizenMode ?
-            UIConfig::CitizenPanelMaxWidth :
-            UIConfig::BuildingPanelMaxWidth,
-        (std::max)(
-            IsCitizenMode ?
-                UIConfig::CitizenPanelMinWidth :
-                UIConfig::BuildingPanelMinWidth,
-            ScreenWidth * (IsCitizenMode ?
-                UIConfig::CitizenPanelWidthRatio :
-                UIConfig::BuildingPanelWidthRatio)));
-    Widget.mPanelTop = IsCitizenMode ?
-        UIConfig::CitizenPanelTopOffset :
-        UIConfig::BuildingPanelTopOffset;
-    Widget.mPanelHeight = (std::max)(
-        IsCitizenMode ?
-            UIConfig::CitizenPanelMinHeight :
-            UIConfig::BuildingPanelMinHeight,
-        ScreenHeight - Widget.mPanelTop - (IsCitizenMode ?
-            UIConfig::CitizenPanelBottomMargin :
-            UIConfig::BuildingPanelBottomMargin));
-
-    const float PanelLeft =
-        ScreenWidth - Widget.mPanelWidth - (IsCitizenMode ?
-            UIConfig::CitizenPanelRightInset :
-            UIConfig::BuildingPanelRightInset);
-    Widget.SetPos(PanelLeft, 0.f);
-    Widget.SetSize(Widget.mPanelWidth, Widget.mPanelTop + Widget.mPanelHeight);
-
-    FCitizenInfoLayoutContext Layout;
-    Layout.Metrics = MakeLayoutMetrics(IsCitizenMode);
-    Layout.OuterTop = Widget.mPanelTop;
-    Layout.PanelWidth = Widget.mPanelWidth;
-    Layout.PanelHeight = Widget.mPanelHeight;
-    Layout.InnerMarginX = IsCitizenMode ?
-        UIConfig::CitizenPanelInnerMarginX :
-        UIConfig::BuildingPanelInnerMarginX;
-    Layout.InnerLeft = Layout.InnerMarginX;
-    Layout.InnerTop = Layout.OuterTop + Layout.Metrics.PanelInnerTopOffset;
-    Layout.InnerWidth = Layout.PanelWidth - Layout.InnerMarginX * 2.f;
-    Layout.InnerHeight = Layout.PanelHeight - Layout.Metrics.PanelInnerBottomInset;
-    Layout.ScrollTrackWidth = IsCitizenMode ?
-        UIConfig::CitizenScrollTrackWidth :
-        UIConfig::BuildingScrollTrackWidth;
-    Layout.ScrollThumbHeight = IsCitizenMode ?
-        UIConfig::CitizenScrollThumbHeight :
-        UIConfig::BuildingScrollThumbHeight;
-    Layout.TitleRibbonHeight = IsCitizenMode ?
-        UIConfig::CitizenTitleRibbonHeight :
-        UIConfig::BuildingTitleRibbonHeight;
-    Layout.SectionRibbonHeight = IsCitizenMode ?
-        UIConfig::CitizenSectionRibbonHeight :
-        UIConfig::BuildingSectionRibbonHeight;
-    Layout.CloseButtonSize = IsCitizenMode ?
-        UIConfig::CitizenCloseButtonSize :
-        UIConfig::BuildingCloseButtonSize;
-    Layout.IconSize = UIConfig::BuildingIconSize;
-    Layout.IsCitizenMode = IsCitizenMode;
-    Layout.VisibleTabCount = Layout.IsCitizenMode ? GCitizenTabCount : GBuildingTabCount;
-    Layout.TabWidth = UIConfig::BuildingTabWidth;
-    Layout.TabHeight = UIConfig::BuildingTabHeight;
-    Layout.TabGap = UIConfig::BuildingTabGap;
-    Layout.TotalTabsWidth =
-        static_cast<float>(Layout.VisibleTabCount) * Layout.TabWidth +
-        static_cast<float>((std::max)(0, Layout.VisibleTabCount - 1)) *
-            Layout.TabGap;
-    Layout.TabStartX =
-        (std::max)(
-            GMinimumTabStartInset,
-            (Layout.PanelWidth - Layout.TotalTabsWidth) * 0.5f);
-    Layout.RibbonOffsetX = UIConfig::BuildingTitleRibbonOffsetX;
-    Layout.RibbonOffsetY = UIConfig::BuildingTitleRibbonOffsetY;
-    Layout.CloseOffsetX = UIConfig::BuildingCloseButtonOffsetX;
-    Layout.TitleIconVisible =
-        Widget.mPanelMode == CCitizenInfoWidget::EPanelMode::Building &&
-        IsEnabled(Widget.mTitleIcon);
-    Layout.TitleLeft = Layout.TitleIconVisible ?
-        (Layout.RibbonOffsetX + Layout.IconSize + Layout.Metrics.TitleIconGap) :
-        (Layout.RibbonOffsetX + Layout.Metrics.TitleTextInsetX);
-    Layout.ShowSectionRibbon = IsEnabled(Widget.mSectionRibbon);
-    Layout.ShowCitizenProfile =
-        Widget.mPanelMode == CCitizenInfoWidget::EPanelMode::Citizen &&
-        Widget.mSelectedCitizenTab ==
-            CCitizenInfoWidget::ECitizenInfoTab::Overview &&
-        IsEnabled(Widget.mCitizenFooterText);
-    Layout.ShowCitizenPolitics =
-        Widget.mPanelMode == CCitizenInfoWidget::EPanelMode::Citizen &&
-        Widget.mSelectedCitizenTab ==
-            CCitizenInfoWidget::ECitizenInfoTab::Politics &&
-        IsEnabled(Widget.mCitizenPoliticsSectionTitles[0]);
-    Layout.ShowCitizenThoughts =
-        Widget.mPanelMode == CCitizenInfoWidget::EPanelMode::Citizen &&
-        Widget.mSelectedCitizenTab ==
-            CCitizenInfoWidget::ECitizenInfoTab::Thoughts &&
-        IsEnabled(Widget.mCitizenThoughtTitleText);
-    Layout.SectionRibbonY =
-        Layout.OuterTop +
-        Layout.RibbonOffsetY +
-        Layout.TitleRibbonHeight +
-        Layout.Metrics.SectionRibbonOffsetY;
-    Layout.ShowWorkOverview =
-        Widget.mPanelMode == CCitizenInfoWidget::EPanelMode::Building &&
-        Widget.mSelectedBuildingTab ==
-            CCitizenInfoWidget::EBuildingInfoTab::Overview &&
-        IsEnabled(Widget.mOverviewWorkModeLabel);
-    Layout.ShowCustomOverview =
-        Widget.mPanelMode == CCitizenInfoWidget::EPanelMode::Building &&
-        Widget.mSelectedBuildingTab ==
-            CCitizenInfoWidget::EBuildingInfoTab::Overview &&
-        !Layout.ShowWorkOverview &&
-        IsEnabled(Widget.mResidentialOverviewBudgetLabel);
-    Layout.ShowResidentialWorkMode =
-        Layout.ShowCustomOverview &&
-        IsEnabled(Widget.mResidentialOverviewWorkModeLabel);
-    Layout.ShowAnyOverview = Layout.ShowCustomOverview || Layout.ShowWorkOverview;
-    Layout.ShowCompactRows =
-        !Layout.ShowCitizenProfile &&
-        !Layout.ShowCitizenPolitics &&
-        !Layout.ShowCitizenThoughts &&
-        !Layout.ShowAnyOverview &&
-        IsEnabled(Widget.mOverviewMetricLabels[0]);
-    Layout.ShowUpgradeCard = IsEnabled(Widget.mUpgradeCardBackground);
-    Layout.ShowInformationParagraphs = IsEnabled(Widget.mInformationTopText);
-    Layout.ShowOverviewCommandButton = IsEnabled(Widget.mOverviewCommandButton);
-    Layout.BudgetBaseY =
-        Layout.OuterTop +
-        Layout.RibbonOffsetY +
-        Layout.TitleRibbonHeight +
-        Layout.Metrics.BudgetBaseOffsetY;
-    Layout.BudgetButtonHeight = Layout.ShowAnyOverview ?
-        Layout.Metrics.CompactControlHeight :
-        UIConfig::BuildingBudgetButtonHeight;
-    Layout.BudgetButtonTop = Layout.ShowCustomOverview ?
-        (Layout.BudgetBaseY +
-            (Layout.ShowResidentialWorkMode ?
-                Layout.Metrics.BudgetWorkButtonsOffsetY :
-                Layout.Metrics.BudgetCustomButtonsOffsetY)) :
-        (Layout.ShowWorkOverview ?
-            (Layout.BudgetBaseY + Layout.Metrics.BudgetWorkButtonsOffsetY) :
-            (Layout.BudgetBaseY + Layout.Metrics.BudgetDefaultButtonsOffsetY));
-    Layout.WorkModeTop = Layout.BudgetBaseY - Layout.Metrics.BudgetLabelOffsetY;
-    Layout.WorkModeBoxTop =
-        Layout.WorkModeTop + Layout.Metrics.CompactControlHeight;
-    Layout.BudgetMargin = Layout.RibbonOffsetX;
-    Layout.BudgetGap = Layout.ShowAnyOverview ?
-        Layout.Metrics.BudgetCompactGap :
-        Layout.Metrics.BudgetDefaultGap;
-    Layout.BudgetButtonWidth = Layout.ShowAnyOverview ?
-        Layout.Metrics.CompactBudgetButtonWidth :
-        (Layout.PanelWidth - Layout.BudgetMargin * 2.f - Layout.BudgetGap * 4.f) /
-            5.f;
-    Layout.OccupancyTop =
-        Layout.BudgetButtonTop +
-        Layout.BudgetButtonHeight +
-        Layout.Metrics.OccupancyGapY;
-    Layout.ShowActions =
-        Widget.mPanelMode == CCitizenInfoWidget::EPanelMode::Building &&
-        Widget.mSelectedBuildingTab ==
-            CCitizenInfoWidget::EBuildingInfoTab::Overview;
-    Layout.ActionTop =
-        Layout.OuterTop +
-        Layout.PanelHeight -
-        UIConfig::BuildingActionButtonBottomMargin;
-
-    ValidateLayoutForDebug(Owner, Layout);
-    RefreshCommonLayout(Owner, Layout);
-    RefreshCitizenModeLayout(Owner, Layout);
-    RefreshBuildingModeLayout(Owner, Layout);
-    RefreshInformationVisibilityLayout(Owner, Layout);
-    RefreshUpgradeLayout(Owner, Layout);
-    RefreshActionLayout(Owner, Layout);
-    RefreshBodyLayout(Owner, Layout);
-}
-
-void FCitizenInfoRenderer::ValidateLayoutForDebug(
-    CCitizenInfoWidget& Owner,
-    const FCitizenInfoLayoutContext& Layout)
-{
-    auto Widget = Owner.GetRendererView();
-#ifndef NDEBUG
-    auto IsPositiveFinite = [](float Value)
-    {
-        return std::isfinite(Value) && Value > 0.f;
-    };
-    auto IsRatio = [](float Value)
-    {
-        return std::isfinite(Value) &&
-            Value >= -0.01f &&
-            Value <= 1.01f;
-    };
-
-    const int ExpectedVisibleTabCount =
-        Layout.IsCitizenMode ?
-            CCitizenInfoWidget::GCitizenTabCount :
-            CCitizenInfoWidget::GBuildingTabCount;
-    const int SelectedTabIndex = Widget.GetSelectedTabIndexForCurrentMode();
-
-    assert(IsPositiveFinite(Layout.PanelWidth));
-    assert(IsPositiveFinite(Layout.PanelHeight));
-    assert(IsPositiveFinite(Layout.InnerWidth));
-    assert(IsPositiveFinite(Layout.InnerHeight));
-    assert(IsPositiveFinite(Layout.ScrollTrackWidth));
-    assert(IsPositiveFinite(Layout.ScrollThumbHeight));
-    assert(IsPositiveFinite(Layout.TitleRibbonHeight));
-    assert(IsPositiveFinite(Layout.SectionRibbonHeight));
-    assert(IsPositiveFinite(Layout.CloseButtonSize));
-    assert(Layout.VisibleTabCount == ExpectedVisibleTabCount);
-    assert(SelectedTabIndex >= 0);
-    assert(SelectedTabIndex < ExpectedVisibleTabCount);
-    assert(UIConfig::CitizenPanelMinHeight > 0.f);
-    assert(UIConfig::CitizenPanelRightInset >= 0.f);
-    assert(Widget.mTabButtons.size() == CCitizenInfoWidget::GTabButtonCount);
-    assert(Widget.mTabButtonTexts.size() == CCitizenInfoWidget::GTabButtonCount);
-    assert(Widget.mTabButtonIcons.size() == CCitizenInfoWidget::GTabButtonCount);
-    assert(Widget.mBudgetButtons.size() == CCitizenInfoWidget::GBudgetLevelCount);
-    assert(Widget.mBudgetButtonTexts.size() == CCitizenInfoWidget::GBudgetLevelCount);
-    assert(
-        Widget.mOverviewResidentIcons.size() ==
-        CCitizenInfoWidget::GOverviewResidentSlotCount);
-    assert(
-        Widget.mResidentialOverviewResidentIcons.size() ==
-        CCitizenInfoWidget::GOverviewResidentSlotCount);
-    assert(
-        Widget.mOverviewVisitorIcons.size() ==
-        CCitizenInfoWidget::GOverviewVisitorSlotCount);
-    assert(
-        Widget.mOverviewMetricLabels.size() ==
-        CCitizenInfoWidget::GOverviewMetricRowCount);
-    assert(
-        Widget.mOverviewMetricValues.size() ==
-        CCitizenInfoWidget::GOverviewMetricRowCount);
-    assert(
-        Widget.mResidentialOverviewMetricLabels.size() ==
-        CCitizenInfoWidget::GOverviewMetricRowCount);
-    assert(
-        Widget.mResidentialOverviewMetricValues.size() ==
-        CCitizenInfoWidget::GOverviewMetricRowCount);
-    assert(
-        Widget.mCitizenPoliticsSectionBackgrounds.size() ==
-        CCitizenInfoWidget::GCitizenPoliticsSectionCount);
-    assert(
-        Widget.mCitizenPoliticsSectionTitles.size() ==
-        CCitizenInfoWidget::GCitizenPoliticsSectionCount);
-    assert(
-        Widget.mCitizenPoliticsSatisfactionLabels.size() ==
-        CCitizenInfoWidget::GCitizenPoliticsSatisfactionCount);
-    assert(
-        Widget.mCitizenPoliticsSatisfactionRails.size() ==
-        CCitizenInfoWidget::GCitizenPoliticsSatisfactionCount);
-    assert(
-        Widget.mCitizenPoliticsSatisfactionFills.size() ==
-        CCitizenInfoWidget::GCitizenPoliticsSatisfactionCount);
-    assert(
-        Widget.mCitizenPoliticsOpinionTexts.size() ==
-        CCitizenInfoWidget::GCitizenPoliticsOpinionCount);
-    assert(
-        Widget.mCitizenPoliticsSupportIcons.size() ==
-        CCitizenInfoWidget::GCitizenPoliticsSupportIconCount);
-    assert(
-        Widget.mCitizenThoughtTexts.size() ==
-        CCitizenInfoWidget::GCitizenThoughtCount);
-    assert(
-        Widget.mCitizenThoughtDividers.size() ==
-        CCitizenInfoWidget::GCitizenThoughtDividerCount);
-    assert(
-        Widget.mCitizenActionButtons.size() ==
-        CCitizenInfoWidget::GCitizenActionButtonCount);
-    assert(
-        Widget.mCitizenActionButtonTexts.size() ==
-        CCitizenInfoWidget::GCitizenActionButtonCount);
-    assert(
-        Widget.mCitizenActionButtonIcons.size() ==
-        CCitizenInfoWidget::GCitizenActionButtonCount);
-
-    for (float Ratio : Widget.mCitizenPoliticsSatisfactionFillRatios)
-    {
-        assert(IsRatio(Ratio));
-    }
-
-    assert(IsRatio(Widget.mCitizenPoliticsSupportRatio));
-#else
-    (void)Widget;
-    (void)Layout;
-#endif
-}
-
 void FCitizenInfoRenderer::RefreshCommonLayout(
     CCitizenInfoWidget& Owner,
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
     const auto& Layout = Context.Metrics;
-    const float OuterTop = Context.OuterTop;
-    const float PanelWidth = Context.PanelWidth;
-    const float PanelHeight = Context.PanelHeight;
-    const float InnerMarginX = Context.InnerMarginX;
-    const float InnerLeft = Context.InnerLeft;
-    const float InnerTop = Context.InnerTop;
-    const float InnerWidth = Context.InnerWidth;
-    const float InnerHeight = Context.InnerHeight;
-    const float ScrollTrackW = Context.ScrollTrackWidth;
-    const float ScrollThumbH = Context.ScrollThumbHeight;
-    const float TitleRibbonH = Context.TitleRibbonHeight;
-    const float SectionRibbonH = Context.SectionRibbonHeight;
-    const float CloseButtonSz = Context.CloseButtonSize;
-    const float IconSz = Context.IconSize;
-    const bool ShowSectionRibbon = Context.ShowSectionRibbon;
-    const float SectionRibbonY = Context.SectionRibbonY;
-    const bool ShowWorkOverview = Context.ShowWorkOverview;
-    const bool ShowCustomOverview = Context.ShowCustomOverview;
-    const bool ShowResidentialWorkMode = Context.ShowResidentialWorkMode;
-    const bool ShowAnyOverview = Context.ShowAnyOverview;
-    const float TitleIconOffsetY = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingTitleIconOffsetY;
-    const float TitleTextOffsetX = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingTitleTextOffsetX;
-    const float TitleTextOffsetY = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingTitleTextOffsetY;
-    const float TitleTextWidthAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingTitleTextWidthAdjust;
-    const float TitleTextHeightAdjust = Context.IsCitizenMode ?
-        0.f : UIConfig::BuildingTitleTextHeightAdjust;
+    const float OuterTop = Context.Panel.OuterTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float PanelHeight = Context.Panel.Height;
+    const float InnerMarginX = Context.Inner.MarginX;
+    const float InnerLeft = Context.Inner.Left;
+    const float InnerTop = Context.Inner.Top;
+    const float InnerWidth = Context.Inner.Width;
+    const float InnerHeight = Context.Inner.Height;
+    const float ScrollTrackW = Context.Chrome.ScrollTrackWidth;
+    const float ScrollThumbH = Context.Chrome.ScrollThumbHeight;
+    const float TitleRibbonH = Context.Ribbon.TitleHeight;
+    const float SectionRibbonH = Context.Ribbon.SectionHeight;
+    const float CloseButtonSz = Context.Chrome.CloseButtonSize;
+    const float IconSz = Context.Chrome.IconSize;
+    const bool ShowSectionRibbon = Context.Flags.ShowSectionRibbon;
+    const float SectionRibbonY = Context.Ribbon.SectionY;
+    const bool ShowWorkOverview = Context.Flags.ShowWorkOverview;
+    const bool ShowCustomOverview = Context.Flags.ShowCustomOverview;
+    const bool ShowResidentialWorkMode = Context.Flags.ShowResidentialWorkMode;
+    const bool ShowAnyOverview = Context.Flags.ShowAnyOverview;
+    const bool ShowOperationModeSelectionPage =
+        Context.Flags.ShowOperationModeSelectionPage;
+    const float TitleIconOffsetY = Context.Flags.IsCitizenMode ?
+        UIConfig::CitizenInfoLayoutDefaults::TitleIconOffsetY :
+        UIConfig::BuildingTitleIconOffsetY;
+    const float TitleTextOffsetX = Context.Flags.IsCitizenMode ?
+        UIConfig::CitizenInfoLayoutDefaults::TitleTextOffsetX :
+        UIConfig::BuildingTitleTextOffsetX;
+    const float TitleTextOffsetY = Context.Flags.IsCitizenMode ?
+        UIConfig::CitizenInfoLayoutDefaults::TitleTextOffsetY :
+        UIConfig::BuildingTitleTextOffsetY;
+    const float TitleTextWidthAdjust = Context.Flags.IsCitizenMode ?
+        UIConfig::CitizenInfoLayoutDefaults::TitleTextWidthAdjust :
+        UIConfig::BuildingTitleTextWidthAdjust;
+    const float TitleTextHeightAdjust = Context.Flags.IsCitizenMode ?
+        UIConfig::CitizenInfoLayoutDefaults::TitleTextHeightAdjust :
+        UIConfig::BuildingTitleTextHeightAdjust;
     // 폰트 크기
     if (auto TitleTxt = Widget.mTitleText.lock())
         TitleTxt->SetFontSize(
-            Context.IsCitizenMode ?
+            Context.Flags.IsCitizenMode ?
                 UIConfig::CitizenTitleFontSize :
                 UIConfig::BuildingTitleFontSize);
-    if (auto SubTxt = Widget.mSubtitleText.lock())
-        SubTxt->SetFontSize(
-            Context.IsCitizenMode ?
-                UIConfig::CitizenSubtitleFontSize :
-                UIConfig::BuildingSubtitleFontSize);
+    for (auto& SubtitleWeak : Widget.mSubtitleTexts)
+        if (auto SubTxt = SubtitleWeak.lock())
+            SubTxt->SetFontSize(
+                Context.Flags.IsCitizenMode ?
+                    UIConfig::CitizenSubtitleFontSize :
+                    UIConfig::BuildingSubtitleFontSize);
     if (auto BodyTxt = Widget.mBodyText.lock())
         BodyTxt->SetFontSize(
-            Context.IsCitizenMode ?
+            Context.Flags.IsCitizenMode ?
                 UIConfig::CitizenBodyFontSize :
                 UIConfig::BuildingBodyFontSize);
     if (auto PageTitleTxt = Widget.mPageTitleText.lock())
         PageTitleTxt->SetFontSize(
-            Context.IsCitizenMode ?
+            Context.Flags.IsCitizenMode ?
                 UIConfig::CitizenPageTitleFontSize :
                 UIConfig::BuildingPageTitleFontSize);
     if (auto BudgetTxt = Widget.mBudgetText.lock())
         BudgetTxt->SetFontSize(
-            Context.IsCitizenMode ?
+            Context.Flags.IsCitizenMode ?
                 UIConfig::CitizenBodyFontSize :
                 UIConfig::BuildingBudgetTextFontSize);
     if (auto Text = Widget.mOverviewWorkModeLabel.lock())
@@ -760,7 +171,7 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         static_cast<float>(VisibleTabCount) * TabWidth +
         static_cast<float>((std::max)(0, VisibleTabCount - 1)) * TabGap;
     const float TabStartX = (std::max)(
-        GMinimumTabStartInset,
+        UIConfig::BuildingMinimumTabStartInset,
         (PanelWidth - TotalTabsWidth) * 0.5f);
 
     for (int Index = 0; Index < GBuildingTabCount; ++Index)
@@ -830,14 +241,17 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
                 TitleTextWidthAdjust,
             TitleRibbonH + TitleTextHeightAdjust);
     }
-    if (auto SubtitleText = Widget.mSubtitleText.lock())
+    for (auto& SubtitleWeak : Widget.mSubtitleTexts)
     {
-        SubtitleText->SetPos(
-            RibbonOffsetX,
-            OuterTop + RibbonOffsetY + TitleRibbonH + Layout.SubtitleOffsetY);
-        SubtitleText->SetSize(
-            PanelWidth - RibbonOffsetX * 2.f,
-            Layout.CompactControlHeight);
+        if (auto SubtitleText = SubtitleWeak.lock())
+        {
+            SubtitleText->SetPos(
+                RibbonOffsetX,
+                OuterTop + RibbonOffsetY + TitleRibbonH + Layout.SubtitleOffsetY);
+            SubtitleText->SetSize(
+                PanelWidth - RibbonOffsetX * 2.f,
+                Layout.CompactControlHeight);
+        }
     }
 
 
@@ -896,15 +310,8 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         }
     }
 
-    const float BudgetButtonH   = ShowAnyOverview ? Layout.CompactControlHeight :
-        UIConfig::BuildingBudgetButtonHeight;
-    const float BudgetButtonTop = ShowCustomOverview ?
-        (BudgetBaseY +
-            (ShowResidentialWorkMode ?
-                Layout.BudgetWorkButtonsOffsetY :
-                Layout.BudgetCustomButtonsOffsetY)) :
-        (ShowWorkOverview ? (BudgetBaseY + Layout.BudgetWorkButtonsOffsetY) :
-        (BudgetBaseY + Layout.BudgetDefaultButtonsOffsetY));
+    const float BudgetButtonH   = UIConfig::BuildingBudgetButtonHeight;
+    const float BudgetButtonTop = BudgetBaseY + Layout.BudgetWorkButtonsOffsetY;
     const float WorkModeTop = BudgetBaseY - Layout.BudgetLabelOffsetY;
     const float WorkModeBoxTop = WorkModeTop + Layout.CompactControlHeight;
     const float BudgetMargin    = RibbonOffsetX;
@@ -1007,7 +414,7 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
 
     if (auto Background = Widget.mResidentialOverviewWorkModeBackground.lock())
     {
-        if (ShowResidentialWorkMode)
+        if (ShowCustomOverview)
         {
             Background->SetPos(
                 BudgetMargin,
@@ -1101,10 +508,27 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
         if (!Button)
             continue;
 
-        Button->SetPos(
-            BudgetMargin + static_cast<float>(Index) * (BudgetButtonW + BudgetGap),
-            BudgetButtonTop);
-        Button->SetSize(BudgetButtonW, BudgetButtonH);
+        if (ShowOperationModeSelectionPage)
+        {
+            const float ModeH = UIConfig::BuildingModeButtonHeight;
+            const float ModeGap = UIConfig::BuildingModeButtonGap;
+            Button->SetPos(
+                BudgetMargin,
+                WorkModeBoxTop + static_cast<float>(Index) * (ModeH + ModeGap));
+            Button->SetSize(PanelWidth - BudgetMargin * 2.f, ModeH);
+        }
+        else if (Index < GBudgetDisplayCount)
+        {
+            Button->SetPos(
+                BudgetMargin + static_cast<float>(Index) * (BudgetButtonW + BudgetGap),
+                BudgetButtonTop);
+            Button->SetSize(BudgetButtonW, BudgetButtonH);
+        }
+        else
+        {
+            Button->SetPos(0.f, 0.f);
+            Button->SetSize(0.f, 0.f);
+        }
     }
 
     const float OccupancyTop =
@@ -1208,24 +632,24 @@ void FCitizenInfoRenderer::RefreshCitizenModeLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    if (!Context.IsCitizenMode)
+    if (!Context.Flags.IsCitizenMode)
     {
         return;
     }
 
-    if (Context.ShowCitizenThoughts)
+    if (Context.Flags.ShowCitizenThoughts)
     {
         RefreshCitizenThoughtsLayout(Owner, Context);
         return;
     }
 
-    if (Context.ShowCitizenPolitics)
+    if (Context.Flags.ShowCitizenPolitics)
     {
         RefreshCitizenPoliticsLayout(Owner, Context);
         return;
     }
 
-    if (Context.ShowCitizenProfile)
+    if (Context.Flags.ShowCitizenProfile)
     {
         RefreshCitizenProfileLayout(Owner, Context);
     }
@@ -1236,11 +660,11 @@ void FCitizenInfoRenderer::RefreshCitizenThoughtsLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    const float OuterTop = Context.OuterTop;
-    const float PanelWidth = Context.PanelWidth;
-    const float RibbonOffsetY = Context.RibbonOffsetY;
-    const float TitleRibbonH = Context.TitleRibbonHeight;
-    const float BudgetMargin = Context.BudgetMargin;
+    const float OuterTop = Context.Panel.OuterTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float RibbonOffsetY = Context.Ribbon.OffsetY;
+    const float TitleRibbonH = Context.Ribbon.TitleHeight;
+    const float BudgetMargin = Context.Budget.Margin;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
@@ -1479,11 +903,11 @@ void FCitizenInfoRenderer::RefreshCitizenPoliticsLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    const float OuterTop = Context.OuterTop;
-    const float PanelWidth = Context.PanelWidth;
-    const float RibbonOffsetY = Context.RibbonOffsetY;
-    const float TitleRibbonH = Context.TitleRibbonHeight;
-    const float BudgetMargin = Context.BudgetMargin;
+    const float OuterTop = Context.Panel.OuterTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float RibbonOffsetY = Context.Ribbon.OffsetY;
+    const float TitleRibbonH = Context.Ribbon.TitleHeight;
+    const float BudgetMargin = Context.Budget.Margin;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
@@ -1751,9 +1175,9 @@ void FCitizenInfoRenderer::RefreshCitizenProfileLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    const float PanelWidth = Context.PanelWidth;
-    const float BudgetMargin = Context.BudgetMargin;
-    const float OccupancyTop = Context.OccupancyTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float BudgetMargin = Context.Budget.Margin;
+    const float OccupancyTop = Context.Budget.OccupancyTop;
 
         const std::array<FVector2, 11> PortraitPositions =
         {
@@ -1851,27 +1275,27 @@ void FCitizenInfoRenderer::RefreshBuildingModeLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    if (Context.IsCitizenMode &&
-        (Context.ShowCitizenThoughts ||
-            Context.ShowCitizenPolitics ||
-            Context.ShowCitizenProfile))
+    if (Context.Flags.IsCitizenMode &&
+        (Context.Flags.ShowCitizenThoughts ||
+            Context.Flags.ShowCitizenPolitics ||
+            Context.Flags.ShowCitizenProfile))
     {
         return;
     }
 
-    if (Context.ShowCustomOverview)
+    if (Context.Flags.ShowCustomOverview)
     {
         RefreshBuildingCustomOverviewLayout(Owner, Context);
     }
-    else if (Context.ShowWorkOverview)
+    else if (Context.Flags.ShowWorkOverview)
     {
         RefreshBuildingWorkOverviewLayout(Owner, Context);
     }
-    else if (Context.ShowCompactRows)
+    else if (Context.Flags.ShowCompactRows)
     {
         RefreshBuildingCompactLayout(Owner, Context);
     }
-    else if (Context.ShowInformationParagraphs)
+    else if (Context.Flags.ShowInformationParagraphs)
     {
         RefreshBuildingInformationLayout(Owner, Context);
     }
@@ -1886,9 +1310,9 @@ void FCitizenInfoRenderer::RefreshBuildingCustomOverviewLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    const float PanelWidth = Context.PanelWidth;
-    const float BudgetMargin = Context.BudgetMargin;
-    const float OccupancyTop = Context.OccupancyTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float BudgetMargin = Context.Budget.Margin;
+    const float OccupancyTop = Context.Budget.OccupancyTop;
 
         const float ResidentStartX = BudgetMargin + 6.f;
         const float ResidentStartY = OccupancyTop + 26.f;
@@ -1916,7 +1340,7 @@ void FCitizenInfoRenderer::RefreshBuildingCustomOverviewLayout(
         }
 
         const float MetricsTop = ResidentStartY + ResidentGapY * 4.f + 10.f;
-        const float MetricRowH = GCustomOverviewMetricRowHeight;
+        const float MetricRowH = UIConfig::BuildingCustomOverviewMetricRowHeight;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewMetricRowCount;
@@ -1950,11 +1374,11 @@ void FCitizenInfoRenderer::RefreshBuildingWorkOverviewLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    const float PanelWidth = Context.PanelWidth;
-    const float BudgetMargin = Context.BudgetMargin;
-    const float OccupancyTop = Context.OccupancyTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float BudgetMargin = Context.Budget.Margin;
+    const float OccupancyTop = Context.Budget.OccupancyTop;
 
-    constexpr int GWorkOverviewResidentColumns = 6;
+    constexpr int GWorkOverviewResidentColumns = 8;
     constexpr int GWorkOverviewMaxVisibleResidents = 12;
     const float ResidentStartX = BudgetMargin + 6.f;
     const float ResidentStartY = OccupancyTop + 26.f;
@@ -1989,7 +1413,7 @@ void FCitizenInfoRenderer::RefreshBuildingWorkOverviewLayout(
         static_cast<float>((std::max)(0, ResidentRowCount - 1)) *
             ResidentGapY +
         12.f;
-    const float MetricRowH = GWorkOverviewMetricRowHeight;
+    const float MetricRowH = UIConfig::BuildingWorkOverviewMetricRowHeight;
 
     for (int Index = 0;
         Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
@@ -2117,14 +1541,16 @@ void FCitizenInfoRenderer::RefreshBuildingCompactLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    const float PanelWidth = Context.PanelWidth;
-    const float BudgetMargin = Context.BudgetMargin;
-    const float SectionRibbonY = Context.SectionRibbonY;
-    const float SectionRibbonH = Context.SectionRibbonHeight;
+    const float PanelWidth = Context.Panel.Width;
+    const float BudgetMargin = Context.Budget.Margin;
+    const float SectionRibbonY = Context.Ribbon.SectionY;
+    const float SectionRibbonH = Context.Ribbon.SectionHeight;
+    const bool UseStats = Context.Flags.ShowStatsMetricRows;
+    const bool UseEfficiency = Context.Flags.ShowEfficiencyMetricRows;
 
         const float MetricsTop =
             SectionRibbonY + SectionRibbonH + 12.f;
-        const float MetricRowH = GCompactMetricRowHeight;
+        const float MetricRowH = UIConfig::BuildingCompactMetricRowHeight;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
@@ -2174,14 +1600,33 @@ void FCitizenInfoRenderer::RefreshBuildingCompactLayout(
             Text->SetSize(0.f, 0.f);
         }
 
+        auto& ActiveLabels = UseStats ?
+            Widget.mStatsMetricLabels : Widget.mEfficiencyMetricLabels;
+        auto& ActiveValues = UseStats ?
+            Widget.mStatsMetricValues : Widget.mEfficiencyMetricValues;
+        auto& InactiveLabels = UseStats ?
+            Widget.mEfficiencyMetricLabels : Widget.mStatsMetricLabels;
+        auto& InactiveValues = UseStats ?
+            Widget.mEfficiencyMetricValues : Widget.mStatsMetricValues;
+
+        // 비활성 배열 숨김
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewMetricRowCount;
             ++Index)
         {
-            auto Label =
-                Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock();
-            auto Value =
-                Widget.mOverviewMetricValues[static_cast<size_t>(Index)].lock();
+            if (auto L = InactiveLabels[static_cast<size_t>(Index)].lock())
+            { L->SetPos(0.f, 0.f); L->SetSize(0.f, 0.f); }
+            if (auto V = InactiveValues[static_cast<size_t>(Index)].lock())
+            { V->SetPos(0.f, 0.f); V->SetSize(0.f, 0.f); }
+        }
+
+        // 활성 배열 배치
+        for (int Index = 0;
+            Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+            ++Index)
+        {
+            auto Label = ActiveLabels[static_cast<size_t>(Index)].lock();
+            auto Value = ActiveValues[static_cast<size_t>(Index)].lock();
             const float RowTop =
                 MetricsTop + static_cast<float>(Index) * MetricRowH;
 
@@ -2216,14 +1661,14 @@ void FCitizenInfoRenderer::RefreshBuildingInformationLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    const float OuterTop = Context.OuterTop;
-    const float PanelWidth = Context.PanelWidth;
-    const float RibbonOffsetY = Context.RibbonOffsetY;
-    const float TitleRibbonH = Context.TitleRibbonHeight;
-    const float SectionRibbonY = Context.SectionRibbonY;
-    const float SectionRibbonH = Context.SectionRibbonHeight;
-    const bool ShowSectionRibbon = Context.ShowSectionRibbon;
-    const float BudgetMargin = Context.BudgetMargin;
+    const float OuterTop = Context.Panel.OuterTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float RibbonOffsetY = Context.Ribbon.OffsetY;
+    const float TitleRibbonH = Context.Ribbon.TitleHeight;
+    const float SectionRibbonY = Context.Ribbon.SectionY;
+    const float SectionRibbonH = Context.Ribbon.SectionHeight;
+    const bool ShowSectionRibbon = Context.Flags.ShowSectionRibbon;
+    const float BudgetMargin = Context.Budget.Margin;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
@@ -2421,7 +1866,7 @@ void FCitizenInfoRenderer::RefreshInformationVisibilityLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    if (Context.ShowInformationParagraphs)
+    if (Context.Flags.ShowInformationParagraphs)
     {
         return;
     }
@@ -2452,12 +1897,12 @@ void FCitizenInfoRenderer::RefreshUpgradeLayout(
     const FCitizenInfoLayoutContext& Context)
 {
     auto Widget = Owner.GetRendererView();
-    const float PanelWidth = Context.PanelWidth;
-    const float BudgetMargin = Context.BudgetMargin;
-    const float SectionRibbonY = Context.SectionRibbonY;
-    const float SectionRibbonH = Context.SectionRibbonHeight;
+    const float PanelWidth = Context.Panel.Width;
+    const float BudgetMargin = Context.Budget.Margin;
+    const float SectionRibbonY = Context.Ribbon.SectionY;
+    const float SectionRibbonH = Context.Ribbon.SectionHeight;
 
-    if (Context.ShowUpgradeCard)
+    if (Context.Flags.ShowUpgradeCard)
     {
         const float CardLeft = BudgetMargin;
         const float CardTop = SectionRibbonY + SectionRibbonH + 12.f;
@@ -2523,16 +1968,16 @@ void FCitizenInfoRenderer::RefreshActionLayout(
 {
     auto Widget = Owner.GetRendererView();
     const auto& Layout = Context.Metrics;
-    const float OuterTop = Context.OuterTop;
-    const float PanelWidth = Context.PanelWidth;
-    const float PanelHeight = Context.PanelHeight;
-    const float BudgetMargin = Context.BudgetMargin;
-    const float ActionTop = Context.ActionTop;
-    const bool ShowActions = Context.ShowActions;
-    const bool ShowAnyOverview = Context.ShowAnyOverview;
-    const bool ShowInformationParagraphs = Context.ShowInformationParagraphs;
-    const bool ShowOverviewCommandButton = Context.ShowOverviewCommandButton;
-    const bool ShowCitizenProfile = Context.ShowCitizenProfile;
+    const float OuterTop = Context.Panel.OuterTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float PanelHeight = Context.Panel.Height;
+    const float BudgetMargin = Context.Budget.Margin;
+    const float ActionTop = Context.Actions.Top;
+    const bool ShowActions = Context.Flags.ShowActions;
+    const bool ShowAnyOverview = Context.Flags.ShowAnyOverview;
+    const bool ShowInformationParagraphs = Context.Flags.ShowInformationParagraphs;
+    const bool ShowOverviewCommandButton = Context.Flags.ShowOverviewCommandButton;
+    const bool ShowCitizenProfile = Context.Flags.ShowCitizenProfile;
     const float ActionBtnH = UIConfig::BuildingActionButtonHeight;
     const float ActionBtnW = UIConfig::BuildingActionButtonWidth;
     auto ApplyButtonChildFontSize = [](const std::weak_ptr<CButton>& Button, float FontSize)
@@ -2687,38 +2132,38 @@ void FCitizenInfoRenderer::RefreshBodyLayout(
 {
     auto Widget = Owner.GetRendererView();
     const auto& Layout = Context.Metrics;
-    const float OuterTop = Context.OuterTop;
-    const float PanelWidth = Context.PanelWidth;
-    const float PanelHeight = Context.PanelHeight;
-    const float RibbonOffsetY = Context.RibbonOffsetY;
-    const float TitleRibbonH = Context.TitleRibbonHeight;
-    const float SectionRibbonY = Context.SectionRibbonY;
-    const float SectionRibbonH = Context.SectionRibbonHeight;
-    const bool ShowSectionRibbon = Context.ShowSectionRibbon;
-    const bool ShowCitizenProfile = Context.ShowCitizenProfile;
-    const bool ShowCitizenPolitics = Context.ShowCitizenPolitics;
-    const bool ShowCitizenThoughts = Context.ShowCitizenThoughts;
-    const bool ShowAnyOverview = Context.ShowAnyOverview;
-    const bool ShowCompactRows = Context.ShowCompactRows;
-    const bool ShowUpgradeCard = Context.ShowUpgradeCard;
-    const bool ShowActions = Context.ShowActions;
-    const bool ShowInformationParagraphs = Context.ShowInformationParagraphs;
-    const float BudgetButtonTop = Context.BudgetButtonTop;
-    const float BudgetButtonH = Context.BudgetButtonHeight;
-    const float BudgetBaseY = Context.BudgetBaseY;
-    const float BudgetMargin = Context.BudgetMargin;
-    const float ActionTop = Context.ActionTop;
+    const float OuterTop = Context.Panel.OuterTop;
+    const float PanelWidth = Context.Panel.Width;
+    const float PanelHeight = Context.Panel.Height;
+    const float RibbonOffsetY = Context.Ribbon.OffsetY;
+    const float TitleRibbonH = Context.Ribbon.TitleHeight;
+    const float SectionRibbonY = Context.Ribbon.SectionY;
+    const float SectionRibbonH = Context.Ribbon.SectionHeight;
+    const bool ShowSectionRibbon = Context.Flags.ShowSectionRibbon;
+    const bool ShowCitizenProfile = Context.Flags.ShowCitizenProfile;
+    const bool ShowCitizenPolitics = Context.Flags.ShowCitizenPolitics;
+    const bool ShowCitizenThoughts = Context.Flags.ShowCitizenThoughts;
+    const bool ShowAnyOverview = Context.Flags.ShowAnyOverview;
+    const bool ShowCompactRows = Context.Flags.ShowCompactRows;
+    const bool ShowUpgradeCard = Context.Flags.ShowUpgradeCard;
+    const bool ShowActions = Context.Flags.ShowActions;
+    const bool ShowInformationParagraphs = Context.Flags.ShowInformationParagraphs;
+    const float BudgetButtonTop = Context.Budget.ButtonTop;
+    const float BudgetButtonH = Context.Budget.ButtonHeight;
+    const float BudgetBaseY = Context.Budget.BaseY;
+    const float BudgetMargin = Context.Budget.Margin;
+    const float ActionTop = Context.Actions.Top;
     int VisibleMetricRowCount = 0;
 
     if (ShowCompactRows)
     {
+        auto& ActiveLabels = Context.Flags.ShowStatsMetricRows ?
+            Widget.mStatsMetricLabels : Widget.mEfficiencyMetricLabels;
         for (int Index = 0;
             Index < CCitizenInfoWidget::GOverviewMetricRowCount;
             ++Index)
         {
-            auto Label =
-                Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock();
-
+            auto Label = ActiveLabels[static_cast<size_t>(Index)].lock();
             if (Label && Label->GetEnable())
                 ++VisibleMetricRowCount;
         }
@@ -2727,7 +2172,7 @@ void FCitizenInfoRenderer::RefreshBodyLayout(
     const float CompactMetricsBottom =
         SectionRibbonY + SectionRibbonH +
         12.f +
-        static_cast<float>(VisibleMetricRowCount) * GCompactMetricRowHeight;
+        static_cast<float>(VisibleMetricRowCount) * UIConfig::BuildingCompactMetricRowHeight;
     const float InformationBaseTop =
         ShowSectionRibbon ?
             (SectionRibbonY + SectionRibbonH) :
@@ -2748,10 +2193,17 @@ void FCitizenInfoRenderer::RefreshBodyLayout(
         ShowActions ? (ActionTop - Layout.BodyGapBeforeActions) :
         (OuterTop + PanelHeight - Layout.BodyBottomInset);
 
+    const bool ShowStatsMetricRows = Context.Flags.ShowStatsMetricRows;
+    const bool ShowEfficiencyMetricRows = Context.Flags.ShowEfficiencyMetricRows;
+    const bool HideSharedBody =
+        ShowCitizenProfile || ShowCitizenPolitics ||
+        ShowCitizenThoughts || ShowAnyOverview ||
+        ShowStatsMetricRows || ShowEfficiencyMetricRows ||
+        ShowUpgradeCard;
+
     if (auto BodyText = Widget.mBodyText.lock())
     {
-        if (ShowCitizenProfile || ShowCitizenPolitics ||
-            ShowCitizenThoughts || ShowAnyOverview)
+        if (HideSharedBody)
         {
             BodyText->SetPos(0.f, 0.f);
             BodyText->SetSize(0.f, 0.f);
@@ -2763,6 +2215,32 @@ void FCitizenInfoRenderer::RefreshBodyLayout(
                 PanelWidth - BudgetMargin * 2.f,
                 (std::max)(80.f, BodyBottom - BodyTop));
         }
+    }
+
+    const float TabBodyW = PanelWidth - BudgetMargin * 2.f;
+    const float TabBodyH = (std::max)(80.f, BodyBottom - BodyTop);
+
+    // 탭별 body text 위치 설정
+    if (auto Text = Widget.mStatsBodyText.lock())
+    {
+        if (ShowStatsMetricRows)
+        { Text->SetPos(BudgetMargin, BodyTop); Text->SetSize(TabBodyW, TabBodyH); }
+        else
+        { Text->SetPos(0.f, 0.f); Text->SetSize(0.f, 0.f); }
+    }
+    if (auto Text = Widget.mUpgradeBodyText.lock())
+    {
+        if (ShowUpgradeCard)
+        { Text->SetPos(BudgetMargin, BodyTop); Text->SetSize(TabBodyW, TabBodyH); }
+        else
+        { Text->SetPos(0.f, 0.f); Text->SetSize(0.f, 0.f); }
+    }
+    if (auto Text = Widget.mEfficiencyBodyText.lock())
+    {
+        if (ShowEfficiencyMetricRows)
+        { Text->SetPos(BudgetMargin, BodyTop); Text->SetSize(TabBodyW, TabBodyH); }
+        else
+        { Text->SetPos(0.f, 0.f); Text->SetSize(0.f, 0.f); }
     }
 }
 

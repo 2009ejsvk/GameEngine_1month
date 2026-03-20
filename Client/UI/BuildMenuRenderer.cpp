@@ -95,8 +95,8 @@ void FBuildMenuRenderer::ApplySnapshot(
         ApplyButtonTextureSet(
             Button,
             "BuildMenuSlotCardRefresh_" + std::to_string(i),
-            Slot.Previewed ? GSlotCardSelectedTexture : GSlotCardTexture,
-            Slot.Previewed ? GSlotCardSelectedTexture : GSlotCardHoverTexture,
+            GSlotCardTexture,
+            GSlotCardHoverTexture,
             GSlotCardSelectedTexture,
             GSlotCardDisabledTexture);
 

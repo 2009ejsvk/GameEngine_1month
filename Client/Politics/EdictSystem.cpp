@@ -248,6 +248,12 @@ namespace
             AddFactionApproval(Effect, EPoliticalFaction::Communists, 5);
             AddFactionApproval(Effect, EPoliticalFaction::Capitalists, -3);
             break;
+        case EGovernmentEdictType::AdvancedBoatServices:
+            Effect.HarborUpkeepMultiplier = 1.20f;
+            Effect.HarborShipProgressMultiplier = 1.25f;
+            AddFactionApproval(Effect, EPoliticalFaction::Capitalists, 4);
+            AddFactionApproval(Effect, EPoliticalFaction::Industrialists, 3);
+            break;
         default:
             break;
         }
@@ -534,6 +540,22 @@ namespace
                 0,
                 0);
             return true;
+        case EGovernmentEdictType::AdvancedBoatServices:
+            OutDefinition = MakeImplementedEdict(
+                Type,
+                Era,
+                EGovernmentEdictMode::Passive,
+                EPoliticalActionType::None,
+                DisplayName,
+                L"항구 시설의 유지비가 오르지만 선박 속도가 빨라져 수출이 빈번해집니다.",
+                L"항구 건물 유지비 +20%, 수출 선박 속도 +25%",
+                IconPath,
+                2500,
+                0,
+                180,
+                0,
+                0);
+            return true;
         default:
             break;
         }
@@ -668,7 +690,7 @@ namespace
                 EGovernmentEdictType::StateLoans,
                 EEdictEra::WorldWars,
                 L"국가 대출",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_printMoney.png")),
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_stateLoans.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::WealthTax,
                 EEdictEra::WorldWars,
@@ -682,8 +704,8 @@ namespace
             MakePlaceholderEdict(
                 EGovernmentEdictType::EarlyElections,
                 EEdictEra::WorldWars,
-                L"조기선거",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_earlyElections.png")),
+                L"조기 선거",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_earlyElections.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::LiteracyProgram,
                 EEdictEra::WorldWars,
@@ -719,8 +741,8 @@ namespace
             MakePlaceholderEdict(
                 EGovernmentEdictType::BellsToBullets,
                 EEdictEra::WorldWars,
-                L"종을 총알로",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_bellsToBullets.png")),
+                L"총알로 만든 종",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_bellsToBullets.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::MilitaryPolice,
                 EEdictEra::WorldWars,
@@ -729,8 +751,8 @@ namespace
             MakePlaceholderEdict(
                 EGovernmentEdictType::Volkswagen,
                 EEdictEra::WorldWars,
-                L"공짜 자동차",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_volksWagen.png")),
+                L"국민차 보급",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_volksWagen.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::RightToArms,
                 EEdictEra::WorldWars,
@@ -750,13 +772,13 @@ namespace
             MakePlaceholderEdict(
                 EGovernmentEdictType::NuclearTesting,
                 EEdictEra::ColdWar,
-                L"핵실험",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_nuclearTesting.png")),
+                L"핵 실험",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_nuclearTesting.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::GoodOldDays,
                 EEdictEra::ColdWar,
-                L"옛날이 좋았지",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_goodOldDays.png")),
+                L"좋았던 옛 시절",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_goodOldDays.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::ExperimentalGroundTreatment,
                 EEdictEra::ColdWar,
@@ -765,8 +787,8 @@ namespace
             MakePlaceholderEdict(
                 EGovernmentEdictType::MandatoryWasteSorting,
                 EEdictEra::ColdWar,
-                L"분리수거 의무화",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_mandatoryWasteSorting.png")),
+                L"쓰레기 분리수거 의무화",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_mandatoryWasteSorting.png")),
             MakeImplementedEdict(
                 EGovernmentEdictType::DiplomaticSuperParty,
                 EEdictEra::ColdWar,
@@ -837,83 +859,49 @@ namespace
             MakePlaceholderEdict(
                 EGovernmentEdictType::MadeInTropico,
                 EEdictEra::ColdWar,
-                L"트로피코산",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_MadeIn.png")),
+                L"트로피코산 제품",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_madeInTropico.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::SocialSecurity,
                 EEdictEra::ColdWar,
-                L"사회보장",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_socialSecurity.png")),
+                L"사회 보장",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_socialSecurity.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::MoneyLaundering,
                 EEdictEra::ColdWar,
                 L"자금 세탁",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_moneylaundering3.png")),
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_moneyLaundering.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::HearTheCall,
-                EEdictEra::ColdWar,
-                L"부름을 들어라!",
-                TEXT("TROPICO_ASSET\\Blueprints\\Edict\\DLC_Future\\T_ICO_edict_HearTheCall.png")),
-            MakeImplementedEdict(
+                EEdictEra::Modern,
+                L"부름에 응하라",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_hearTheCall.png")),
+            MakePlaceholderEdict(
                 EGovernmentEdictType::LaborTaxRelief,
                 EEdictEra::ColdWar,
-                EGovernmentEdictMode::Active,
-                EPoliticalActionType::LaborTaxRelief,
                 L"근로세 경감",
-                L"근로층 세금 파업에 대응해 소득세를 즉시 낮추고 고용 불만을 진정시킵니다.",
-                L"근로층 세금 파업 발생 중에만 시행 가능, 소득세 4%p 인하, 파업 즉시 진정, 4개월 동안 직업/자유 완화",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_taxCut.png"),
-                2500,
-                6,
-                0,
-                120,
-                360,
-                {
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Left, 6.0f),
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Right, -2.5f),
-                    MakeSignal(EPoliticalAxis::IntellectualConservative,
-                        EPoliticalStance::Left, 1.5f)
-                }),
-            MakeImplementedEdict(
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_taxCut.png")),
+            MakePlaceholderEdict(
                 EGovernmentEdictType::PropertyTaxRelief,
                 EEdictEra::ColdWar,
-                EGovernmentEdictMode::Active,
-                EPoliticalActionType::PropertyTaxRelief,
                 L"재산세 유예",
-                L"주거층 재산세 반발에 대응해 재산세를 낮추고 주거 불만을 완화합니다.",
-                L"재산세 반발 발생 중에만 시행 가능, 재산세 10%p 인하, 반발 즉시 진정, 4개월 동안 주거 완화",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_freeHousing.png"),
-                3200,
-                5,
-                0,
-                120,
-                420,
-                {
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Left, 7.0f),
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Right, -3.0f),
-                    MakeSignal(EPoliticalAxis::IntellectualConservative,
-                        EPoliticalStance::Right, 2.0f)
-                }),
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_freeHousing.png")),
 
             MakePlaceholderEdict(
                 EGovernmentEdictType::ContraceptionBan,
                 EEdictEra::Modern,
                 L"피임 금지",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_contraceptionBan.png")),
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_contraceptionBan.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::LegalizedSubstances,
                 EEdictEra::Modern,
-                L"약물 합법화",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_legalizedSubstances.png")),
+                L"마약 합법화",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_legalizedSubstances.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::CulturalDiversity,
                 EEdictEra::Modern,
-                L"다문화 정책",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_culturalDiversity.png")),
+                L"문화 다양성",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_culturalDiversity.png")),
             MakeImplementedEdict(
                 EGovernmentEdictType::TaxHeaven,
                 EEdictEra::Modern,
@@ -942,8 +930,8 @@ namespace
             MakePlaceholderEdict(
                 EGovernmentEdictType::Speedway,
                 EEdictEra::Modern,
-                L"경주장",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_speedway.png")),
+                L"과속 도로",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_speedway.png")),
             MakePlaceholderEdict(
                 EGovernmentEdictType::CompulsoryVaccination,
                 EEdictEra::Modern,
@@ -1022,72 +1010,25 @@ namespace
             MakePlaceholderEdict(
                 EGovernmentEdictType::SoapOpera,
                 EEdictEra::Modern,
-                L"우주 연속극",
-                TEXT("TROPICO_ASSET\\Blueprints\\Edict\\DLC_Future\\T_ICO_edict_SoapOpera.png")),
-            MakeImplementedEdict(
+                L"막장 드라마",
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_soapOpera.png")),
+            MakePlaceholderEdict(
                 EGovernmentEdictType::EmergencyAusterity,
                 EEdictEra::Modern,
-                EGovernmentEdictMode::Active,
-                EPoliticalActionType::AusterityProgram,
                 L"긴축 예산",
-                L"국고 위기 경보에 대응해 긴급 자금을 투입하고 단기 긴축 체제로 전환합니다.",
-                L"국고 위기 발생 중에만 시행 가능, 즉시 자금 투입, 위기 즉시 진정, 4개월 동안 일일 재정 개선과 자유/직업 압박",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_printMoney.png"),
-                4500,
-                4,
-                0,
-                120,
-                480,
-                {
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Left, 2.0f),
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Right, -4.5f),
-                    MakeSignal(EPoliticalAxis::IntellectualConservative,
-                        EPoliticalStance::Right, 5.5f)
-                }),
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_printMoney.png")),
 
-            MakeImplementedEdict(
+            MakePlaceholderEdict(
                 EGovernmentEdictType::LaborNegotiation,
                 EEdictEra::ColdWar,
-                EGovernmentEdictMode::Active,
-                EPoliticalActionType::LaborNegotiation,
                 L"노동자 협상",
-                L"총파업 중 노동 지도부와 협상해 파업을 즉시 종식시킵니다.",
-                L"총파업 발생 중에만 시행 가능, 즉시 파업 종료, 후속 연쇄 위기 차단, 60일 재사용 대기시간",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_taxCut.png"),
-                1200,
-                0,
-                0,
-                0,
-                60,
-                {
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Left, 5.0f),
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Right, -2.0f)
-                }),
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_taxCut.png")),
 
-            MakeImplementedEdict(
+            MakePlaceholderEdict(
                 EGovernmentEdictType::EmergencyWelfareSupport,
                 EEdictEra::WorldWars,
-                EGovernmentEdictMode::Active,
-                EPoliticalActionType::WelfareSupport,
                 L"긴급 민생 지원",
-                L"긴급 예산을 투입해 음식·주거·유흥 만족도를 단기간 끌어올립니다.",
-                L"30일간 음식·주거·유흥 만족도 +10 부스트, 6개월 재사용 대기시간",
-                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_freeHousing.png"),
-                800,
-                0,
-                0,
-                30,
-                180,
-                {
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Left, 4.0f),
-                    MakeSignal(EPoliticalAxis::Economy,
-                        EPoliticalStance::Right, -1.5f)
-                })
+                TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_freeHousing.png"))
         };
 
         return Definitions;

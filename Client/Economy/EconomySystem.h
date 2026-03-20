@@ -39,7 +39,8 @@ namespace EconomySystem
         CWorld* World,
         int DaysInMonth,
         const FGovernmentProfile& GovernmentProfile,
-        const FTaxPolicyEventStatus* TaxEventStatus = nullptr);
+        const FTaxPolicyEventStatus* TaxEventStatus = nullptr,
+        const FGovernmentEdictModifiers* EdictModifiers = nullptr);
 
     FWorldSettlementResult ApplyDailyWorldSettlement(
         CWorld* World,

@@ -59,7 +59,8 @@ namespace EconomyWorldAccess
         virtual long long GetDailyWageCost(int DaysInMonth) const = 0;
         virtual long long GetDailyUpkeepCost(int DaysInMonth) const = 0;
         virtual bool AdvanceHarborShipProgressAndCheckArrival(
-            int DaysInMonth) = 0;
+            int DaysInMonth,
+            float EdictMultiplier = 1.f) = 0;
         virtual void ApplyDailyWarehouseStorageLoss() = 0;
     };
 

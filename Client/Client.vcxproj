@@ -252,6 +252,9 @@
     <ClCompile Include="UI\AlmanacRendererPopulationPage.cpp" />
     <ClCompile Include="UI\AlmanacRendererPagesEconomy.cpp" />
     <ClCompile Include="UI\AlmanacRendererPagesCore.cpp" />
+    <ClCompile Include="UI\AlmanacRendererPagesOverview.cpp" />
+    <ClCompile Include="UI\AlmanacRendererPagesSatisfaction.cpp" />
+    <ClCompile Include="UI\AlmanacRendererPagesResource.cpp" />
     <ClCompile Include="UI\EdictDataProvider.cpp" />
     <ClCompile Include="UI\EdictRenderer.cpp" />
     <ClCompile Include="UI\EdictRendererCreate.cpp" />
@@ -270,12 +273,15 @@
     <ClCompile Include="UI\CitizenInfoDataProviderCitizen.cpp" />
     <ClCompile Include="UI\CitizenInfoInteractionService.cpp" />
     <ClCompile Include="UI\CitizenInfoPresentation.cpp" />
+    <ClCompile Include="UI\CitizenInfoPresentationBuilding.cpp" />
     <ClCompile Include="UI\CitizenInfoPresentationBuildingBody.cpp" />
+    <ClCompile Include="UI\CitizenInfoPresentationCatalog.cpp" />
     <ClCompile Include="UI\CitizenInfoPresentationCitizen.cpp" />
-    <ClCompile Include="UI\CitizenInfoPresentationFormatting.cpp" />
+    <ClCompile Include="UI\CitizenInfoPresentationWorker.cpp" />
     <ClCompile Include="UI\CitizenInfoQueryService.cpp" />
     <ClCompile Include="UI\CitizenInfoRenderer.cpp" />
     <ClCompile Include="UI\CitizenInfoRendererCreate.cpp" />
+    <ClCompile Include="UI\CitizenInfoLayoutCalculator.cpp" />
     <ClCompile Include="UI\CitizenInfoRendererLayout.cpp" />
     <ClCompile Include="UI\TropicoUiAssetCatalog.cpp" />
     <ClCompile Include="UI\TropicoUiTheme.cpp" />
@@ -296,6 +302,9 @@
     <ClCompile Include="UI\WorldHUD.cpp" />
     <ClCompile Include="World\EditorWorld.cpp" />
     <ClCompile Include="World\BuildMenuWorldQuerySource.cpp" />
+    <ClCompile Include="World\CitizenInfoBuildingQuery.cpp" />
+    <ClCompile Include="World\CitizenInfoCitizenQuery.cpp" />
+    <ClCompile Include="World\CitizenInfoTradeQuery.cpp" />
     <ClCompile Include="World\CitizenInfoWorldInteractionSource.cpp" />
     <ClCompile Include="World\CitizenInfoWorldQuerySource.cpp" />
     <ClCompile Include="World\EconomyWorldAccess.cpp" />
@@ -310,6 +319,7 @@
     <ClCompile Include="World\WorldUIAccess.cpp" />
     <ClCompile Include="World\MainWorldElectionService.cpp" />
     <ClCompile Include="World\MainWorldInfrastructureRuntime.cpp" />
+    <ClCompile Include="World\FactionDemandTuning.cpp" />
     <ClCompile Include="World\MainWorldPoliticalDemandService.cpp" />
     <ClCompile Include="World\ScenarioRunner.cpp" />
     <ClCompile Include="World\MainWorldWorldCrisisService.cpp" />
@@ -394,6 +404,7 @@
     <ClInclude Include="UI\AlmanacRendererFormatting.h" />
     <ClInclude Include="UI\AlmanacRenderer.h" />
     <ClInclude Include="UI\AlmanacRendererInternal.h" />
+    <ClInclude Include="UI\AlmanacRendererPagesCoreShared.h" />
     <ClInclude Include="UI\AlmanacRendererPopulationPage.h" />
     <ClInclude Include="UI\AlmanacRendererWidgetHelpers.h" />
     <ClInclude Include="UI\EdictDataProvider.h" />
@@ -414,6 +425,7 @@
     <ClInclude Include="UI\CitizenInfoPresentation.h" />
     <ClInclude Include="UI\CitizenInfoPresentationInternal.h" />
     <ClInclude Include="UI\CitizenInfoQueryService.h" />
+    <ClInclude Include="UI\CitizenInfoLayoutMetrics.h" />
     <ClInclude Include="UI\CitizenInfoRenderer.h" />
     <ClInclude Include="UI\CitizenInfoRendererInternal.h" />
     <ClInclude Include="UI\CitizenInfoSnapshot.h" />
@@ -429,6 +441,9 @@
     <ClInclude Include="UI\UILayoutApplier.h" />
     <ClInclude Include="UI\UILayoutLoader.h" />
     <ClInclude Include="UI\UILayoutValues.h" />
+    <ClInclude Include="UI\UIEnumLabels.h" />
+    <ClInclude Include="UI\UIStringShorthand.h" />
+    <ClInclude Include="UI\DescriptionFileUtils.h" />
     <ClInclude Include="UI\TropicoUiAssetCatalog.h" />
     <ClInclude Include="UI\TropicoUiTheme.h" />
     <ClInclude Include="UI\TropicoUiStyle.h" />
@@ -446,6 +461,7 @@
     <ClInclude Include="World\BuildMenuWorldQuerySource.h" />
     <ClInclude Include="World\CitizenInfoWorldInteractionSource.h" />
     <ClInclude Include="World\CitizenInfoWorldQuerySource.h" />
+    <ClInclude Include="World\CitizenInfoWorldQuerySourceInternal.h" />
     <ClInclude Include="World\EconomyWorldAccess.h" />
     <ClInclude Include="World\GovernmentCommandService.h" />
     <ClInclude Include="World\LoadingWorld.h" />
@@ -461,6 +477,7 @@
     <ClInclude Include="World\IWorldUIAccess.h" />
     <ClInclude Include="World\MainWorldElectionService.h" />
     <ClInclude Include="World\MainWorldInfrastructureRuntime.h" />
+    <ClInclude Include="World\FactionDemandTuning.h" />
     <ClInclude Include="World\MainWorldPoliticalDemandService.h" />
     <ClInclude Include="World\ScenarioRunner.h" />
     <ClInclude Include="World\MainWorldWorldCrisisService.h" />
@@ -479,8 +496,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />
+    <None Include="..\Binary\AlmanacPageData.ini" />
+    <None Include="..\Binary\Edicts.ini" />
+    <None Include="..\Binary\EraConfig.ini" />
     <None Include="..\Binary\GameBalance.ini" />
+    <None Include="..\Binary\GameConstants.ini" />
+    <None Include="..\Binary\PopupConfig.ini" />
     <None Include="..\Binary\UIAssets.ini" />
+    <None Include="..\Binary\UIStrings.ini" />
     <None Include="..\Binary\UITheme.ini" />
     <None Include="..\Binary\UILayout.ini" />
     <None Include="..\Binary\UIWidgetOverrideTemplate.ini" />
@@ -499,6 +522,9 @@
     <None Include="..\Binary\UILayout\13_WidgetOverrides_TaskWidget.ini" />
     <None Include="..\Binary\UILayout\14_WidgetOverrides_Constitution.ini" />
     <None Include="..\Binary\UILayout\15_WidgetOverrides_Constitution_Integrated.ini" />
+    <None Include="..\Binary\UILayout\16_WidgetOverrides_Event_BuildMenu.ini" />
+    <None Include="..\Binary\UILayout\17_WidgetOverrides_TopHud_Left.ini" />
+    <None Include="..\Binary\UILayout\18_WidgetOverrides_Harbor.ini" />
     <None Include="Copy.bat" />
   </ItemGroup>
   <ItemGroup>

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Object/GameObject.h"
+#include "Vector2.h"
 #include <string>
 
 class CBuildingVisual : public CGameObject
@@ -28,8 +29,17 @@ public:
 		mBuilding = Building;
 	}
 
+	std::shared_ptr<class CPlacementAreaObject> GetBuilding() const
+	{
+		return mBuilding.lock();
+	}
+
 	virtual bool Init() override;
 	virtual void Update(float DeltaTime) override;
+	bool TryGetProjectedScreenBounds(
+		FVector2& OutMin,
+		FVector2& OutMax,
+		FVector2& OutCenter) const;
 
 private:
 	void SyncVisuals();

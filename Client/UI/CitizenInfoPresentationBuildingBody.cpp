@@ -1,4 +1,5 @@
 #include "CitizenInfoPresentationInternal.h"
+#include "UIEnumLabels.h"
 #include "UIStrings.h"
 #include "../Building/BuildingCatalog.h"
 #include <algorithm>
@@ -8,12 +9,15 @@ using namespace CitizenInfoPresentationInternal;
 
 namespace CitizenInfoPresentation
 {
-    std::wstring BuildOverviewBody(const FBuildingUiSnapshot& Snapshot)
+    namespace
     {
-        std::wstring Body;
-
-        if (!Snapshot.OperationModes.empty())
+        void AppendOperationModeSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            if (Snapshot.OperationModes.empty())
+                return;
+
             AppendLine(Body, Ui(L"citizen_info.section.operation_modes"));
             AppendLine(
                 Body,
@@ -33,13 +37,19 @@ namespace CitizenInfoPresentation
                 AppendLine(Body, L"  " + BuildKnowledgeSummaryText(Snapshot));
         }
 
-        if (Snapshot.DamageLevel != EBuildingDamageLevel::None)
+        void AppendDamageSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            if (Snapshot.DamageLevel == EBuildingDamageLevel::None)
+                return;
+
             AppendLine(Body, L"");
             AppendKeyValueByKey(
                 Body,
                 L"citizen_info.label.damage_status",
-                GetDamageLevelDisplayName(Snapshot.DamageLevel));
+                UIEnumLabels::GetBuildingDamageLevelDisplayName(
+                    Snapshot.DamageLevel));
             AppendKeyValueByKey(
                 Body,
                 L"citizen_info.label.damage_efficiency",
@@ -56,8 +66,13 @@ namespace CitizenInfoPresentation
             }
         }
 
-        if (Snapshot.Residential)
+        void AppendResidentialSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            if (!Snapshot.Residential)
+                return;
+
             AppendLine(Body, L"");
             AppendLine(
                 Body,
@@ -70,8 +85,14 @@ namespace CitizenInfoPresentation
                 L"citizen_info.label.household_capacity",
                 Snapshot.HouseholdCapacityText);
         }
-        else if (Snapshot.WorkProvider)
+
+        void AppendWorkProviderSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            if (Snapshot.Residential || !Snapshot.WorkProvider)
+                return;
+
             AppendLine(Body, L"");
             AppendLine(
                 Body,
@@ -90,18 +111,19 @@ namespace CitizenInfoPresentation
                 Snapshot.JobQualityText);
         }
 
-        if (Snapshot.CatalogEntry)
+        void AppendCatalogSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            if (!Snapshot.CatalogEntry)
+                return;
+
             AppendKeyValueByKey(
                 Body,
                 L"citizen_info.label.production",
                 ResolveSupplyChainSummaryText(Snapshot));
 
-            if (HasProductionInputRecords(Snapshot))
-            {
-                AppendLine(Body, L"");
-                AppendProductionInputLines(Body, Snapshot);
-            }
+
 
             if (Snapshot.CatalogEntry->HousingClass !=
                 EBuildingHousingClass::None)
@@ -114,11 +136,18 @@ namespace CitizenInfoPresentation
             }
         }
 
-        if (Snapshot.FoodProvider ||
-            Snapshot.EntertainmentProvider ||
-            Snapshot.HealthProvider ||
-            Snapshot.FaithProvider)
+        void AppendServiceSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            if (!Snapshot.FoodProvider &&
+                !Snapshot.EntertainmentProvider &&
+                !Snapshot.HealthProvider &&
+                !Snapshot.FaithProvider)
+            {
+                return;
+            }
+
             AppendLine(Body, L"");
             AppendLine(Body, Ui(L"citizen_info.section.service"));
 
@@ -146,14 +175,21 @@ namespace CitizenInfoPresentation
                 Snapshot.TouristPreferenceText);
         }
 
-        const std::wstring RequiredPowerText =
-            ResolveRequiredPowerDisplayText(Snapshot);
-        const std::wstring ProducedPowerText =
-            ResolveProducedPowerDisplayText(Snapshot);
-
-        if (!RequiredPowerText.empty() ||
-            !ProducedPowerText.empty())
+        void AppendPowerSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            const std::wstring RequiredPowerText =
+                ResolveRequiredPowerDisplayText(Snapshot);
+            const std::wstring ProducedPowerText =
+                ResolveProducedPowerDisplayText(Snapshot);
+
+            if (RequiredPowerText.empty() &&
+                ProducedPowerText.empty())
+            {
+                return;
+            }
+
             AppendLine(Body, L"");
             AppendLine(Body, Ui(L"citizen_info.section.power"));
             AppendKeyValueByKey(
@@ -175,10 +211,17 @@ namespace CitizenInfoPresentation
             }
         }
 
-        if (Snapshot.PollutionOutput > 0 ||
-            Snapshot.PollutionMitigation > 0 ||
-            Snapshot.LocalPollutionExposure > 0)
+        void AppendEnvironmentSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            if (Snapshot.PollutionOutput <= 0 &&
+                Snapshot.PollutionMitigation <= 0 &&
+                Snapshot.LocalPollutionExposure <= 0)
+            {
+                return;
+            }
+
             AppendLine(Body, L"");
             AppendLine(Body, Ui(L"citizen_info.section.environment"));
             AppendKeyValueByKey(
@@ -195,11 +238,18 @@ namespace CitizenInfoPresentation
                 std::to_wstring(Snapshot.LocalPollutionExposure));
         }
 
-        if (Snapshot.UsesResourceStock ||
-            Snapshot.Warehouse ||
-            !Snapshot.LogisticsLines.empty() ||
-            Snapshot.Harbor)
+        void AppendStorageLogisticsSection(
+            std::wstring& Body,
+            const FBuildingUiSnapshot& Snapshot)
         {
+            if (!Snapshot.UsesResourceStock &&
+                !Snapshot.Warehouse &&
+                Snapshot.LogisticsLines.empty() &&
+                !Snapshot.Harbor)
+            {
+                return;
+            }
+
             AppendLine(Body, L"");
             AppendLine(Body, Ui(L"citizen_info.section.storage_logistics"));
 
@@ -264,19 +314,41 @@ namespace CitizenInfoPresentation
             }
         }
 
-        if (!Snapshot.EffectText.empty())
+        void AppendNarrativeSection(
+            std::wstring& Body,
+            const wchar_t* TitleKey,
+            const std::wstring& Text)
         {
-            AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.main_effect"));
-            AppendLine(Body, Snapshot.EffectText);
-        }
+            if (Text.empty())
+                return;
 
-        if (!Snapshot.NoteText.empty())
-        {
             AppendLine(Body, L"");
-            AppendLine(Body, Ui(L"citizen_info.section.note"));
-            AppendLine(Body, Snapshot.NoteText);
+            AppendLine(Body, Ui(TitleKey));
+            AppendLine(Body, Text);
         }
+    }
+
+    std::wstring BuildOverviewBody(const FBuildingUiSnapshot& Snapshot)
+    {
+        std::wstring Body;
+
+        AppendOperationModeSection(Body, Snapshot);
+        AppendDamageSection(Body, Snapshot);
+        AppendResidentialSection(Body, Snapshot);
+        AppendWorkProviderSection(Body, Snapshot);
+        AppendCatalogSection(Body, Snapshot);
+        AppendServiceSection(Body, Snapshot);
+        AppendPowerSection(Body, Snapshot);
+        AppendEnvironmentSection(Body, Snapshot);
+        AppendStorageLogisticsSection(Body, Snapshot);
+        AppendNarrativeSection(
+            Body,
+            L"citizen_info.section.main_effect",
+            Snapshot.EffectText);
+        AppendNarrativeSection(
+            Body,
+            L"citizen_info.section.note",
+            Snapshot.NoteText);
 
         return Body.empty() ?
             UIStrings::Get(L"citizen_info.building.data_pending") :
@@ -292,7 +364,8 @@ namespace CitizenInfoPresentation
             AppendLine(
                 Body,
                 Ui(L"citizen_info.label.damage_status") + L": " +
-                GetDamageLevelDisplayName(Snapshot.DamageLevel));
+                UIEnumLabels::GetBuildingDamageLevelDisplayName(
+                    Snapshot.DamageLevel));
             AppendLine(
                 Body,
                 Ui(L"citizen_info.label.damage_efficiency") + L": " +
@@ -383,11 +456,7 @@ namespace CitizenInfoPresentation
                 AppendLine(Body, L"");
                 AppendProductionFlowLines(Body, Snapshot);
             }
-            if (HasProductionInputRecords(Snapshot))
-            {
-                AppendLine(Body, L"");
-                AppendProductionInputLines(Body, Snapshot);
-            }
+
             AppendProducedResourceTradeLines(Body, Snapshot);
         }
 
@@ -665,7 +734,8 @@ namespace CitizenInfoPresentation
             AppendLine(
                 Body,
                 Ui(L"citizen_info.label.damage_status") + L": " +
-                GetDamageLevelDisplayName(Snapshot.DamageLevel));
+                UIEnumLabels::GetBuildingDamageLevelDisplayName(
+                    Snapshot.DamageLevel));
             AppendLine(
                 Body,
                 Ui(L"citizen_info.label.damage_efficiency") + L": " +
@@ -679,15 +749,6 @@ namespace CitizenInfoPresentation
             Ui(L"citizen_info.label.budget_scale") +
                 L": " + FormatMultiplier(Snapshot.BudgetScale));
 
-        if (!Snapshot.IsRoad)
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.road_accessibility") + L": " +
-                std::to_wstring(static_cast<int>(roundf(
-                    Snapshot.AccessibilityScore * 100.f))) +
-                L"%");
-        }
 
         if (Snapshot.Residential)
         {
@@ -793,13 +854,13 @@ namespace CitizenInfoPresentation
         AppendKeyValueByKey(
             Body,
             L"citizen_info.label.blueprint_cost",
-            FormatCatalogCostValue(
+            CitizenInfoPresentation::FormatCatalogCostValue(
                 Snapshot.BlueprintCostState,
                 Snapshot.BlueprintCost));
         AppendKeyValueByKey(
             Body,
             L"citizen_info.label.construction_cost",
-            FormatCatalogCostValue(
+            CitizenInfoPresentation::FormatCatalogCostValue(
                 Snapshot.ConstructionCostState,
                 Snapshot.ConstructionCost));
         AppendKeyValueByKey(
@@ -858,11 +919,7 @@ namespace CitizenInfoPresentation
                     ResolveSupplyChainSummaryText(Snapshot));
             }
 
-            if (HasProductionInputRecords(Snapshot))
-            {
-                AppendLine(Body, L"");
-                AppendProductionInputLines(Body, Snapshot);
-            }
+
 
             if (Snapshot.CatalogEntry->HousingClass !=
                 EBuildingHousingClass::None)

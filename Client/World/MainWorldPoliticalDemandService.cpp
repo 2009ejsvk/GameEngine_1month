@@ -1,8 +1,15 @@
 #include "MainWorldPoliticalDemandService.h"
+#include "FactionDemandTuning.h"
 #include "MainWorldTradeRuntime.h"
 #include "WorldStatsSnapshot.h"
+#include "../ObjectNames.h"
+#include "../RuntimeConfigRegistry.h"
+#include "../UI/EventWidget.h"
+#include "../UI/UIEnumLabels.h"
 #include "../UI/UIStrings.h"
 #include "../GameConstants.h"
+#include "World/World.h"
+#include <Windows.h>
 #include <algorithm>
 #include <cmath>
 #include <utility>
@@ -15,63 +22,88 @@ namespace
     constexpr int GUltimatumPressureThreshold = 30;
     constexpr int GRevoltPressureThreshold = 60;
     constexpr int GPressureDecayPerSafeDay = 2;
+    constexpr float GTaskCompletePopupSeconds = 5.f;
+    constexpr const wchar_t* GPopupConfigFileName = L"PopupConfig.ini";
+
+    std::wstring BuildPopupConfigPath()
+    {
+        return RuntimeConfigRegistry::BuildExeRelativePath(GPopupConfigFileName);
+    }
+
+    bool IsTaskCompletePopupEnabled()
+    {
+        return GetPrivateProfileIntW(
+            L"TaskComplete",
+            L"Enabled",
+            1,
+            BuildPopupConfigPath().c_str()) != 0;
+    }
+
+    void ShowTaskCompletePopup(
+        const std::shared_ptr<CWorld>& World,
+        const FPoliticalDemandState& Demand)
+    {
+        if (!World || !IsTaskCompletePopupEnabled())
+            return;
+
+        auto UiManager = World->GetUIManager().lock();
+
+        if (!UiManager)
+            return;
+
+        auto EventWidget = UiManager->FindWidget<CEventWidget>(GEventWidgetName).lock();
+
+        if (!EventWidget)
+            return;
+
+        FEventWidgetState& State = EventWidget->GetMutableState();
+
+        if (State.Visible &&
+            State.IssuerType != EPoliticalDemandIssuerType::None)
+        {
+            return;
+        }
+
+        std::wstring Body = Demand.ObjectiveText;
+
+        if (Body.empty())
+            Body = Demand.Title.empty() ? L"진행 중인 임무가 완료되었습니다." : Demand.Title;
+
+        if (!Demand.Summary.empty() && Demand.Summary != Body)
+            Body += L"\n" + Demand.Summary;
+
+        State.Visible = true;
+        State.IssuerType = EPoliticalDemandIssuerType::None;
+        State.IssuerIndex = -1;
+        State.Title = Demand.Title.empty() ? L"임무 완료" : Demand.Title + L" 완료";
+        State.Body = Body;
+        State.AcceptConsequence =
+            Demand.RewardText.empty() ? L"보상이 적용되었습니다." : Demand.RewardText;
+        State.RejectConsequence.clear();
+        State.UseBodyFormulaTermWrap = false;
+        State.BodyFormulaTerms.clear();
+        State.ShowAcceptButton = false;
+        State.ShowRejectButton = false;
+        State.ShowCornerCloseButton = false;
+        State.CornerCloseConfigSection.clear();
+        State.AutoCloseSeconds = GTaskCompletePopupSeconds;
+    }
 
     bool IsFactionAvailableInEra(
         EPoliticalFaction Faction,
         EBuildingEra Era)
     {
-        switch (Era)
-        {
-        case EBuildingEra::Colonial:
-            return false;
-        case EBuildingEra::WorldWars:
-        case EBuildingEra::ColdWar:
-            return Faction != EPoliticalFaction::Intellectuals &&
-                Faction != EPoliticalFaction::Conservatives;
-        case EBuildingEra::Modern:
-        default:
-            return true;
-        }
+        return FactionDemandTuning::IsFactionAvailableInEra(Faction, Era);
     }
 
     int ResolveFaithDemandTargetMax(EBuildingEra Era)
     {
-        switch (Era)
-        {
-        case EBuildingEra::Colonial:
-            return 56;
-        case EBuildingEra::WorldWars:
-            return 68;
-        case EBuildingEra::ColdWar:
-        case EBuildingEra::Modern:
-        default:
-            return 82;
-        }
+        return FactionDemandTuning::ResolveFaithDemandTargetMax(Era);
     }
 
     const wchar_t* GetPoliticalFactionName(EPoliticalFaction Faction)
     {
-        switch (Faction)
-        {
-        case EPoliticalFaction::Communists:
-            return L"공산주의자";
-        case EPoliticalFaction::Capitalists:
-            return L"자본가";
-        case EPoliticalFaction::Religious:
-            return L"종교인";
-        case EPoliticalFaction::Militarists:
-            return L"군부";
-        case EPoliticalFaction::Environmentalists:
-            return L"환경주의자";
-        case EPoliticalFaction::Industrialists:
-            return L"산업주의자";
-        case EPoliticalFaction::Intellectuals:
-            return L"지식인";
-        case EPoliticalFaction::Conservatives:
-            return L"보수주의자";
-        default:
-            return L"세력";
-        }
+        return FactionDemandTuning::GetPoliticalFactionName(Faction);
     }
 
     std::wstring FormatSignedInt(int Value)
@@ -141,57 +173,41 @@ namespace
     const std::wstring& GetPoliticalDemandStageLabel(
         EPoliticalDemandStage Stage)
     {
-        switch (Stage)
-        {
-        case EPoliticalDemandStage::Warning:
-            return UIStrings::Get(L"escalation.stage.warning");
-        case EPoliticalDemandStage::Ultimatum:
-            return UIStrings::Get(L"escalation.stage.ultimatum");
-        case EPoliticalDemandStage::Revolt:
-            return UIStrings::Get(L"escalation.stage.revolt");
-        case EPoliticalDemandStage::Demand:
-        default:
-            return UIStrings::Get(L"escalation.stage.demand");
-        }
+        return UIEnumLabels::GetPoliticalDemandStageLabel(Stage);
     }
 
     const wchar_t* GetFactionWarningSummaryKey(EPoliticalFaction Faction)
     {
-        switch (Faction)
-        {
-        case EPoliticalFaction::Communists:
-            return L"escalation.warning.communists";
-        case EPoliticalFaction::Capitalists:
-            return L"escalation.warning.capitalists";
-        case EPoliticalFaction::Religious:
-            return L"escalation.warning.religious";
-        case EPoliticalFaction::Militarists:
-            return L"escalation.warning.militarists";
-        case EPoliticalFaction::Environmentalists:
-            return L"escalation.warning.environmentalists";
-        case EPoliticalFaction::Industrialists:
-            return L"escalation.warning.industrialists";
-        case EPoliticalFaction::Intellectuals:
-            return L"escalation.warning.intellectuals";
-        case EPoliticalFaction::Conservatives:
-            return L"escalation.warning.conservatives";
-        default:
-            return L"escalation.warning.generic";
-        }
+        return FactionDemandTuning::GetFactionWarningSummaryKey(Faction);
     }
 
-    void RefreshFactionDemandStagePresentation(FPoliticalDemandState& Demand)
+    bool TryGetFactionIssuer(
+        const FPoliticalDemandState& Demand,
+        EPoliticalFaction& OutFaction)
     {
         if (Demand.IssuerType != EPoliticalDemandIssuerType::Faction ||
             Demand.IssuerIndex < 0 ||
             Demand.IssuerIndex >= GPoliticalFactionCount)
+        {
+            return false;
+        }
+
+        OutFaction = static_cast<EPoliticalFaction>(Demand.IssuerIndex);
+        return true;
+    }
+
+    void RefreshFactionDemandStagePresentation(FPoliticalDemandState& Demand)
+    {
+        EPoliticalFaction IssuerFaction = EPoliticalFaction::Communists;
+
+        if (!TryGetFactionIssuer(Demand, IssuerFaction))
         {
             return;
         }
 
         Demand.Title =
             std::wstring(GetPoliticalFactionName(
-                static_cast<EPoliticalFaction>(Demand.IssuerIndex))) +
+                IssuerFaction)) +
             L" " +
             GetPoliticalDemandStageLabel(Demand.Stage);
         Demand.RewardText = BuildPoliticalDemandEffectText(
@@ -375,18 +391,6 @@ namespace
         }
     }
 
-    int GetEraIndex(EBuildingEra Era)
-    {
-        switch (Era)
-        {
-        case EBuildingEra::WorldWars: return 1;
-        case EBuildingEra::ColdWar:   return 2;
-        case EBuildingEra::Modern:    return 3;
-        case EBuildingEra::Colonial:
-        default:                      return 0;
-        }
-    }
-
     bool TryBuildFactionDemand(
         EPoliticalFaction Faction,
         const WorldStats::FWorldStatsSnapshot& Snapshot,
@@ -397,317 +401,35 @@ namespace
         FPoliticalDemandState& OutDemand,
         double& OutPriority)
     {
-        if (!IsFactionAvailableInEra(Faction, CurrentEra))
-            return false;
-
-        const auto& FactionSnapshot =
-            PoliticalSnapshot.Factions[static_cast<size_t>(Faction)];
-
-        const int EraIndex = GetEraIndex(CurrentEra);
-        const float DemandMultiplier =
-            GameConstants::MainWorld::EraDemandThresholdMultipliers[EraIndex];
-        const float MemberMultiplier =
-            GameConstants::MainWorld::EraFactionMemberMinMultipliers[EraIndex];
-        const int ScaledMemberMin = static_cast<int>(
-            static_cast<float>(MWDemand::FactionMemberMinCount) *
-            MemberMultiplier + 0.5f);
-
-        if (FactionSnapshot.MemberCount < ScaledMemberMin ||
-            FactionSnapshot.AverageApproval >=
-                static_cast<double>(MWDemand::FactionApprovalThreshold))
+        if (!FactionDemandTuning::TryBuildFactionDemand(
+                {
+                    Faction,
+                    Snapshot,
+                    PoliticalSnapshot,
+                    GovernmentProfile,
+                    LastDailyExportIncome,
+                    CurrentEra
+                },
+                OutDemand,
+                OutPriority))
         {
             return false;
         }
 
-        const double ApprovalPressure =
-            static_cast<double>(MWDemand::FactionApprovalThreshold) -
-            FactionSnapshot.AverageApproval;
-        FPoliticalDemandState Demand;
-        Demand.Active = true;
-        Demand.IssuerType = EPoliticalDemandIssuerType::Faction;
-        Demand.IssuerIndex = static_cast<int>(Faction);
-        Demand.Status = EPoliticalDemandStatus::PendingResponse;
-        Demand.DurationDays = MWDemand::FactionDurationDays;
-        Demand.RemainingDays = Demand.DurationDays;
-        Demand.ModifierDurationDays = MWDemand::FactionModifierDurationDays;
-        Demand.PenaltyBudgetDelta = 0;
-        Demand.Title =
-            std::wstring(GetPoliticalFactionName(Faction)) +
-            L" " +
-            GetPoliticalDemandStageLabel(EPoliticalDemandStage::Demand);
-        OutPriority = 0.0;
-
-        switch (Faction)
-        {
-        case EPoliticalFaction::Communists:
-        {
-            const auto& Tuning = MWDemand::Communists;
-            const int CurrentHousing =
-                static_cast<int>(std::lround(Snapshot.AverageHousing));
-            const int ScaledIgnoreHousing = static_cast<int>(
-                static_cast<float>(Tuning.IgnoreAtOrAboveHousing) *
-                DemandMultiplier + 0.5f);
-            if (CurrentHousing >= ScaledIgnoreHousing &&
-                Snapshot.HomelessHouseholdCount <= Tuning.IgnoreAtOrBelowHomeless)
-            {
-                return false;
-            }
-
-            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Housing;
-            Demand.TargetValue = (std::max)(
-                Tuning.TargetMin,
-                (std::min)(Tuning.TargetMax, CurrentHousing + Tuning.TargetDelta));
-            Demand.CurrentValue = CurrentHousing;
-            Demand.Summary = L"무주택과 저질 주거를 줄이라고 압박합니다.";
-            Demand.ObjectiveText =
-                L"평균 주거 " + std::to_wstring(Demand.TargetValue) + L" 이상";
-            Demand.RewardBudgetDelta =
-                static_cast<long long>(Tuning.RewardBudgetBase) +
-                static_cast<long long>(FactionSnapshot.MemberCount) *
-                    static_cast<long long>(Tuning.RewardBudgetPerMember);
-            Demand.RewardFactionApprovalDelta = Tuning.RewardApprovalDelta;
-            Demand.PenaltyFactionApprovalDelta = Tuning.PenaltyApprovalDelta;
-            OutPriority =
-                ApprovalPressure * Tuning.ApprovalPriorityWeight +
-                static_cast<double>((std::max)(
-                    0,
-                    Tuning.IgnoreAtOrAboveHousing - CurrentHousing)) *
-                    Tuning.HousingDeficitPriorityWeight +
-                static_cast<double>(Snapshot.HomelessHouseholdCount) *
-                    Tuning.HomelessPriorityWeight;
-            break;
-        }
-        case EPoliticalFaction::Capitalists:
-        {
-            const auto& Tuning = MWDemand::Capitalists;
-            const int CurrentIncomeTax =
-                GovernmentProfile.TaxPolicy.IncomeRatePercent;
-            if (CurrentIncomeTax <= Tuning.IgnoreAtOrBelowValue)
-                return false;
-
-            Demand.ObjectiveType =
-                EPoliticalDemandObjectiveType::IncomeTaxCeiling;
-            Demand.TargetValue = Tuning.TargetValue;
-            Demand.CurrentValue = CurrentIncomeTax;
-            Demand.Summary = L"소득세 인하와 투자 여건 개선을 요구합니다.";
-            Demand.ObjectiveText =
-                L"소득세 " + std::to_wstring(Demand.TargetValue) + L"% 이하";
-            Demand.RewardBudgetDelta = Tuning.RewardBudgetDelta;
-            Demand.RewardFactionApprovalDelta = Tuning.RewardApprovalDelta;
-            Demand.PenaltyFactionApprovalDelta = Tuning.PenaltyApprovalDelta;
-            OutPriority =
-                ApprovalPressure * Tuning.ApprovalPriorityWeight +
-                static_cast<double>(CurrentIncomeTax - Demand.TargetValue) *
-                    Tuning.ExcessPriorityWeight;
-            break;
-        }
-        case EPoliticalFaction::Religious:
-        {
-            const auto& Tuning = MWDemand::Religious;
-            const int CurrentFaith =
-                static_cast<int>(std::lround(Snapshot.AverageFaith));
-            const int FaithTargetMax = (std::min)(
-                Tuning.TargetMax,
-                ResolveFaithDemandTargetMax(CurrentEra));
-            if (CurrentFaith >= static_cast<int>(
-                    static_cast<float>(Tuning.IgnoreAtOrAboveValue) *
-                    DemandMultiplier + 0.5f))
-                return false;
-            if (FaithTargetMax < Tuning.TargetMin)
-                return false;
-
-            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Faith;
-            Demand.TargetValue = (std::max)(
-                Tuning.TargetMin,
-                (std::min)(FaithTargetMax, CurrentFaith + Tuning.TargetDelta));
-            if (Demand.TargetValue <= CurrentFaith)
-                return false;
-            Demand.CurrentValue = CurrentFaith;
-            Demand.Summary = L"신앙 만족도 회복과 종교 서비스 강화를 요구합니다.";
-            Demand.ObjectiveText =
-                L"평균 신앙 " + std::to_wstring(Demand.TargetValue) + L" 이상";
-            Demand.RewardBudgetDelta = Tuning.RewardBudgetDelta;
-            Demand.RewardFactionApprovalDelta = Tuning.RewardApprovalDelta;
-            Demand.PenaltyFactionApprovalDelta = Tuning.PenaltyApprovalDelta;
-            OutPriority =
-                ApprovalPressure * Tuning.ApprovalPriorityWeight +
-                static_cast<double>((std::max)(
-                    0,
-                    Tuning.IgnoreAtOrAboveValue - CurrentFaith)) *
-                    Tuning.DeficitPriorityWeight;
-            break;
-        }
-        case EPoliticalFaction::Militarists:
-        {
-            const auto& Tuning = MWDemand::Militarists;
-            const int CurrentSecurity =
-                static_cast<int>(std::lround(Snapshot.AverageSecurity));
-            if (CurrentSecurity >= static_cast<int>(
-                    static_cast<float>(Tuning.IgnoreAtOrAboveValue) *
-                    DemandMultiplier + 0.5f))
-                return false;
-
-            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Security;
-            Demand.TargetValue =
-                (std::max)(
-                    Tuning.TargetMin,
-                    (std::min)(
-                        Tuning.TargetMax,
-                        CurrentSecurity + Tuning.TargetDelta));
-            Demand.CurrentValue = CurrentSecurity;
-            Demand.Summary = L"치안 안정과 군사 통제를 강화하라고 압박합니다.";
-            Demand.ObjectiveText =
-                L"평균 치안 " + std::to_wstring(Demand.TargetValue) + L" 이상";
-            Demand.RewardBudgetDelta = Tuning.RewardBudgetDelta;
-            Demand.RewardFactionApprovalDelta = Tuning.RewardApprovalDelta;
-            Demand.PenaltyFactionApprovalDelta = Tuning.PenaltyApprovalDelta;
-            OutPriority =
-                ApprovalPressure * Tuning.ApprovalPriorityWeight +
-                static_cast<double>((std::max)(
-                    0,
-                    Tuning.IgnoreAtOrAboveValue - CurrentSecurity)) *
-                    Tuning.DeficitPriorityWeight;
-            break;
-        }
-        case EPoliticalFaction::Environmentalists:
-        {
-            const auto& Tuning = MWDemand::Environmentalists;
-            const int CurrentHealth =
-                static_cast<int>(std::lround(Snapshot.AverageHealth));
-            if (CurrentHealth >= static_cast<int>(
-                    static_cast<float>(Tuning.IgnoreAtOrAboveValue) *
-                    DemandMultiplier + 0.5f))
-                return false;
-
-            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Health;
-            Demand.TargetValue =
-                (std::max)(
-                    Tuning.TargetMin,
-                    (std::min)(
-                        Tuning.TargetMax,
-                        CurrentHealth + Tuning.TargetDelta));
-            Demand.CurrentValue = CurrentHealth;
-            Demand.Summary = L"보건과 환경 악화를 바로잡으라고 요구합니다.";
-            Demand.ObjectiveText =
-                L"평균 보건 " + std::to_wstring(Demand.TargetValue) + L" 이상";
-            Demand.RewardBudgetDelta = Tuning.RewardBudgetDelta;
-            Demand.RewardFactionApprovalDelta = Tuning.RewardApprovalDelta;
-            Demand.PenaltyFactionApprovalDelta = Tuning.PenaltyApprovalDelta;
-            OutPriority =
-                ApprovalPressure * Tuning.ApprovalPriorityWeight +
-                static_cast<double>((std::max)(
-                    0,
-                    Tuning.IgnoreAtOrAboveValue - CurrentHealth)) *
-                    Tuning.DeficitPriorityWeight;
-            break;
-        }
-        case EPoliticalFaction::Industrialists:
-        {
-            const auto& Tuning = MWDemand::Industrialists;
-            const int CurrentExportIncome =
-                (std::max)(0, static_cast<int>(LastDailyExportIncome));
-            if (CurrentExportIncome >= Tuning.IgnoreAtOrAboveValue)
-                return false;
-
-            Demand.ObjectiveType = EPoliticalDemandObjectiveType::ExportIncome;
-            Demand.TargetValue = (std::max)(
-                Tuning.TargetMin,
-                CurrentExportIncome + Tuning.TargetDelta);
-            Demand.CurrentValue = CurrentExportIncome;
-            Demand.Summary = L"산업 생산을 끌어올려 수출 실적을 내라고 요구합니다.";
-            Demand.ObjectiveText =
-                L"일일 수출 " +
-                MainWorldTradeRuntime::FormatCurrency(Demand.TargetValue) +
-                L" 이상";
-            Demand.RewardBudgetDelta = Tuning.RewardBudgetDelta;
-            Demand.RewardFactionApprovalDelta = Tuning.RewardApprovalDelta;
-            Demand.PenaltyFactionApprovalDelta = Tuning.PenaltyApprovalDelta;
-            OutPriority =
-                ApprovalPressure * Tuning.ApprovalPriorityWeight +
-                static_cast<double>((std::max)(
-                    0,
-                    Demand.TargetValue - CurrentExportIncome)) /
-                    static_cast<double>((std::max)(1.0f, Tuning.DeficitDivisor));
-            break;
-        }
-        case EPoliticalFaction::Intellectuals:
-        {
-            const auto& Tuning = MWDemand::Intellectuals;
-            const int CurrentFreedom =
-                static_cast<int>(std::lround(Snapshot.AverageFreedom));
-            if (CurrentFreedom >= static_cast<int>(
-                    static_cast<float>(Tuning.IgnoreAtOrAboveValue) *
-                    DemandMultiplier + 0.5f))
-                return false;
-
-            Demand.ObjectiveType = EPoliticalDemandObjectiveType::Freedom;
-            Demand.TargetValue =
-                (std::max)(
-                    Tuning.TargetMin,
-                    (std::min)(
-                        Tuning.TargetMax,
-                        CurrentFreedom + Tuning.TargetDelta));
-            Demand.CurrentValue = CurrentFreedom;
-            Demand.Summary = L"자유와 개방성을 회복하라고 요구합니다.";
-            Demand.ObjectiveText =
-                L"평균 자유 " + std::to_wstring(Demand.TargetValue) + L" 이상";
-            Demand.RewardBudgetDelta = Tuning.RewardBudgetDelta;
-            Demand.RewardFactionApprovalDelta = Tuning.RewardApprovalDelta;
-            Demand.PenaltyFactionApprovalDelta = Tuning.PenaltyApprovalDelta;
-            OutPriority =
-                ApprovalPressure * Tuning.ApprovalPriorityWeight +
-                static_cast<double>((std::max)(
-                    0,
-                    Tuning.IgnoreAtOrAboveValue - CurrentFreedom)) *
-                    Tuning.DeficitPriorityWeight;
-            break;
-        }
-        case EPoliticalFaction::Conservatives:
-        {
-            const auto& Tuning = MWDemand::Conservatives;
-            const int CurrentPropertyTax =
-                GovernmentProfile.TaxPolicy.PropertyRatePercent;
-            if (CurrentPropertyTax <= Tuning.IgnoreAtOrBelowValue)
-                return false;
-
-            Demand.ObjectiveType =
-                EPoliticalDemandObjectiveType::PropertyTaxCeiling;
-            Demand.TargetValue = Tuning.TargetValue;
-            Demand.CurrentValue = CurrentPropertyTax;
-            Demand.Summary = L"재산세 완화와 질서 회복을 동시에 요구합니다.";
-            Demand.ObjectiveText =
-                L"재산세 " + std::to_wstring(Demand.TargetValue) + L"% 이하";
-            Demand.RewardBudgetDelta = Tuning.RewardBudgetDelta;
-            Demand.RewardFactionApprovalDelta = Tuning.RewardApprovalDelta;
-            Demand.PenaltyFactionApprovalDelta = Tuning.PenaltyApprovalDelta;
-            OutPriority =
-                ApprovalPressure * Tuning.ApprovalPriorityWeight +
-                static_cast<double>(CurrentPropertyTax - Demand.TargetValue) *
-                    Tuning.ExcessPriorityWeight;
-            break;
-        }
-        default:
-            return false;
-        }
-
-        if (Demand.ObjectiveType == EPoliticalDemandObjectiveType::None)
-            return false;
-
-        Demand.RewardText = BuildPoliticalDemandEffectText(
-            Demand.RewardBudgetDelta,
-            Demand.RewardFactionApprovalDelta,
+        OutDemand.RewardText = BuildPoliticalDemandEffectText(
+            OutDemand.RewardBudgetDelta,
+            OutDemand.RewardFactionApprovalDelta,
             0,
             0,
-            Demand.ModifierDurationDays);
-        Demand.PenaltyText = BuildPoliticalDemandEffectText(
-            Demand.PenaltyBudgetDelta,
-            Demand.PenaltyFactionApprovalDelta,
+            OutDemand.ModifierDurationDays);
+        OutDemand.PenaltyText = BuildPoliticalDemandEffectText(
+            OutDemand.PenaltyBudgetDelta,
+            OutDemand.PenaltyFactionApprovalDelta,
             0,
             0,
-            Demand.ModifierDurationDays);
-        RefreshFactionDemandStagePresentation(Demand);
-        OutDemand = std::move(Demand);
-        return OutPriority > 0.0;
+            OutDemand.ModifierDurationDays);
+        RefreshFactionDemandStagePresentation(OutDemand);
+        return true;
     }
 
     bool TryBuildForeignDemand(
@@ -1193,6 +915,10 @@ bool CMainWorldPoliticalDemandService::RespondPoliticalDemand(
                 *Demand,
                 Success,
                 StatusLabel);
+
+            if (Success)
+                ShowTaskCompletePopup(Context.World, *Demand);
+
             *Demand = FPoliticalDemandState();
         };
 
@@ -1490,6 +1216,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
                 Demand,
                 true,
                 L"요구 완료");
+            ShowTaskCompletePopup(Context.World, Demand);
             Demand = FPoliticalDemandState();
             RefreshRequests.RefreshPoliticalSnapshot = true;
             continue;
@@ -1575,6 +1302,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
                 Demand,
                 true,
                 L"요구 완료");
+            ShowTaskCompletePopup(Context.World, Demand);
             Demand = FPoliticalDemandState();
             RefreshRequests.RefreshForeignTradeDiplomacy = true;
             RefreshRequests.RefreshWorldMarketPrices = true;

@@ -186,6 +186,13 @@ namespace
         State.Body = Body;
         State.AcceptConsequence = AcceptConsequence;
         State.RejectConsequence = RejectConsequence;
+        State.UseBodyFormulaTermWrap = false;
+        State.BodyFormulaTerms.clear();
+        State.ShowAcceptButton = true;
+        State.ShowRejectButton = true;
+        State.ShowCornerCloseButton = false;
+        State.CornerCloseConfigSection.clear();
+        State.AutoCloseSeconds = 0.f;
     }
 }
 

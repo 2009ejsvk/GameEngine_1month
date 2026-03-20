@@ -1,6 +1,8 @@
 #include "TaskWidget.h"
 #include "TropicoUiAssetCatalog.h"
 #include "TropicoUiStyle.h"
+#include "UIEnumLabels.h"
+#include "UIStringShorthand.h"
 #include "UIStrings.h"
 #include "../StringUtils.h"
 #include "../World/GovernmentCommandService.h"
@@ -20,16 +22,8 @@
 namespace
 {
     using namespace TropicoUiStyle;
-
-    const std::wstring& Ui(const wchar_t* Key)
-    {
-        return UIStrings::Get(Key);
-    }
-
-    const wchar_t* UiText(const wchar_t* Key)
-    {
-        return UIStrings::Get(Key).c_str();
-    }
+    using UIStringShorthand::Ui;
+    using UIStringShorthand::UiText;
 
     constexpr int GVisibleEntryCount = 6;
     constexpr const TCHAR* GPenultimoTaskIcon = TEXT(
@@ -146,18 +140,7 @@ namespace
 
     std::wstring GetStageLabel(EPoliticalDemandStage Stage)
     {
-        switch (Stage)
-        {
-        case EPoliticalDemandStage::Warning:
-            return Ui(L"escalation.stage.warning");
-        case EPoliticalDemandStage::Ultimatum:
-            return Ui(L"escalation.stage.ultimatum");
-        case EPoliticalDemandStage::Revolt:
-            return Ui(L"escalation.stage.revolt");
-        case EPoliticalDemandStage::Demand:
-        default:
-            return Ui(L"escalation.stage.demand");
-        }
+        return UIEnumLabels::GetPoliticalDemandStageLabel(Stage);
     }
 
     std::wstring FormatDemandValue(const FPoliticalDemandState& Demand, int Value)
@@ -942,6 +925,7 @@ bool CTaskWidget::Init()
         PortraitNameText->SetAlignH(ETextAlignH::Center);
         PortraitNameText->SetAlignV(ETextAlignV::Middle);
         PortraitNameText->SetTextColor(98, 72, 28, 255);
+        PortraitNameText->SetAngle(4.f);
         mPortraitNameText = PortraitNameText;
     }
 

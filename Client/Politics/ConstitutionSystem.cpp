@@ -211,7 +211,7 @@ namespace
             Catalog.push_back(MakeOption(
                 EConstitutionOptionId::ProfessionalSoldiers,
                 EConstitutionTopic::ArmedForces,
-                EBuildingEra::Modern,
+                EBuildingEra::WorldWars,
                 UIStrings::Get(
                     L"constitution.option.professional_soldiers.name").c_str(),
                 UIStrings::Get(
@@ -230,7 +230,7 @@ namespace
             Catalog.push_back(MakeOption(
                 EConstitutionOptionId::Militia,
                 EConstitutionTopic::ArmedForces,
-                EBuildingEra::Modern,
+                EBuildingEra::WorldWars,
                 UIStrings::Get(
                     L"constitution.option.militia.name").c_str(),
                 UIStrings::Get(
@@ -284,6 +284,26 @@ namespace
             OutRightOptionId != EConstitutionOptionId::None;
     }
 
+    bool IsTopicUnlockedInEra(
+        EConstitutionTopic Topic,
+        EBuildingEra Era)
+    {
+        const auto& Catalog = ConstitutionSystem::GetConstitutionOptionCatalog();
+
+        for (size_t Index = 0; Index < Catalog.size(); ++Index)
+        {
+            const FConstitutionOptionDef& Option = Catalog[Index];
+
+            if (Option.Topic != Topic)
+                continue;
+
+            if (IsBuildingEraUnlocked(Era, Option.UnlockEra))
+                return true;
+        }
+
+        return false;
+    }
+
     void QueuePendingTopicsForEra(
         FConstitutionState& State,
         EBuildingEra Era)
@@ -294,10 +314,6 @@ namespace
         for (size_t Index = 0; Index < Catalog.size(); ++Index)
         {
             const FConstitutionOptionDef& Option = Catalog[Index];
-
-            if (Option.UnlockEra != Era)
-                continue;
-
             const size_t TopicIndex = GetTopicIndex(Option.Topic);
 
             if (TopicVisited[TopicIndex])
@@ -305,10 +321,8 @@ namespace
 
             TopicVisited[TopicIndex] = true;
 
-            if (State.SelectedOptions[TopicIndex] != EConstitutionOptionId::None)
-                continue;
-
-            State.QueuedTopics[TopicIndex] = true;
+            if (IsTopicUnlockedInEra(Option.Topic, Era))
+                State.QueuedTopics[TopicIndex] = true;
         }
     }
 
@@ -329,12 +343,6 @@ namespace
 
             if (!State.QueuedTopics[TopicIndex])
                 continue;
-
-            if (State.SelectedOptions[TopicIndex] != EConstitutionOptionId::None)
-            {
-                State.QueuedTopics[TopicIndex] = false;
-                continue;
-            }
 
             State.PendingTopicChoice = true;
             State.PendingTopic = Option.Topic;

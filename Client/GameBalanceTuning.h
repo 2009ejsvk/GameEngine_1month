@@ -40,6 +40,33 @@ namespace GameBalanceTuning
             float ExpectedLivingStandard = 67.f;
         };
 
+        extern double ElectionWarningCriticalThreshold;
+        extern double ElectionWarningCautionThreshold;
+        extern double ElectionWarningCheckThreshold;
+        constexpr int ElectionWarningActiveWindowDays = 180;
+
+        inline bool IsElectionWarningCritical(double Score)
+        {
+            return Score >= ElectionWarningCriticalThreshold;
+        }
+
+        inline bool IsElectionWarningCaution(double Score)
+        {
+            return Score >= ElectionWarningCautionThreshold;
+        }
+
+        inline bool IsElectionWarningCheck(double Score)
+        {
+            return Score >= ElectionWarningCheckThreshold;
+        }
+
+        inline bool HasElectionWarning(int DaysUntilNextElection, double Score)
+        {
+            return DaysUntilNextElection >= 0 &&
+                DaysUntilNextElection <= ElectionWarningActiveWindowDays &&
+                IsElectionWarningCheck(Score);
+        }
+
         const FWealthTierTuning& GetWealthTier(
             ECitizenWealthLevel WealthLevel);
     }

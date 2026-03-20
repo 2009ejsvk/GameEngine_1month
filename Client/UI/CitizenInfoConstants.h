@@ -4,6 +4,8 @@
 
 namespace CitizenInfoConstants
 {
+    constexpr const char GHydroponicFarmBuildingId[] = "build_2_10";
+
     enum class ECitizenInfoTab
     {
         Overview = 0,

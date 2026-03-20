@@ -621,6 +621,8 @@ struct FGovernmentEdictModifiers
     float     BuildingCostMultiplier = 1.f;
     float     FarmBuildingEfficiencyMultiplier = 1.f;
     float     ExportPriceMultiplier = 1.f;
+    float     HarborUpkeepMultiplier = 1.f;
+    float     HarborShipProgressMultiplier = 1.f;
     float     PollutionPerIndustryBuildingDelta = 0.f;
     long long DailyBudgetDeltaPerIndustryBuilding = 0;
     int       TouristRatingModifierPercent = 0;

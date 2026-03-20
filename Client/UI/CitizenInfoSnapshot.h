@@ -72,14 +72,15 @@ namespace CitizenInfoDataProvider
         int OperationModeSelectionPageIndex = 0;
         int OperationModeSelectionPageCount = 0;
         int SelectedBudgetButtonIndex = -1;
-        std::array<std::wstring, 5> BudgetButtonLabels;
-        std::array<bool, 5> BudgetButtonEnabled =
+        std::array<std::wstring, 12> BudgetButtonLabels;
+        std::array<bool, 12> BudgetButtonEnabled =
         {
-            true, true, true, true, true
+            true, true, true, true, true,
+            false, false, false, false, false, false, false
         };
-        std::array<std::wstring, 14> OverviewMetricLabels;
-        std::array<std::wstring, 14> OverviewMetricValues;
-        std::array<bool, 14> OverviewMetricAccentValues = {};
+        std::array<std::wstring, 30> OverviewMetricLabels;
+        std::array<std::wstring, 30> OverviewMetricValues;
+        std::array<bool, 30> OverviewMetricAccentValues = {};
         bool ShowOverviewMetricScroll = false;
         int OverviewMetricScrollOffset = 0;
         int OverviewMetricScrollVisibleLineCount = 0;

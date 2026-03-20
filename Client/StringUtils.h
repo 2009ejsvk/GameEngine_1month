@@ -61,6 +61,35 @@ namespace StringUtils
         return Result;
     }
 
+    inline std::wstring FormatCurrency(long long Value)
+    {
+        if (Value < 0)
+        {
+            return L"-$" +
+                FormatUnsignedIntegerWithCommas(AbsToUnsigned(Value));
+        }
+
+        return L"$" + FormatIntegerWithCommas(Value);
+    }
+
+    inline std::wstring FormatCurrencyDollarFirst(long long Value)
+    {
+        if (Value < 0)
+        {
+            return L"$-" +
+                FormatUnsignedIntegerWithCommas(AbsToUnsigned(Value));
+        }
+
+        return L"$" + FormatIntegerWithCommas(Value);
+    }
+
+    inline std::wstring FormatSignedCurrency(long long Value)
+    {
+        return Value < 0 ?
+            L"-$" + FormatUnsignedIntegerWithCommas(AbsToUnsigned(Value)) :
+            L"+$" + FormatUnsignedIntegerWithCommas(AbsToUnsigned(Value));
+    }
+
     inline std::wstring Utf8ToWide(const std::string& Text)
     {
         if (Text.empty())
@@ -132,6 +161,82 @@ namespace StringUtils
     }
 
     template <typename TChar>
+    inline bool StartsWith(
+        const std::basic_string<TChar>& Text,
+        const TChar* Prefix)
+    {
+        if (!Prefix)
+            return false;
+
+        const size_t PrefixLength = std::char_traits<TChar>::length(Prefix);
+        return Text.size() >= PrefixLength &&
+            Text.compare(0, PrefixLength, Prefix) == 0;
+    }
+
+    template <typename TChar>
+    inline int ParseLeadingInteger(
+        const std::basic_string<TChar>& Text,
+        int DefaultValue = 0)
+    {
+        bool Negative = false;
+        bool FoundDigit = false;
+        int Value = 0;
+
+        for (size_t Index = 0; Index < Text.size(); ++Index)
+        {
+            const TChar Ch = Text[Index];
+
+            if (!FoundDigit && Ch == static_cast<TChar>('-'))
+            {
+                Negative = true;
+                continue;
+            }
+
+            if (Ch < static_cast<TChar>('0') ||
+                Ch > static_cast<TChar>('9'))
+            {
+                if (FoundDigit)
+                    break;
+
+                continue;
+            }
+
+            FoundDigit = true;
+            Value = Value * 10 + static_cast<int>(Ch - static_cast<TChar>('0'));
+        }
+
+        if (!FoundDigit)
+            return DefaultValue;
+
+        return Negative ? -Value : Value;
+    }
+
+    template <typename TChar>
+    inline void AppendLine(
+        std::basic_string<TChar>& Body,
+        const std::basic_string<TChar>& Line)
+    {
+        if (Line.empty())
+            return;
+
+        if (!Body.empty())
+            Body += static_cast<TChar>('\n');
+
+        Body += Line;
+    }
+
+    template <typename TChar>
+    inline void AppendLine(
+        std::basic_string<TChar>& Body,
+        const TChar* Line)
+    {
+        if (!Line || *Line == 0)
+            return;
+
+        AppendLine(Body, std::basic_string<TChar>(Line));
+    }
+
+    template <typename TChar>
     inline std::vector<std::basic_string<TChar>> SplitLines(
         const std::basic_string<TChar>& Text)
     {
@@ -159,6 +264,43 @@ namespace StringUtils
             Lines.push_back(Current);
 
         return Lines;
+    }
+
+    template <typename TChar>
+    inline std::basic_string<TChar> ExtractDetailValue(
+        const std::basic_string<TChar>& DetailText,
+        const TChar* Prefix)
+    {
+        if (!Prefix)
+            return std::basic_string<TChar>();
+
+        const std::vector<std::basic_string<TChar>> Lines =
+            SplitLines(DetailText);
+        const size_t PrefixLength = std::char_traits<TChar>::length(Prefix);
+
+        for (size_t Index = 0; Index < Lines.size(); ++Index)
+        {
+            const std::basic_string<TChar> Line = Trim(Lines[Index]);
+
+            if (!StartsWith(Line, Prefix))
+                continue;
+
+            return Trim(Line.substr(PrefixLength));
+        }
+
+        return std::basic_string<TChar>();
+    }
+
+    template <typename TChar>
+    inline std::basic_string<TChar> JoinLines(
+        const std::vector<std::basic_string<TChar>>& Lines)
+    {
+        std::basic_string<TChar> Result;
+
+        for (const std::basic_string<TChar>& Line : Lines)
+            AppendLine(Result, Line);
+
+        return Result;
     }
 
     template <typename TChar>

@@ -12,7 +12,8 @@ namespace CitizenInfoRendererInternal
     using namespace TropicoUiAssets;
     using namespace TropicoUiStyle;
 
-    constexpr int GBudgetLevelCount = 5;
+    constexpr int GBudgetLevelCount = 12;
+    constexpr int GBudgetDisplayCount = 5;
     constexpr int GCitizenActionButtonCount = 6;
     constexpr const TCHAR* GCitizenTabIcons[GCitizenTabCount] =
     {

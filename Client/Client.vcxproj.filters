@@ -108,6 +108,9 @@
     <ClCompile Include="World\MainWorldInfrastructureRuntime.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
+    <ClCompile Include="World\FactionDemandTuning.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
     <ClCompile Include="World\MainWorldPoliticalDemandService.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
@@ -372,6 +375,15 @@
     <ClCompile Include="UI\AlmanacRendererPagesCore.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererPagesOverview.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererPagesSatisfaction.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\AlmanacRendererPagesResource.cpp">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClCompile>
     <ClCompile Include="UI\EdictDataProvider.cpp">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClCompile>
@@ -399,22 +411,40 @@
     <ClCompile Include="UI\CitizenInfoPresentation.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
+    <ClCompile Include="UI\CitizenInfoPresentationBuilding.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
     <ClCompile Include="UI\CitizenInfoPresentationBuildingBody.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CitizenInfoPresentationCatalog.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
     <ClCompile Include="UI\CitizenInfoPresentationCitizen.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
-    <ClCompile Include="UI\CitizenInfoPresentationFormatting.cpp">
+    <ClCompile Include="UI\CitizenInfoPresentationWorker.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
     <ClCompile Include="UI\CitizenInfoQueryService.cpp">
+      <Filter>07. UI\01. Main</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CitizenInfoLayoutCalculator.cpp">
       <Filter>07. UI\01. Main</Filter>
     </ClCompile>
     <ClCompile Include="World\CitizenInfoWorldInteractionSource.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
     <ClCompile Include="World\BuildMenuWorldQuerySource.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\CitizenInfoBuildingQuery.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\CitizenInfoCitizenQuery.cpp">
+      <Filter>02. World</Filter>
+    </ClCompile>
+    <ClCompile Include="World\CitizenInfoTradeQuery.cpp">
       <Filter>02. World</Filter>
     </ClCompile>
     <ClCompile Include="World\CitizenInfoWorldQuerySource.cpp">
@@ -528,6 +558,9 @@
       <Filter>02. World</Filter>
     </ClInclude>
     <ClInclude Include="World\MainWorldInfrastructureRuntime.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
+    <ClInclude Include="World\FactionDemandTuning.h">
       <Filter>02. World</Filter>
     </ClInclude>
     <ClInclude Include="World\MainWorldPoliticalDemandService.h">
@@ -716,6 +749,9 @@
     <ClInclude Include="World\CitizenInfoWorldQuerySource.h">
       <Filter>02. World</Filter>
     </ClInclude>
+    <ClInclude Include="World\CitizenInfoWorldQuerySourceInternal.h">
+      <Filter>02. World</Filter>
+    </ClInclude>
     <ClInclude Include="World\EconomyWorldAccess.h">
       <Filter>02. World</Filter>
     </ClInclude>
@@ -764,6 +800,9 @@
     <ClInclude Include="UI\AlmanacRenderer.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
+    <ClInclude Include="UI\AlmanacRendererPagesCoreShared.h">
+      <Filter>07. UI\01. Main\03. WorldHUD</Filter>
+    </ClInclude>
     <ClInclude Include="UI\AlmanacRendererPopulationPage.h">
       <Filter>07. UI\01. Main\03. WorldHUD</Filter>
     </ClInclude>
@@ -804,6 +843,9 @@
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="UI\CitizenInfoQueryService.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CitizenInfoLayoutMetrics.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
     <ClInclude Include="UI\CitizenInfoRenderer.h">
@@ -875,6 +917,15 @@
     <ClInclude Include="UI\UILayoutValues.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
+    <ClInclude Include="UI\UIEnumLabels.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\UIStringShorthand.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\DescriptionFileUtils.h">
+      <Filter>07. UI\01. Main</Filter>
+    </ClInclude>
     <ClInclude Include="UI\TropicoUiAssetCatalog.h">
       <Filter>07. UI\01. Main</Filter>
     </ClInclude>
@@ -924,10 +975,28 @@
       <Filter>�ҽ� ����</Filter>
     </None>
     <None Include="..\.editorconfig" />
+    <None Include="..\Binary\AlmanacPageData.ini">
+      <Filter>06. Setting</Filter>
+    </None>
+    <None Include="..\Binary\Edicts.ini">
+      <Filter>06. Setting</Filter>
+    </None>
+    <None Include="..\Binary\EraConfig.ini">
+      <Filter>06. Setting</Filter>
+    </None>
     <None Include="..\Binary\GameBalance.ini">
       <Filter>06. Setting</Filter>
     </None>
+    <None Include="..\Binary\GameConstants.ini">
+      <Filter>06. Setting</Filter>
+    </None>
+    <None Include="..\Binary\PopupConfig.ini">
+      <Filter>06. Setting</Filter>
+    </None>
     <None Include="..\Binary\UIAssets.ini">
+      <Filter>06. Setting</Filter>
+    </None>
+    <None Include="..\Binary\UIStrings.ini">
       <Filter>06. Setting</Filter>
     </None>
     <None Include="..\Binary\UITheme.ini">
@@ -982,6 +1051,15 @@
       <Filter>06. Setting\UILayout</Filter>
     </None>
     <None Include="..\Binary\UILayout\15_WidgetOverrides_Constitution_Integrated.ini">
+      <Filter>06. Setting\UILayout</Filter>
+    </None>
+    <None Include="..\Binary\UILayout\16_WidgetOverrides_Event_BuildMenu.ini">
+      <Filter>06. Setting\UILayout</Filter>
+    </None>
+    <None Include="..\Binary\UILayout\17_WidgetOverrides_TopHud_Left.ini">
+      <Filter>06. Setting\UILayout</Filter>
+    </None>
+    <None Include="..\Binary\UILayout\18_WidgetOverrides_Harbor.ini">
       <Filter>06. Setting\UILayout</Filter>
     </None>
   </ItemGroup>

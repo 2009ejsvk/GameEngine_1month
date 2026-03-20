@@ -53,6 +53,11 @@ Binary/Asset/Texture/
 Binary/Debug/
 Tropico6_Screenshots/
 
+# --- 자동 생성 / Claude 내부 파일 ---
+__pycache__/
+Tools/__pycache__/
+claude-code-latest-history.md
+
 # ==========================================================
 # 기타/OS 설정
 # ==========================================================

@@ -28,6 +28,7 @@ private:
     std::weak_ptr<class CButton> mRejectButton;
     std::weak_ptr<class CTextBlock> mAcceptButtonText;
     std::weak_ptr<class CTextBlock> mRejectButtonText;
+    std::weak_ptr<class CButton> mCornerCloseButton;
     FEventWidgetState mState;
 
 public:
@@ -46,6 +47,7 @@ private:
     bool TryRedirectToTaskWidget();
     void RefreshFromState();
     void SetPopupVisible(bool Visible);
+    void OnCornerCloseClick();
     void OnAcceptClick();
     void OnRejectClick();
 };

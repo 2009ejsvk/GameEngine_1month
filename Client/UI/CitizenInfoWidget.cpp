@@ -157,7 +157,7 @@ CCitizenInfoWidget::FRendererView CCitizenInfoWidget::GetRendererView()
         Chrome.ScrollThumb,
         Chrome.TitleIcon,
         Chrome.TitleText,
-        Chrome.SubtitleText,
+        Chrome.SubtitleTexts,
         Chrome.SectionDivider,
         Chrome.PageTitleText,
         Chrome.BodyText,
@@ -196,6 +196,13 @@ CCitizenInfoWidget::FRendererView CCitizenInfoWidget::GetRendererView()
         Building.ResidentialOverviewResidentIcons,
         Building.ResidentialOverviewMetricLabels,
         Building.ResidentialOverviewMetricValues,
+        Building.StatsMetricLabels,
+        Building.StatsMetricValues,
+        Building.EfficiencyMetricLabels,
+        Building.EfficiencyMetricValues,
+        Building.StatsBodyText,
+        Building.UpgradeBodyText,
+        Building.EfficiencyBodyText,
         Building.UpgradeCardBackground,
         Building.UpgradeCardIcon,
         Building.UpgradeCardTitle,
@@ -772,42 +779,11 @@ void CCitizenInfoWidget::OnOverviewCommandButtonClick()
     RefreshFromState();
 }
 
-void CCitizenInfoWidget::OnBudgetLevel1Click()
+void CCitizenInfoWidget::OnBudgetButtonClick(int Index)
 {
-    if (TrySelectOperationMode(0))
+    if (TrySelectOperationMode(Index))
         return;
 
-    SetBuildingBudgetLevel(1);
-}
-
-void CCitizenInfoWidget::OnBudgetLevel2Click()
-{
-    if (TrySelectOperationMode(1))
-        return;
-
-    SetBuildingBudgetLevel(2);
-}
-
-void CCitizenInfoWidget::OnBudgetLevel3Click()
-{
-    if (TrySelectOperationMode(2))
-        return;
-
-    SetBuildingBudgetLevel(3);
-}
-
-void CCitizenInfoWidget::OnBudgetLevel4Click()
-{
-    if (TrySelectOperationMode(3))
-        return;
-
-    SetBuildingBudgetLevel(4);
-}
-
-void CCitizenInfoWidget::OnBudgetLevel5Click()
-{
-    if (TrySelectOperationMode(4))
-        return;
-
-    SetBuildingBudgetLevel(5);
+    if (Index < GBudgetDisplayCount)
+        SetBuildingBudgetLevel(Index + 1);
 }

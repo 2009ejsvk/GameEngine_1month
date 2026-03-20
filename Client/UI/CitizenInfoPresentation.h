@@ -12,6 +12,9 @@ namespace CitizenInfoPresentation
     std::wstring FormatInteger(long long Value);
     std::wstring FormatMoney(long long Value);
     std::wstring FormatMoneyDollarFirst(long long Value);
+    std::wstring FormatCatalogCostValue(
+        EBuildingCostState State,
+        int Value);
     std::wstring FormatMegawattValue(int Value);
     std::wstring FormatSignedMegawattValue(int Value);
     std::wstring FormatMultiplier(float Value);

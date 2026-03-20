@@ -2,13 +2,19 @@
 #include "PlacementAreaObject.h"
 #include "PlacementController.h"
 #include "../ObjectNames.h"
+#include "Component/CameraComponent.h"
 #include "Component/MeshComponent.h"
 #include "Component/SceneComponent.h"
+#include "Device.h"
 #include "Render/RenderManager.h"
+#include "World/CameraManager.h"
 #include "World/World.h"
 #include "World/WorldAssetManager.h"
 #include "../Building/BuildingCatalog.h"
 #include "../StringUtils.h"
+#include <DirectXMath.h>
+#include <array>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -67,6 +73,38 @@ namespace
 		}
 
 		return Building.GetBuildingSpriteTexturePath();
+	}
+
+	bool ProjectToScreen(
+		const FVector3& LocalPos,
+		const FMatrix& WorldMatrix,
+		const FMatrix& ViewMatrix,
+		const FMatrix& ProjMatrix,
+		float ScreenWidth,
+		float ScreenHeight,
+		FVector2& OutScreenPos)
+	{
+		const DirectX::XMVECTOR Projected =
+			DirectX::XMVector3Project(
+				DirectX::XMVectorSet(
+					LocalPos.x,
+					LocalPos.y,
+					LocalPos.z,
+					1.f),
+				0.f,
+				0.f,
+				ScreenWidth,
+				ScreenHeight,
+				0.f,
+				1.f,
+				ProjMatrix.m,
+				ViewMatrix.m,
+				WorldMatrix.m);
+		OutScreenPos.x = DirectX::XMVectorGetX(Projected);
+		OutScreenPos.y = DirectX::XMVectorGetY(Projected);
+		return
+			std::isfinite(OutScreenPos.x) &&
+			std::isfinite(OutScreenPos.y);
 	}
 }
 
@@ -131,6 +169,80 @@ void CBuildingVisual::Update(float DeltaTime)
 {
 	CGameObject::Update(DeltaTime);
 	SyncVisuals();
+}
+
+bool CBuildingVisual::TryGetProjectedScreenBounds(
+	FVector2& OutMin,
+	FVector2& OutMax,
+	FVector2& OutCenter) const
+{
+	OutMin = FVector2();
+	OutMax = FVector2();
+	OutCenter = FVector2();
+
+	auto Sprite = mSprite.lock();
+	auto World = mWorld.lock();
+
+	if (!Sprite || !World || !Sprite->GetEnable())
+		return false;
+
+	auto CameraManager = World->GetCameraManager().lock();
+
+	if (!CameraManager)
+		return false;
+
+	auto MainCamera = CameraManager->GetMainCamera().lock();
+
+	if (!MainCamera)
+		return false;
+
+	const FResolution& Resolution = CDevice::GetInst()->GetResolution();
+	const float ScreenWidth = static_cast<float>(Resolution.Width);
+	const float ScreenHeight = static_cast<float>(Resolution.Height);
+	FMatrix WorldMatrix =
+		FMatrix::StaticScaling(Sprite->GetWorldScale()) *
+		FMatrix::StaticRotation(Sprite->GetWorldRot()) *
+		FMatrix::StaticTranslation(Sprite->GetWorldPos());
+	const FMatrix& ViewMatrix = MainCamera->GetViewMatrix();
+	const FMatrix& ProjMatrix = MainCamera->GetProjMatrix();
+	const std::array<FVector3, 4> LocalCorners =
+	{
+		FVector3(-0.5f, -0.5f, 0.f),
+		FVector3(0.5f, -0.5f, 0.f),
+		FVector3(0.5f, 0.5f, 0.f),
+		FVector3(-0.5f, 0.5f, 0.f)
+	};
+	std::array<FVector2, 4> ScreenCorners;
+
+	for (size_t Index = 0; Index < LocalCorners.size(); ++Index)
+	{
+		if (!ProjectToScreen(
+				LocalCorners[Index],
+				WorldMatrix,
+				ViewMatrix,
+				ProjMatrix,
+				ScreenWidth,
+				ScreenHeight,
+				ScreenCorners[Index]))
+		{
+			return false;
+		}
+	}
+
+	OutMin = ScreenCorners[0];
+	OutMax = ScreenCorners[0];
+
+	for (size_t Index = 1; Index < ScreenCorners.size(); ++Index)
+	{
+		OutMin.x = (std::min)(OutMin.x, ScreenCorners[Index].x);
+		OutMin.y = (std::min)(OutMin.y, ScreenCorners[Index].y);
+		OutMax.x = (std::max)(OutMax.x, ScreenCorners[Index].x);
+		OutMax.y = (std::max)(OutMax.y, ScreenCorners[Index].y);
+	}
+
+	OutCenter.x = (OutMin.x + OutMax.x) * 0.5f;
+	OutCenter.y = (OutMin.y + OutMax.y) * 0.5f;
+	return true;
 }
 
 bool CBuildingVisual::BindSpriteTexture(

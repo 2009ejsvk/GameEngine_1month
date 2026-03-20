@@ -1,5 +1,8 @@
 #include "TopHudDataProvider.h"
 #include "UIStrings.h"
+#include "../GameBalanceTuning.h"
+#include "../StringUtils.h"
+#include "../World/FactionDemandTuning.h"
 #include "../World/IWorldUIAccess.h"
 #include "World/World.h"
 #include <algorithm>
@@ -21,58 +24,11 @@ namespace
             static_cast<float>(A) / 255.f);
     }
 
-    std::wstring FormatCurrency(long long Value)
-    {
-        bool Negative = false;
-        unsigned long long AbsValue = 0;
-
-        if (Value < 0)
-        {
-            Negative = true;
-            AbsValue = static_cast<unsigned long long>(-Value);
-        }
-        else
-        {
-            AbsValue = static_cast<unsigned long long>(Value);
-        }
-
-        std::wstring Digits = std::to_wstring(AbsValue);
-
-        for (int i = static_cast<int>(Digits.size()) - 3; i > 0; i -= 3)
-        {
-            Digits.insert(static_cast<size_t>(i), 1, L',');
-        }
-
-        if (Negative)
-            Digits.insert(Digits.begin(), L'-');
-
-        return L"$" + Digits;
-    }
-
     std::wstring FormatDate(int Year, int Month, int Day)
     {
         wchar_t Buffer[64] = {};
         swprintf_s(Buffer, L"%04d.%02d.%02d", Year, Month, Day);
         return Buffer;
-    }
-
-    std::wstring FormatInteger(int Value)
-    {
-        const bool Negative = Value < 0;
-        unsigned int AbsValue = Negative ?
-            static_cast<unsigned int>(-Value) :
-            static_cast<unsigned int>(Value);
-        std::wstring Digits = std::to_wstring(AbsValue);
-
-        for (int i = static_cast<int>(Digits.size()) - 3; i > 0; i -= 3)
-        {
-            Digits.insert(static_cast<size_t>(i), 1, L',');
-        }
-
-        if (Negative)
-            Digits.insert(Digits.begin(), L'-');
-
-        return Digits;
     }
 
     std::wstring FormatHudDate(int Year, int Month, int Day)
@@ -112,11 +68,11 @@ namespace
 
     const wchar_t* GetElectionWarningTierLabel(double Score)
     {
-        if (Score >= 0.78)
+        if (GameBalanceTuning::Politics::IsElectionWarningCritical(Score))
             return UIStrings::Get(L"top_hud.warning.high").c_str();
-        if (Score >= 0.52)
+        if (GameBalanceTuning::Politics::IsElectionWarningCaution(Score))
             return UIStrings::Get(L"top_hud.warning.caution").c_str();
-        if (Score >= 0.32)
+        if (GameBalanceTuning::Politics::IsElectionWarningCheck(Score))
             return UIStrings::Get(L"top_hud.warning.check").c_str();
         return UIStrings::Get(L"top_hud.warning.stable").c_str();
     }
@@ -130,34 +86,14 @@ namespace
 
     bool HasElectionWarning(int DaysUntilElection, double Score)
     {
-        return DaysUntilElection >= 0 &&
-            DaysUntilElection <= 180 &&
-            Score >= 0.32;
+        return GameBalanceTuning::Politics::HasElectionWarning(
+            DaysUntilElection,
+            Score);
     }
 
     const wchar_t* GetFactionHudLabel(EPoliticalFaction Faction)
     {
-        switch (Faction)
-        {
-        case EPoliticalFaction::Communists:
-            return L"공산";
-        case EPoliticalFaction::Capitalists:
-            return L"자본";
-        case EPoliticalFaction::Religious:
-            return L"종교";
-        case EPoliticalFaction::Militarists:
-            return L"군부";
-        case EPoliticalFaction::Environmentalists:
-            return L"환경";
-        case EPoliticalFaction::Industrialists:
-            return L"산업";
-        case EPoliticalFaction::Intellectuals:
-            return L"지식";
-        case EPoliticalFaction::Conservatives:
-            return L"보수";
-        default:
-            return L"세력";
-        }
+        return FactionDemandTuning::GetFactionCompactLabel(Faction);
     }
 
     std::wstring JoinFactionHudLabels(
@@ -204,79 +140,46 @@ namespace
         const std::array<FPoliticalDemandState, GPoliticalFactionCount>&
             DemandStates)
     {
-        constexpr int GWarningPressureThreshold = 10;
-        std::vector<EPoliticalFaction> RevoltFactions;
-        std::vector<EPoliticalFaction> UltimatumFactions;
-        std::vector<EPoliticalFaction> WarningFactions;
-
-        for (int Index = 0; Index < GPoliticalFactionCount; ++Index)
-        {
-            const EPoliticalFaction Faction =
-                static_cast<EPoliticalFaction>(Index);
-            const FPoliticalDemandState& Demand =
-                DemandStates[static_cast<size_t>(Index)];
-
-            if (Demand.Active && Demand.Stage == EPoliticalDemandStage::Revolt)
-            {
-                RevoltFactions.push_back(Faction);
-                continue;
-            }
-
-            if (Demand.Active &&
-                Demand.Stage == EPoliticalDemandStage::Ultimatum)
-            {
-                UltimatumFactions.push_back(Faction);
-                continue;
-            }
-
-            if (PressureDays[static_cast<size_t>(Index)] >=
-                GWarningPressureThreshold)
-            {
-                WarningFactions.push_back(Faction);
-            }
-        }
-
+        const FactionDemandTuning::FPoliticalEscalationSummary Summary =
+            FactionDemandTuning::BuildPoliticalEscalationSummary(
+                PressureDays,
+                DemandStates);
         FPoliticalEscalationHudInfo Result;
 
-        if (!RevoltFactions.empty())
+        if (!Summary.Active)
+            return Result;
+
+        Result.Active = true;
+        Result.Critical = Summary.Critical;
+        Result.PrefixText = Summary.Critical ? L"[!!]" : L"[!]";
+
+        switch (Summary.HighestStage)
         {
-            Result.Active = true;
-            Result.Critical = true;
-            Result.PrefixText = L"[!!]";
+        case EPoliticalDemandStage::Revolt:
             Result.SummaryText =
                 UIStrings::Get(L"escalation.stage.revolt") +
                 std::wstring(L" ") +
-                JoinFactionHudLabels(RevoltFactions);
+                JoinFactionHudLabels(Summary.Factions);
             Result.Color = MakeColor(238, 108, 90, 255);
             return Result;
-        }
-
-        if (!UltimatumFactions.empty())
-        {
-            Result.Active = true;
-            Result.Critical = true;
-            Result.PrefixText = L"[!!]";
+        case EPoliticalDemandStage::Ultimatum:
             Result.SummaryText =
                 UIStrings::Get(L"escalation.stage.ultimatum") +
                 std::wstring(L" ") +
-                JoinFactionHudLabels(UltimatumFactions);
+                JoinFactionHudLabels(Summary.Factions);
             Result.Color = MakeColor(238, 108, 90, 255);
             return Result;
-        }
-
-        if (!WarningFactions.empty())
-        {
-            Result.Active = true;
-            Result.Critical = false;
-            Result.PrefixText = L"[!]";
+        case EPoliticalDemandStage::Warning:
             Result.SummaryText =
                 UIStrings::Get(L"escalation.stage.warning") +
                 std::wstring(L" ") +
-                JoinFactionHudLabels(WarningFactions);
+                JoinFactionHudLabels(Summary.Factions);
             Result.Color = MakeColor(240, 214, 124, 255);
+            return Result;
+        case EPoliticalDemandStage::Demand:
+        default:
+            return Result;
         }
-
-        return Result;
     }
 
     bool HasElectionSchedule(const FElectionStatus& ElectionStatus)
@@ -577,7 +480,8 @@ namespace TopHudDataProvider
             Result.EraTransitionConfirmText = L"전환 승인";
         else
             Result.EraTransitionConfirmText = L"조건 미충족";
-        Result.BudgetText = FormatCurrency(Access->Read().GetNationalBudget());
+        Result.BudgetText =
+            StringUtils::FormatCurrency(Access->Read().GetNationalBudget());
         Result.NpcText = std::to_wstring(ActiveNpcCount);
 
         int SupportPercent = 0;
@@ -591,16 +495,10 @@ namespace TopHudDataProvider
 
         SupportPercent = (std::max)(0, (std::min)(100, SupportPercent));
         Result.SupportText = std::to_wstring(SupportPercent) + L"%";
-        Result.ResearchText =
-            FormatInteger(Access->Read().GetKnowledgePoints());
+        Result.ResearchText = StringUtils::FormatIntegerWithCommas(
+            Access->Read().GetKnowledgePoints());
 
-        if (Access->Read().GetDailyKnowledgeGeneration() > 0)
-        {
-            Result.ResearchText += L" (+";
-            Result.ResearchText += FormatInteger(
-                Access->Read().GetDailyKnowledgeGeneration());
-            Result.ResearchText += L")";
-        }
+
         Result.DateText = FormatHudDate(
             Access->Read().GetSimulationYear(),
             Access->Read().GetSimulationMonth(),
@@ -656,9 +554,11 @@ namespace TopHudDataProvider
                 Result.ElectionText += PromiseSummary;
             }
 
-            if (ElectionWarningScore >= 0.78)
+            if (GameBalanceTuning::Politics::IsElectionWarningCritical(
+                    ElectionWarningScore))
                 Result.ElectionTextColor = MakeColor(232, 86, 72, 255);
-            else if (ElectionWarningScore >= 0.52)
+            else if (GameBalanceTuning::Politics::IsElectionWarningCaution(
+                ElectionWarningScore))
                 Result.ElectionTextColor = MakeColor(238, 178, 88, 255);
             else if (ElectionWarningActive)
                 Result.ElectionTextColor = MakeColor(240, 214, 124, 255);
@@ -691,7 +591,8 @@ namespace TopHudDataProvider
                 Result.EventText += UIStrings::Get(L"top_hud.fragment.day_suffix");
             }
 
-            if (ElectionWarningScore >= 0.78 ||
+            if (GameBalanceTuning::Politics::IsElectionWarningCritical(
+                    ElectionWarningScore) ||
                 WorldCrisisStatus.DaysActive >= 4)
             {
                 Result.EventTextColor = MakeColor(238, 108, 90, 255);
@@ -720,7 +621,8 @@ namespace TopHudDataProvider
                 Result.EventText += UIStrings::Get(L"top_hud.fragment.day_suffix");
             }
 
-            if (ElectionWarningScore >= 0.78 ||
+            if (GameBalanceTuning::Politics::IsElectionWarningCritical(
+                    ElectionWarningScore) ||
                 TaxEventStatus.Type == ETaxPolicyEventType::BudgetCrisis ||
                 TaxEventStatus.DaysActive >= 4)
             {
@@ -802,9 +704,11 @@ namespace TopHudDataProvider
                 Result.EventText += UIStrings::Get(L"top_hud.fragment.day_suffix");
             }
 
-            if (ElectionWarningScore >= 0.78)
+            if (GameBalanceTuning::Politics::IsElectionWarningCritical(
+                    ElectionWarningScore))
                 Result.EventTextColor = MakeColor(238, 108, 90, 255);
-            else if (ElectionWarningScore >= 0.52)
+            else if (GameBalanceTuning::Politics::IsElectionWarningCaution(
+                ElectionWarningScore))
                 Result.EventTextColor = MakeColor(238, 178, 88, 255);
             else
                 Result.EventTextColor = MakeColor(240, 214, 124, 255);
@@ -847,7 +751,8 @@ namespace TopHudDataProvider
         {
             Result.EventText =
                 L"수출 수입: +" +
-                FormatCurrency(Access->Read().GetLastDailyExportIncome());
+                StringUtils::FormatCurrency(
+                    Access->Read().GetLastDailyExportIncome());
             Result.EventTextColor = MakeColor(160, 218, 160, 255);
         }
 

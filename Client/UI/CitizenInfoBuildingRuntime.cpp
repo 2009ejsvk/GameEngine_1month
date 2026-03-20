@@ -1,4 +1,6 @@
 #include "CitizenInfoBuildingRuntime.h"
+#include "CitizenInfoConstants.h"
+#include "UIStringShorthand.h"
 #include "UIStrings.h"
 #include "../Building/BuildingCatalog.h"
 #include "../Economy/ResourceTradePricing.h"
@@ -11,76 +13,13 @@
 namespace
 {
     using namespace CitizenInfoBuildingRuntime;
+    using UIStringShorthand::Ui;
+    using UIStringShorthand::UiText;
+    using StringUtils::ExtractDetailValue;
     using StringUtils::SplitLines;
+    using StringUtils::StartsWith;
     using StringUtils::Trim;
 
-    const std::wstring& Ui(const wchar_t* Key)
-    {
-        return UIStrings::Get(Key);
-    }
-
-    const wchar_t* UiText(const wchar_t* Key)
-    {
-        return UIStrings::Get(Key).c_str();
-    }
-
-    bool StartsWith(const std::wstring& Text, const wchar_t* Prefix)
-    {
-        if (!Prefix)
-            return false;
-
-        const size_t PrefixLength = wcslen(Prefix);
-
-        if (Text.size() < PrefixLength)
-            return false;
-
-        return Text.compare(0, PrefixLength, Prefix) == 0;
-    }
-
-    std::wstring FormatMoney(long long Value)
-    {
-        if (Value < 0)
-            return L"-$" +
-                StringUtils::FormatUnsignedIntegerWithCommas(
-                    StringUtils::AbsToUnsigned(Value));
-
-        return L"$" + StringUtils::FormatIntegerWithCommas(Value);
-    }
-
-    std::wstring FormatMoneyDollarFirst(long long Value)
-    {
-        if (Value < 0)
-            return L"$-" +
-                StringUtils::FormatUnsignedIntegerWithCommas(
-                    StringUtils::AbsToUnsigned(Value));
-
-        return L"$" + StringUtils::FormatIntegerWithCommas(Value);
-    }
-
-    std::wstring FormatMegawattValue(int Value)
-    {
-        return std::to_wstring(Value) +
-            UIStrings::Get(L"citizen_info.unit.megawatt");
-    }
-
-    std::wstring ExtractDetailValue(
-        const std::wstring& DetailText,
-        const wchar_t* Prefix)
-    {
-        const std::vector<std::wstring> Lines = SplitLines(DetailText);
-
-        for (size_t Index = 0; Index < Lines.size(); ++Index)
-        {
-            const std::wstring Line = Trim(Lines[Index]);
-
-            if (!StartsWith(Line, Prefix))
-                continue;
-
-            return Trim(Line.substr(wcslen(Prefix)));
-        }
-
-        return std::wstring();
-    }
     std::wstring BuildAllowedWealthRequirementText(unsigned int AllowedWealthMask)
     {
         const unsigned int EffectiveMask =
@@ -144,12 +83,12 @@ namespace
 
         return UIStrings::Get(L"citizen_info.label.export_short") +
             L" " +
-            FormatMoneyDollarFirst(
+            StringUtils::FormatCurrencyDollarFirst(
                 ResourceTradePricing::GetExportPricePerStockUnit(Type)) +
             L" / " +
             UIStrings::Get(L"citizen_info.label.import_short") +
             L" " +
-            FormatMoneyDollarFirst(
+            StringUtils::FormatCurrencyDollarFirst(
                 ResourceTradePricing::GetImportPricePerStockUnit(Type));
     }
 
@@ -274,9 +213,11 @@ namespace CitizenInfoBuildingRuntime
 {
     bool IsHydroponicFarmBuilding(const FBuildingUiSnapshot& Snapshot)
     {
-        return Snapshot.BuildingId == "build_2_10" ||
+        return Snapshot.BuildingId ==
+                CitizenInfoConstants::GHydroponicFarmBuildingId ||
             (Snapshot.CatalogEntry &&
-                Snapshot.CatalogEntry->Id == "build_2_10");
+                Snapshot.CatalogEntry->Id ==
+                    CitizenInfoConstants::GHydroponicFarmBuildingId);
     }
 
     bool IsCustomsOfficeBuilding(const FBuildingUiSnapshot& Snapshot)
@@ -345,7 +286,7 @@ namespace CitizenInfoBuildingRuntime
                     static_cast<double>(Snapshot.MonthlyWageCost) /
                     static_cast<double>(WorkerCount))) :
                 0ll;
-        return FormatMoney(WagePerWorker);
+        return StringUtils::FormatCurrency(WagePerWorker);
     }
 
     std::wstring ResolveCustomsModeDescription(
@@ -379,6 +320,14 @@ namespace CitizenInfoBuildingRuntime
 
         if (!QuerySource->TryGetBuildingRecord(BuildingName, BuildingRecord) ||
             !BuildingRecord.Valid)
+        {
+            return false;
+        }
+
+        // Fail closed if the query source resolves a different building than
+        // the one currently tracked by the widget.
+        if (!BuildingRecord.ObjectName.empty() &&
+            StringUtils::WideToUtf8(BuildingRecord.ObjectName) != BuildingName)
         {
             return false;
         }
@@ -480,6 +429,8 @@ namespace CitizenInfoBuildingRuntime
 
         if (OutSnapshot.Harbor)
         {
+            long long TotalExportValue = 0;
+
             for (size_t SlotIndex = 0;
                 SlotIndex < OutSnapshot.HarborResourceSlots.size();
                 ++SlotIndex)
@@ -495,17 +446,29 @@ namespace CitizenInfoBuildingRuntime
                     L": " +
                     StringUtils::FormatIntegerWithCommas(SlotRecord.Stock);
 
-                const std::wstring TradePriceText =
-                    FormatTradeUnitPriceInline(SlotRecord.Type);
-
-                if (!TradePriceText.empty())
+                if (HasTradeUnitPrice(SlotRecord.Type))
                 {
+                    const int UnitPrice =
+                        ResourceTradePricing::GetExportPricePerStockUnit(
+                            SlotRecord.Type);
                     Line += L" (";
-                    Line += TradePriceText;
+                    Line += UIStrings::Get(L"citizen_info.label.export_short");
+                    Line += L" ";
+                    Line += StringUtils::FormatCurrencyDollarFirst(UnitPrice);
                     Line += L")";
+                    TotalExportValue +=
+                        static_cast<long long>(SlotRecord.Stock) * UnitPrice;
                 }
 
                 OutSnapshot.HarborResourceLines.push_back(std::move(Line));
+            }
+
+            if (TotalExportValue > 0)
+            {
+                OutSnapshot.HarborResourceLines.push_back(
+                    L"합계: " +
+                    StringUtils::FormatCurrencyDollarFirst(
+                        static_cast<int>(TotalExportValue)));
             }
         }
 

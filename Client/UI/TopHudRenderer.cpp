@@ -8,6 +8,7 @@
 #include "UI/TextBlock.h"
 #include "Device.h"
 #include <algorithm>
+#include <array>
 #include <string>
 
 namespace
@@ -29,7 +30,19 @@ namespace
         static_cast<int>(GConstitutionTopicCount);
     constexpr int GConstitutionTabSlotCount =
         GConstitutionTopicTabCount + 1;
+    constexpr int GConstitutionOverviewTabNumber = 1;
+    constexpr int GConstitutionTopicTabStartNumber =
+        GConstitutionOverviewTabNumber + 1;
     constexpr int GConstitutionOptionCardCount = 3;
+    const std::array<EConstitutionTopic, GConstitutionTopicCount>
+        GConstitutionTabTopics =
+    {
+        EConstitutionTopic::VotingRights,
+        EConstitutionTopic::ArmedForces,
+        EConstitutionTopic::ReligionAndState,
+        EConstitutionTopic::LaborPolicy,
+        EConstitutionTopic::MediaIndependence
+    };
 
     constexpr const TCHAR* GSpeedPanelTexture = TEXT(
         "TROPICO_ASSET\\Visuals\\UI\\Base\\1_Colonial\\Gamespeed\\T_gamespeed_deco_bg.png");
@@ -868,7 +881,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
     auto ConstitutionOverviewButton =
         Widget.CreateWidget<CButton>(
-            "TopHud_ConstitutionOverviewButton",
+            "TopHud_ConstitutionTab_" +
+                std::to_string(GConstitutionOverviewTabNumber),
             96).lock();
 
     if (ConstitutionOverviewButton)
@@ -890,7 +904,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
 
         auto OverviewText =
             ConstitutionOverviewButton->CreateChildWidget<CTextBlock>(
-                "TopHud_ConstitutionOverviewButtonText",
+                "TopHud_ConstitutionTabText_" +
+                    std::to_string(GConstitutionOverviewTabNumber),
                 97).lock();
 
         if (OverviewText)
@@ -914,7 +929,8 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
     for (int Index = 0; Index < GConstitutionTopicTabCount; ++Index)
     {
         auto TabButton = Widget.CreateWidget<CButton>(
-            "TopHud_ConstitutionTab_" + std::to_string(Index + 1),
+            "TopHud_ConstitutionTab_" +
+                std::to_string(Index + GConstitutionTopicTabStartNumber),
             96).lock();
 
         if (TabButton)
@@ -930,7 +946,7 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
             TabButton->SetEnable(false);
 
             const EConstitutionTopic Topic =
-                static_cast<EConstitutionTopic>(Index);
+                GConstitutionTabTopics[static_cast<size_t>(Index)];
 
             TabButton->SetEventCallback(
                 EButtonEventState::Click,
@@ -943,20 +959,24 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
             Widget.mConstitutionTopicTabButtons[Index] = TabButton;
         }
 
-        auto TabText = Widget.CreateWidget<CTextBlock>(
-            "TopHud_ConstitutionTabText_" + std::to_string(Index + 1),
-            97).lock();
-
-        if (TabText)
+        if (TabButton)
         {
-            ConfigureConstitutionText(
-                TabText,
-                14.f,
-                ETextAlignH::Center,
-                ETextAlignV::Middle,
-                64, 54, 36);
-            TabText->SetEnable(false);
-            Widget.mConstitutionTopicTabTexts[Index] = TabText;
+            auto TabText = TabButton->CreateChildWidget<CTextBlock>(
+                "TopHud_ConstitutionTabText_" +
+                    std::to_string(Index + GConstitutionTopicTabStartNumber),
+                97).lock();
+
+            if (TabText)
+            {
+                ConfigureConstitutionText(
+                    TabText,
+                    14.f,
+                    ETextAlignH::Center,
+                    ETextAlignV::Middle,
+                    64, 54, 36);
+                TabText->SetEnable(false);
+                Widget.mConstitutionTopicTabTexts[Index] = TabText;
+            }
         }
     }
 
@@ -984,7 +1004,7 @@ void FTopHudRenderer::CreateWidgets(CTopHudWidget& Widget)
             CardButton->SetEnable(false);
 
             const EConstitutionTopic Topic =
-                static_cast<EConstitutionTopic>(Index);
+                GConstitutionTabTopics[static_cast<size_t>(Index)];
 
             CardButton->SetEventCallback(
                 EButtonEventState::Click,
@@ -2135,10 +2155,10 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
             Widget.mConstitutionTopicTabTexts[Index].lock() :
             nullptr;
 
+        const EConstitutionTopic Topic = GConstitutionTabTopics[Index];
         const float SelectedOffset =
             (!Widget.GetState().ConstitutionOverviewMode &&
-                static_cast<size_t>(
-                    Widget.GetState().ConstitutionViewedTopic) == Index) ?
+                Widget.GetState().ConstitutionViewedTopic == Topic) ?
             8.f * ConstitutionScale : 0.f;
         const float TabX =
             ConstitutionPanelLeft + ConstitutionInnerPadding +
@@ -2156,9 +2176,8 @@ void FTopHudRenderer::RefreshLayout(CTopHudWidget& Widget)
         if (Text)
         {
             Text->SetPos(
-                TabX + 10.f * ConstitutionScale,
-                ConstitutionTabBaseY + SelectedOffset +
-                    6.f * ConstitutionScale);
+                10.f * ConstitutionScale,
+                6.f * ConstitutionScale);
             Text->SetSize(
                 ConstitutionTabWidth - 20.f * ConstitutionScale,
                 ConstitutionTabHeight - 12.f * ConstitutionScale);

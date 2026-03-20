@@ -274,8 +274,8 @@ bool CPlacementController::BeginBuildPlacement(
     PlacementObject->SetTileMapObject(TileMapObject);
     PlacementObject->SetAutoPlaceOnPrepare(false);
     PlacementObject->SetBuildingSpriteTexturePath(SpriteTexturePath);
-    PlacementObject->SetBuildingId(SafeBuildingId);
     PlacementObject->ApplyCatalogEntry(Entry);
+    PlacementObject->SetBuildingId(SafeBuildingId);
 
     auto VisualWeak = World->CreateGameObject<CBuildingVisual>(
         PlacementName + "_Visual");
@@ -564,7 +564,21 @@ void CPlacementController::PlaceCurrentArea()
     }
 
     RefreshPlacementObjects();
-    auto ClickedPlacementObject = PickPlacementObject(MouseWorldPos);
+    auto ClickedPlacementObject =
+        PickPlacementObjectByVisual(MouseScreenPos);
+
+    if (!ClickedPlacementObject)
+    {
+        ClickedPlacementObject = PickPlacementObject(MouseWorldPos);
+
+        if (ClickedPlacementObject &&
+            (!ClickedPlacementObject->HasPlacedArea() ||
+                ClickedPlacementObject->IsMovePreviewActive()))
+        {
+            ClickedPlacementObject.reset();
+        }
+    }
+
     auto CitizenInfoWidget = mCitizenInfoWidget.lock();
 
     if (ClickedPlacementObject)
@@ -1275,6 +1289,80 @@ void CPlacementController::ClearRoadBrushMode()
     mLastRoadBrushTileIndex = -1;
     mRoadPathStartTileIndex = -1;
     mRoadPreviewEndTileIndex = -1;
+}
+
+std::shared_ptr<CPlacementAreaObject>
+    CPlacementController::PickPlacementObjectByVisual(
+        const FVector2& MouseScreenPos)
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return std::shared_ptr<CPlacementAreaObject>();
+
+    std::vector<std::weak_ptr<CBuildingVisual>> VisualList;
+
+    if (!World->FindObjectListByType<CBuildingVisual>(VisualList))
+        return std::shared_ptr<CPlacementAreaObject>();
+
+    std::shared_ptr<CPlacementAreaObject> BestObject;
+    float BestDistSq = FLT_MAX;
+    float BestCenterY = -FLT_MAX;
+
+    for (size_t i = 0; i < VisualList.size(); ++i)
+    {
+        auto Visual = VisualList[i].lock();
+
+        if (!Visual)
+            continue;
+
+        auto Building = Visual->GetBuilding();
+
+        if (!Building ||
+            !Building->GetAlive() ||
+            !Building->GetEnable() ||
+            !Building->HasPlacedArea() ||
+            Building->IsMovePreviewActive())
+        {
+            continue;
+        }
+
+        FVector2 MinBounds;
+        FVector2 MaxBounds;
+        FVector2 Center;
+
+        if (!Visual->TryGetProjectedScreenBounds(
+                MinBounds,
+                MaxBounds,
+                Center))
+        {
+            continue;
+        }
+
+        if (MouseScreenPos.x < MinBounds.x ||
+            MouseScreenPos.x > MaxBounds.x ||
+            MouseScreenPos.y < MinBounds.y ||
+            MouseScreenPos.y > MaxBounds.y)
+        {
+            continue;
+        }
+
+        const float dx = Center.x - MouseScreenPos.x;
+        const float dy = Center.y - MouseScreenPos.y;
+        const float DistSq = dx * dx + dy * dy;
+
+        if (!BestObject ||
+            DistSq < BestDistSq ||
+            (fabsf(DistSq - BestDistSq) <= 1.f &&
+                Center.y > BestCenterY))
+        {
+            BestObject = Building;
+            BestDistSq = DistSq;
+            BestCenterY = Center.y;
+        }
+    }
+
+    return BestObject;
 }
 
 std::shared_ptr<CPlacementAreaObject> CPlacementController::PickPlacementObject(

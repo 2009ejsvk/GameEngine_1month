@@ -1,7 +1,6 @@
 #include "CitizenInfoDataProviderInternal.h"
 #include "CitizenInfoConstants.h"
 #include "CitizenInfoPresentation.h"
-#include "CitizenInfoQueryService.h"
 #include "UIStrings.h"
 #include "../StringUtils.h"
 #include <algorithm>
@@ -9,9 +8,10 @@
 
 using namespace CitizenInfoDataProviderInternal;
 
-namespace CitizenInfoDataProvider
+namespace CitizenInfoDataProviderInternal
 {
-    FCitizenInfoSnapshot BuildCitizenSnapshot(
+    // Citizen panel-specific snapshot assembly lives here.
+    FCitizenInfoSnapshot BuildCitizenSnapshotImpl(
         const std::string& CitizenName,
         const FNpcSatisfaction& Satisfaction,
         const FCitizenIdentityProfile& IdentityProfile,
@@ -186,28 +186,30 @@ namespace CitizenInfoDataProvider
         return Result;
     }
 
-    FCitizenInfoSnapshot BuildTrackedCitizenSnapshot(
-        const std::shared_ptr<ICitizenInfoQuerySource>& QuerySource,
-        const std::string& CitizenName,
-        int SelectedCitizenTabIndex)
+    FCitizenInfoSnapshot BuildTrackedCitizenSnapshotImpl(
+        const std::shared_ptr<CitizenInfoDataProvider::ICitizenInfoQuerySource>& QuerySource,
+        const FTrackedCitizenRequest& Request)
     {
-        if (!QuerySource || CitizenName.empty())
+        if (!QuerySource || Request.CitizenName.empty())
             return FCitizenInfoSnapshot();
 
-        FCitizenInfoCitizenRecord Citizen;
+        CitizenInfoDataProvider::FCitizenInfoCitizenRecord Citizen;
 
-        if (!QuerySource->TryGetCitizenRecord(CitizenName, Citizen) ||
+        if (!QuerySource->TryGetCitizenRecord(Request.CitizenName, Citizen) ||
             !Citizen.Valid)
         {
             return FCitizenInfoSnapshot();
         }
 
-        FCitizenInfoSnapshot Result = BuildCitizenSnapshot(
+        if (Citizen.Name != Request.CitizenName)
+            return FCitizenInfoSnapshot();
+
+        FCitizenInfoSnapshot Result = BuildCitizenSnapshotImpl(
             Citizen.Name,
             Citizen.Satisfaction,
             Citizen.IdentityProfile,
             Citizen.PoliticalProfile,
-            SelectedCitizenTabIndex);
+            Request.SelectedTabIndex);
 
         if (Result.Valid && Result.SelectedTabIndex == 0)
         {
@@ -398,16 +400,5 @@ namespace CitizenInfoDataProvider
         }
 
         return Result;
-    }
-
-    FCitizenInfoSnapshot BuildTrackedCitizenSnapshot(
-        const std::shared_ptr<CWorld>& World,
-        const std::string& CitizenName,
-        int SelectedCitizenTabIndex)
-    {
-        return BuildTrackedCitizenSnapshot(
-            CitizenInfoQueryService::CreateWorldQuerySource(World),
-            CitizenName,
-            SelectedCitizenTabIndex);
     }
 }

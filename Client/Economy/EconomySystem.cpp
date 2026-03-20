@@ -1744,12 +1744,12 @@ namespace
         {
         case ETaxPolicyEventType::WorkerTaxStrike:
             return Escalated ?
-                L"자본주의자와 지식인이 근로세 경감을 최후통첩합니다." :
-                L"자본주의자와 지식인이 근로세 경감을 요구합니다.";
+                L"자본주의자와 지식인이 소득세 인하를 최후통첩합니다." :
+                L"자본주의자와 지식인이 소득세 인하를 요구합니다.";
         case ETaxPolicyEventType::PropertyTaxBacklash:
             return Escalated ?
-                L"보수주의자와 자본주의자가 재산세 유예를 강하게 압박합니다." :
-                L"보수주의자와 자본주의자가 재산세 유예를 요구합니다.";
+                L"보수주의자와 자본주의자가 재산세 인하를 강하게 압박합니다." :
+                L"보수주의자와 자본주의자가 재산세 인하를 요구합니다.";
         case ETaxPolicyEventType::BudgetCrisis:
             return Escalated ?
                 L"보수주의자와 공산주의자가 재정 안정 대책을 최후통첩합니다." :
@@ -1864,7 +1864,8 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
     CWorld* World,
     int DaysInMonth,
     const FGovernmentProfile& GovernmentProfile,
-    const FTaxPolicyEventStatus* TaxEventStatus)
+    const FTaxPolicyEventStatus* TaxEventStatus,
+    const FGovernmentEdictModifiers* EdictModifiers)
 {
     FDailyResult Result;
     const FTaxEventEconomyEffects EventEffects =
@@ -1913,6 +1914,13 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
                 EventEffects.ResidentialUpkeepMultiplier;
         }
 
+        if (EdictModifiers &&
+            (Building->CanExportStoredResources() || Building->IsWarehouse()))
+        {
+            EffectiveUpkeepMultiplier *=
+                static_cast<double>(EdictModifiers->HarborUpkeepMultiplier);
+        }
+
         Result.UpkeepCost += static_cast<long long>(std::llround(
             BaseDailyUpkeep * EffectiveUpkeepMultiplier));
         PropertyTaxIncome +=
@@ -1926,7 +1934,10 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
         {
             ShipArrivedByBuilding[i] =
                 Building->AdvanceHarborShipProgressAndCheckArrival(
-                    DaysInMonth);
+                    DaysInMonth,
+                    EdictModifiers
+                        ? EdictModifiers->HarborShipProgressMultiplier
+                        : 1.f);
             if (ShipArrivedByBuilding[i])
             {
                 ArrivedExportHubs.push_back(Building);
@@ -2086,7 +2097,8 @@ EconomySystem::FWorldSettlementResult EconomySystem::ApplyDailyWorldSettlement(
         World,
         DaysInMonth,
         GovernmentProfile,
-        &TaxEventStatus);
+        &TaxEventStatus,
+        &EdictModifiers);
 
     Result.AdjustedTaxIncome = static_cast<long long>(std::llround(
         static_cast<double>(Result.BaseResult.TaxIncome) *

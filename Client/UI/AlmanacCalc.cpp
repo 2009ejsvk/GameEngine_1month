@@ -20,11 +20,11 @@ namespace
 
     const wchar_t* GetElectionWarningTierLabel(double Score)
     {
-        if (Score >= 0.78)
+        if (GameBalanceTuning::Politics::IsElectionWarningCritical(Score))
             return UIStrings::Get(L"almanac.warning.high").c_str();
-        if (Score >= 0.52)
+        if (GameBalanceTuning::Politics::IsElectionWarningCaution(Score))
             return UIStrings::Get(L"almanac.warning.caution").c_str();
-        if (Score >= 0.32)
+        if (GameBalanceTuning::Politics::IsElectionWarningCheck(Score))
             return UIStrings::Get(L"almanac.warning.check").c_str();
         return UIStrings::Get(L"almanac.warning.stable").c_str();
     }
@@ -83,7 +83,10 @@ namespace AlmanacCalc
         if (DaysUntilNextElection < 0)
             return UIStrings::Get(L"almanac.warning.no_schedule");
 
-        if (DaysUntilNextElection > 180 && ElectionWarningScore < 0.32)
+        if (DaysUntilNextElection >
+                GameBalanceTuning::Politics::ElectionWarningActiveWindowDays &&
+            !GameBalanceTuning::Politics::IsElectionWarningCheck(
+                ElectionWarningScore))
             return UIStrings::Get(L"almanac.warning.stable");
 
         std::wstring Summary =
@@ -96,12 +99,14 @@ namespace AlmanacCalc
         {
             Summary += L" / " + TaxEventStatus.Title;
         }
-        else if (ElectionWarningScore >= 0.78)
+        else if (GameBalanceTuning::Politics::IsElectionWarningCritical(
+            ElectionWarningScore))
         {
             Summary += UIStrings::Get(
                 L"almanac.warning.fragment.support_collapse");
         }
-        else if (ElectionWarningScore >= 0.52)
+        else if (GameBalanceTuning::Politics::IsElectionWarningCaution(
+            ElectionWarningScore))
         {
             Summary += UIStrings::Get(
                 L"almanac.warning.fragment.opposition_rally");
@@ -688,9 +693,9 @@ namespace AlmanacCalc
                 Snapshot.ElectionWarningScore,
                 Snapshot.TaxEventStatus);
         Result.ElectionWarningActive =
-            Snapshot.DaysUntilNextElection >= 0 &&
-            Snapshot.DaysUntilNextElection <= 180 &&
-            Snapshot.ElectionWarningScore >= 0.32;
+            GameBalanceTuning::Politics::HasElectionWarning(
+                Snapshot.DaysUntilNextElection,
+                Snapshot.ElectionWarningScore);
         Result.ElectionWarningTint =
             AlmanacTheme::GetElectionWarningTint(
                 Snapshot.ElectionWarningScore);

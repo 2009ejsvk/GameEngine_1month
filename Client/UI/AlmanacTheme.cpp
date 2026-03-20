@@ -1,6 +1,7 @@
 #include "AlmanacTheme.h"
 #include "AlmanacCalc.h"
 #include "TropicoUiTheme.h"
+#include "../GameBalanceTuning.h"
 
 namespace
 {
@@ -22,11 +23,11 @@ namespace AlmanacTheme
 
     FVector4 GetElectionWarningTint(double Score)
     {
-        if (Score >= 0.78)
+        if (GameBalanceTuning::Politics::IsElectionWarningCritical(Score))
             return TropicoUiTheme::GStatusDangerTint;
-        if (Score >= 0.52)
+        if (GameBalanceTuning::Politics::IsElectionWarningCaution(Score))
             return TropicoUiTheme::GStatusWarningTint;
-        if (Score >= 0.32)
+        if (GameBalanceTuning::Politics::IsElectionWarningCheck(Score))
             return TropicoUiTheme::GStatusCautionTint;
         return TropicoUiTheme::GStatusSuccessTint;
     }

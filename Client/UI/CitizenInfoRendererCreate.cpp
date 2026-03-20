@@ -101,19 +101,28 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         Widget.mTitleText = TitleText;
     }
 
-    auto SubtitleText =
-        Widget.CreateWidget<CTextBlock>("CitizenInfo_SubtitleText", 9).lock();
-
-    if (SubtitleText)
+    static const char* SubtitleNames[CCitizenInfoWidget::GTabButtonCount] = {
+        "CitizenInfo_Tab0_SubtitleText",
+        "CitizenInfo_Tab1_SubtitleText",
+        "CitizenInfo_Tab2_SubtitleText",
+        "CitizenInfo_Tab3_SubtitleText",
+        "CitizenInfo_Tab4_SubtitleText",
+    };
+    for (int i = 0; i < CCitizenInfoWidget::GTabButtonCount; ++i)
     {
-        SetPanelTextStyle(
-            SubtitleText,
-            15.f,
-            TropicoUiTheme::GCitizenInfoSubtitleTint,
-            ETextAlignH::Center,
-            ETextAlignV::Middle,
-            false);
-        Widget.mSubtitleText = SubtitleText;
+        auto SubtitleText =
+            Widget.CreateWidget<CTextBlock>(SubtitleNames[i], 9).lock();
+        if (SubtitleText)
+        {
+            SetPanelTextStyle(
+                SubtitleText,
+                15.f,
+                TropicoUiTheme::GCitizenInfoSubtitleTint,
+                ETextAlignH::Center,
+                ETextAlignV::Middle,
+                false);
+            Widget.mSubtitleTexts[i] = SubtitleText;
+        }
     }
 
     auto SectionDivider =
@@ -717,11 +726,19 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         Index < CCitizenInfoWidget::GOverviewMetricRowCount;
         ++Index)
     {
+        const bool IsHarborCargoRow =
+            Index >= CCitizenInfoWidget::GHarborCargoStartIndex;
         auto Label = Widget.CreateWidget<CTextBlock>(
-            "CitizenInfo_OverviewMetricLabel_" + std::to_string(Index + 1),
+            (IsHarborCargoRow ?
+                "CitizenInfo_HarborCargoLabel_" :
+                "CitizenInfo_OverviewMetricLabel_") +
+                std::to_string(Index + 1),
             9).lock();
         auto Value = Widget.CreateWidget<CTextBlock>(
-            "CitizenInfo_OverviewMetricValue_" + std::to_string(Index + 1),
+            (IsHarborCargoRow ?
+                "CitizenInfo_HarborCargoValue_" :
+                "CitizenInfo_OverviewMetricValue_") +
+                std::to_string(Index + 1),
             9).lock();
 
         if (Label)
@@ -875,6 +892,127 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
                 false);
             Widget.mResidentialOverviewMetricValues[
                 static_cast<size_t>(Index)] = Value;
+        }
+    }
+
+    // Tab 1 (상태) 전용 metric rows
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
+        auto Label = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_StatsMetricLabel_" + std::to_string(Index + 1),
+            9).lock();
+        auto Value = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_StatsMetricValue_" + std::to_string(Index + 1),
+            9).lock();
+
+        if (Label)
+        {
+            SetPanelTextStyle(
+                Label,
+                17.f,
+                TropicoUiTheme::GCitizenInfoSectionHeaderTint,
+                ETextAlignH::Left,
+                ETextAlignV::Middle,
+                false);
+            Widget.mStatsMetricLabels[static_cast<size_t>(Index)] = Label;
+        }
+
+        if (Value)
+        {
+            SetPanelTextStyle(
+                Value,
+                17.f,
+                TropicoUiTheme::GCitizenInfoValueTint,
+                ETextAlignH::Right,
+                ETextAlignV::Middle,
+                false);
+            Widget.mStatsMetricValues[static_cast<size_t>(Index)] = Value;
+        }
+    }
+
+    // Tab 3 (효율) 전용 metric rows
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
+        auto Label = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_EfficiencyMetricLabel_" + std::to_string(Index + 1),
+            9).lock();
+        auto Value = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_EfficiencyMetricValue_" + std::to_string(Index + 1),
+            9).lock();
+
+        if (Label)
+        {
+            SetPanelTextStyle(
+                Label,
+                17.f,
+                TropicoUiTheme::GCitizenInfoSectionHeaderTint,
+                ETextAlignH::Left,
+                ETextAlignV::Middle,
+                false);
+            Widget.mEfficiencyMetricLabels[static_cast<size_t>(Index)] = Label;
+        }
+
+        if (Value)
+        {
+            SetPanelTextStyle(
+                Value,
+                17.f,
+                TropicoUiTheme::GCitizenInfoValueTint,
+                ETextAlignH::Right,
+                ETextAlignV::Middle,
+                false);
+            Widget.mEfficiencyMetricValues[static_cast<size_t>(Index)] = Value;
+        }
+    }
+
+    // 탭별 BodyText
+    {
+        auto StatsText = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_Stats_BodyText", 9).lock();
+        if (StatsText)
+        {
+            SetPanelTextStyle(
+                StatsText,
+                11.f,
+                TropicoUiTheme::GCitizenInfoBodyTint,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                false);
+            Widget.mStatsBodyText = StatsText;
+        }
+    }
+    {
+        auto UpgradeText = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_Upgrade_BodyText", 9).lock();
+        if (UpgradeText)
+        {
+            SetPanelTextStyle(
+                UpgradeText,
+                11.f,
+                TropicoUiTheme::GCitizenInfoBodyTint,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                false);
+            Widget.mUpgradeBodyText = UpgradeText;
+        }
+    }
+    {
+        auto EfficiencyText = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_Efficiency_BodyText", 9).lock();
+        if (EfficiencyText)
+        {
+            SetPanelTextStyle(
+                EfficiencyText,
+                11.f,
+                TropicoUiTheme::GCitizenInfoBodyTint,
+                ETextAlignH::Left,
+                ETextAlignV::Top,
+                false);
+            Widget.mEfficiencyBodyText = EfficiencyText;
         }
     }
 
@@ -1057,26 +1195,7 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
             EButtonEventState::Click,
             [Widget, Index]() mutable
             {
-                switch (Index)
-                {
-                case 0:
-                    Widget.OnBudgetLevel1Click();
-                    break;
-                case 1:
-                    Widget.OnBudgetLevel2Click();
-                    break;
-                case 2:
-                    Widget.OnBudgetLevel3Click();
-                    break;
-                case 3:
-                    Widget.OnBudgetLevel4Click();
-                    break;
-                case 4:
-                    Widget.OnBudgetLevel5Click();
-                    break;
-                default:
-                    break;
-                }
+                Widget.OnBudgetButtonClick(Index);
             });
 
         auto Label = CWidget::CreateStaticWidget<CTextBlock>(

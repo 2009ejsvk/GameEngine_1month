@@ -313,15 +313,10 @@ namespace
     std::wstring BuildConstitutionOptionBody(
         const FConstitutionOptionDef& Option)
     {
-        std::wstring Result = BuildConstitutionEffectLine(Option);
-
         if (!Option.EffectSummary.empty())
-        {
-            Result += L"\n";
-            Result += Option.EffectSummary;
-        }
+            return Option.EffectSummary;
 
-        return Result;
+        return BuildConstitutionEffectLine(Option);
     }
 
     std::wstring BuildConstitutionSummaryValue(
@@ -344,7 +339,7 @@ namespace
         }
 
         if (!IsConstitutionTopicUnlocked(State, Topic, CurrentEra))
-            return UIStrings::Get(L"constitution.summary.research_required");
+            return L"";
 
         if (TopicIndex < State.QueuedTopics.size() &&
             State.QueuedTopics[TopicIndex])

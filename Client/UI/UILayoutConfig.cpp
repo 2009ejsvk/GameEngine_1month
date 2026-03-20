@@ -259,11 +259,13 @@ namespace UIConfig
     float BuildingSectionDividerHeight     = 14.f;
     float BuildingBudgetBaseOffsetY        = 36.f;
     float BuildingBudgetLabelOffsetY       = 2.f;
-    float BuildingBudgetCustomButtonsOffsetY = 20.f;
-    float BuildingBudgetWorkButtonsOffsetY = 78.f;
-    float BuildingBudgetDefaultButtonsOffsetY = 26.f;
+    float BuildingBudgetCustomButtonsOffsetY = -24.f;
+    float BuildingBudgetWorkButtonsOffsetY = 34.f;
+    float BuildingBudgetDefaultButtonsOffsetY = -18.f;
     float BuildingBudgetCompactGap         = 6.f;
     float BuildingBudgetDefaultGap         = 8.f;
+    float BuildingModeButtonHeight         = 34.f;
+    float BuildingModeButtonGap            = 0.f;
     float BuildingOccupancyGapY            = 18.f;
     float BuildingActionButtonHeight       = 34.f;
     float BuildingActionButtonWidth        = 124.f;
@@ -273,6 +275,10 @@ namespace UIConfig
     float BuildingMoveCompactRightOffset   = 82.f;
     float BuildingFocusCompactRightOffset  = 40.f;
     float BuildingOverviewCommandGap       = 10.f;
+    float BuildingMinimumTabStartInset     = 4.f;
+    float BuildingCustomOverviewMetricRowHeight = 21.f;
+    float BuildingWorkOverviewMetricRowHeight = 20.f;
+    float BuildingCompactMetricRowHeight   = 24.f;
     float BuildingBudgetButtonHeight       = 30.f;
     float BuildingScrollTrackWidth         = 15.f;
     float BuildingScrollBottomInset        = 52.f;
@@ -351,6 +357,8 @@ namespace UIConfig
             TOptionalOverrideValue<float> PosY;
             TOptionalOverrideValue<float> OffsetX;
             TOptionalOverrideValue<float> OffsetY;
+            TOptionalOverrideValue<float> Angle;
+            TOptionalOverrideValue<float> AngleAdd;
             TOptionalOverrideValue<float> Width;
             TOptionalOverrideValue<float> Height;
             TOptionalOverrideValue<float> WidthAdd;
@@ -382,12 +390,58 @@ namespace UIConfig
         std::unordered_map<std::string, FWidgetOverrideRule> GWidgetNameOverrides;
         std::unordered_map<std::string, FWidgetOverrideRule> GWidgetPathPrefixOverrides;
         std::unordered_map<std::string, FWidgetOverrideRule> GWidgetNamePrefixOverrides;
+        struct FWidgetAngleOverrideState
+        {
+            const CWidget* WidgetIdentity = nullptr;
+            float BaseAngle = 0.f;
+            float LastAppliedAngle = 0.f;
+            bool HadAngleOverride = false;
+        };
+
+        struct FWidgetLayoutOverrideState
+        {
+            const CWidget* WidgetIdentity = nullptr;
+            FVector3 BasePosition = FVector3::Zero;
+            FVector3 LastAppliedPosition = FVector3::Zero;
+            FVector3 BaseSize = FVector3::Zero;
+            FVector3 LastAppliedSize = FVector3::Zero;
+            bool HadPositionOverride = false;
+            bool HadSizeOverride = false;
+        };
+
+        struct FTextFontOverrideState
+        {
+            const CTextBlock* WidgetIdentity = nullptr;
+            float BaseFontSize = 0.f;
+            float LastAppliedFontSize = 0.f;
+            bool HadFontSizeOverride = false;
+        };
+
+        std::unordered_map<std::string, FWidgetLayoutOverrideState>
+            GWidgetLayoutOverrideStates;
+        std::unordered_map<std::string, FWidgetAngleOverrideState>
+            GWidgetAngleOverrideStates;
+        std::unordered_map<std::string, FTextFontOverrideState>
+            GTextFontOverrideStates;
         unsigned long long GLastDumpedWidgetPathGeneration = 0;
         unsigned long long GLastWidgetTreeSignature = 0;
         unsigned long long GConfigGeneration = 0;
         constexpr float GConfigCheckIntervalSeconds = 0.5f;
+        constexpr float GFloatCompareEpsilon = 0.01f;
         float GConfigCheckCooldown = 0.f;
         bool GConfigRegistered = false;
+
+        bool IsNearlyEqual(float Left, float Right)
+        {
+            return std::fabs(Left - Right) <= GFloatCompareEpsilon;
+        }
+
+        bool IsNearlyEqual(const FVector3& Left, const FVector3& Right)
+        {
+            return IsNearlyEqual(Left.x, Right.x) &&
+                IsNearlyEqual(Left.y, Right.y) &&
+                IsNearlyEqual(Left.z, Right.z);
+        }
 
         struct FTrackedConfigFile
         {
@@ -425,6 +479,8 @@ namespace UIConfig
             MergeOverrideValue(Destination.PosY, Source.PosY);
             MergeOverrideValue(Destination.OffsetX, Source.OffsetX);
             MergeOverrideValue(Destination.OffsetY, Source.OffsetY);
+            MergeOverrideValue(Destination.Angle, Source.Angle);
+            MergeOverrideValue(Destination.AngleAdd, Source.AngleAdd);
             MergeOverrideValue(Destination.Width, Source.Width);
             MergeOverrideValue(Destination.Height, Source.Height);
             MergeOverrideValue(Destination.WidthAdd, Source.WidthAdd);
@@ -588,6 +644,8 @@ namespace UIConfig
             else if (Property == "PosY")          SetOverrideValue(Rule->PosY, Val);
             else if (Property == "OffsetX")       SetOverrideValue(Rule->OffsetX, Val);
             else if (Property == "OffsetY")       SetOverrideValue(Rule->OffsetY, Val);
+            else if (Property == "Angle")         SetOverrideValue(Rule->Angle, Val);
+            else if (Property == "AngleAdd")      SetOverrideValue(Rule->AngleAdd, Val);
             else if (Property == "Width")         SetOverrideValue(Rule->Width, Val);
             else if (Property == "Height")        SetOverrideValue(Rule->Height, Val);
             else if (Property == "WidthAdd")      SetOverrideValue(Rule->WidthAdd, Val);
@@ -683,100 +741,337 @@ namespace UIConfig
 
         void ApplyOverrideRuleToWidget(
             const std::shared_ptr<CWidget>& Widget,
-            const FWidgetOverrideRule& Rule)
+            const std::string& WidgetPath,
+            const FWidgetOverrideRule& Rule,
+            bool HasOverride)
         {
             if (!Widget)
                 return;
 
-            if (Rule.Enable.Set)
-                Widget->SetEnable(Rule.Enable.Value);
-
-            FVector3 Position = Widget->GetPos();
-
-            if (Rule.PosX.Set)
-                Position.x = Rule.PosX.Value;
-
-            if (Rule.PosY.Set)
-                Position.y = Rule.PosY.Value;
-
-            if (Rule.OffsetX.Set)
-                Position.x += Rule.OffsetX.Value;
-
-            if (Rule.OffsetY.Set)
-                Position.y += Rule.OffsetY.Value;
-
-            Widget->SetPos(Position);
-
-            FVector3 Size = Widget->GetSize();
-
-            if (Rule.Width.Set)
-                Size.x = Rule.Width.Value;
-
-            if (Rule.Height.Set)
-                Size.y = Rule.Height.Value;
-
-            if (Rule.WidthAdd.Set)
-                Size.x += Rule.WidthAdd.Value;
-
-            if (Rule.HeightAdd.Set)
-                Size.y += Rule.HeightAdd.Value;
-
-            Size.x = (std::max)(0.f, Size.x);
-            Size.y = (std::max)(0.f, Size.y);
-            Widget->SetSize(Size);
-
-            FVector3 Pivot = Widget->GetPivot();
-
-            if (Rule.PivotX.Set)
-                Pivot.x = Rule.PivotX.Value;
-
-            if (Rule.PivotY.Set)
-                Pivot.y = Rule.PivotY.Value;
-
-            Widget->SetPivot(Pivot);
-
-            if (Rule.ZOrder.Set)
-                Widget->SetZOrder(static_cast<int>(Rule.ZOrder.Value));
-
-            if (Rule.TintR.Set || Rule.TintG.Set || Rule.TintB.Set || Rule.TintA.Set)
+            auto NormalizeAngle = [](float Angle)
             {
-                FVector4 Tint = Widget->GetWidgetColor();
+                Angle = std::fmod(Angle, 360.f);
 
-                if (Rule.TintR.Set)
-                    Tint.x = Rule.TintR.Value;
+                if (Angle < 0.f)
+                    Angle += 360.f;
 
-                if (Rule.TintG.Set)
-                    Tint.y = Rule.TintG.Value;
+                return Angle;
+            };
 
-                if (Rule.TintB.Set)
-                    Tint.z = Rule.TintB.Value;
+            auto ComputeAngleDeltaAbs =
+                [&](float Left, float Right)
+                {
+                    const float NormalizedLeft = NormalizeAngle(Left);
+                    const float NormalizedRight = NormalizeAngle(Right);
+                    const float Delta =
+                        std::fabs(NormalizedLeft - NormalizedRight);
+                    return (std::min)(Delta, 360.f - Delta);
+                };
 
-                if (Rule.TintA.Set)
-                    Tint.w = Rule.TintA.Value;
+            auto& AngleState = GWidgetAngleOverrideStates[WidgetPath];
+            auto& LayoutState = GWidgetLayoutOverrideStates[WidgetPath];
 
-                Widget->SetWidgetColor(Tint);
+            if (LayoutState.WidgetIdentity != Widget.get())
+            {
+                LayoutState = FWidgetLayoutOverrideState();
+                LayoutState.WidgetIdentity = Widget.get();
             }
 
-            if (Rule.Opacity.Set)
-                Widget->SetOpacity(Rule.Opacity.Value);
+            if (AngleState.WidgetIdentity != Widget.get())
+            {
+                AngleState = FWidgetAngleOverrideState();
+                AngleState.WidgetIdentity = Widget.get();
+            }
+
+            const FVector3 CurrentPosition = Widget->GetPos();
+            const FVector3 CurrentSize = Widget->GetSize();
+            const bool PositionRuleSet = HasOverride &&
+                (Rule.PosX.Set || Rule.PosY.Set ||
+                    Rule.OffsetX.Set || Rule.OffsetY.Set);
+            const bool SizeRuleSet = HasOverride &&
+                (Rule.Width.Set || Rule.Height.Set ||
+                    Rule.WidthAdd.Set || Rule.HeightAdd.Set);
+            const bool CurrentPositionMatchesLastApplied =
+                LayoutState.HadPositionOverride &&
+                IsNearlyEqual(
+                    CurrentPosition,
+                    LayoutState.LastAppliedPosition);
+            const bool CurrentSizeMatchesLastApplied =
+                LayoutState.HadSizeOverride &&
+                IsNearlyEqual(
+                    CurrentSize,
+                    LayoutState.LastAppliedSize);
+            const float CurrentAngle = Widget->GetAngle();
+            const bool AngleRuleSet = HasOverride &&
+                (Rule.Angle.Set || Rule.AngleAdd.Set);
+            const bool CurrentAngleMatchesLastApplied =
+                AngleState.HadAngleOverride &&
+                ComputeAngleDeltaAbs(
+                    CurrentAngle,
+                    AngleState.LastAppliedAngle) <= GFloatCompareEpsilon;
+
+            if (HasOverride)
+            {
+                if (Rule.Enable.Set)
+                    Widget->SetEnable(Rule.Enable.Value);
+            }
+
+            if (PositionRuleSet)
+            {
+                const FVector3 BasePosition =
+                    CurrentPositionMatchesLastApplied ?
+                    LayoutState.BasePosition :
+                    CurrentPosition;
+                FVector3 Position = BasePosition;
+
+                if (Rule.PosX.Set)
+                    Position.x = Rule.PosX.Value;
+
+                if (Rule.PosY.Set)
+                    Position.y = Rule.PosY.Value;
+
+                if (Rule.OffsetX.Set)
+                    Position.x += Rule.OffsetX.Value;
+
+                if (Rule.OffsetY.Set)
+                    Position.y += Rule.OffsetY.Value;
+
+                if (!IsNearlyEqual(CurrentPosition, Position))
+                    Widget->SetPos(Position);
+
+                LayoutState.BasePosition = BasePosition;
+                LayoutState.LastAppliedPosition = Position;
+                LayoutState.HadPositionOverride = true;
+            }
+            else if (LayoutState.HadPositionOverride)
+            {
+                if (CurrentPositionMatchesLastApplied)
+                {
+                    if (!IsNearlyEqual(
+                            CurrentPosition,
+                            LayoutState.BasePosition))
+                    {
+                        Widget->SetPos(LayoutState.BasePosition);
+                    }
+
+                    LayoutState.LastAppliedPosition =
+                        LayoutState.BasePosition;
+                }
+                else
+                {
+                    LayoutState.BasePosition = CurrentPosition;
+                    LayoutState.LastAppliedPosition = CurrentPosition;
+                }
+
+                LayoutState.HadPositionOverride = false;
+            }
+
+            if (SizeRuleSet)
+            {
+                const FVector3 BaseSize = CurrentSizeMatchesLastApplied ?
+                    LayoutState.BaseSize :
+                    CurrentSize;
+                FVector3 Size = BaseSize;
+
+                if (Rule.Width.Set)
+                    Size.x = Rule.Width.Value;
+
+                if (Rule.Height.Set)
+                    Size.y = Rule.Height.Value;
+
+                if (Rule.WidthAdd.Set)
+                    Size.x += Rule.WidthAdd.Value;
+
+                if (Rule.HeightAdd.Set)
+                    Size.y += Rule.HeightAdd.Value;
+
+                Size.x = (std::max)(0.f, Size.x);
+                Size.y = (std::max)(0.f, Size.y);
+
+                if (!IsNearlyEqual(CurrentSize, Size))
+                    Widget->SetSize(Size);
+
+                LayoutState.BaseSize = BaseSize;
+                LayoutState.LastAppliedSize = Size;
+                LayoutState.HadSizeOverride = true;
+            }
+            else if (LayoutState.HadSizeOverride)
+            {
+                if (CurrentSizeMatchesLastApplied)
+                {
+                    FVector3 RestoredSize = LayoutState.BaseSize;
+                    RestoredSize.x = (std::max)(0.f, RestoredSize.x);
+                    RestoredSize.y = (std::max)(0.f, RestoredSize.y);
+
+                    if (!IsNearlyEqual(CurrentSize, RestoredSize))
+                        Widget->SetSize(RestoredSize);
+
+                    LayoutState.LastAppliedSize = RestoredSize;
+                }
+                else
+                {
+                    LayoutState.BaseSize = CurrentSize;
+                    LayoutState.LastAppliedSize = CurrentSize;
+                }
+
+                LayoutState.HadSizeOverride = false;
+            }
+
+            if (HasOverride)
+            {
+
+                FVector3 Pivot = Widget->GetPivot();
+
+                if (Rule.PivotX.Set)
+                    Pivot.x = Rule.PivotX.Value;
+
+                if (Rule.PivotY.Set)
+                    Pivot.y = Rule.PivotY.Value;
+
+                Widget->SetPivot(Pivot);
+
+                if (Rule.ZOrder.Set)
+                    Widget->SetZOrder(static_cast<int>(Rule.ZOrder.Value));
+
+                if (Rule.TintR.Set || Rule.TintG.Set || Rule.TintB.Set || Rule.TintA.Set)
+                {
+                    FVector4 Tint = Widget->GetWidgetColor();
+
+                    if (Rule.TintR.Set)
+                        Tint.x = Rule.TintR.Value;
+
+                    if (Rule.TintG.Set)
+                        Tint.y = Rule.TintG.Value;
+
+                    if (Rule.TintB.Set)
+                        Tint.z = Rule.TintB.Value;
+
+                    if (Rule.TintA.Set)
+                        Tint.w = Rule.TintA.Value;
+
+                    Widget->SetWidgetColor(Tint);
+                }
+
+                if (Rule.Opacity.Set)
+                    Widget->SetOpacity(Rule.Opacity.Value);
+            }
+
+            if (AngleRuleSet)
+            {
+                const float BaseAngle = CurrentAngleMatchesLastApplied ?
+                    AngleState.BaseAngle :
+                    CurrentAngle;
+                float Angle =
+                    Rule.Angle.Set ? Rule.Angle.Value : BaseAngle;
+
+                if (Rule.AngleAdd.Set)
+                    Angle += Rule.AngleAdd.Value;
+
+                if (ComputeAngleDeltaAbs(CurrentAngle, Angle) >
+                    GFloatCompareEpsilon)
+                {
+                    Widget->SetAngle(Angle);
+                }
+
+                AngleState.BaseAngle = NormalizeAngle(BaseAngle);
+                AngleState.LastAppliedAngle = NormalizeAngle(Angle);
+                AngleState.HadAngleOverride = true;
+            }
+            else if (AngleState.HadAngleOverride)
+            {
+                if (CurrentAngleMatchesLastApplied)
+                {
+                    if (ComputeAngleDeltaAbs(
+                            CurrentAngle,
+                            AngleState.BaseAngle) > GFloatCompareEpsilon)
+                    {
+                        Widget->SetAngle(AngleState.BaseAngle);
+                    }
+
+                    AngleState.LastAppliedAngle =
+                        NormalizeAngle(AngleState.BaseAngle);
+                }
+                else
+                {
+                    AngleState.BaseAngle = NormalizeAngle(CurrentAngle);
+                    AngleState.LastAppliedAngle =
+                        NormalizeAngle(CurrentAngle);
+                }
+
+                AngleState.HadAngleOverride = false;
+            }
 
             const auto Text = std::dynamic_pointer_cast<CTextBlock>(Widget);
 
             if (!Text)
                 return;
 
-            float FontSize = Text->GetFontSize();
+            auto& FontState = GTextFontOverrideStates[WidgetPath];
 
-            if (Rule.FontSize.Set)
-                FontSize = Rule.FontSize.Value;
+            if (FontState.WidgetIdentity != Text.get())
+            {
+                FontState = FTextFontOverrideState();
+                FontState.WidgetIdentity = Text.get();
+            }
 
-            if (Rule.FontSizeAdd.Set)
-                FontSize += Rule.FontSizeAdd.Value;
+            const float CurrentFontSize = Text->GetFontSize();
+            const bool FontRuleSet = HasOverride &&
+                (Rule.FontSize.Set || Rule.FontSizeAdd.Set);
+            const bool CurrentMatchesLastApplied =
+                FontState.HadFontSizeOverride &&
+                std::fabs(CurrentFontSize - FontState.LastAppliedFontSize) <=
+                    GFloatCompareEpsilon;
 
-            if (Rule.FontSize.Set || Rule.FontSizeAdd.Set)
-                Text->SetFontSize((std::max)(0.f, FontSize));
+            if (FontRuleSet)
+            {
+                const float BaseFontSize = CurrentMatchesLastApplied ?
+                    FontState.BaseFontSize :
+                    CurrentFontSize;
+                float FontSize = Rule.FontSize.Set ?
+                    Rule.FontSize.Value :
+                    BaseFontSize;
 
-            if (Rule.ShadowOffsetX.Set || Rule.ShadowOffsetY.Set)
+                if (Rule.FontSizeAdd.Set)
+                    FontSize += Rule.FontSizeAdd.Value;
+
+                FontSize = (std::max)(0.f, FontSize);
+
+                if (std::fabs(CurrentFontSize - FontSize) >
+                    GFloatCompareEpsilon)
+                {
+                    Text->SetFontSize(FontSize);
+                }
+
+                FontState.BaseFontSize = BaseFontSize;
+                FontState.LastAppliedFontSize = FontSize;
+                FontState.HadFontSizeOverride = true;
+            }
+            else if (FontState.HadFontSizeOverride)
+            {
+                if (CurrentMatchesLastApplied)
+                {
+                    const float RestoredFontSize =
+                        (std::max)(0.f, FontState.BaseFontSize);
+
+                    if (std::fabs(CurrentFontSize - RestoredFontSize) >
+                        GFloatCompareEpsilon)
+                    {
+                        Text->SetFontSize(RestoredFontSize);
+                    }
+
+                    FontState.LastAppliedFontSize = RestoredFontSize;
+                }
+                else
+                {
+                    FontState.BaseFontSize = CurrentFontSize;
+                    FontState.LastAppliedFontSize = CurrentFontSize;
+                }
+
+                FontState.HadFontSizeOverride = false;
+            }
+
+            if (HasOverride &&
+                (Rule.ShadowOffsetX.Set || Rule.ShadowOffsetY.Set))
             {
                 FVector2 ShadowOffset = Text->GetShadowOffset();
 
@@ -1003,7 +1298,7 @@ namespace UIConfig
             Stream << "# Name-prefix syntax: WidgetNamePrefix.TopHud_MenuButton_"
                 << ".WidthAdd = 10" << NewLine;
             Stream << "# Supported props: PosX PosY OffsetX OffsetY Width Height"
-                << " WidthAdd HeightAdd PivotX PivotY Opacity ZOrder TintR"
+                << " Angle AngleAdd WidthAdd HeightAdd PivotX PivotY Opacity ZOrder TintR"
                 << " TintG TintB TintA FontSize FontSizeAdd ShadowOffsetX"
                 << " ShadowOffsetY Enable" << NewLine;
             Stream << NewLine;
@@ -1086,6 +1381,10 @@ namespace UIConfig
                 FormatFloatValue(Position.y));
             Entries.emplace_back(KeyPrefix + "OffsetX", "0");
             Entries.emplace_back(KeyPrefix + "OffsetY", "0");
+            Entries.emplace_back(
+                KeyPrefix + "Angle",
+                FormatFloatValue(Widget->GetAngle()));
+            Entries.emplace_back(KeyPrefix + "AngleAdd", "0");
             Entries.emplace_back(
                 KeyPrefix + "Width",
                 FormatFloatValue(Size.x));
@@ -1416,7 +1715,7 @@ namespace UIConfig
             File << "# Path-prefix syntax: WidgetPathPrefix.TopHudWidget/TopHud_MenuButton_.OffsetY = -4\n";
             File << "# Name-wide syntax: WidgetName.TopHud_DateText.OffsetY = -4\n";
             File << "# Name-prefix syntax: WidgetNamePrefix.TopHud_MenuButton_.WidthAdd = 10\n";
-            File << "# Supported props: PosX PosY OffsetX OffsetY Width Height WidthAdd HeightAdd\n";
+            File << "# Supported props: PosX PosY OffsetX OffsetY Angle AngleAdd Width Height WidthAdd HeightAdd\n";
             File << "#                  PivotX PivotY Opacity ZOrder TintR TintG TintB TintA\n";
             File << "#                  FontSize FontSizeAdd ShadowOffsetX ShadowOffsetY Enable\n\n";
 
@@ -1444,9 +1743,14 @@ namespace UIConfig
                 return;
 
             FWidgetOverrideRule Rule;
+            const bool HasOverride =
+                BuildCombinedOverrideRule(WidgetPath, Widget->GetName(), Rule);
 
-            if (BuildCombinedOverrideRule(WidgetPath, Widget->GetName(), Rule))
-                ApplyOverrideRuleToWidget(Widget, Rule);
+            ApplyOverrideRuleToWidget(
+                Widget,
+                WidgetPath,
+                Rule,
+                HasOverride);
 
             if (const auto Button = std::dynamic_pointer_cast<CButton>(Widget))
             {
@@ -1717,11 +2021,13 @@ namespace UIConfig
             BuildingSectionDividerHeight     = 14.f;
             BuildingBudgetBaseOffsetY        = 36.f;
             BuildingBudgetLabelOffsetY       = 2.f;
-            BuildingBudgetCustomButtonsOffsetY = 20.f;
-            BuildingBudgetWorkButtonsOffsetY = 78.f;
-            BuildingBudgetDefaultButtonsOffsetY = 26.f;
+            BuildingBudgetCustomButtonsOffsetY = -24.f;
+            BuildingBudgetWorkButtonsOffsetY = 34.f;
+            BuildingBudgetDefaultButtonsOffsetY = -18.f;
             BuildingBudgetCompactGap         = 6.f;
             BuildingBudgetDefaultGap         = 8.f;
+            BuildingModeButtonHeight         = 34.f;
+            BuildingModeButtonGap            = 0.f;
             BuildingOccupancyGapY            = 18.f;
             BuildingActionButtonHeight       = 34.f;
             BuildingActionButtonWidth        = 124.f;
@@ -2085,6 +2391,8 @@ namespace UIConfig
             else if (Key == "BuildingBudgetDefaultButtonsOffsetY") BuildingBudgetDefaultButtonsOffsetY = Val;
             else if (Key == "BuildingBudgetCompactGap")         BuildingBudgetCompactGap         = Val;
             else if (Key == "BuildingBudgetDefaultGap")         BuildingBudgetDefaultGap         = Val;
+            else if (Key == "BuildingModeButtonHeight")         BuildingModeButtonHeight         = Val;
+            else if (Key == "BuildingModeButtonGap")            BuildingModeButtonGap            = Val;
             else if (Key == "BuildingOccupancyGapY")            BuildingOccupancyGapY            = Val;
             else if (Key == "BuildingActionButtonHeight")       BuildingActionButtonHeight       = Val;
             else if (Key == "BuildingActionButtonWidth")        BuildingActionButtonWidth        = Val;

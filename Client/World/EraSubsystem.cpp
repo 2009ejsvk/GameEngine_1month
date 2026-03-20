@@ -28,26 +28,26 @@ namespace
         FEraUnlockRequirement& WorldWars =
             GEraUnlockRequirements[GetEraRequirementIndex(
                 EBuildingEra::WorldWars)];
-        WorldWars.MinPopulation = 40;
-        WorldWars.MinTotalBuildings = 10;
-        WorldWars.MinFoodProviders = 3;
+        WorldWars.MinPopulation = 12;
+        WorldWars.MinTotalBuildings = 4;
+        WorldWars.MinFoodProviders = 1;
 
         FEraUnlockRequirement& ColdWar =
             GEraUnlockRequirements[GetEraRequirementIndex(
                 EBuildingEra::ColdWar)];
-        ColdWar.MinPopulation = 80;
-        ColdWar.MinTotalBuildings = 22;
-        ColdWar.MinIndustryBuildings = 5;
-        ColdWar.MinPowerMW = 25;
+        ColdWar.MinPopulation = 24;
+        ColdWar.MinTotalBuildings = 8;
+        ColdWar.MinIndustryBuildings = 1;
+        ColdWar.MinPowerMW = 5;
 
         FEraUnlockRequirement& Modern =
             GEraUnlockRequirements[GetEraRequirementIndex(
                 EBuildingEra::Modern)];
-        Modern.MinPopulation = 150;
-        Modern.MinTotalBuildings = 38;
-        Modern.MinPublicServiceBuildings = 6;
-        Modern.MinEntertainmentBuildings = 5;
-        Modern.MinPowerMW = 60;
+        Modern.MinPopulation = 50;
+        Modern.MinTotalBuildings = 14;
+        Modern.MinPublicServiceBuildings = 1;
+        Modern.MinEntertainmentBuildings = 1;
+        Modern.MinPowerMW = 10;
     }
 
     bool LoadEraUnlockRequirementsFromFile(const std::wstring& Path)

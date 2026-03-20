@@ -90,8 +90,11 @@ void FCitizenInfoRenderer::ApplySnapshot(
         !Snapshot.OverviewWorkModeValue.empty();
     const bool ShowSharedMetricRows =
         ShowCitizenProfile ||
-        ShowWorkOverview ||
-        Snapshot.ShowBuildingMetricRows;
+        ShowWorkOverview;
+    const bool ShowStatsMetricRows =
+        Snapshot.ShowBuildingMetricRows && Snapshot.SelectedTabIndex == 1;
+    const bool ShowEfficiencyMetricRows =
+        Snapshot.ShowBuildingMetricRows && Snapshot.SelectedTabIndex == 3;
     const bool ShowResidentialMetricRows = ShowResidentialOverview;
     const bool ShowUpgradeCard = Snapshot.ShowBuildingUpgradeCard;
     const bool ShowInformationParagraphs =
@@ -101,7 +104,19 @@ void FCitizenInfoRenderer::ApplySnapshot(
         ShowWorkOverview;
 
     auto TitleText = Widget.mTitleText.lock();
-    auto SubtitleText = Widget.mSubtitleText.lock();
+    const int SubtitleTabMax =
+        static_cast<int>(Widget.mSubtitleTexts.size()) - 1;
+    const int SubtitleTabIndex =
+        Snapshot.SelectedTabIndex < 0 ? 0 :
+        Snapshot.SelectedTabIndex > SubtitleTabMax ? SubtitleTabMax :
+        Snapshot.SelectedTabIndex;
+    for (int i = 0; i < static_cast<int>(Widget.mSubtitleTexts.size()); ++i)
+    {
+        auto T = Widget.mSubtitleTexts[i].lock();
+        if (T && i != SubtitleTabIndex)
+            T->SetEnable(false);
+    }
+    auto SubtitleText = Widget.mSubtitleTexts[SubtitleTabIndex].lock();
     auto PageTitleText = Widget.mPageTitleText.lock();
     auto BodyText = Widget.mBodyText.lock();
     auto BudgetText = Widget.mBudgetText.lock();
@@ -162,7 +177,31 @@ void FCitizenInfoRenderer::ApplySnapshot(
             !ShowCitizenPolitics &&
             !ShowCitizenThoughts &&
             !ShowOverviewLayout &&
+            !ShowStatsMetricRows &&
+            !ShowEfficiencyMetricRows &&
+            Snapshot.SelectedTabIndex != 2 &&
             !Snapshot.BodyText.empty());
+    }
+
+    if (auto Text = Widget.mStatsBodyText.lock())
+    {
+        Text->SetText(Snapshot.BodyText.c_str());
+        Text->SetEnable(ShowStatsMetricRows && !Snapshot.BodyText.empty());
+    }
+
+    if (auto Text = Widget.mUpgradeBodyText.lock())
+    {
+        Text->SetText(Snapshot.BodyText.c_str());
+        Text->SetEnable(
+            Snapshot.SelectedTabIndex == 2 &&
+            !ShowOverviewLayout &&
+            !Snapshot.BodyText.empty());
+    }
+
+    if (auto Text = Widget.mEfficiencyBodyText.lock())
+    {
+        Text->SetText(Snapshot.BodyText.c_str());
+        Text->SetEnable(ShowEfficiencyMetricRows && !Snapshot.BodyText.empty());
     }
 
     if (BudgetText)
@@ -291,7 +330,18 @@ void FCitizenInfoRenderer::ApplySnapshot(
 
         if (Button)
         {
-            if (ShowOverviewLayout)
+            if (Snapshot.ShowOperationModeSelectionPage)
+            {
+                ApplyButtonTextureSet(
+                    Button,
+                    "CitizenInfoModeSelectRefresh_" + std::to_string(Index),
+                    GMenuDetailFrameTexture,
+                    GMenuDetailFrameTexture,
+                    GMenuDetailFrameTexture,
+                    GMenuDetailFrameTexture);
+                ConfigureDefaultButtonStyle(Button);
+            }
+            else if (ShowOverviewLayout)
             {
                 ApplyButtonTextureSet(
                     Button,
@@ -324,6 +374,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
             Button->SetOpacityAll(
                 !Snapshot.BudgetButtonEnabled[static_cast<size_t>(Index)] ?
                     0.f :
+                Snapshot.ShowOperationModeSelectionPage && !Selected ?
+                    0.7f :
                 ShowOverviewLayout && !Selected ?
                     0.45f :
                     1.f);
@@ -338,7 +390,8 @@ void FCitizenInfoRenderer::ApplySnapshot(
                     TropicoUiTheme::GCitizenInfoBudgetLabelSelectedTint :
                     TropicoUiTheme::GCitizenInfoBudgetLabelNormalTint);
             Label->SetEnable(
-                !ShowOverviewLayout &&
+                (Snapshot.ShowOperationModeSelectionPage ||
+                    !ShowOverviewLayout) &&
                 Snapshot.BudgetButtonEnabled[static_cast<size_t>(Index)] &&
                 !Snapshot.BudgetButtonLabels[static_cast<size_t>(Index)].empty());
         }
@@ -346,8 +399,13 @@ void FCitizenInfoRenderer::ApplySnapshot(
 
     if (auto Text = Widget.mOverviewWorkModeLabel.lock())
     {
-        Text->SetText(Snapshot.OverviewWorkModeLabel.c_str());
-        Text->SetEnable(Snapshot.ShowBuildingWorkOverview);
+        Text->SetText(
+            Snapshot.ShowOperationModeSelectionPage ?
+                L"근무 형태" :
+                Snapshot.OverviewWorkModeLabel.c_str());
+        Text->SetEnable(
+            Snapshot.ShowBuildingWorkOverview ||
+            Snapshot.ShowOperationModeSelectionPage);
     }
 
     if (auto Background = Widget.mOverviewWorkModeBackground.lock())
@@ -377,7 +435,7 @@ void FCitizenInfoRenderer::ApplySnapshot(
     if (auto Background = Widget.mResidentialOverviewWorkModeBackground.lock())
     {
         Background->SetEnable(
-            ShowResidentialWorkMode &&
+            ShowResidentialOverview &&
             !Snapshot.ShowOverviewWorkModeButton);
     }
 
@@ -553,6 +611,96 @@ void FCitizenInfoRenderer::ApplySnapshot(
         }
     }
 
+    // Tab 1 (상태) metric rows
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
+        auto Label =
+            Widget.mStatsMetricLabels[static_cast<size_t>(Index)].lock();
+        auto Value =
+            Widget.mStatsMetricValues[static_cast<size_t>(Index)].lock();
+        const bool LabelEnabled =
+            ShowStatsMetricRows &&
+            !Snapshot.OverviewMetricLabels[static_cast<size_t>(Index)].empty();
+        const bool ValueEnabled =
+            LabelEnabled &&
+            !Snapshot.OverviewMetricValues[static_cast<size_t>(Index)].empty();
+        const bool SectionHeader = LabelEnabled && !ValueEnabled;
+
+        if (Label)
+        {
+            Label->SetText(
+                Snapshot.OverviewMetricLabels[static_cast<size_t>(Index)].c_str());
+            Label->SetFontSize(
+                SectionHeader ?
+                    UIConfig::BuildingOverviewMetricSectionHeaderFontSize :
+                    UIConfig::BuildingOverviewMetricLabelFontSize);
+            Label->SetTextColor(
+                SectionHeader ?
+                    TropicoUiTheme::GCitizenInfoMetricHeaderTint :
+                    TropicoUiTheme::GCitizenInfoMetricLabelTint);
+            Label->SetEnable(LabelEnabled);
+        }
+
+        if (Value)
+        {
+            Value->SetText(
+                Snapshot.OverviewMetricValues[static_cast<size_t>(Index)].c_str());
+            Value->SetFontSize(UIConfig::BuildingOverviewMetricValueFontSize);
+            Value->SetTextColor(
+                Snapshot.OverviewMetricAccentValues[static_cast<size_t>(Index)] ?
+                    TropicoUiTheme::GCitizenInfoMetricAccentTint :
+                    TropicoUiTheme::GCitizenInfoValueTint);
+            Value->SetEnable(ValueEnabled);
+        }
+    }
+
+    // Tab 3 (효율) metric rows
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
+        auto Label =
+            Widget.mEfficiencyMetricLabels[static_cast<size_t>(Index)].lock();
+        auto Value =
+            Widget.mEfficiencyMetricValues[static_cast<size_t>(Index)].lock();
+        const bool LabelEnabled =
+            ShowEfficiencyMetricRows &&
+            !Snapshot.OverviewMetricLabels[static_cast<size_t>(Index)].empty();
+        const bool ValueEnabled =
+            LabelEnabled &&
+            !Snapshot.OverviewMetricValues[static_cast<size_t>(Index)].empty();
+        const bool SectionHeader = LabelEnabled && !ValueEnabled;
+
+        if (Label)
+        {
+            Label->SetText(
+                Snapshot.OverviewMetricLabels[static_cast<size_t>(Index)].c_str());
+            Label->SetFontSize(
+                SectionHeader ?
+                    UIConfig::BuildingOverviewMetricSectionHeaderFontSize :
+                    UIConfig::BuildingOverviewMetricLabelFontSize);
+            Label->SetTextColor(
+                SectionHeader ?
+                    TropicoUiTheme::GCitizenInfoMetricHeaderTint :
+                    TropicoUiTheme::GCitizenInfoMetricLabelTint);
+            Label->SetEnable(LabelEnabled);
+        }
+
+        if (Value)
+        {
+            Value->SetText(
+                Snapshot.OverviewMetricValues[static_cast<size_t>(Index)].c_str());
+            Value->SetFontSize(UIConfig::BuildingOverviewMetricValueFontSize);
+            Value->SetTextColor(
+                Snapshot.OverviewMetricAccentValues[static_cast<size_t>(Index)] ?
+                    TropicoUiTheme::GCitizenInfoMetricAccentTint :
+                    TropicoUiTheme::GCitizenInfoValueTint);
+            Value->SetEnable(ValueEnabled);
+        }
+    }
+
     for (int Index = 0;
         Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
         ++Index)
@@ -673,7 +821,7 @@ void FCitizenInfoRenderer::ApplySnapshot(
 
         const bool Enabled =
             Snapshot.ShowBuildingVisitorIcons &&
-            Index < Snapshot.OverviewVisitorCapacity &&
+            Index < Snapshot.OverviewVisitorCount &&
             Index < CCitizenInfoWidget::GOverviewVisitorSlotCount;
 
         if (!Enabled)

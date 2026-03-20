@@ -1,5 +1,6 @@
 #include "TradeWidget.h"
 #include "TradeWidgetRuntime.h"
+#include "UILayoutValues.h"
 #include "Device.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -9,6 +10,11 @@
 
 using namespace TradeWidgetRuntime;
 
+namespace
+{
+    namespace Layout = UIConfig::TradeWidgetLayout;
+}
+
 void CTradeWidget::RefreshLayout()
 {
     const FResolution& Resolution = CDevice::GetInst()->GetResolution();
@@ -17,8 +23,12 @@ void CTradeWidget::RefreshLayout()
 
     const float ScreenWidth = static_cast<float>(Resolution.Width);
     const float ScreenHeight = static_cast<float>(Resolution.Height);
-    const float AvailableWidth = (std::max)(640.f, ScreenWidth - 120.f);
-    const float AvailableHeight = (std::max)(560.f, ScreenHeight - 120.f);
+    const float AvailableWidth = (std::max)(
+        Layout::MinimumAvailableWidth,
+        ScreenWidth - Layout::ScreenMargin);
+    const float AvailableHeight = (std::max)(
+        Layout::MinimumAvailableHeight,
+        ScreenHeight - Layout::ScreenMargin);
     const float Scale = (std::min)(
         1.f,
         (std::min)(
@@ -32,33 +42,41 @@ void CTradeWidget::RefreshLayout()
     const bool ShowingPriceModifiers = mSelectedPageIndex == 2;
     const bool ShowingActiveRoutes = mSelectedPageIndex == 3;
     const bool ShowingCompletedRoutes = mSelectedPageIndex == 4;
-    const float HeaderHeight = 62.f * Scale;
-    const float TitleWidth = PanelWidth * 0.42f;
+    const float HeaderHeight = Layout::HeaderHeight * Scale;
+    const float TitleWidth = PanelWidth * Layout::TitleWidthRatio;
     const float TitleLeft = PanelLeft + (PanelWidth - TitleWidth) * 0.5f;
-    const float PageButtonWidth = 132.f * Scale;
-    const float PageButtonHeight = 34.f * Scale;
+    const float PageButtonWidth = Layout::PageButtonWidth * Scale;
+    const float PageButtonHeight = Layout::PageButtonHeight * Scale;
     const float PageButtonsLeft =
         PanelLeft + (PanelWidth -
             PageButtonWidth * static_cast<float>(GTradePageCount) -
-            12.f * Scale * static_cast<float>(GTradePageCount - 1)) * 0.5f;
-    const float CloseSize = 36.f * Scale;
-    const float SectionGap = 18.f * Scale;
-    const float LeftWidth = PanelWidth * 0.52f;
-    const float RightWidth = PanelWidth - LeftWidth - 48.f * Scale;
-    const float LeftLeft = PanelLeft + 26.f * Scale;
+            Layout::PageButtonGap * Scale *
+                static_cast<float>(GTradePageCount - 1)) * 0.5f;
+    const float CloseSize = Layout::CloseButtonSize * Scale;
+    const float SectionGap = Layout::SectionGap * Scale;
+    const float LeftWidth = PanelWidth * Layout::LeftPanelRatio;
+    const float RightWidth = PanelWidth - LeftWidth - Layout::RightPanelGap * Scale;
+    const float LeftLeft = PanelLeft + Layout::LeftPanelInset * Scale;
     const float RightLeft = LeftLeft + LeftWidth + SectionGap;
-    const float ContentTop = PanelTop + HeaderHeight + 20.f * Scale;
-    const float ContentHeight = PanelHeight - HeaderHeight - 48.f * Scale;
-    const float FilterHeight = 44.f * Scale;
-    const float SortHeight = 34.f * Scale;
-    const float CompletionAutoOpenButtonWidth = 150.f * Scale;
-    const float CompletionAutoOpenButtonGap = 14.f * Scale;
+    const float ContentTop = PanelTop + HeaderHeight + Layout::ContentTopOffset * Scale;
+    const float ContentHeight =
+        PanelHeight - HeaderHeight - Layout::ContentBottomInset * Scale;
+    const float FilterHeight = Layout::FilterHeight * Scale;
+    const float SortHeight = Layout::SortHeight * Scale;
+    const float CompletionAutoOpenButtonWidth =
+        Layout::CompletionAutoOpenButtonWidth * Scale;
+    const float CompletionAutoOpenButtonGap =
+        Layout::CompletionAutoOpenButtonGap * Scale;
     const float ListTop =
         (ShowingActiveRoutes || ShowingCompletedRoutes) ?
-            ContentTop + 12.f * Scale :
-            ContentTop + FilterHeight + 10.f * Scale + SortHeight + 10.f * Scale;
-    const float RowHeight = 46.f * Scale;
-    const float RowGap = 6.f * Scale;
+            ContentTop + Layout::RouteListTopOffset * Scale :
+            ContentTop +
+                FilterHeight +
+                Layout::FilterToSortGap * Scale +
+                SortHeight +
+                Layout::FilterToSortGap * Scale;
+    const float RowHeight = Layout::RowHeight * Scale;
+    const float RowGap = Layout::RowGap * Scale;
 
     auto PanelBackground = mPanelBackground.lock();
     auto TitleRibbon = mTitleRibbon.lock();
@@ -89,7 +107,7 @@ void CTradeWidget::RefreshLayout()
 
     if (TitleRibbon)
     {
-        TitleRibbon->SetPos(TitleLeft, PanelTop + 8.f * Scale);
+        TitleRibbon->SetPos(TitleLeft, PanelTop + Layout::TitleRibbonTopOffset * Scale);
         TitleRibbon->SetSize(TitleWidth, HeaderHeight);
     }
 
@@ -109,8 +127,8 @@ void CTradeWidget::RefreshLayout()
             PageButtons[static_cast<size_t>(Index)]->SetPos(
                 PageButtonsLeft +
                     static_cast<float>(Index) *
-                        (PageButtonWidth + 12.f * Scale),
-                PanelTop - 14.f * Scale);
+                        (PageButtonWidth + Layout::PageButtonGap * Scale),
+                PanelTop - Layout::PageButtonTopOffset * Scale);
             PageButtons[static_cast<size_t>(Index)]->SetSize(
                 PageButtonWidth,
                 PageButtonHeight);
@@ -122,7 +140,8 @@ void CTradeWidget::RefreshLayout()
             PageTexts[static_cast<size_t>(Index)]->SetSize(
                 PageButtonWidth,
                 PageButtonHeight);
-            PageTexts[static_cast<size_t>(Index)]->SetFontSize(15.f * Scale);
+            PageTexts[static_cast<size_t>(Index)]->SetFontSize(
+                Layout::PageButtonTextFontSize * Scale);
         }
     }
 
@@ -140,12 +159,12 @@ void CTradeWidget::RefreshLayout()
             LeftLeft,
             (ShowingActiveRoutes || ShowingCompletedRoutes) ?
                 ContentTop :
-                ContentTop + FilterHeight + 8.f * Scale);
+                ContentTop + FilterHeight + Layout::ListFrameFilterOffset * Scale);
         ListFrame->SetSize(
             LeftWidth,
             (ShowingActiveRoutes || ShowingCompletedRoutes) ?
                 ContentHeight :
-                ContentHeight - FilterHeight - 8.f * Scale);
+                ContentHeight - FilterHeight - Layout::ListFrameFilterOffset * Scale);
     }
 
     if (DetailFrame)
@@ -156,43 +175,49 @@ void CTradeWidget::RefreshLayout()
 
     if (TitleText)
     {
-        TitleText->SetPos(TitleLeft + 18.f * Scale, PanelTop + 8.f * Scale);
-        TitleText->SetSize(TitleWidth - 36.f * Scale, HeaderHeight);
-        TitleText->SetFontSize(30.f * Scale);
+        TitleText->SetPos(
+            TitleLeft + Layout::TitleTextInsetX * Scale,
+            PanelTop + Layout::TitleRibbonTopOffset * Scale);
+        TitleText->SetSize(
+            TitleWidth - Layout::TitleTextHorizontalPadding * Scale,
+            HeaderHeight);
+        TitleText->SetFontSize(Layout::TitleFontSize * Scale);
     }
 
     if (CountdownText)
     {
         CountdownText->SetPos(
-            PanelLeft + PanelWidth - 280.f * Scale,
-            PanelTop + 18.f * Scale);
-        CountdownText->SetSize(214.f * Scale, 28.f * Scale);
-        CountdownText->SetFontSize(15.f * Scale);
+            PanelLeft + PanelWidth - Layout::CountdownRightOffset * Scale,
+            PanelTop + Layout::CountdownTopOffset * Scale);
+        CountdownText->SetSize(
+            Layout::CountdownWidth * Scale,
+            Layout::CountdownHeight * Scale);
+        CountdownText->SetFontSize(Layout::CountdownFontSize * Scale);
     }
 
     if (CloseButton)
     {
         CloseButton->SetPos(
-            PanelLeft + PanelWidth - 52.f * Scale,
-            PanelTop + 12.f * Scale);
+            PanelLeft + PanelWidth - Layout::CloseButtonRightOffset * Scale,
+            PanelTop + Layout::CloseButtonTopOffset * Scale);
         CloseButton->SetSize(CloseSize, CloseSize);
     }
 
     if (FilterButton)
     {
         FilterButton->SetPos(LeftLeft, ContentTop);
-        FilterButton->SetSize(194.f * Scale, FilterHeight);
+        FilterButton->SetSize(Layout::FilterButtonWidth * Scale, FilterHeight);
     }
 
     if (FilterButtonText)
     {
         FilterButtonText->SetPos(0.f, 0.f);
-        FilterButtonText->SetSize(194.f * Scale, FilterHeight);
-        FilterButtonText->SetFontSize(16.f * Scale);
+        FilterButtonText->SetSize(Layout::FilterButtonWidth * Scale, FilterHeight);
+        FilterButtonText->SetFontSize(Layout::FilterTextFontSize * Scale);
     }
 
     const float SortButtonWidth =
-        (LeftWidth - 3.f * (8.f * Scale)) / 4.f;
+        (LeftWidth - 3.f * (Layout::SortButtonGap * Scale)) / 4.f;
 
     for (int Index = 0; Index < GTradeSortCount; ++Index)
     {
@@ -204,29 +229,38 @@ void CTradeWidget::RefreshLayout()
 
         Button->SetPos(
             LeftLeft +
-                (SortButtonWidth + 8.f * Scale) * static_cast<float>(Index),
-            ContentTop + FilterHeight + 10.f * Scale);
+                (SortButtonWidth + Layout::SortButtonGap * Scale) *
+                    static_cast<float>(Index),
+            ContentTop + FilterHeight + Layout::FilterToSortGap * Scale);
         Button->SetSize(SortButtonWidth, SortHeight);
 
         if (Text)
         {
             Text->SetPos(0.f, 0.f);
             Text->SetSize(SortButtonWidth, SortHeight);
-            Text->SetFontSize(15.f * Scale);
+            Text->SetFontSize(Layout::SortButtonTextFontSize * Scale);
         }
     }
 
-    const float DirectionWidth = 72.f * Scale;
+    const float DirectionWidth = Layout::DirectionColumnWidth * Scale;
     const float PartnerWidth =
         ((ShowingActiveRoutes || ShowingCompletedRoutes) ?
-            108.f :
-            ShowingProductPrices ? 118.f : 120.f) * Scale;
+            Layout::ActiveRoutePartnerWidth :
+            ShowingProductPrices ?
+                Layout::ProductPricePartnerWidth :
+                Layout::DefaultPartnerWidth) * Scale;
     const float MarginWidth =
         ((ShowingActiveRoutes || ShowingCompletedRoutes) ?
-            150.f :
-            ShowingProductPrices ? 120.f : 84.f) * Scale;
+            Layout::ActiveRouteMarginWidth :
+            ShowingProductPrices ?
+                Layout::ProductPriceMarginWidth :
+                Layout::DefaultMarginWidth) * Scale;
     const float ResourceWidth =
-        LeftWidth - DirectionWidth - PartnerWidth - MarginWidth - 48.f * Scale;
+        LeftWidth -
+        DirectionWidth -
+        PartnerWidth -
+        MarginWidth -
+        Layout::ResourceColumnsHorizontalPadding * Scale;
 
     for (int RowIndex = 0; RowIndex < GTradeVisibleProposalCount; ++RowIndex)
     {
@@ -242,153 +276,191 @@ void CTradeWidget::RefreshLayout()
         {
             if (RowIndex < 2)
             {
-                RowTop = ContentTop + 66.f * Scale +
-                    static_cast<float>(RowIndex) * (RowHeight + 8.f * Scale);
+                RowTop = ContentTop + Layout::PriceModifierFirstSectionTop * Scale +
+                    static_cast<float>(RowIndex) *
+                        (RowHeight + Layout::PriceModifierRowGap * Scale);
             }
             else if (RowIndex < 6)
             {
-                RowTop = ContentTop + 256.f * Scale +
-                    static_cast<float>(RowIndex - 2) * (RowHeight + 8.f * Scale);
+                RowTop = ContentTop + Layout::PriceModifierSecondSectionTop * Scale +
+                    static_cast<float>(RowIndex - 2) *
+                        (RowHeight + Layout::PriceModifierRowGap * Scale);
             }
             else
             {
-                RowTop = ContentTop + 508.f * Scale +
-                    static_cast<float>(RowIndex - 6) * (RowHeight + 8.f * Scale);
+                RowTop = ContentTop + Layout::PriceModifierThirdSectionTop * Scale +
+                    static_cast<float>(RowIndex - 6) *
+                        (RowHeight + Layout::PriceModifierRowGap * Scale);
             }
         }
 
         if (Button)
         {
-            Button->SetPos(LeftLeft + 10.f * Scale, RowTop);
-            Button->SetSize(LeftWidth - 20.f * Scale, RowHeight);
+            Button->SetPos(LeftLeft + Layout::ProposalButtonInsetX * Scale, RowTop);
+            Button->SetSize(
+                LeftWidth - Layout::ProposalButtonHorizontalPadding * Scale,
+                RowHeight);
         }
 
         if (Direction)
         {
-            Direction->SetPos(12.f * Scale, 0.f);
+            Direction->SetPos(Layout::ProposalDirectionInsetX * Scale, 0.f);
             Direction->SetSize(DirectionWidth, RowHeight);
-            Direction->SetFontSize(15.f * Scale);
+            Direction->SetFontSize(Layout::RowTextFontSize * Scale);
         }
 
         if (Partner)
         {
-            Partner->SetPos(18.f * Scale + DirectionWidth, 0.f);
+            Partner->SetPos(
+                Layout::ProposalPartnerInsetX * Scale + DirectionWidth,
+                0.f);
             Partner->SetSize(PartnerWidth, RowHeight);
-            Partner->SetFontSize(15.f * Scale);
+            Partner->SetFontSize(Layout::RowTextFontSize * Scale);
         }
 
         if (Resource)
         {
             Resource->SetPos(
-                ShowingPriceModifiers ? 20.f * Scale :
-                    24.f * Scale + DirectionWidth + PartnerWidth,
+                ShowingPriceModifiers ?
+                    Layout::PriceModifierResourceInsetX * Scale :
+                    Layout::ProposalResourceInsetX * Scale +
+                        DirectionWidth +
+                        PartnerWidth,
                 0.f);
             Resource->SetSize(
                 ShowingPriceModifiers ?
-                    LeftWidth - 156.f * Scale :
+                    LeftWidth -
+                        Layout::PriceModifierResourceRightOffset * Scale :
                     ResourceWidth,
                 RowHeight);
-            Resource->SetFontSize(16.f * Scale);
+            Resource->SetFontSize(Layout::ResourceTextFontSize * Scale);
         }
 
         if (Margin)
         {
             Margin->SetPos(
                 ShowingPriceModifiers ?
-                    LeftWidth - 136.f * Scale :
-                    26.f * Scale + DirectionWidth + PartnerWidth + ResourceWidth,
+                    LeftWidth - Layout::PriceModifierMarginLeftOffset * Scale :
+                    Layout::ProposalMarginInsetX * Scale +
+                        DirectionWidth +
+                        PartnerWidth +
+                        ResourceWidth,
                 0.f);
             Margin->SetSize(
-                ShowingPriceModifiers ? 112.f * Scale : MarginWidth,
+                ShowingPriceModifiers ?
+                    Layout::PriceModifierMarginWidth * Scale :
+                    MarginWidth,
                 RowHeight);
-            Margin->SetFontSize(15.f * Scale);
+            Margin->SetFontSize(Layout::RowTextFontSize * Scale);
         }
     }
 
     if (ShowingPriceModifiers)
     {
-        const float LeftTitleWidth = LeftWidth - 32.f * Scale;
-        const float RightTitleWidth = RightWidth - 56.f * Scale;
-        const float RightSectionTop = ContentTop + 212.f * Scale;
+        const float LeftTitleWidth =
+            LeftWidth - Layout::LeftSectionTitleHorizontalPadding * Scale;
+        const float RightTitleWidth =
+            RightWidth - Layout::DetailTitleHorizontalPadding * Scale;
+        const float RightSectionTop =
+            ContentTop + Layout::PriceModifierSecondSectionTitleTop * Scale;
 
         if (ModifierSectionTitles[0])
         {
             ModifierSectionTitles[0]->SetPos(
-                LeftLeft + 10.f * Scale,
-                ContentTop + 12.f * Scale);
-            ModifierSectionTitles[0]->SetSize(LeftTitleWidth, 28.f * Scale);
-            ModifierSectionTitles[0]->SetFontSize(18.f * Scale);
+                LeftLeft + Layout::SectionTitleLeftInset * Scale,
+                ContentTop + Layout::ProposalDirectionInsetX * Scale);
+            ModifierSectionTitles[0]->SetSize(
+                LeftTitleWidth,
+                Layout::SectionTitleHeight * Scale);
+            ModifierSectionTitles[0]->SetFontSize(
+                Layout::SectionTitleFontSize * Scale);
         }
 
         if (ModifierSectionTitles[1])
         {
             ModifierSectionTitles[1]->SetPos(
-                RightLeft + 28.f * Scale,
-                ContentTop + 12.f * Scale);
-            ModifierSectionTitles[1]->SetSize(RightTitleWidth, 28.f * Scale);
-            ModifierSectionTitles[1]->SetFontSize(18.f * Scale);
+                RightLeft + Layout::SectionTitleRightInset * Scale,
+                ContentTop + Layout::ProposalDirectionInsetX * Scale);
+            ModifierSectionTitles[1]->SetSize(
+                RightTitleWidth,
+                Layout::SectionTitleHeight * Scale);
+            ModifierSectionTitles[1]->SetFontSize(
+                Layout::SectionTitleFontSize * Scale);
         }
 
         if (ModifierSectionTitles[2])
         {
             ModifierSectionTitles[2]->SetPos(
-                LeftLeft + 10.f * Scale,
-                ContentTop + 212.f * Scale);
-            ModifierSectionTitles[2]->SetSize(LeftTitleWidth, 28.f * Scale);
-            ModifierSectionTitles[2]->SetFontSize(18.f * Scale);
+                LeftLeft + Layout::SectionTitleLeftInset * Scale,
+                ContentTop + Layout::PriceModifierSecondSectionTitleTop * Scale);
+            ModifierSectionTitles[2]->SetSize(
+                LeftTitleWidth,
+                Layout::SectionTitleHeight * Scale);
+            ModifierSectionTitles[2]->SetFontSize(
+                Layout::SectionTitleFontSize * Scale);
         }
 
         if (ModifierSectionTitles[3])
         {
             ModifierSectionTitles[3]->SetPos(
-                RightLeft + 28.f * Scale,
+                RightLeft + Layout::SectionTitleRightInset * Scale,
                 RightSectionTop);
-            ModifierSectionTitles[3]->SetSize(RightTitleWidth, 28.f * Scale);
-            ModifierSectionTitles[3]->SetFontSize(18.f * Scale);
+            ModifierSectionTitles[3]->SetSize(
+                RightTitleWidth,
+                Layout::SectionTitleHeight * Scale);
+            ModifierSectionTitles[3]->SetFontSize(
+                Layout::SectionTitleFontSize * Scale);
         }
 
         if (ModifierSectionTitles[4])
         {
             ModifierSectionTitles[4]->SetPos(
-                LeftLeft + 10.f * Scale,
-                ContentTop + 464.f * Scale);
-            ModifierSectionTitles[4]->SetSize(LeftTitleWidth, 28.f * Scale);
-            ModifierSectionTitles[4]->SetFontSize(18.f * Scale);
+                LeftLeft + Layout::SectionTitleLeftInset * Scale,
+                ContentTop + Layout::PriceModifierThirdSectionTitleTop * Scale);
+            ModifierSectionTitles[4]->SetSize(
+                LeftTitleWidth,
+                Layout::SectionTitleHeight * Scale);
+            ModifierSectionTitles[4]->SetFontSize(
+                Layout::SectionTitleFontSize * Scale);
         }
     }
 
     if (DetailTitleText)
     {
         DetailTitleText->SetPos(
-            RightLeft + 28.f * Scale,
-            ContentTop + 16.f * Scale);
-        DetailTitleText->SetSize(RightWidth - 56.f * Scale, 34.f * Scale);
-        DetailTitleText->SetFontSize(22.f * Scale);
+            RightLeft + Layout::DetailTitleInsetX * Scale,
+            ContentTop + Layout::DetailTitleTopOffset * Scale);
+        DetailTitleText->SetSize(
+            RightWidth - Layout::DetailTitleHorizontalPadding * Scale,
+            Layout::DetailTitleHeight * Scale);
+        DetailTitleText->SetFontSize(Layout::DetailTitleFontSize * Scale);
     }
 
-    const float DetailLabelWidth = 150.f * Scale;
-    const float DetailValueWidth = RightWidth - DetailLabelWidth - 68.f * Scale;
-    const float DetailRowHeight = 28.f * Scale;
+    const float DetailLabelWidth = Layout::DetailLabelWidth * Scale;
+    const float DetailValueWidth =
+        RightWidth - DetailLabelWidth - Layout::DetailValueHorizontalPadding * Scale;
+    const float DetailRowHeight = Layout::DetailRowHeight * Scale;
     const float DetailStartTop = ShowingPriceModifiers ?
-        ContentTop + 254.f * Scale :
-        ContentTop + 70.f * Scale;
+        ContentTop + Layout::PriceModifierDetailStartTop * Scale :
+        ContentTop + Layout::DefaultDetailStartTop * Scale;
 
     for (int Index = 0; Index < GTradeDetailRowCount; ++Index)
     {
         auto Label = mDetailRows[static_cast<size_t>(Index)].Label.lock();
         auto Value = mDetailRows[static_cast<size_t>(Index)].Value.lock();
         const float RowTop =
-            DetailStartTop + static_cast<float>(Index) * 34.f * Scale;
+            DetailStartTop + static_cast<float>(Index) * Layout::DetailRowGap * Scale;
 
         if (Label)
         {
-            Label->SetPos(RightLeft + 28.f * Scale, RowTop);
+            Label->SetPos(RightLeft + Layout::DetailTitleInsetX * Scale, RowTop);
             Label->SetSize(
                 ShowingPriceModifiers ?
-                    RightWidth - 180.f * Scale :
+                    RightWidth -
+                        Layout::PriceModifierDetailLabelRightOffset * Scale :
                     DetailLabelWidth,
                 DetailRowHeight);
-            Label->SetFontSize(15.f * Scale);
+            Label->SetFontSize(Layout::RowTextFontSize * Scale);
         }
 
         if (Value)
@@ -396,31 +468,34 @@ void CTradeWidget::RefreshLayout()
             Value->SetPos(
                 RightLeft +
                     (ShowingPriceModifiers ?
-                        RightWidth - 136.f * Scale :
-                        28.f * Scale + DetailLabelWidth),
+                        RightWidth -
+                            Layout::PriceModifierDetailValueLeftOffset * Scale :
+                        Layout::DetailTitleInsetX * Scale + DetailLabelWidth),
                 RowTop);
             Value->SetSize(
                 ShowingPriceModifiers ?
-                    108.f * Scale :
+                    Layout::PriceModifierDetailValueWidth * Scale :
                     DetailValueWidth,
                 DetailRowHeight);
-            Value->SetFontSize(17.f * Scale);
+            Value->SetFontSize(Layout::DetailValueFontSize * Scale);
         }
     }
 
     if (AmountTitleText)
     {
         AmountTitleText->SetPos(
-            RightLeft + 28.f * Scale,
-            ContentTop + 402.f * Scale);
-        AmountTitleText->SetSize(130.f * Scale, 28.f * Scale);
-        AmountTitleText->SetFontSize(17.f * Scale);
+            RightLeft + Layout::DetailTitleInsetX * Scale,
+            ContentTop + Layout::AmountTitleTopOffset * Scale);
+        AmountTitleText->SetSize(
+            Layout::AmountTitleWidth * Scale,
+            Layout::AmountTitleHeight * Scale);
+        AmountTitleText->SetFontSize(Layout::AmountTitleFontSize * Scale);
     }
 
     const float AmountButtonWidth =
         ShowingProductPrices ?
-            (RightWidth - 66.f * Scale) / 2.f :
-            (RightWidth - 76.f * Scale) / 3.f;
+            (RightWidth - Layout::TwoColumnAmountHorizontalPadding * Scale) / 2.f :
+            (RightWidth - Layout::ThreeColumnAmountHorizontalPadding * Scale) / 3.f;
 
     for (int Index = 0; Index < GTradeAmountPresetCount; ++Index)
     {
@@ -430,44 +505,48 @@ void CTradeWidget::RefreshLayout()
         if (!Button)
             continue;
 
-        const float ButtonGap = ShowingProductPrices ? 10.f * Scale : 10.f * Scale;
+        const float ButtonGap = Layout::AmountButtonGap * Scale;
         Button->SetPos(
-            RightLeft + 28.f * Scale +
+            RightLeft + Layout::DetailTitleInsetX * Scale +
                 static_cast<float>(Index) * (AmountButtonWidth + ButtonGap),
-            ContentTop + 438.f * Scale);
-        Button->SetSize(AmountButtonWidth, 40.f * Scale);
+            ContentTop + Layout::AmountButtonTopOffset * Scale);
+        Button->SetSize(AmountButtonWidth, Layout::AmountButtonHeight * Scale);
 
         if (Text)
         {
             Text->SetPos(0.f, 0.f);
-            Text->SetSize(AmountButtonWidth, 40.f * Scale);
-            Text->SetFontSize(15.f * Scale);
+            Text->SetSize(AmountButtonWidth, Layout::AmountButtonHeight * Scale);
+            Text->SetFontSize(Layout::AmountButtonTextFontSize * Scale);
         }
     }
 
     if (ActionButton)
     {
         ActionButton->SetPos(
-            RightLeft + 28.f * Scale,
-            ContentTop + 496.f * Scale);
-        ActionButton->SetSize(RightWidth - 56.f * Scale, 46.f * Scale);
+            RightLeft + Layout::DetailTitleInsetX * Scale,
+            ContentTop + Layout::ActionButtonTopOffset * Scale);
+        ActionButton->SetSize(
+            RightWidth - Layout::DetailTitleHorizontalPadding * Scale,
+            Layout::ActionButtonHeight * Scale);
     }
 
     if (ActionButtonText)
     {
         ActionButtonText->SetPos(0.f, 0.f);
-        ActionButtonText->SetSize(RightWidth - 56.f * Scale, 46.f * Scale);
-        ActionButtonText->SetFontSize(18.f * Scale);
+        ActionButtonText->SetSize(
+            RightWidth - Layout::DetailTitleHorizontalPadding * Scale,
+            Layout::ActionButtonHeight * Scale);
+        ActionButtonText->SetFontSize(Layout::ActionButtonTextFontSize * Scale);
     }
 
     if (CompletionAutoOpenButton)
     {
         CompletionAutoOpenButton->SetPos(
-            RightLeft + 28.f * Scale,
-            ContentTop + 548.f * Scale);
+            RightLeft + Layout::DetailTitleInsetX * Scale,
+            ContentTop + Layout::CompletionAutoOpenButtonTopOffset * Scale);
         CompletionAutoOpenButton->SetSize(
             CompletionAutoOpenButtonWidth,
-            40.f * Scale);
+            Layout::CompletionAutoOpenButtonHeight * Scale);
     }
 
     if (CompletionAutoOpenButtonText)
@@ -475,34 +554,35 @@ void CTradeWidget::RefreshLayout()
         CompletionAutoOpenButtonText->SetPos(0.f, 0.f);
         CompletionAutoOpenButtonText->SetSize(
             CompletionAutoOpenButtonWidth,
-            40.f * Scale);
-        CompletionAutoOpenButtonText->SetFontSize(15.f * Scale);
+            Layout::CompletionAutoOpenButtonHeight * Scale);
+        CompletionAutoOpenButtonText->SetFontSize(
+            Layout::AmountButtonTextFontSize * Scale);
     }
 
     if (FeedbackText)
     {
         const float FeedbackLeftOffset =
             ShowingPriceModifiers ?
-                28.f * Scale :
-                28.f * Scale +
+                Layout::DetailTitleInsetX * Scale :
+                Layout::DetailTitleInsetX * Scale +
                     CompletionAutoOpenButtonWidth +
                     CompletionAutoOpenButtonGap;
-        const float FeedbackRightPadding = 28.f * Scale;
+        const float FeedbackRightPadding = Layout::FeedbackRightPadding * Scale;
 
         FeedbackText->SetPos(
             RightLeft + FeedbackLeftOffset,
             ShowingPriceModifiers ?
-                ContentTop + 56.f * Scale :
+                ContentTop + Layout::FeedbackTopOffsetModifiers * Scale :
             ShowingCompletedRoutes ?
-                ContentTop + 552.f * Scale :
-                ContentTop + 558.f * Scale);
+                ContentTop + Layout::FeedbackTopOffsetCompleted * Scale :
+                ContentTop + Layout::FeedbackTopOffsetDefault * Scale);
         FeedbackText->SetSize(
             RightWidth - FeedbackLeftOffset - FeedbackRightPadding,
             ShowingPriceModifiers ?
-                112.f * Scale :
+                Layout::FeedbackHeightModifiers * Scale :
             ShowingCompletedRoutes ?
-                72.f * Scale :
-                124.f * Scale);
-        FeedbackText->SetFontSize(15.f * Scale);
+                Layout::FeedbackHeightCompleted * Scale :
+                Layout::FeedbackHeightDefault * Scale);
+        FeedbackText->SetFontSize(Layout::AmountButtonTextFontSize * Scale);
     }
 }

@@ -8,9 +8,11 @@
 #include "../UI/UILayoutApplier.h"
 #include "../UI/UILayoutLoader.h"
 #include "../GameConstants.h"
+#include "../StringUtils.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Politics/EdictSystem.h"
 #include "../Politics/PoliticsSystem.h"
+#include <vector>
 #include "World/WorldUIManager.h"
 #include <Windows.h>
 #include <algorithm>
@@ -21,6 +23,21 @@ namespace
     constexpr int GScenarioForeignDemandDurationDays = 365;
     constexpr int GScenarioReligiousDemandDurationDays = 60;
     constexpr float GExportSettlementPopupSeconds = 8.f;
+    constexpr const wchar_t* GPopupConfigFileName = L"PopupConfig.ini";
+
+    std::wstring BuildPopupConfigPath()
+    {
+        return RuntimeConfigRegistry::BuildExeRelativePath(GPopupConfigFileName);
+    }
+
+    bool IsPopupEnabled(const wchar_t* SectionName, bool DefaultValue = true)
+    {
+        return GetPrivateProfileIntW(
+            SectionName,
+            L"Enabled",
+            DefaultValue ? 1 : 0,
+            BuildPopupConfigPath().c_str()) != 0;
+    }
 
     template <typename T>
     std::shared_ptr<T> LockOrWarn(
@@ -41,28 +58,29 @@ namespace
 
     std::wstring FormatSignedCurrency(long long Value)
     {
-        const bool Positive = Value >= 0;
-        const unsigned long long AbsoluteValue = Positive ?
-            static_cast<unsigned long long>(Value) :
-            static_cast<unsigned long long>(-Value);
-        std::wstring Digits = std::to_wstring(AbsoluteValue);
-
-        for (int Index = static_cast<int>(Digits.size()) - 3;
-            Index > 0;
-            Index -= 3)
-        {
-            Digits.insert(static_cast<size_t>(Index), 1, L',');
-        }
-
-        return std::wstring(Positive ? L"+$" : L"-$") + Digits;
+        return StringUtils::FormatSignedCurrency(Value);
     }
 
     std::wstring FormatAbsoluteCurrency(long long Value)
     {
-        if (Value < 0)
-            Value = -Value;
+        return L"$" +
+            StringUtils::FormatUnsignedIntegerWithCommas(
+                StringUtils::AbsToUnsigned(Value));
+    }
 
-        return MainWorldTradeRuntime::FormatCurrency(Value);
+    std::wstring JoinFormulaTerms(const std::vector<std::wstring>& Terms)
+    {
+        std::wstring Result;
+
+        for (size_t Index = 0; Index < Terms.size(); ++Index)
+        {
+            if (Index > 0)
+                Result += L" ";
+
+            Result += Terms[Index];
+        }
+
+        return Result;
     }
 
     std::wstring GetScenarioForeignPowerName(
@@ -196,8 +214,12 @@ namespace
         State.Body = Body;
         State.AcceptConsequence = AcceptConsequence;
         State.RejectConsequence = RejectConsequence;
+        State.UseBodyFormulaTermWrap = false;
+        State.BodyFormulaTerms.clear();
         State.ShowAcceptButton = true;
         State.ShowRejectButton = true;
+        State.ShowCornerCloseButton = false;
+        State.CornerCloseConfigSection.clear();
         State.AutoCloseSeconds = 0.f;
     }
 
@@ -213,7 +235,14 @@ namespace
         long long NetBudgetChange)
     {
         if (ExportIncome <= 0)
+        {
             return;
+        }
+
+        if (!IsPopupEnabled(L"ExportSettlement"))
+        {
+            return;
+        }
 
         auto UiManager = LockOrWarn(
             WeakUiManager,
@@ -242,27 +271,27 @@ namespace
         State.IssuerType = EPoliticalDemandIssuerType::None;
         State.IssuerIndex = -1;
         State.Title = L"수출 발생 / 일일 예산 정산";
-        State.Body =
-            L"총수출 " +
-            FormatAbsoluteCurrency(ExportIncome) +
-            L" + 총세금 " +
-            FormatAbsoluteCurrency(TaxIncome) +
-            L"\n- 임금 " +
-            FormatAbsoluteCurrency(WageCost) +
-            L" - 유지비 " +
-            FormatAbsoluteCurrency(UpkeepCost) +
-            L" - 총수입비 " +
-            FormatAbsoluteCurrency(ImportExpense) +
-            L" - 순칙령비 " +
-            FormatAbsoluteCurrency(EdictCost);
+        State.BodyFormulaTerms =
+        {
+            L"총수출 " + FormatAbsoluteCurrency(ExportIncome),
+            L"+ 총세금 " + FormatAbsoluteCurrency(TaxIncome),
+            L"- 임금 " + FormatAbsoluteCurrency(WageCost),
+            L"- 유지비 " + FormatAbsoluteCurrency(UpkeepCost),
+            L"- 총수입비 " + FormatAbsoluteCurrency(ImportExpense),
+            L"- 순칙령비 " + FormatAbsoluteCurrency(EdictCost)
+        };
+        State.Body = JoinFormulaTerms(State.BodyFormulaTerms);
         State.AcceptConsequence =
             L"무역정책보정 " +
             FormatSignedCurrency(TradePolicyBudgetDelta);
         State.RejectConsequence =
             L"오늘 순변동 " +
             FormatSignedCurrency(NetBudgetChange);
+        State.UseBodyFormulaTermWrap = true;
         State.ShowAcceptButton = false;
         State.ShowRejectButton = false;
+        State.ShowCornerCloseButton = true;
+        State.CornerCloseConfigSection = L"ExportSettlement";
         State.AutoCloseSeconds = GExportSettlementPopupSeconds;
     }
 }

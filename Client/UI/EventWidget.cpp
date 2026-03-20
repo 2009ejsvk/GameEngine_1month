@@ -2,14 +2,22 @@
 #include "TaskWidget.h"
 #include "TopHudWidget.h"
 #include "TropicoUiAssetCatalog.h"
+#include "../RuntimeConfigRegistry.h"
 #include "../World/GovernmentCommandService.h"
 #include "../ObjectNames.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
+#include "Asset/AssetManager.h"
+#include "Asset/Font/Font.h"
+#include "Asset/Font/FontManager.h"
 #include "Device.h"
+#include <Windows.h>
 #include "World/World.h"
 #include "World/WorldUIManager.h"
+#include <algorithm>
+#include <cmath>
+#include <vector>
 
 namespace
 {
@@ -19,6 +27,10 @@ namespace
     constexpr float GRejectButtonLeftX = 20.f;
     constexpr float GSingleButtonLeftX = -55.f;
     constexpr float GButtonY = 104.f;
+    constexpr float GCornerCloseButtonX = 156.f;
+    constexpr float GCornerCloseButtonY = -102.f;
+    constexpr float GCornerCloseButtonSize = 34.f;
+    constexpr const wchar_t* GPopupConfigFileName = L"PopupConfig.ini";
 
     void ConfigureButtonTexture(
         const std::shared_ptr<CButton>& Button,
@@ -64,6 +76,162 @@ namespace
         Label->EnableShadow(true);
         Label->SetShadowTextColor(240, 228, 199, 220);
         Label->SetShadowOffset(1.f, 1.f);
+    }
+
+    std::wstring BuildPopupConfigPath()
+    {
+        return RuntimeConfigRegistry::BuildExeRelativePath(GPopupConfigFileName);
+    }
+
+    void DisablePopupConfigSection(const std::wstring& SectionName)
+    {
+        if (SectionName.empty())
+            return;
+
+        WritePrivateProfileStringW(
+            SectionName.c_str(),
+            L"Enabled",
+            L"0",
+            BuildPopupConfigPath().c_str());
+    }
+
+    float MeasureEngineDefaultTextWidth(
+        const std::wstring& Text,
+        float FontSize)
+    {
+        if (Text.empty())
+            return 0.f;
+
+        auto FontManager = CAssetManager::GetInst()->GetFontManager().lock();
+
+        if (!FontManager)
+            return static_cast<float>(Text.length()) * FontSize * 0.6f;
+
+        auto Font = FontManager->FindFont("EngineDefault").lock();
+
+        if (!Font)
+            return static_cast<float>(Text.length()) * FontSize * 0.6f;
+
+        IDWriteTextLayout* Layout =
+            Font->CreateLayout(
+                Text.c_str(),
+                static_cast<int>(Text.length()),
+                4096.f,
+                512.f);
+
+        if (!Layout)
+            return static_cast<float>(Text.length()) * FontSize * 0.6f;
+
+        DWRITE_TEXT_RANGE Range = {};
+        Range.startPosition = 0;
+        Range.length = static_cast<UINT32>(Text.length());
+        Layout->SetFontSize(FontSize, Range);
+
+        DWRITE_TEXT_METRICS Metrics = {};
+        float Width = static_cast<float>(Text.length()) * FontSize * 0.6f;
+
+        if (SUCCEEDED(Layout->GetMetrics(&Metrics)))
+            Width = Metrics.widthIncludingTrailingWhitespace;
+
+        SAFE_RELEASE(Layout);
+        return Width;
+    }
+
+    std::wstring BuildIndentSpaces(float IndentWidth, float FontSize)
+    {
+        if (IndentWidth <= 0.f)
+            return std::wstring();
+
+        const float SpaceWidth =
+            MeasureEngineDefaultTextWidth(L" ", FontSize);
+
+        if (SpaceWidth <= 0.01f)
+        {
+            const float FallbackSpaceCount = static_cast<float>(
+                std::floor(IndentWidth / (FontSize * 0.35f)));
+            const size_t SpaceCount = static_cast<size_t>(
+                (std::max)(1.f, FallbackSpaceCount));
+            return std::wstring(SpaceCount, L' ');
+        }
+
+        const float MeasuredSpaceCount = static_cast<float>(
+            std::floor(IndentWidth / SpaceWidth));
+        const size_t SpaceCount = static_cast<size_t>(
+            (std::max)(0.f, MeasuredSpaceCount));
+
+        return std::wstring(SpaceCount, L' ');
+    }
+
+    std::wstring BuildWrappedFormulaBody(
+        const std::vector<std::wstring>& Terms,
+        float MaxWidth,
+        float FontSize)
+    {
+        if (Terms.empty())
+            return std::wstring();
+
+        if (Terms.size() == 1 || MaxWidth <= 0.f || FontSize <= 0.f)
+        {
+            std::wstring SingleLine;
+
+            for (size_t Index = 0; Index < Terms.size(); ++Index)
+            {
+                if (Index > 0)
+                    SingleLine += L" ";
+
+                SingleLine += Terms[Index];
+            }
+
+            return SingleLine;
+        }
+
+        std::vector<std::wstring> Lines;
+        Lines.reserve(Terms.size());
+
+        std::wstring CurrentLine = Terms.front();
+        const float ContinuationIndentWidth =
+            MeasureEngineDefaultTextWidth(Terms.front() + L" ", FontSize);
+        const std::wstring ContinuationIndent =
+            BuildIndentSpaces(ContinuationIndentWidth, FontSize);
+
+        for (size_t Index = 1; Index < Terms.size(); ++Index)
+        {
+            const std::wstring Candidate = CurrentLine + L" " + Terms[Index];
+
+            if (MeasureEngineDefaultTextWidth(Candidate, FontSize) <= MaxWidth)
+            {
+                CurrentLine = Candidate;
+                continue;
+            }
+
+            Lines.push_back(CurrentLine);
+
+            std::wstring ContinuedLine =
+                ContinuationIndent + Terms[Index];
+
+            if (MeasureEngineDefaultTextWidth(
+                    ContinuedLine,
+                    FontSize) > MaxWidth)
+            {
+                ContinuedLine = Terms[Index];
+            }
+
+            CurrentLine = ContinuedLine;
+        }
+
+        Lines.push_back(CurrentLine);
+
+        std::wstring Result;
+
+        for (size_t Index = 0; Index < Lines.size(); ++Index)
+        {
+            if (Index > 0)
+                Result += L"\n";
+
+            Result += Lines[Index];
+        }
+
+        return Result;
     }
 }
 
@@ -156,6 +324,63 @@ bool CEventWidget::Init()
         TitleText->SetShadowTextColor(242, 235, 220, 220);
         TitleText->SetShadowOffset(1.f, 1.f);
         mTitleText = TitleText;
+    }
+
+    auto CornerCloseButton =
+        CreateWidget<CButton>("EventWidget_CloseButton", 4).lock();
+    if (CornerCloseButton)
+    {
+        CornerCloseButton->SetPos(
+            GCornerCloseButtonX,
+            GCornerCloseButtonY);
+        CornerCloseButton->SetSize(
+            GCornerCloseButtonSize,
+            GCornerCloseButtonSize);
+        CornerCloseButton->SetTexture(
+            EButtonState::Normal,
+            "EventWidgetCloseButton_Normal",
+            TropicoUiAssets::GRoundButtonTexture);
+        CornerCloseButton->SetTexture(
+            EButtonState::Hovered,
+            "EventWidgetCloseButton_Hovered",
+            TropicoUiAssets::GRoundButtonHoverTexture);
+        CornerCloseButton->SetTexture(
+            EButtonState::Click,
+            "EventWidgetCloseButton_Click",
+            TropicoUiAssets::GRoundButtonSelectedTexture);
+        CornerCloseButton->SetTexture(
+            EButtonState::Disable,
+            "EventWidgetCloseButton_Disable",
+            TropicoUiAssets::GRoundButtonTexture);
+        CornerCloseButton->SetTint(EButtonState::Normal, 1.f, 1.f, 1.f, 0.96f);
+        CornerCloseButton->SetTint(EButtonState::Hovered, 1.f, 1.f, 1.f, 1.f);
+        CornerCloseButton->SetTint(EButtonState::Click, 0.94f, 0.91f, 0.84f, 1.f);
+        CornerCloseButton->SetTint(EButtonState::Disable, 1.f, 1.f, 1.f, 0.55f);
+        CornerCloseButton->SetEventCallback<CEventWidget>(
+            EButtonEventState::Click,
+            this,
+            &CEventWidget::OnCornerCloseClick);
+        CornerCloseButton->SetEnable(false);
+
+        auto CornerCloseText =
+            CWidget::CreateStaticWidget<CTextBlock>(
+                "EventWidget_CloseText",
+                mWorld);
+
+        if (CornerCloseText)
+        {
+            CornerCloseText->SetText(TEXT("X"));
+            CornerCloseText->SetFontSize(20.f);
+            CornerCloseText->SetAlignH(ETextAlignH::Center);
+            CornerCloseText->SetAlignV(ETextAlignV::Middle);
+            CornerCloseText->SetTextColor(92, 60, 12, 255);
+            CornerCloseText->EnableShadow(true);
+            CornerCloseText->SetShadowOffset(1.f, 1.f);
+            CornerCloseText->SetShadowTextColor(255, 239, 196, 170);
+            CornerCloseButton->SetChild(CornerCloseText);
+        }
+
+        mCornerCloseButton = CornerCloseButton;
     }
 
     auto BodyPanel =
@@ -342,7 +567,20 @@ void CEventWidget::RefreshFromState()
         TitleText->SetText(mState.Title.c_str());
 
     if (auto BodyText = mBodyText.lock())
-        BodyText->SetText(mState.Body.c_str());
+    {
+        std::wstring DisplayBody = mState.Body;
+
+        if (mState.UseBodyFormulaTermWrap &&
+            !mState.BodyFormulaTerms.empty())
+        {
+            DisplayBody = BuildWrappedFormulaBody(
+                mState.BodyFormulaTerms,
+                BodyText->GetSize().x,
+                BodyText->GetFontSize());
+        }
+
+        BodyText->SetText(DisplayBody.c_str());
+    }
 
     if (auto AcceptText = mAcceptConsequenceText.lock())
     {
@@ -381,14 +619,22 @@ void CEventWidget::RefreshFromState()
 
     if (auto AcceptButtonText = mAcceptButtonText.lock())
     {
+        AcceptButtonText->SetText(L"수락");
         AcceptButtonText->SetEnable(ShowAcceptButton);
         AcceptButtonText->SetPos(AcceptButtonLeftX, GButtonY);
     }
 
     if (auto RejectButtonText = mRejectButtonText.lock())
     {
+        RejectButtonText->SetText(L"거부");
         RejectButtonText->SetEnable(ShowRejectButton);
         RejectButtonText->SetPos(GRejectButtonLeftX, GButtonY);
+    }
+
+    if (auto CornerCloseButton = mCornerCloseButton.lock())
+    {
+        CornerCloseButton->SetEnable(mState.ShowCornerCloseButton);
+        CornerCloseButton->ButtonEnable(mState.ShowCornerCloseButton);
     }
 }
 
@@ -425,6 +671,15 @@ void CEventWidget::SetPopupVisible(bool Visible)
         Widget->SetEnable(Visible);
     if (auto Widget = mRejectButtonText.lock())
         Widget->SetEnable(Visible);
+    if (auto Widget = mCornerCloseButton.lock())
+        Widget->SetEnable(Visible && mState.ShowCornerCloseButton);
+}
+
+void CEventWidget::OnCornerCloseClick()
+{
+    mState.Visible = false;
+    mState.AutoCloseSeconds = 0.f;
+    RefreshFromState();
 }
 
 void CEventWidget::OnAcceptClick()

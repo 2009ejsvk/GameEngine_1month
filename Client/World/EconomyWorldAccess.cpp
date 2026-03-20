@@ -177,11 +177,12 @@ namespace EconomyWorldAccess
             }
 
             bool AdvanceHarborShipProgressAndCheckArrival(
-                int DaysInMonth) override
+                int DaysInMonth,
+                float EdictMultiplier = 1.f) override
             {
                 return mBuilding &&
                     mBuilding->AdvanceHarborShipProgressAndCheckArrival(
-                        DaysInMonth);
+                        DaysInMonth, EdictMultiplier);
             }
 
             void ApplyDailyWarehouseStorageLoss() override

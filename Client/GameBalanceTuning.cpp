@@ -5,6 +5,7 @@
 #include <cctype>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 
 namespace GameBalanceTuning
 {
@@ -34,6 +35,10 @@ namespace GameBalanceTuning
 
     namespace Politics
     {
+        double ElectionWarningCriticalThreshold = 0.78;
+        double ElectionWarningCautionThreshold = 0.52;
+        double ElectionWarningCheckThreshold = 0.32;
+
         std::array<FWealthTierTuning, GCitizenWealthLevelCount> GWealthTiers =
         {{
             { 1.22f, 50.f },
@@ -63,7 +68,7 @@ namespace
         GameBalanceTuning::Politics::FWealthTierTuning DefaultValue;
     };
 
-    std::array<FDoubleBinding, 20> GDoubleBindings =
+    std::array<FDoubleBinding, 23> GDoubleBindings =
     {{
         { "almanac.satisfaction", "clamp_min", &GameBalanceTuning::Almanac::SatisfactionClampMin, 18.0 },
         { "almanac.satisfaction", "clamp_max", &GameBalanceTuning::Almanac::SatisfactionClampMax, 96.0 },
@@ -84,7 +89,10 @@ namespace
         { "almanac.satisfaction", "tier_threshold0", &GameBalanceTuning::Almanac::SatisfactionTierThreshold0, 20.0 },
         { "almanac.satisfaction", "tier_threshold1", &GameBalanceTuning::Almanac::SatisfactionTierThreshold1, 40.0 },
         { "almanac.satisfaction", "tier_threshold2", &GameBalanceTuning::Almanac::SatisfactionTierThreshold2, 55.0 },
-        { "almanac.satisfaction", "tier_threshold3", &GameBalanceTuning::Almanac::SatisfactionTierThreshold3, 75.0 }
+        { "almanac.satisfaction", "tier_threshold3", &GameBalanceTuning::Almanac::SatisfactionTierThreshold3, 75.0 },
+        { "politics.election_warning", "critical_threshold", &GameBalanceTuning::Politics::ElectionWarningCriticalThreshold, 0.78 },
+        { "politics.election_warning", "caution_threshold", &GameBalanceTuning::Politics::ElectionWarningCautionThreshold, 0.52 },
+        { "politics.election_warning", "check_threshold", &GameBalanceTuning::Politics::ElectionWarningCheckThreshold, 0.32 }
     }};
 
     std::array<FWealthBinding, GCitizenWealthLevelCount> GWealthBindings =
@@ -95,6 +103,40 @@ namespace
         { "politics.wealth.rich", { 0.92f, 76.f } },
         { "politics.wealth.filthy_rich", { 0.84f, 86.f } }
     }};
+
+    std::string MakeDoubleBindingKey(
+        const std::string& Section,
+        const std::string& Key)
+    {
+        return Section + '\n' + Key;
+    }
+
+    std::string MakeDoubleBindingKey(
+        const char* Section,
+        const char* Key)
+    {
+        return MakeDoubleBindingKey(
+            Section ? std::string(Section) : std::string(),
+            Key ? std::string(Key) : std::string());
+    }
+
+    std::unordered_map<std::string, double*> BuildDoubleBindingMap()
+    {
+        std::unordered_map<std::string, double*> Result;
+        Result.reserve(GDoubleBindings.size());
+
+        for (const FDoubleBinding& Binding : GDoubleBindings)
+        {
+            Result.emplace(
+                MakeDoubleBindingKey(Binding.Section, Binding.Key),
+                Binding.Value);
+        }
+
+        return Result;
+    }
+
+    const std::unordered_map<std::string, double*> GDoubleBindingMap =
+        BuildDoubleBindingMap();
 
     void TrimString(std::string& Value)
     {
@@ -204,13 +246,13 @@ namespace
         const std::string& Key,
         double Value)
     {
-        for (const FDoubleBinding& Binding : GDoubleBindings)
+        const auto DoubleBindingIt =
+            GDoubleBindingMap.find(MakeDoubleBindingKey(Section, Key));
+
+        if (DoubleBindingIt != GDoubleBindingMap.end())
         {
-            if (Section == Binding.Section && Key == Binding.Key)
-            {
-                *Binding.Value = Value;
-                return true;
-            }
+            *DoubleBindingIt->second = Value;
+            return true;
         }
 
         for (size_t Index = 0; Index < GWealthBindings.size(); ++Index)

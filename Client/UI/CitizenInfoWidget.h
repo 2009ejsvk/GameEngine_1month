@@ -33,10 +33,12 @@ public:
     static constexpr int GCitizenTabCount = CitizenInfoConstants::GCitizenTabCount;
     static constexpr int GBuildingTabCount = CitizenInfoConstants::GBuildingTabCount;
     static constexpr int GTabButtonCount = CitizenInfoConstants::GTabButtonCount;
-    static constexpr int GBudgetLevelCount = 5;
+    static constexpr int GBudgetLevelCount = 12;
+    static constexpr int GBudgetDisplayCount = 5;
     static constexpr int GOverviewResidentSlotCount = 16;
     static constexpr int GOverviewVisitorSlotCount = 12;
-    static constexpr int GOverviewMetricRowCount = 14;
+    static constexpr int GOverviewMetricRowCount = 30;
+    static constexpr int GHarborCargoStartIndex = 7; // rows 8+ (1-indexed) → HarborCargoLabel/Value
     static constexpr int GCitizenActionButtonCount = 6;
     static constexpr int GCitizenPoliticsSectionCount = 3;
     static constexpr int GCitizenPoliticsSatisfactionCount = 9;
@@ -59,7 +61,7 @@ public:
         WImage ScrollThumb;
         WImage TitleIcon;
         WText TitleText;
-        WText SubtitleText;
+        std::array<WText, GTabButtonCount> SubtitleTexts;
         WImage SectionDivider;
         WText PageTitleText;
         WText BodyText;
@@ -105,6 +107,13 @@ public:
             ResidentialOverviewMetricLabels;
         std::array<WText, GOverviewMetricRowCount>
             ResidentialOverviewMetricValues;
+        std::array<WText, GOverviewMetricRowCount> StatsMetricLabels;
+        std::array<WText, GOverviewMetricRowCount> StatsMetricValues;
+        std::array<WText, GOverviewMetricRowCount> EfficiencyMetricLabels;
+        std::array<WText, GOverviewMetricRowCount> EfficiencyMetricValues;
+        WText StatsBodyText;
+        WText UpgradeBodyText;
+        WText EfficiencyBodyText;
         WImage UpgradeCardBackground;
         WImage UpgradeCardIcon;
         WText UpgradeCardTitle;
@@ -156,7 +165,7 @@ public:
         WImage& mScrollThumb;
         WImage& mTitleIcon;
         WText& mTitleText;
-        WText& mSubtitleText;
+        std::array<WText, GTabButtonCount>& mSubtitleTexts;
         WImage& mSectionDivider;
         WText& mPageTitleText;
         WText& mBodyText;
@@ -198,6 +207,13 @@ public:
             mResidentialOverviewMetricLabels;
         std::array<WText, GOverviewMetricRowCount>&
             mResidentialOverviewMetricValues;
+        std::array<WText, GOverviewMetricRowCount>& mStatsMetricLabels;
+        std::array<WText, GOverviewMetricRowCount>& mStatsMetricValues;
+        std::array<WText, GOverviewMetricRowCount>& mEfficiencyMetricLabels;
+        std::array<WText, GOverviewMetricRowCount>& mEfficiencyMetricValues;
+        WText& mStatsBodyText;
+        WText& mUpgradeBodyText;
+        WText& mEfficiencyBodyText;
         WImage& mUpgradeCardBackground;
         WImage& mUpgradeCardIcon;
         WText& mUpgradeCardTitle;
@@ -294,29 +310,9 @@ public:
             Owner.OnOverviewCommandButtonClick();
         }
 
-        void OnBudgetLevel1Click()
+        void OnBudgetButtonClick(int Index)
         {
-            Owner.OnBudgetLevel1Click();
-        }
-
-        void OnBudgetLevel2Click()
-        {
-            Owner.OnBudgetLevel2Click();
-        }
-
-        void OnBudgetLevel3Click()
-        {
-            Owner.OnBudgetLevel3Click();
-        }
-
-        void OnBudgetLevel4Click()
-        {
-            Owner.OnBudgetLevel4Click();
-        }
-
-        void OnBudgetLevel5Click()
-        {
-            Owner.OnBudgetLevel5Click();
+            Owner.OnBudgetButtonClick(Index);
         }
     };
 
@@ -393,9 +389,5 @@ public:
     void OnMoveButtonClick();
     void OnFocusButtonClick();
     void OnOverviewCommandButtonClick();
-    void OnBudgetLevel1Click();
-    void OnBudgetLevel2Click();
-    void OnBudgetLevel3Click();
-    void OnBudgetLevel4Click();
-    void OnBudgetLevel5Click();
+    void OnBudgetButtonClick(int Index);
 };

@@ -86,6 +86,8 @@ private:
         CPlacementAreaObject::FScopedTopologyBatch* TopologyBatch = nullptr);
     bool CommitRoadPathToTile(int EndTileIndex);
     void ClearRoadBrushMode();
+    std::shared_ptr<class CPlacementAreaObject> PickPlacementObjectByVisual(
+        const FVector2& MouseScreenPos);
     std::shared_ptr<class CPlacementAreaObject> PickPlacementObject(
         const FVector2& MouseWorldPos);
     std::shared_ptr<class CBuildingMarkerOrb> PickCitizenOrb(

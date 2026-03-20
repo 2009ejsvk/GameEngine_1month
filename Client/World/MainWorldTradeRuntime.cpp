@@ -3,6 +3,7 @@
 #include "../Building/BuildingCatalog.h"
 #include "../Map/PlacementAreaObject.h"
 #include "../Economy/ResourceTradePricing.h"
+#include "../StringUtils.h"
 #include <algorithm>
 #include <cmath>
 
@@ -32,23 +33,7 @@ namespace MainWorldTradeRuntime
 
     std::wstring FormatCurrency(long long Value)
     {
-        const bool Negative = Value < 0;
-        const unsigned long long AbsValue = Negative ?
-            static_cast<unsigned long long>(-Value) :
-            static_cast<unsigned long long>(Value);
-        std::wstring Digits = std::to_wstring(AbsValue);
-
-        for (int Index = static_cast<int>(Digits.size()) - 3;
-            Index > 0;
-            Index -= 3)
-        {
-            Digits.insert(static_cast<size_t>(Index), 1, L',');
-        }
-
-        if (Negative)
-            Digits.insert(Digits.begin(), L'-');
-
-        return L"$" + Digits;
+        return StringUtils::FormatCurrency(Value);
     }
 
     std::wstring FormatUnits(int Value)

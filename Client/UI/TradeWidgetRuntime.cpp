@@ -5,6 +5,7 @@
 #include "../World/MainWorldUiReadAccess.h"
 #include "../World/MainWorldTradeRuntime.h"
 #include "../World/WorldStatsSnapshot.h"
+#include "../StringUtils.h"
 #include "World/World.h"
 #include <algorithm>
 #include <cmath>
@@ -1112,23 +1113,7 @@ namespace TradeWidgetRuntime
 
     std::wstring FormatCurrency(long long Value)
     {
-        bool Negative = Value < 0;
-        unsigned long long AbsValue = Negative ?
-            static_cast<unsigned long long>(-Value) :
-            static_cast<unsigned long long>(Value);
-        std::wstring Digits = std::to_wstring(AbsValue);
-
-        for (int Index = static_cast<int>(Digits.size()) - 3;
-            Index > 0;
-            Index -= 3)
-        {
-            Digits.insert(static_cast<size_t>(Index), 1, L',');
-        }
-
-        if (Negative)
-            Digits.insert(Digits.begin(), L'-');
-
-        return L"$" + Digits;
+        return StringUtils::FormatCurrency(Value);
     }
 
     std::wstring FormatSignedPercent(int Value)
