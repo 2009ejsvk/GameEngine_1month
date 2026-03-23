@@ -66,19 +66,35 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         (std::max)(1, EdictModifiers->FoodConsumptionPerVisit) :
         1;
 
-    auto ResolveBuilding = [&](const std::string& BuildingName)
+    auto ResolveBuildingCached = [&](
+        const std::string& BuildingName,
+        FCachedBuildingRef& Cache)
         -> std::shared_ptr<CPlacementAreaObject>
     {
         if (!World || BuildingName.empty())
             return nullptr;
 
-        auto Building = World->FindObject<CPlacementAreaObject>(
+        if (Cache.Name == BuildingName)
+        {
+            auto Cached = Cache.Ptr.lock();
+
+            if (Cached && Cached->GetAlive())
+                return Cached;
+        }
+
+        auto Fetched = World->FindObject<CPlacementAreaObject>(
             BuildingName).lock();
 
-        if (!Building || !Building->GetAlive())
-            return nullptr;
+        if (Fetched && Fetched->GetAlive())
+        {
+            Cache.Name = BuildingName;
+            Cache.Ptr = Fetched;
+            return Fetched;
+        }
 
-        return Building;
+        Cache.Name.clear();
+        Cache.Ptr.reset();
+        return nullptr;
     };
 
     auto ResolveBuildingCap = [&](
@@ -99,34 +115,38 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             1.35f);
     };
 
-    const auto HomeBuilding = ResolveBuilding(mHomeName);
-    const auto WorkBuilding = ResolveBuilding(mWorkName);
+    const auto HomeBuilding = ResolveBuildingCached(mHomeName, mHomeBuildingCached);
+    const auto WorkBuilding = ResolveBuildingCached(mWorkName, mWorkBuildingCached);
     const float HomeHousingCap = ResolveBuildingCap(
         HomeBuilding, &CPlacementAreaObject::GetHousingSatisfactionCap);
     const std::string& FoodCapBuildingName = mFoodVisitBuildingName.empty() ?
         mFoodName :
         mFoodVisitBuildingName;
-    const auto FoodCapBuilding = ResolveBuilding(FoodCapBuildingName);
+    const auto FoodCapBuilding = ResolveBuildingCached(
+        FoodCapBuildingName, mFoodCapBuildingCached);
     const float FoodCap = ResolveBuildingCap(
         FoodCapBuilding, &CPlacementAreaObject::GetFoodSatisfactionCap);
     const std::string& FunCapBuildingName = mFunVisitBuildingName.empty() ?
         mFunName :
         mFunVisitBuildingName;
-    const auto FunCapBuilding = ResolveBuilding(FunCapBuildingName);
+    const auto FunCapBuilding = ResolveBuildingCached(
+        FunCapBuildingName, mFunCapBuildingCached);
     const float FunCap = ResolveBuildingCap(
         FunCapBuilding, &CPlacementAreaObject::GetFunSatisfactionCap);
     const std::string& HealthCapBuildingName =
         mHealthVisitBuildingName.empty() ?
             mHealthName :
             mHealthVisitBuildingName;
-    const auto HealthCapBuilding = ResolveBuilding(HealthCapBuildingName);
+    const auto HealthCapBuilding = ResolveBuildingCached(
+        HealthCapBuildingName, mHealthCapBuildingCached);
     const float HealthCap = ResolveBuildingCap(
         HealthCapBuilding, &CPlacementAreaObject::GetHealthSatisfactionCap);
     const std::string& FaithCapBuildingName =
         mFaithVisitBuildingName.empty() ?
             mFaithName :
             mFaithVisitBuildingName;
-    const auto FaithCapBuilding = ResolveBuilding(FaithCapBuildingName);
+    const auto FaithCapBuilding = ResolveBuildingCached(
+        FaithCapBuildingName, mFaithCapBuildingCached);
     const float FaithCap = ResolveBuildingCap(
         FaithCapBuilding, &CPlacementAreaObject::GetFaithSatisfactionCap);
     const float WorkJobCap = ResolveBuildingCap(

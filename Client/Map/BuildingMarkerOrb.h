@@ -54,6 +54,17 @@ private:
     std::string mHealthVisitBuildingName;
     std::string mFaithName;
     std::string mFaithVisitBuildingName;
+    struct FCachedBuildingRef
+    {
+        std::string Name;
+        std::weak_ptr<class CPlacementAreaObject> Ptr;
+    };
+    FCachedBuildingRef mHomeBuildingCached;
+    FCachedBuildingRef mWorkBuildingCached;
+    FCachedBuildingRef mFoodCapBuildingCached;
+    FCachedBuildingRef mFunCapBuildingCached;
+    FCachedBuildingRef mHealthCapBuildingCached;
+    FCachedBuildingRef mFaithCapBuildingCached;
     bool mFoodVisitReserved = false;
     bool mFunVisitReserved = false;
     bool mHealthVisitReserved = false;
