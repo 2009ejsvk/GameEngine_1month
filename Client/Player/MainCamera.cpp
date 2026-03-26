@@ -11,6 +11,10 @@
 #include "World/Input.h"
 #include "World/WorldUIManager.h"
 #include <cmath>
+#ifdef _DEBUG
+#include "../World/MainWorld.h"
+#include "../World/ScenarioSubsystem.h"
+#endif
 
 CMainCamera::CMainCamera()
 {
@@ -83,6 +87,12 @@ bool CMainCamera::Init()
     Input->AddBindKey("HandleEscape", VK_ESCAPE);
     Input->SetBindFunction<CMainCamera>("HandleEscape",
         EInputType::Press, this, &CMainCamera::HandleEscape);
+
+#ifdef _DEBUG
+    Input->AddBindKey("DebugSkipScenarioPhase", VK_F6);
+    Input->SetBindFunction<CMainCamera>("DebugSkipScenarioPhase",
+        EInputType::Press, this, &CMainCamera::DebugSkipScenarioPhase);
+#endif
 
     return true;
 }
@@ -168,6 +178,26 @@ void CMainCamera::MoveRight()
     if (Movement)
         Movement->AddMove(GetAxis(EAxis::X));
 }
+
+#ifdef _DEBUG
+void CMainCamera::DebugSkipScenarioPhase()
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto* MainWorld = dynamic_cast<CMainWorld*>(World.get());
+
+    if (!MainWorld)
+        return;
+
+    CScenarioSubsystem* Scenario = MainWorld->GetScenario();
+
+    if (Scenario)
+        Scenario->DebugSkipPhase();
+}
+#endif
 
 void CMainCamera::HandleEscape()
 {

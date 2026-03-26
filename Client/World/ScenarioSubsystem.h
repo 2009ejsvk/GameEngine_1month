@@ -42,6 +42,7 @@ private:
 
 public:
     bool TryExecutePeacePayment(std::wstring& OutMessage);
+    void DebugSkipPhase();
 
 private:
     void ShowEventWidget(

@@ -527,6 +527,79 @@ bool CScenarioSubsystem::TryExecutePeacePayment(std::wstring& OutMessage)
 }
 
 // ──────────────────────────────────────────────────────────────
+//  디버그: 현재 페이즈 강제 스킵
+// ──────────────────────────────────────────────────────────────
+
+void CScenarioSubsystem::DebugSkipPhase()
+{
+    if (!mOwner || ResultShown)
+        return;
+
+    // 현재 페이즈의 부수 작업을 정리한 뒤 다음 페이즈로 진입한다.
+    switch (Phase)
+    {
+    case EScenarioPhase::Intro:
+        // Intro → SmugglersOffer: 부수 작업 없음
+        break;
+
+    case EScenarioPhase::SmugglersOffer:
+        // TickPhase에서 조건 충족 시 OpenSmugglersRumRoute()를 호출하므로 여기서도 동일하게 처리
+        if (!SmugglersRumOfferInjected)
+            OpenSmugglersRumRoute();
+        break;
+
+    case EScenarioPhase::SmugglersRumSale:
+    {
+        SmugglersRumOfferInjected = false;
+        std::wstring Msg;
+        mOwner->mPolitics->CompletePoliticalDemand(
+            EPoliticalDemandIssuerType::ForeignPower, 1, Msg);
+        break;
+    }
+
+    case EScenarioPhase::CrownExploitation:
+    {
+        CrownRumExploitationActive = false;
+        CrownRumOfferInjected = false;
+        ResourceTradePricing::GetScenarioRumExportBiasPercent() = 0;
+        if (CTradeDiplomacySubsystem* Trade = mOwner->GetTrade())
+            RemoveScenarioRumOffers(*Trade, GCrownRumScenarioTag);
+        std::wstring Msg;
+        mOwner->mPolitics->CompletePoliticalDemand(
+            EPoliticalDemandIssuerType::ForeignPower, 0, Msg);
+        break;
+    }
+
+    case EScenarioPhase::IndependencePrep:
+    {
+        std::wstring Msg;
+        mOwner->mPolitics->CompletePoliticalDemand(
+            EPoliticalDemandIssuerType::ForeignPower, 1, Msg);
+        break;
+    }
+
+    case EScenarioPhase::PeacePayment:
+        // TryExecutePeacePayment가 예산을 체크하므로 직접 처리
+        ResourceTradePricing::GetScenarioRumExportBiasPercent() = 0;
+        EnterPhase(EScenarioPhase::EraTransitionReady);
+        mOwner->mEraState->RefreshEraTransitionState();
+        mOwner->mEraState->TryExecuteEraTransition(EEraTransitionChoice::Confirm);
+        return; // EnterPhase 이미 완료
+
+    case EScenarioPhase::EraTransitionReady:
+        // 이미 마지막 페이즈
+        return;
+
+    default:
+        break;
+    }
+
+    const int Next = static_cast<int>(Phase) + 1;
+    if (Next <= static_cast<int>(EScenarioPhase::EraTransitionReady))
+        EnterPhase(static_cast<EScenarioPhase>(Next));
+}
+
+// ──────────────────────────────────────────────────────────────
 //  Phase 전환
 // ──────────────────────────────────────────────────────────────
 
