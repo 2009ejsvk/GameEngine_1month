@@ -1495,6 +1495,12 @@ public:
             CanExportStoredResources());
     }
 
+    bool GetHarborShipArrivedThisTick() const
+    {
+        return mOperations.GetHarborShipArrivedThisTick(
+            CanExportStoredResources());
+    }
+
     int GetResourceStock() const { return mOperations.GetResourceStock(); }
     int GetResourceStock(EResourceType Type) const
     {

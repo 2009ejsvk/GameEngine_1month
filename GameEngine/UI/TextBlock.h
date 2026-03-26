@@ -61,6 +61,8 @@ public:
         return mFontSize;
     }
 
+    float GetLayoutHeight();
+
     const FVector2& GetShadowOffset() const
     {
         return mShadowOffset;

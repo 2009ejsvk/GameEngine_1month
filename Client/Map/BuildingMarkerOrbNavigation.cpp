@@ -982,7 +982,9 @@ void CBuildingMarkerOrb::HandleArrival(float Dist)
             TryRestoreCargoToSource();
 
         Delivery.ClearCargo();
-        TransitionFsm(ECitizenState::GoingToTeamsterOffice);
+
+        if (!TryRerouteTeamsterAfterDelivery())
+            TransitionFsm(ECitizenState::GoingToTeamsterOffice);
     }
     else if (mCitizenState == ECitizenState::GoingToTeamsterOffice)
     {

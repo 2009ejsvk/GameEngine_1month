@@ -9,26 +9,26 @@ build_2_8	Oil	석유
 build_2_9	FarmedFish	생선/조개류							FarmedFish
 build_2_10	Oil	해양 석유							
 build_2_11	Banana	바나나							HydroponicProduce	Banana,Corn,Pineapple
-build_2_12	Meat	고기	FeedCrops	1	사료 작물				FactoryLivestock	Meat,Milk
+build_2_12	Meat	고기	FeedCrops	1	사료 작물		FactoryLivestock	Meat,Milk
 build_3_1	Coal	석탄
-build_3_2	Planks	널빤지	Logs	1	통나무				
+build_3_2	Planks	널빤지	Logs	1	통나무
 build_3_3	Rum	럼주	Sugar	1	설탕
 build_3_4	Leather	가죽	Hides	1	생가죽
-build_3_5	CannedGoods	통조림	Fish	1	생선/파인애플				
+build_3_5	CannedGoods	통조림	Fish	1	생선/파인애플
 build_3_6	Cheese	치즈	Milk	1	우유
 build_3_7	Cigars	시가	Tobacco	1	담배
-build_3_8	Boats	보트	Planks	1	널빤지				
+build_3_8	Boats	보트	Planks	1	널빤지
 build_3_9	Steel	강철	Iron	1	철광석	Coal	1	석탄
 build_3_10	Textiles	옷감	Cotton	1	면화
 build_3_11	Weapons	무기	Steel	1	강철	Nickel	1	니켈
 build_3_12	Chocolate	초콜릿	Cocoa	1	코코아	Sugar	1	설탕
-build_3_13	Furniture	가구	Planks	1	널빤지				
+build_3_13	Furniture	가구	Planks	1	널빤지
 build_3_14	Jewelry	보석류	Gold	1	황금
-build_3_15	Plastic	플라스틱	Oil	1	석유				
+build_3_15	Plastic	플라스틱	Oil	1	석유
 build_3_16	Cars	차량	Steel	1	강철	Rubber	1	고무
 build_3_17	Electronics	전자 제품	Plastic	1	플라스틱	Gold	1	황금
-build_3_18	Apparel	의류	Textiles	1	옷감	Leather	1	가죽	
-build_3_19	Pharmaceuticals	의약품	Oil	1	석유				
+build_3_18	Apparel	의류	Textiles	1	옷감	Leather	1	가죽
+build_3_19	Pharmaceuticals	의약품	Oil	1	석유
 build_3_20	Juice	주스	Banana	1	바나나
 build_5_6	None	-							Crops	Coconuts,Fish,FarmedFish,Banana,Corn,Pineapple,Meat,Milk,Cheese,CannedGoods,Juice
 build_5_8	None	-							FactoryLivestock	Meat,Cheese,CannedGoods

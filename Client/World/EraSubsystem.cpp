@@ -3,6 +3,8 @@
 #include "RuntimeConfigRegistry.h"
 #include "WorldStatsSnapshot.h"
 #include "../Politics/ConstitutionSystem.h"
+#include "../GlobalSetting.h"
+#include "ScenarioSubsystem.h"
 #include <Windows.h>
 #include <array>
 #include <cstdio>
@@ -441,7 +443,21 @@ void CEraSubsystem::RefreshEraTransitionState()
         return;
     }
 
-    if (!EraProgress.HasNextEra || !EraProgress.NextEraReady)
+    // 시나리오 모드: EraTransitionUnlocked 시 NextEraReady 조건 없이 전환 허용
+    const bool ScenarioUnlocked =
+        GameSession::CurrentMode() == EGameMode::Scenario &&
+        mOwner->mScenario->EraTransitionUnlocked;
+
+    if (!EraProgress.HasNextEra || (!EraProgress.NextEraReady && !ScenarioUnlocked))
+    {
+        if (EraTransition.Stage == EEraTransitionStage::Available)
+            EraTransition = FEraTransitionState();
+
+        return;
+    }
+
+    // 시나리오 모드: Phase가 EraTransitionReady에 도달할 때까지 전환 차단
+    if (GameSession::CurrentMode() == EGameMode::Scenario && !ScenarioUnlocked)
     {
         if (EraTransition.Stage == EEraTransitionStage::Available)
             EraTransition = FEraTransitionState();

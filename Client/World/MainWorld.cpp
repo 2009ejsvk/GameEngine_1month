@@ -1048,7 +1048,22 @@ bool CMainWorld::TryApplyEdict(
 
 bool CMainWorld::TryExecuteEraTransition(EEraTransitionChoice Choice)
 {
-    return mEraState->TryExecuteEraTransition(Choice);
+    const bool Success = mEraState->TryExecuteEraTransition(Choice);
+
+    if (Success)
+        mScenario->NotifyEraTransitioned(mEraState->EraProgress.CurrentEra);
+
+    return Success;
+}
+
+bool CMainWorld::TryExecutePeacePayment(std::wstring& OutMessage)
+{
+    if (!mScenario)
+    {
+        OutMessage = L"시나리오가 활성화되지 않았습니다.";
+        return false;
+    }
+    return mScenario->TryExecutePeacePayment(OutMessage);
 }
 
 bool CMainWorld::AdjustTaxPolicy(

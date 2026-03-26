@@ -116,6 +116,7 @@ public:
         int Cost) = 0;
     virtual bool TrySelectConstitutionOption(
         EConstitutionOptionId Id) = 0;
+    virtual bool TryExecutePeacePayment(std::wstring& OutMessage) = 0;
     virtual void RebuildRoadNetwork() = 0;
     virtual void RefreshRuntimeBuildingState() = 0;
     virtual bool DamageBuilding(

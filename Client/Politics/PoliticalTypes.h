@@ -474,7 +474,11 @@ enum class EPoliticalDemandObjectiveType
     ExportIncome,
     IncomeTaxCeiling,
     PropertyTaxCeiling,
-    ActiveTradeRoutes
+    ActiveTradeRoutes,
+    RumProducerBuilding,    // 럼주 생산 건물 수
+    SugarProducerBuilding,  // 설탕 생산 건물 수
+    MilitaryWorkers,        // 군사 건물 근무 인원
+    TreasuryBalance         // 국고 보유액 (달러)
 };
 
 enum class EPoliticalDemandStatus
@@ -523,6 +527,7 @@ struct FPoliticalDemandState
     std::wstring ObjectiveText;
     std::wstring RewardText;
     std::wstring PenaltyText;
+    std::wstring SpeakerOverrideName; // 비어있지 않으면 화자 이름/초상화 오버라이드
 };
 
 struct FPoliticalDemandNotice

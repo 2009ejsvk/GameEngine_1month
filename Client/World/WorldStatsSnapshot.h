@@ -94,6 +94,7 @@ namespace WorldStats
         int ResidentialVacancyWealthCount[5] = {};
         int PoliticalCount[static_cast<int>(EPoliticalAxis::Count)][3] = {};
         int BuildingCategoryCount[GBuildingCategoryCount] = {};
+        int MilitaryWorkerCount = 0;
         long long MonthlyWageCost = 0;
         long long MonthlyUpkeepCost = 0;
         long long TotalResourceStock = 0;

@@ -467,6 +467,7 @@ private:
     std::vector<FDetailRowWidgets>& mConflictDetails = mConflictPage.Details;
     std::vector<FMetricRowWidgets>& mConflictMetrics = mConflictPage.Metrics;
 
+    bool mAutoPaused = false;
     bool& mOpen = mState.Open;
     EAlmanacPage& mSelectedPage = mState.SelectedPage;
     int& mSelectedSatisfactionIndex = mState.SelectedSatisfactionIndex;

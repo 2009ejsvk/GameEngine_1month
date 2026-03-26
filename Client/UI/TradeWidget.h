@@ -63,6 +63,7 @@ private:
     WText mFeedbackText;
 
     bool mOpen = false;
+    bool mAutoPaused = false;
     int mSelectedPageIndex = 0;
     int mSelectedFilterIndex = 0;
     int mSelectedSortIndex = 3;

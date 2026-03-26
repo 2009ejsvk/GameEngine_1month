@@ -22,9 +22,16 @@ public:
         bool ApplyIdleDecay = false;
     };
 
+    struct FDailyTradeRouteSettlement
+    {
+        long long ExportIncome = 0;
+        long long ImportExpense = 0;
+        long long NetChange = 0;
+    };
+
     void Reset();
     void OnDayAdvanced(const FRefreshForeignTradeContext& Context);
-    void ProcessActiveRoutes();
+    FDailyTradeRouteSettlement ProcessActiveRoutes();
     void CancelTradeRoutesForInactivePowers(EBuildingEra Era);
     bool ExecuteTradeProposal(
         bool ImportRoute,

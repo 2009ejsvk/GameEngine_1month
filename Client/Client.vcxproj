@@ -113,7 +113,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
       <Command>call "$(ProjectDir)Copy.bat"</Command>
@@ -159,7 +159,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
       <Command>call "$(ProjectDir)Copy.bat"</Command>
@@ -525,6 +525,7 @@
     <None Include="..\Binary\UILayout\16_WidgetOverrides_Event_BuildMenu.ini" />
     <None Include="..\Binary\UILayout\17_WidgetOverrides_TopHud_Left.ini" />
     <None Include="..\Binary\UILayout\18_WidgetOverrides_Harbor.ini" />
+    <None Include="..\Binary\UILayout\19_CitizenInfoContent.ini" />
     <None Include="Copy.bat" />
   </ItemGroup>
   <ItemGroup>

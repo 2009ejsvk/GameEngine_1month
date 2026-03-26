@@ -276,6 +276,9 @@ namespace UIConfig
     extern float BuildingBodyBottomInset;
     extern float BuildingIconSize;
 
+    // ── 과제 UI ──────────────────────────────────────────────
+    extern float TaskDetailSectionsGap;
+
     // ── NPC 선택 UI ──────────────────────────────────────────
     extern float CitizenPanelWidthRatio;
     extern float CitizenPanelMinWidth;
@@ -305,42 +308,92 @@ namespace UIConfig
     extern float CitizenFooterBottomInset;
     extern float CitizenBodyBottomInset;
 
+    // ── NPC 패널 공통 레이아웃 (시민 모드 전용) ───────────────────
     namespace CitizenInfoLayoutDefaults
     {
-        constexpr float TitleIconInsetX = 6.f;
-        constexpr float TitleIconOffsetY = 0.f;
-        constexpr float TitleTextInsetX = 14.f;
-        constexpr float TitleTextOffsetX = 0.f;
-        constexpr float TitleTextOffsetY = 0.f;
-        constexpr float TitleTextWidthAdjust = 0.f;
-        constexpr float TitleTextHeightAdjust = 0.f;
-        constexpr float TitleIconGap = 6.f;
-        constexpr float SubtitleOffsetY = 4.f;
-        constexpr float CollapsedSectionGap = 6.f;
-        constexpr float BudgetLabelOffsetY = 2.f;
-        constexpr float BudgetCustomButtonsOffsetY = 20.f;
-        constexpr float BudgetWorkButtonsOffsetY = 78.f;
-        constexpr float BudgetDefaultButtonsOffsetY = 26.f;
-        constexpr float BudgetCompactGap = 6.f;
-        constexpr float BudgetDefaultGap = 8.f;
-        constexpr float OccupancyGapY = 18.f;
-        constexpr float CompactControlHeight = 22.f;
-        constexpr float CompactBudgetButtonWidth = 36.f;
-        constexpr float SectionDividerWidth = 172.f;
-        constexpr float SectionDividerHeight = 14.f;
-        constexpr float ActionButtonHeight = 38.f;
-        constexpr float ActionGap = 4.f;
-        constexpr float ActionCompactIconSize = 34.f;
-        constexpr float ActionCompactIconOffsetY = 2.f;
-        constexpr float ActionIconInset = 8.f;
-        constexpr float MoveCompactRightOffset = 82.f;
-        constexpr float FocusCompactRightOffset = 40.f;
-        constexpr float OverviewCommandGap = 10.f;
-        constexpr float BodyGapAfterSection = 8.f;
-        constexpr float BodyGapAfterActions = 14.f;
-        constexpr float BodyGapBeforeActions = 12.f;
-        constexpr float BodyFallbackOffset = 4.f;
+        extern float TitleIconInsetX;
+        extern float TitleIconOffsetY;
+        extern float TitleTextInsetX;
+        extern float TitleTextOffsetX;
+        extern float TitleTextOffsetY;
+        extern float TitleTextWidthAdjust;
+        extern float TitleTextHeightAdjust;
+        extern float TitleIconGap;
+        extern float SubtitleOffsetY;
+        extern float CollapsedSectionGap;
+        extern float BudgetLabelOffsetY;
+        extern float BudgetCustomButtonsOffsetY;
+        extern float BudgetWorkButtonsOffsetY;
+        extern float BudgetDefaultButtonsOffsetY;
+        extern float BudgetCompactGap;
+        extern float BudgetDefaultGap;
+        extern float OccupancyGapY;
+        extern float CompactControlHeight;
+        extern float CompactBudgetButtonWidth;
+        extern float SectionDividerWidth;
+        extern float SectionDividerHeight;
+        extern float ActionButtonHeight;
+        extern float ActionGap;
+        extern float ActionCompactIconSize;
+        extern float ActionCompactIconOffsetY;
+        extern float ActionIconInset;
+        extern float ActionGroupOffsetX;
+        extern float ActionGroupOffsetY;
+        extern float ActionGroupWidthAdd;
+        extern float ActionGroupHeightAdd;
+        extern float MoveCompactRightOffset;
+        extern float FocusCompactRightOffset;
+        extern float OverviewCommandGap;
+        extern float BodyGapAfterSection;
+        extern float BodyGapAfterActions;
+        extern float BodyGapBeforeActions;
+        extern float BodyFallbackOffset;
     }
+
+    // ── NPC 탭0: 정보 (프로필 카드) ──────────────────────────────
+    extern float CitizenProfileSlotSize;
+    extern float CitizenProfileSlotColGap;
+    extern float CitizenProfileSlotRowGap;
+    extern float CitizenProfileGridTopOffset;
+    extern float CitizenProfileDetailTopMargin;
+    extern float CitizenProfileMetricRowH;
+    extern float CitizenProfileMetricIconSz;
+    extern float CitizenProfileMetricIconGap;
+    extern float CitizenProfileMetricValueWidth;
+
+    // ── NPC 탭1: 만족도 (정치 패널) ──────────────────────────────
+    extern float CitizenPoliticsSectionTopOffset;
+    extern float CitizenPoliticsSectionHeight;
+    extern float CitizenPoliticsSatisfactionGap;
+    extern float CitizenPoliticsSatisfactionRowH;
+    extern float CitizenPoliticsSatisfactionLabelW;
+    extern float CitizenPoliticsBarRailOffsetY;
+    extern float CitizenPoliticsBarRailH;
+    extern float CitizenPoliticsBarFillOffsetY;
+    extern float CitizenPoliticsBarFillH;
+    extern float CitizenPoliticsBarLabelH;
+    extern float CitizenPoliticsOpinionRowH;
+    extern float CitizenPoliticsOpinionTextH;
+    extern float CitizenPoliticsOpinionSectionGap;
+    extern float CitizenPoliticsSupportGap;
+    extern float CitizenPoliticsSupportIconSize;
+    extern float CitizenPoliticsSupportIconsGap;
+    extern float CitizenPoliticsSupportRailH;
+    extern float CitizenPoliticsSupportRailMargin;
+    extern float CitizenPoliticsSupportRailTopOffset;
+    extern float CitizenPoliticsSupportThumbW;
+    extern float CitizenPoliticsSupportThumbH;
+    extern float CitizenPoliticsSupportThumbOffsetY;
+
+    // ── NPC 탭2: 생각 (서술형 텍스트) ────────────────────────────
+    extern float CitizenThoughtsSectionTopOffset;
+    extern float CitizenThoughtsSectionHeight;
+    extern float CitizenThoughtsTopGap;
+    extern float CitizenThoughtsWidthInset;
+    extern float CitizenThoughtsEntryH;
+    extern float CitizenThoughtsStep;
+    extern float CitizenThoughtsDividerOffsetY;
+    extern float CitizenThoughtsTextOffsetX;
 
     namespace TradeWidgetLayout
     {

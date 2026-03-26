@@ -128,7 +128,7 @@ namespace
 
     bool TryResolveConsumerNeed(
         const std::shared_ptr<CPlacementAreaObject>& Building,
-        int RestockThreshold,
+        bool CriticalOnly,
         EResourceType& OutType,
         int& OutCurrentStock)
     {
@@ -177,6 +177,13 @@ namespace
                                 Type) :
                     Building->GetResourceStock(Type) +
                         Building->GetReservedIncomingResourceAmount(Type);
+
+            const int Capacity = Building->GetResourceTypeCapacity(Type);
+            const int RestockThreshold =
+                CriticalOnly ?
+                    (std::max)(1,
+                        GameConstants::Orb::TeamsterConsumerRestockThreshold) :
+                    Capacity;
 
             if (CurrentStock >= RestockThreshold)
             {
@@ -439,8 +446,7 @@ namespace
                         Building->GetReservedIncomingResourceAmount(Type);
             Pressure.GlobalShortage += (std::max)(
                 0,
-                GameConstants::Orb::TeamsterConsumerTargetStock -
-                    CurrentStock);
+                Building->GetResourceTypeCapacity(Type) - CurrentStock);
         }
 
         return Pressure;
@@ -470,11 +476,14 @@ namespace
             return 0;
         }
 
-        return (std::max)(
+        const int Amount = (std::max)(
             0,
             (std::min)(
                 AvailableAmount,
                 (std::min)(TransferUnit, DesiredAmount)));
+        const int MinUnit =
+            (std::max)(1, GameConstants::Orb::TeamsterMinTransferUnit);
+        return Amount >= MinUnit ? Amount : 0;
     }
 
     FTeamsterExportHubPressure BuildTeamsterExportHubPressure(
@@ -516,7 +525,8 @@ namespace
         // answers "how much should teamsters stage at export hubs right now?".
         const int IslandExportHeadroom = (std::max)(
             0,
-            ResourcePressure.TotalAvailableStock);
+            ResourcePressure.TotalAvailableStock -
+                ResourcePressure.GlobalShortage);
         const int ShipCapacity = ExportPolicy ?
             TradePolicy::GetHarborExportShipCapacityUnits(*ExportPolicy) :
             TradePolicy::GDefaultHarborExportShipCapacityUnits;
@@ -1200,12 +1210,8 @@ bool CBuildingMarkerOrb::TryStartTeamsterDelivery()
         return true;
     }
 
-    // Let near-empty consumers interrupt first, but otherwise give exports a
-    // chance before routine input top-ups monopolize teamsters.
-    if (TryPlanTeamsterConsumerDelivery(
-            WorkBuilding,
-            PlannedDelivery,
-            true))
+    // Critical consumers (near-empty) always take first priority.
+    if (TryPlanTeamsterConsumerDelivery(WorkBuilding, PlannedDelivery, true))
     {
         mTeamsterDeliveryState = PlannedDelivery;
         TransitionFsm(ECitizenState::GoingToTeamsterConsumerSource);
@@ -1213,7 +1219,9 @@ bool CBuildingMarkerOrb::TryStartTeamsterDelivery()
         return true;
     }
 
-    if (TryPlanTeamsterExportDelivery(WorkBuilding, PlannedDelivery))
+    // Urgent export: if the harbor has a full load's worth of pending demand,
+    // prioritize export over normal consumer top-ups so exports are not starved.
+    if (TryPlanTeamsterExportDelivery(WorkBuilding, PlannedDelivery, true))
     {
         mTeamsterDeliveryState = PlannedDelivery;
         TransitionFsm(ECitizenState::GoingToTeamsterSource);
@@ -1221,16 +1229,163 @@ bool CBuildingMarkerOrb::TryStartTeamsterDelivery()
         return true;
     }
 
-    if (!TryPlanTeamsterConsumerDelivery(
-            WorkBuilding,
-            PlannedDelivery,
-            false))
+    // Normal consumer restock after urgent exports have been handled.
+    if (TryPlanTeamsterConsumerDelivery(WorkBuilding, PlannedDelivery, false))
+    {
+        mTeamsterDeliveryState = PlannedDelivery;
+        TransitionFsm(ECitizenState::GoingToTeamsterConsumerSource);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
+    // Non-urgent export as last resort.
+    if (!TryPlanTeamsterExportDelivery(WorkBuilding, PlannedDelivery, false))
+        return false;
+
+    mTeamsterDeliveryState = PlannedDelivery;
+    TransitionFsm(ECitizenState::GoingToTeamsterSource);
+    mPathRetryAccum = 0.f;
+    return true;
+}
+
+bool CBuildingMarkerOrb::TryRerouteTeamsterAfterDelivery()
+{
+    auto World = mWorld.lock();
+
+    if (!World || mWorkName.empty())
+        return false;
+
+    auto WorkBuilding =
+        World->FindObject<CPlacementAreaObject>(mWorkName).lock();
+
+    if (!WorkBuilding ||
+        !WorkBuilding->GetAlive() ||
+        !WorkBuilding->GetEnable() ||
+        !WorkBuilding->HasPlacedArea() ||
+        !WorkBuilding->IsTransportOffice())
     {
         return false;
     }
 
+    // Budget level 1: never skip the office return trip.
+    const int BudgetLvl = WorkBuilding->GetBudgetLevel();
+    if (BudgetLvl <= 1)
+        return false;
+
+    // Capture the just-completed destination before overwriting state.
+    const std::string PrevDestName = mTeamsterDeliveryState.DestinationName;
+
+    FTeamsterDeliveryState PlannedDelivery;
+
+    // Priority order mirrors TryStartTeamsterDelivery but adapted for re-routing:
+    //   1. Critical consumer  (prefer different building via soft exclusion)
+    //   2. Urgent export      (harbor staging with a full load's worth of demand)
+    //   3. Normal consumer    (prefer different building via soft exclusion)
+    //   4. Non-urgent export
+    const bool ConsumerCritical =
+        TryPlanTeamsterConsumerDelivery(
+            WorkBuilding, PlannedDelivery, true, PrevDestName) ||
+        TryPlanTeamsterConsumerDelivery(WorkBuilding, PlannedDelivery, true);
+
+    if (!ConsumerCritical)
+    {
+        const bool ExportUrgent =
+            TryPlanTeamsterExportDelivery(WorkBuilding, PlannedDelivery, true);
+
+        if (!ExportUrgent)
+        {
+            const bool ConsumerNormal =
+                TryPlanTeamsterConsumerDelivery(
+                    WorkBuilding, PlannedDelivery, false, PrevDestName) ||
+                TryPlanTeamsterConsumerDelivery(WorkBuilding, PlannedDelivery, false);
+
+            if (!ConsumerNormal)
+            {
+                if (!TryPlanTeamsterExportDelivery(WorkBuilding, PlannedDelivery, false))
+                    return false;
+            }
+        }
+    }
+
+    auto ReleaseDeliveryReservations = [&]()
+    {
+        if (PlannedDelivery.SourceReservationKind ==
+            FTeamsterDeliveryState::ESourceReservationKind::Typed)
+        {
+            auto SrcBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    PlannedDelivery.SourceName).lock();
+            if (SrcBuilding)
+            {
+                SrcBuilding->ReleaseTeamsterPickup(
+                    PlannedDelivery.RequestedType,
+                    PlannedDelivery.RequestedAmount);
+            }
+        }
+
+        if (PlannedDelivery.DestinationReservationActive)
+        {
+            auto DstBuilding =
+                World->FindObject<CPlacementAreaObject>(
+                    PlannedDelivery.DestinationName).lock();
+            if (DstBuilding)
+            {
+                DstBuilding->ReleaseIncomingResource(
+                    PlannedDelivery.ReservedDestinationType,
+                    PlannedDelivery.ReservedDestinationAmount);
+            }
+        }
+    };
+
+    // Budget level 5: always re-route regardless of distance.
+    if (BudgetLvl >= 5)
+    {
+        mTeamsterDeliveryState = PlannedDelivery;
+        TransitionFsm(
+            PlannedDelivery.Mode ==
+                FTeamsterDeliveryState::ERouteMode::ConsumerDelivery ?
+                ECitizenState::GoingToTeamsterConsumerSource :
+                ECitizenState::GoingToTeamsterSource);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
+    // Levels 2–4: re-route only when the detour stays within the
+    // budget-scaled distance limit from the just-delivered building.
+    //   Level 2 → 0.75×  Level 3 → 1.00×  Level 4 → 1.50×
+    static constexpr float DetourMult[6] = { 0.f, 0.f, 0.75f, 1.0f, 1.5f, 0.f };
+    const float Mult = DetourMult[BudgetLvl];
+    const float MultSq = Mult * Mult;
+
+    if (!PrevDestName.empty())
+    {
+        auto PrevDest =
+            World->FindObject<CPlacementAreaObject>(PrevDestName).lock();
+        auto NextSource =
+            World->FindObject<CPlacementAreaObject>(
+                PlannedDelivery.SourceName).lock();
+
+        if (PrevDest && NextSource)
+        {
+            float DistToOfficeSq = FLT_MAX;
+            float DistToNextSourceSq = FLT_MAX;
+
+            if (TryGetCoverageDistanceSq(PrevDest, WorkBuilding, DistToOfficeSq) &&
+                TryGetCoverageDistanceSq(PrevDest, NextSource, DistToNextSourceSq) &&
+                DistToNextSourceSq > DistToOfficeSq * MultSq)
+            {
+                ReleaseDeliveryReservations();
+                return false;
+            }
+        }
+    }
+
     mTeamsterDeliveryState = PlannedDelivery;
-    TransitionFsm(ECitizenState::GoingToTeamsterConsumerSource);
+    TransitionFsm(
+        PlannedDelivery.Mode ==
+            FTeamsterDeliveryState::ERouteMode::ConsumerDelivery ?
+            ECitizenState::GoingToTeamsterConsumerSource :
+            ECitizenState::GoingToTeamsterSource);
     mPathRetryAccum = 0.f;
     return true;
 }
@@ -1300,6 +1455,32 @@ bool CBuildingMarkerOrb::TryPlanTeamsterWarehouseBufferDelivery(
             {
                 continue;
             }
+
+            // Don't buffer a resource to the warehouse if any consumer
+            // building has a critically low stock of it — let consumer
+            // delivery handle those directly instead of starving them.
+            const int CriticalThreshold =
+                (std::max)(1, GameConstants::Orb::TeamsterConsumerRestockThreshold);
+            bool HasCriticalConsumer = false;
+            for (size_t j = 0; j < BuildingList.size(); ++j)
+            {
+                auto Candidate2 = BuildingList[j].lock();
+                if (!BuildingConsumesResource(Candidate2, CargoType) ||
+                    !IsWithinTeamsterCoverage(OfficeBuilding, Candidate2))
+                {
+                    continue;
+                }
+                const int Stock =
+                    Candidate2->GetResourceStock(CargoType) +
+                    Candidate2->GetReservedIncomingResourceAmount(CargoType);
+                if (Stock < CriticalThreshold)
+                {
+                    HasCriticalConsumer = true;
+                    break;
+                }
+            }
+            if (HasCriticalConsumer)
+                continue;
 
             const FWarehouseDropoffCandidate Candidate =
                 FindBestWarehouseDropoffCandidate(
@@ -1406,7 +1587,8 @@ bool CBuildingMarkerOrb::TryPlanTeamsterWarehouseBufferDelivery(
 bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
     FTeamsterDeliveryState& OutDelivery,
-    bool CriticalOnly) const
+    bool CriticalOnly,
+    const std::string& ExcludeDestName) const
 {
     OutDelivery.ClearRoute();
 
@@ -1424,16 +1606,6 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
 
     const bool HasWarehouseInCoverage =
         HasCoveredWarehouse(OfficeBuilding, BuildingList);
-    // Start consumer restocks only when stock falls below the configured
-    // trigger threshold. Once a route is chosen, we still top the consumer up
-    // toward TeamsterConsumerTargetStock.
-    const int ConsumerRestockThreshold = (std::max)(
-        1,
-        GameConstants::Orb::TeamsterConsumerRestockThreshold);
-    const int EffectiveRestockThreshold =
-        CriticalOnly ?
-            (std::max)(1, ConsumerRestockThreshold / 2) :
-            ConsumerRestockThreshold;
 
     const TradePolicy::FExportTradePolicy* const ExportPolicy =
         ResolveExportTradePolicy(World);
@@ -1557,7 +1729,8 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     std::string BestConsumerName;
     std::string BestSourceName;
     EResourceType BestResourceType = EResourceType::None;
-    int BestCurrentStock = EffectiveRestockThreshold + 1;
+    int BestCurrentStock = (std::numeric_limits<int>::max)();
+    int BestReservedIncoming = (std::numeric_limits<int>::max)();
     int BestRequestedAmount = 0;
     float BestConsumerDistSq = FLT_MAX;
     float BestSourceDistSq = FLT_MAX;
@@ -1568,13 +1741,21 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
     for (size_t i = 0; i < BuildingList.size(); ++i)
     {
         auto Building = BuildingList[i].lock();
+
+        if (!ExcludeDestName.empty() &&
+            Building &&
+            Building->GetName() == ExcludeDestName)
+        {
+            continue;
+        }
+
         EResourceType ConsumerType = EResourceType::None;
         int CurrentStock = 0;
         FTeamsterExportTriggerInfo DeferredExportTrigger;
 
         if (!TryResolveConsumerNeed(
                 Building,
-                EffectiveRestockThreshold,
+                CriticalOnly,
                 ConsumerType,
                 CurrentStock) ||
             !IsWithinTeamsterCoverage(OfficeBuilding, Building))
@@ -1640,10 +1821,11 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
             continue;
         }
 
+        const int ConsumerCapacity =
+            Building->GetResourceTypeCapacity(ConsumerType);
         int RequestedAmount = (std::max)(
             1,
-            GameConstants::Orb::TeamsterConsumerTargetStock -
-                CurrentStock);
+            ConsumerCapacity - CurrentStock);
         RequestedAmount = (std::min)(
             RequestedAmount,
             TransferUnit);
@@ -1652,11 +1834,18 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
         if (RequestedAmount <= 0)
             continue;
 
+        const int ReservedIncoming =
+            Building->GetReservedIncomingResourceAmount(ConsumerType);
+
         if (BestConsumerName.empty() ||
             CurrentStock < BestCurrentStock ||
             (CurrentStock == BestCurrentStock &&
+             ReservedIncoming < BestReservedIncoming) ||
+            (CurrentStock == BestCurrentStock &&
+             ReservedIncoming == BestReservedIncoming &&
              ConsumerDistSq < BestConsumerDistSq) ||
             (CurrentStock == BestCurrentStock &&
+             ReservedIncoming == BestReservedIncoming &&
              ConsumerDistSq == BestConsumerDistSq &&
              SourceDistSq < BestSourceDistSq))
         {
@@ -1664,6 +1853,7 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
             BestSourceName = SourceName;
             BestResourceType = SupplyType;
             BestCurrentStock = CurrentStock;
+            BestReservedIncoming = ReservedIncoming;
             BestRequestedAmount = RequestedAmount;
             BestConsumerDistSq = ConsumerDistSq;
             BestSourceDistSq = SourceDistSq;
@@ -1745,7 +1935,8 @@ bool CBuildingMarkerOrb::TryPlanTeamsterConsumerDelivery(
 
 bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
     const std::shared_ptr<CPlacementAreaObject>& OfficeBuilding,
-    FTeamsterDeliveryState& OutDelivery) const
+    FTeamsterDeliveryState& OutDelivery,
+    bool UrgentOnly) const
 {
     OutDelivery.ClearRoute();
 
@@ -1781,6 +1972,30 @@ bool CBuildingMarkerOrb::TryPlanTeamsterExportDelivery(
             static_cast<EResourceType>(ResourceIndex),
             ResourcePressure[ResourceIndex],
             ExportPolicy);
+    }
+
+    // Urgent-only mode: only proceed if at least one resource has a full
+    // load's worth of pending harbor staging demand.
+    if (UrgentOnly)
+    {
+        const int UrgentThreshold =
+            (std::max)(1, GameConstants::Orb::TeamsterTransferUnit);
+        bool HasUrgentDemand = false;
+
+        for (size_t ResourceIndex = 1;
+             ResourceIndex < static_cast<size_t>(EResourceType::Count);
+             ++ResourceIndex)
+        {
+            if (ExportHubPressure[ResourceIndex].PendingStagingDemand >=
+                UrgentThreshold)
+            {
+                HasUrgentDemand = true;
+                break;
+            }
+        }
+
+        if (!HasUrgentDemand)
+            return false;
     }
 
     std::string BestSourceName;

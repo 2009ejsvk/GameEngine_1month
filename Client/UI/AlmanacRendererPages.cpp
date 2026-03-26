@@ -1648,7 +1648,7 @@ void FAlmanacRenderer::ApplyForeignPage(
         GetSignedTint(SelectedForeignPower.GovernmentModifier));
     SetDetailRowData(
         Widget.mForeignDetails[8],
-        L"무역 standing",
+        L"무역 신용도",
         FormatSignedInt(SelectedForeignState.Standing),
         false,
         GetSignedTint(SelectedForeignState.Standing));
@@ -1746,7 +1746,7 @@ void FAlmanacRenderer::ApplyForeignPage(
             HasRecentDelta ?
                 (std::wstring(L"최근 계약 변화: 관계 ") +
                     FormatSignedInt(SelectedForeignState.LastRelationChange) +
-                    L", standing " +
+                    L", 신용도 " +
                     FormatSignedInt(SelectedForeignState.LastStandingChange))
                     .c_str() :
                 L"");

@@ -1405,6 +1405,9 @@ void CTradeWidget::RefreshFromState()
                 Index == mSelectedPageIndex ?
                     FVector4(1.08f, 1.00f, 0.82f, 1.f) :
                     FVector4(0.96f, 0.96f, 0.96f, 1.f));
+            PageButtons[static_cast<size_t>(Index)]->SetTint(
+                EButtonState::Disable,
+                FVector4(0.82f, 0.78f, 0.70f, 0.85f));
         }
 
         if (PageTexts[static_cast<size_t>(Index)])
@@ -1477,6 +1480,9 @@ void CTradeWidget::RefreshFromState()
                 Index == mSelectedSortIndex ?
                     FVector4(1.08f, 1.00f, 0.82f, 1.f) :
                     FVector4(0.96f, 0.96f, 0.96f, 1.f));
+            Button->SetTint(
+                EButtonState::Disable,
+                FVector4(0.82f, 0.78f, 0.70f, 0.85f));
         }
 
         if (Text)
@@ -1538,6 +1544,9 @@ void CTradeWidget::RefreshFromState()
                 Button->SetTint(
                     EButtonState::Normal,
                     FVector4(0.98f, 0.98f, 0.98f, 1.f));
+                Button->SetTint(
+                    EButtonState::Disable,
+                    FVector4(0.82f, 0.78f, 0.70f, 0.85f));
             }
 
             if (Direction)
@@ -1773,6 +1782,9 @@ void CTradeWidget::RefreshFromState()
                     Selected ?
                         FVector4(1.08f, 1.00f, 0.82f, 1.f) :
                         FVector4(0.98f, 0.98f, 0.98f, 1.f));
+                Button->SetTint(
+                    EButtonState::Disable,
+                    FVector4(0.82f, 0.78f, 0.70f, 0.85f));
             }
         }
 
@@ -2112,6 +2124,9 @@ void CTradeWidget::RefreshFromState()
                 Button->SetTint(
                     EButtonState::Normal,
                     FVector4(0.96f, 0.96f, 0.96f, 1.f));
+                Button->SetTint(
+                    EButtonState::Disable,
+                    FVector4(0.82f, 0.78f, 0.70f, 0.85f));
             }
 
             if (Text)
@@ -2160,6 +2175,9 @@ void CTradeWidget::RefreshFromState()
                 Index == mSelectedAmountIndex && Enabled ?
                     FVector4(1.08f, 1.00f, 0.82f, 1.f) :
                     FVector4(0.96f, 0.96f, 0.96f, 1.f));
+            Button->SetTint(
+                EButtonState::Disable,
+                FVector4(0.82f, 0.78f, 0.70f, 0.85f));
         }
 
         if (Text)
@@ -2185,6 +2203,12 @@ void CTradeWidget::RefreshFromState()
             (ShowingActiveRoutes ?
                 SelectedRoute != nullptr :
                 SelectedProposal != nullptr));
+        ActionButton->SetTint(
+            EButtonState::Normal,
+            FVector4(0.96f, 0.96f, 0.96f, 1.f));
+        ActionButton->SetTint(
+            EButtonState::Disable,
+            FVector4(0.82f, 0.78f, 0.70f, 0.85f));
     }
 
     if (ActionButtonText)
@@ -2210,6 +2234,9 @@ void CTradeWidget::RefreshFromState()
             mAutoOpenCompletionPage ?
                 FVector4(1.08f, 1.00f, 0.82f, 1.f) :
                 FVector4(0.96f, 0.96f, 0.96f, 1.f));
+        CompletionAutoOpenButton->SetTint(
+            EButtonState::Disable,
+            FVector4(0.82f, 0.78f, 0.70f, 0.85f));
     }
 
     if (CompletionAutoOpenButtonText)

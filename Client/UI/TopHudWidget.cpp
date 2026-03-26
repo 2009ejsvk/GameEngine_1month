@@ -6,6 +6,8 @@
 #include "EdictWidget.h"
 #include "TaskWidget.h"
 #include "TradeWidget.h"
+#include "../World/StartWorld.h"
+#include "World/WorldManager.h"
 #include "UIStrings.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -1019,9 +1021,10 @@ void CTopHudWidget::RefreshFromState()
         mManualEraTransitionPopupOpen = false;
 
     mEraTransitionPopupOpen =
-        !mConstitutionPanelOpen &&
-        !Snapshot.EraTransitionAvailable &&
-        mManualEraTransitionPopupOpen;
+        (!mConstitutionPanelOpen &&
+         !Snapshot.EraTransitionAvailable &&
+         mManualEraTransitionPopupOpen) ||
+        mState.ExitConfirmPopupOpen;
 
     if (Snapshot.GameLost && !mGameOverMenusClosed)
     {
@@ -1031,6 +1034,7 @@ void CTopHudWidget::RefreshFromState()
         mManualEraTransitionPopupOpen = false;
         mConstitutionPopupActive = false;
         mEraTransitionPopupOpen = false;
+        mState.ExitConfirmPopupOpen = false;
     }
     else if (!Snapshot.GameLost)
     {
@@ -1431,6 +1435,12 @@ void CTopHudWidget::OnPopupRightButtonClick()
         mConstitutionRightOptionId);
 #endif
 
+    if (mState.ExitConfirmPopupOpen)
+    {
+        CWorldManager::GetInst()->CreateWorld<CStartWorld>(true);
+        return;
+    }
+
     auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
 
     if (mConstitutionPopupActive)
@@ -1488,6 +1498,13 @@ void CTopHudWidget::OnPopupLeftButtonClick()
         mConstitutionLeftOptionId);
 #endif
 
+    if (mState.ExitConfirmPopupOpen)
+    {
+        mState.ExitConfirmPopupOpen = false;
+        RefreshFromState();
+        return;
+    }
+
     auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
 
     if (mConstitutionPopupActive)
@@ -1538,4 +1555,62 @@ void CTopHudWidget::OnSpeedMultiplierButtonClick()
 
 void CTopHudWidget::OnAnyButtonClick()
 {
+}
+
+void CTopHudWidget::OpenExitConfirmPopup()
+{
+    CloseMenus(true, true, true, true, true);
+    mState.ExitConfirmPopupOpen = true;
+    RefreshFromState();
+}
+
+void CTopHudWidget::CloseExitConfirmPopup()
+{
+    mState.ExitConfirmPopupOpen = false;
+    RefreshFromState();
+}
+
+bool CTopHudWidget::IsAnyMenuOpen() const
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return false;
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return false;
+
+    auto BuildMenu =
+        UIManager->FindWidget<CBuildMenuWidget>(GBuildMenuWidgetName).lock();
+
+    if (BuildMenu && BuildMenu->IsBuildMenuOpen())
+        return true;
+
+    auto AlmanacWidget =
+        UIManager->FindWidget<CAlmanacWidget>(GAlmanacWidgetName).lock();
+
+    if (AlmanacWidget && AlmanacWidget->IsOpen())
+        return true;
+
+    auto EdictWidget =
+        UIManager->FindWidget<CEdictWidget>(GEdictWidgetName).lock();
+
+    if (EdictWidget && EdictWidget->IsOpen())
+        return true;
+
+    auto TaskWidget =
+        UIManager->FindWidget<CTaskWidget>(GTaskWidgetName).lock();
+
+    if (TaskWidget && TaskWidget->IsOpen())
+        return true;
+
+    auto TradeWidget =
+        UIManager->FindWidget<CTradeWidget>(GTradeWidgetName).lock();
+
+    if (TradeWidget && TradeWidget->IsOpen())
+        return true;
+
+    return false;
 }

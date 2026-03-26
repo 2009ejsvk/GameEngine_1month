@@ -19,8 +19,8 @@ public:
     virtual void Render();
 
 private:
-    void StartClick();
-    void SecondButtonClick();
+    void SandboxClick();
+    void ScenarioClick();
     void ExitClick();
 };
 

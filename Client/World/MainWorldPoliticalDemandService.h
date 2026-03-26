@@ -42,6 +42,12 @@ public:
 public:
     void Reset();
     bool InjectScenarioDemand(FPoliticalDemandState Demand);
+    bool CompleteDemand(
+        EPoliticalDemandIssuerType IssuerType,
+        int IssuerIndex,
+        std::wstring& OutMessage,
+        const FContext& Context,
+        FRefreshRequests& OutRefreshRequests);
     bool RespondPoliticalDemand(
         EPoliticalDemandIssuerType IssuerType,
         int IssuerIndex,

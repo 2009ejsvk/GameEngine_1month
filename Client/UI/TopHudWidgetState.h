@@ -12,6 +12,7 @@ struct FTopHudWidgetState
     bool ManualEraTransitionPopupOpen = false;
     bool ConstitutionPopupActive = false;
     bool EraTransitionPopupOpen = false;
+    bool ExitConfirmPopupOpen = false;
     EConstitutionTopic ConstitutionViewedTopic =
         EConstitutionTopic::VotingRights;
     EConstitutionOptionId ConstitutionLeftOptionId =

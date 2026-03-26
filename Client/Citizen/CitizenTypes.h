@@ -113,6 +113,7 @@ struct FCitizenIdentityProfile
     bool IsImmigrant = true;
     bool IsTourist = false;
     ETouristPreference TouristProfile = ETouristPreference::None;
+    std::string DisplayName;
 };
 
 // 시민 만족도 (행복 5요소 + 부가 항목)

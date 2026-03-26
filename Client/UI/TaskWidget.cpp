@@ -14,6 +14,8 @@
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
 #include "World/World.h"
+#include "../GlobalSetting.h"
+#include "UILayoutValues.h"
 #include <algorithm>
 #include <array>
 #include <string>
@@ -67,6 +69,8 @@ namespace
         };
 
         EKind Kind = EKind::PoliticalDemand;
+        bool IsScenarioTask = false;
+        bool HasPayAction = false;
         FPoliticalDemandState Demand;
         EPoliticalDemandIssuerType IssuerType =
             EPoliticalDemandIssuerType::None;
@@ -148,6 +152,7 @@ namespace
         switch (Demand.ObjectiveType)
         {
         case EPoliticalDemandObjectiveType::ExportIncome:
+        case EPoliticalDemandObjectiveType::TreasuryBalance:
             return MainWorldTradeRuntime::FormatCurrency(Value);
         case EPoliticalDemandObjectiveType::IncomeTaxCeiling:
         case EPoliticalDemandObjectiveType::PropertyTaxCeiling:
@@ -349,14 +354,14 @@ namespace
         switch (Era)
         {
         case EBuildingEra::Colonial:
-            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_CE_broker.png");
+            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_portrait_CE_Penultimo.png");
         case EBuildingEra::WorldWars:
-            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_WW_broker.png");
+            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_portrait_WW_Penultimo.png");
         case EBuildingEra::ColdWar:
-            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_CW_broker.png");
+            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_CW_Penultimo.png");
         case EBuildingEra::Modern:
         default:
-            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_MT_broker.png");
+            return TEXT("TROPICO_ASSET\\Visuals\\UI\\Portraits\\T_potrait_MT_Penultimo.png");
         }
     }
 
@@ -487,7 +492,8 @@ namespace
             HudAccess ? HudAccess->GetEraTransitionState() :
                 FEraTransitionState();
 
-        if (EraProgress.HasNextEra && !EraProgress.NextEraReady)
+        if (EraProgress.HasNextEra && !EraProgress.NextEraReady &&
+            GameSession::CurrentMode() != EGameMode::Scenario)
         {
             FTaskEntry Entry;
             Entry.Kind = FTaskEntry::EKind::EraMission;
@@ -626,10 +632,20 @@ namespace
             Entry.IssuerIndex = Index;
             const std::wstring ForeignPowerName =
                 MainWorldTradeRuntime::GetForeignPowerName(Index, Era);
-            Entry.IssuerLabel = UIStrings::Format(
-                L"task_widget.foreign.issuer_label_template",
-                { ForeignPowerName });
-            Entry.SpeakerLabel = ForeignPowerName;
+            if (GameSession::CurrentMode() == EGameMode::Scenario)
+            {
+                Entry.IsScenarioTask = true;
+                Entry.IssuerLabel = L"시나리오 과제";
+            }
+            else
+            {
+                Entry.IssuerLabel = UIStrings::Format(
+                    L"task_widget.foreign.issuer_label_template",
+                    { ForeignPowerName });
+            }
+            Entry.SpeakerLabel = Demand.SpeakerOverrideName.empty()
+                ? ForeignPowerName
+                : Demand.SpeakerOverrideName;
             Entry.RowTitle =
                 Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText;
             Entry.RowSubtitle = BuildDemandRowSubtitle(
@@ -641,16 +657,40 @@ namespace
                 { Entry.IssuerLabel });
             if (!Demand.Summary.empty())
                 Entry.DetailBody += L"\n\n" + Demand.Summary;
-            Entry.ObjectiveLine = BuildObjectiveLine(
-                Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText,
-                Entry.CounterText);
+            if (Entry.IsScenarioTask &&
+                Demand.ObjectiveType == EPoliticalDemandObjectiveType::None)
+            {
+                Entry.CounterText = L"";
+                if (Demand.ObjectiveText.empty())
+                    Entry.ObjectiveLine = BuildEraMissionObjectiveText(EraProgress);
+                else
+                    Entry.ObjectiveLine = BuildObjectiveLine(Demand.ObjectiveText, L"");
+            }
+            else
+            {
+                Entry.ObjectiveLine = BuildObjectiveLine(
+                    Demand.ObjectiveText.empty() ? Demand.Title : Demand.ObjectiveText,
+                    Entry.CounterText);
+            }
             Entry.StageLine = UIStrings::Format(
                 L"task_widget.foreign.stage_line_template",
                 { std::to_wstring(Demand.RemainingDays) });
             Entry.RewardText = BuildListText(Demand.RewardText);
             Entry.PenaltyText = BuildListText(Demand.PenaltyText);
-            Entry.IconPath = GetForeignIconPath(Index, Era);
-            Entry.PortraitPath = GetForeignPortraitPath(Index, Era);
+            if (Entry.IsScenarioTask &&
+                Demand.ObjectiveType == EPoliticalDemandObjectiveType::None &&
+                Demand.TargetValue > 0)
+            {
+                Entry.HasPayAction = true;
+                if (IsPoliticalDemandAccepted(Demand))
+                    Entry.PrimaryButtonLabel = L"지불";
+            }
+            Entry.IconPath = Demand.SpeakerOverrideName.empty()
+                ? GetForeignIconPath(Index, Era)
+                : GPenultimoTaskIcon;
+            Entry.PortraitPath = Demand.SpeakerOverrideName.empty()
+                ? GetForeignPortraitPath(Index, Era)
+                : GetPenultimoPortraitPath(Era);
             Result.push_back(std::move(Entry));
         }
 
@@ -883,6 +923,25 @@ bool CTaskWidget::Init()
     mPenaltyText = CreateBodyText("TaskWidget_PenaltyText", 68, 62, 54);
     mFeedbackText = CreateBodyText("TaskWidget_Feedback", 93, 99, 71);
 
+    auto ScrollTrack = CreateWidget<CImage>("TaskWidget_DetailScrollTrack", 8).lock();
+    if (ScrollTrack)
+    {
+        ScrollTrack->SetTexture(
+            "TaskWidget_DetailScrollTrack_Tex",
+            TropicoUiAssets::GScrollTrackTexture);
+        ScrollTrack->SetEnable(false);
+        mDetailScrollTrack = ScrollTrack;
+    }
+    auto ScrollThumb = CreateWidget<CImage>("TaskWidget_DetailScrollThumb", 9).lock();
+    if (ScrollThumb)
+    {
+        ScrollThumb->SetTexture(
+            "TaskWidget_DetailScrollThumb_Tex",
+            TropicoUiAssets::GScrollThumbTexture);
+        ScrollThumb->SetEnable(false);
+        mDetailScrollThumb = ScrollThumb;
+    }
+
     if (auto EmptyText = mEmptyText.lock())
     {
         EmptyText->SetAlignH(ETextAlignH::Center);
@@ -997,6 +1056,36 @@ void CTaskWidget::Update(float DeltaTime)
         RefreshLayout();
     }
 
+    // 상세 패널 마우스 휠 스크롤
+    if (mDetailMaxScrollOffset > 0.5f && mHasSelectedDemand)
+    {
+        auto World = mWorld.lock();
+        if (World)
+        {
+            auto Input = World->GetInput().lock();
+            if (Input)
+            {
+                const int WheelDelta = Input->GetMouseWheelDelta();
+                if (WheelDelta != 0)
+                {
+                    // 상세 패널 영역 위에 있을 때만 스크롤
+                    const FVector2 MousePos = Input->GetMousePos();
+                    const FVector3 PanelPos = GetPos();
+                    const FVector3 PanelSize = GetSize();
+                    const float DetailX = PanelPos.x + PanelSize.x * 0.354f;
+                    if (MousePos.x >= DetailX && MousePos.x < PanelPos.x + PanelSize.x &&
+                        MousePos.y >= PanelPos.y && MousePos.y < PanelPos.y + PanelSize.y)
+                    {
+                        constexpr float ScrollStep = 40.f;
+                        mDetailScrollOffset -= (WheelDelta / (float)WHEEL_DELTA) * ScrollStep;
+                        mDetailScrollOffset = (std::max)(0.f,
+                            (std::min)(mDetailScrollOffset, mDetailMaxScrollOffset));
+                    }
+                }
+            }
+        }
+    }
+
     RefreshFromState();
 }
 
@@ -1012,11 +1101,34 @@ void CTaskWidget::SetOpen(bool Open)
 
     mOpen = Open;
 
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
+        if (mOpen)
+        {
+            if (Access && !Access->Read().IsSimulationPaused())
+            {
+                Access->Commands().ToggleSimulationPaused();
+                mAutoPaused = true;
+            }
+        }
+        else if (mAutoPaused)
+        {
+            if (Access && Access->Read().IsSimulationPaused())
+                Access->Commands().ToggleSimulationPaused();
+            mAutoPaused = false;
+        }
+    }
+
     if (mOpen)
     {
         mSelectedDemandIndex = 0;
         mFeedbackMessage.clear();
         RefreshLayout();
+    }
+    else
+    {
+        mShowingCompletion = false;
     }
 
     RefreshFromState();
@@ -1053,6 +1165,22 @@ void CTaskWidget::OpenForDemand(
         mSelectedDemandIndex = EntryIndex;
 
     RefreshLayout();
+    RefreshFromState();
+}
+
+void CTaskWidget::ShowCompletionFeedback(
+    const std::wstring& Title,
+    const std::wstring& Reward)
+{
+    mShowingCompletion = true;
+    mCompletionTitle = Title.empty() ? L"임무 완료" : Title + L" 완료";
+    mCompletionReward = Reward;
+    mFeedbackMessage.clear();
+    if (!mOpen)
+    {
+        SetOpen(true);
+        RefreshLayout();
+    }
     RefreshFromState();
 }
 
@@ -1164,13 +1292,111 @@ void CTaskWidget::RefreshLayout()
     SetTextBox(mEmptyText, DetailLeft, PanelTop + 220.f * Scale, DetailWidth, 120.f * Scale, 20.f);
     SetTextBox(mDetailTitleText, DetailLeft, PanelTop + 136.f * Scale, TextWidth, 36.f * Scale, 28.f);
     SetTextBox(mDetailMetaText, DetailLeft, PanelTop + 178.f * Scale, TextWidth, 24.f * Scale, 14.f);
-    SetTextBox(mDetailBodyText, DetailLeft, PanelTop + 216.f * Scale, TextWidth, 208.f * Scale, 17.f);
-    SetTextBox(mObjectiveHeaderText, DetailLeft, PanelTop + 438.f * Scale, TextWidth, 24.f * Scale, 18.f);
-    SetTextBox(mObjectiveText, DetailLeft, PanelTop + 468.f * Scale, TextWidth, 52.f * Scale, 16.f);
-    SetTextBox(mRewardHeaderText, DetailLeft, PanelTop + 530.f * Scale, TextWidth, 24.f * Scale, 18.f);
-    SetTextBox(mRewardText, DetailLeft, PanelTop + 560.f * Scale, TextWidth, 70.f * Scale, 16.f);
-    SetTextBox(mPenaltyHeaderText, DetailLeft, PanelTop + 632.f * Scale, TextWidth, 24.f * Scale, 18.f);
-    SetTextBox(mPenaltyText, DetailLeft, PanelTop + 662.f * Scale, TextWidth, 48.f * Scale, 16.f);
+    {
+        const float BodyTop = PanelTop + 216.f * Scale;
+        const float SectionsBottom = FooterTop - 14.f * Scale;
+        const float ViewportH = SectionsBottom - BodyTop;
+
+        // 섹션 텍스트 너비/폰트 먼저 설정 → GetLayoutHeight() 측정 (1프레임 지연)
+        const float MinSectionH = 16.f * Scale;
+        auto MeasureSection = [&](const WText& Widget, float FontSz) -> float
+        {
+            if (auto W = Widget.lock())
+            {
+                W->SetSize(TextWidth, 2000.f * Scale);
+                W->SetFontSize(FontSz * Scale);
+                return (std::max)(MinSectionH, W->GetLayoutHeight());
+            }
+            return MinSectionH;
+        };
+        const float ObjTextH     = MeasureSection(mObjectiveText,   16.f);
+        const float RewardTextH  = MeasureSection(mRewardText,      16.f);
+        const float PenaltyTextH = MeasureSection(mPenaltyText,     16.f);
+        const float SectionsH = 22.f * Scale + 4.f * Scale + ObjTextH    + 10.f * Scale
+                              + 22.f * Scale + 4.f * Scale + RewardTextH  + 10.f * Scale
+                              + 22.f * Scale + 4.f * Scale + PenaltyTextH;
+
+        // Body 실제 렌더 높이 측정 (이전 프레임 기준)
+        float ActualBodyH = 0.f;
+        if (auto Body = mDetailBodyText.lock())
+            ActualBodyH = Body->GetLayoutHeight();
+
+        const float SectionsGap = UIConfig::TaskDetailSectionsGap * Scale;
+        const float TotalContentH = ActualBodyH + SectionsGap + SectionsH;
+
+        // 스크롤 범위 계산 및 clamp
+        mDetailMaxScrollOffset = (std::max)(0.f, TotalContentH - ViewportH);
+        mDetailScrollOffset = (std::max)(0.f, (std::min)(mDetailScrollOffset, mDetailMaxScrollOffset));
+        const bool NeedsScroll = mDetailMaxScrollOffset > 0.5f;
+
+        // Body 텍스트: 항상 BodyTop에 고정, 높이는 실제 높이만큼
+        const float BodyDisplayH = (ActualBodyH > 1.f)
+            ? ActualBodyH
+            : (std::max)(20.f * Scale, ViewportH - SectionsH - SectionsGap);
+        SetTextBox(mDetailBodyText, DetailLeft, BodyTop, TextWidth, BodyDisplayH, 17.f);
+
+        // 섹션 시작 위치: body 끝 기준, 스크롤 오프셋 적용
+        const float NaturalSectionsTop = (ActualBodyH > 1.f)
+            ? BodyTop + ActualBodyH + SectionsGap
+            : SectionsBottom - SectionsH;
+        const float SectionsTop = NaturalSectionsTop - mDetailScrollOffset;
+
+        // 섹션 배치 + 뷰포트 밖 숨김
+        auto PlaceSection = [&](const WText& Widget, float Top, float H, float FontSz) -> float
+        {
+            const float Bottom = Top + H;
+            const bool Visible = Bottom > BodyTop && Top < SectionsBottom;
+            if (auto W = Widget.lock())
+            {
+                W->SetEnable(Visible);
+                if (Visible)
+                {
+                    W->SetPos(DetailLeft, Top);
+                    W->SetSize(TextWidth, H);
+                    W->SetFontSize(FontSz * Scale);
+                }
+            }
+            return Bottom;
+        };
+
+        float CT = SectionsTop;
+        CT = PlaceSection(mObjectiveHeaderText, CT, 22.f * Scale, 17.f);
+        CT += 4.f * Scale;
+        CT = PlaceSection(mObjectiveText, CT, ObjTextH, 16.f);
+        CT += 10.f * Scale;
+        CT = PlaceSection(mRewardHeaderText, CT, 22.f * Scale, 17.f);
+        CT += 4.f * Scale;
+        CT = PlaceSection(mRewardText, CT, RewardTextH, 16.f);
+        CT += 10.f * Scale;
+        CT = PlaceSection(mPenaltyHeaderText, CT, 22.f * Scale, 17.f);
+        CT += 4.f * Scale;
+        PlaceSection(mPenaltyText, CT, PenaltyTextH, 16.f);
+
+        // 스크롤 thumb
+        const float TrackW = 8.f * Scale;
+        const float TrackX = DetailLeft + TextWidth + 6.f * Scale;
+        const float TrackTop = BodyTop;
+        const float TrackH = ViewportH;
+        if (auto Track = mDetailScrollTrack.lock())
+        {
+            Track->SetEnable(NeedsScroll);
+            Track->SetPos(TrackX, TrackTop);
+            Track->SetSize(TrackW, TrackH);
+        }
+        if (auto Thumb = mDetailScrollThumb.lock())
+        {
+            Thumb->SetEnable(NeedsScroll);
+            if (NeedsScroll)
+            {
+                const float ThumbH = (std::max)(20.f * Scale,
+                    TrackH * (ViewportH / TotalContentH));
+                const float ThumbRatio = mDetailScrollOffset / mDetailMaxScrollOffset;
+                const float ThumbY = TrackTop + ThumbRatio * (TrackH - ThumbH);
+                Thumb->SetPos(TrackX, ThumbY);
+                Thumb->SetSize(TrackW, ThumbH);
+            }
+        }
+    }
     SetTextBox(mFeedbackText, DetailLeft, FooterTop - 34.f * Scale, DetailWidth - 24.f * Scale, 24.f * Scale, 14.f);
 
     if (auto Card = mPortraitCard.lock())
@@ -1197,25 +1423,28 @@ void CTaskWidget::RefreshLayout()
 
     const float FooterWidth = DetailWidth - 24.f * Scale;
     const float HalfWidth = (FooterWidth - 16.f * Scale) * 0.5f;
+    const float PrimaryBtnWidth = mSelectedIsScenarioTask ? FooterWidth : HalfWidth;
+    const bool HidePrimary = mSelectedDemandAccepted && !mSelectedHasPayAction;
     if (auto Primary = mPrimaryButton.lock())
     {
         Primary->SetPos(DetailLeft, FooterTop);
-        Primary->SetSize(mSelectedDemandAccepted ? 0.f : HalfWidth, mSelectedDemandAccepted ? 0.f : 42.f * Scale);
+        Primary->SetSize(HidePrimary ? 0.f : PrimaryBtnWidth, HidePrimary ? 0.f : 42.f * Scale);
     }
     if (auto PrimaryText = mPrimaryButtonText.lock())
     {
         PrimaryText->SetPos(DetailLeft, FooterTop);
-        PrimaryText->SetSize(mSelectedDemandAccepted ? 0.f : HalfWidth, mSelectedDemandAccepted ? 0.f : 42.f * Scale);
+        PrimaryText->SetSize(HidePrimary ? 0.f : PrimaryBtnWidth, HidePrimary ? 0.f : 42.f * Scale);
         PrimaryText->SetFontSize(20.f * Scale);
     }
+    const bool HideSecondary = mSelectedIsScenarioTask;
     if (auto Secondary = mSecondaryButton.lock())
     {
         Secondary->SetPos(
             mSelectedDemandAccepted ? DetailLeft : DetailLeft + HalfWidth + 16.f * Scale,
             FooterTop);
         Secondary->SetSize(
-            mSelectedDemandAccepted ? FooterWidth : HalfWidth,
-            42.f * Scale);
+            HideSecondary ? 0.f : mSelectedDemandAccepted ? FooterWidth : HalfWidth,
+            HideSecondary ? 0.f : 42.f * Scale);
     }
     if (auto SecondaryText = mSecondaryButtonText.lock())
     {
@@ -1223,8 +1452,8 @@ void CTaskWidget::RefreshLayout()
             mSelectedDemandAccepted ? DetailLeft : DetailLeft + HalfWidth + 16.f * Scale,
             FooterTop);
         SecondaryText->SetSize(
-            mSelectedDemandAccepted ? FooterWidth : HalfWidth,
-            42.f * Scale);
+            HideSecondary ? 0.f : mSelectedDemandAccepted ? FooterWidth : HalfWidth,
+            HideSecondary ? 0.f : 42.f * Scale);
         SecondaryText->SetFontSize(20.f * Scale);
     }
 }
@@ -1239,6 +1468,59 @@ void CTaskWidget::RefreshFromState()
 
     if (!mOpen)
         return;
+
+    if (mShowingCompletion)
+    {
+        mSelectedIsScenarioTask = true;
+        mSelectedDemandAccepted = false;
+        RefreshLayout();
+
+        if (auto Sub = mSubtitleText.lock())
+            Sub->SetText(UiText(L"task_widget.subtitle"));
+        if (auto Empty = mEmptyText.lock()) Empty->SetEnable(false);
+        if (auto Detail = mDetailTitleText.lock())
+        {
+            Detail->SetEnable(true);
+            Detail->SetText(mCompletionTitle.c_str());
+        }
+        if (auto Detail = mDetailMetaText.lock()) Detail->SetEnable(false);
+        if (auto Detail = mDetailBodyText.lock()) Detail->SetEnable(false);
+        if (auto Header = mObjectiveHeaderText.lock()) Header->SetEnable(false);
+        if (auto Obj = mObjectiveText.lock()) Obj->SetEnable(false);
+        const bool HasReward = !mCompletionReward.empty();
+        if (auto Header = mRewardHeaderText.lock())
+        {
+            Header->SetEnable(HasReward);
+            if (HasReward) Header->SetText(L"보상");
+        }
+        if (auto Reward = mRewardText.lock())
+        {
+            Reward->SetEnable(HasReward);
+            Reward->SetText(mCompletionReward.c_str());
+        }
+        if (auto Header = mPenaltyHeaderText.lock()) Header->SetEnable(false);
+        if (auto Penalty = mPenaltyText.lock()) Penalty->SetEnable(false);
+        if (auto Scroll = mDetailScrollTrack.lock()) Scroll->SetEnable(false);
+        if (auto Scroll = mDetailScrollThumb.lock()) Scroll->SetEnable(false);
+        if (auto Portrait = mPortraitCard.lock()) Portrait->SetEnable(false);
+        if (auto Portrait = mPortraitImage.lock()) Portrait->SetEnable(false);
+        if (auto Portrait = mPortraitNameBackdrop.lock()) Portrait->SetEnable(false);
+        if (auto Portrait = mPortraitNameText.lock()) Portrait->SetEnable(false);
+        if (auto Feedback = mFeedbackText.lock()) Feedback->SetEnable(false);
+        for (size_t Index = 0; Index < mIssuerTabs.size(); ++Index)
+            if (auto Button = mIssuerTabs[Index].Button.lock()) Button->SetEnable(false);
+        for (size_t Index = 0; Index < mDemandRows.size(); ++Index)
+            if (auto Button = mDemandRows[Index].Button.lock()) Button->SetEnable(false);
+        if (auto Primary = mPrimaryButton.lock()) Primary->SetEnable(true);
+        if (auto PrimaryText = mPrimaryButtonText.lock())
+        {
+            PrimaryText->SetEnable(true);
+            PrimaryText->SetText(L"완료");
+        }
+        if (auto Secondary = mSecondaryButton.lock()) Secondary->SetEnable(false);
+        if (auto SecondaryText = mSecondaryButtonText.lock()) SecondaryText->SetEnable(false);
+        return;
+    }
 
     const std::vector<FTaskEntry> Entries = BuildEntries(mWorld.lock());
     mHasSelectedDemand = !Entries.empty();
@@ -1264,6 +1546,8 @@ void CTaskWidget::RefreshFromState()
         if (auto Detail = mRewardText.lock()) Detail->SetEnable(false);
         if (auto Detail = mPenaltyHeaderText.lock()) Detail->SetEnable(false);
         if (auto Detail = mPenaltyText.lock()) Detail->SetEnable(false);
+        if (auto Scroll = mDetailScrollTrack.lock()) Scroll->SetEnable(false);
+        if (auto Scroll = mDetailScrollThumb.lock()) Scroll->SetEnable(false);
         if (auto Portrait = mPortraitCard.lock()) Portrait->SetEnable(false);
         if (auto Portrait = mPortraitImage.lock()) Portrait->SetEnable(false);
         if (auto Portrait = mPortraitNameBackdrop.lock()) Portrait->SetEnable(false);
@@ -1297,7 +1581,9 @@ void CTaskWidget::RefreshFromState()
         0,
         static_cast<int>(Entries.size()) - 1);
     const FTaskEntry& Selected = Entries[static_cast<size_t>(mSelectedDemandIndex)];
+    mSelectedIsScenarioTask = Selected.IsScenarioTask;
     mSelectedDemandAccepted = IsPoliticalDemandAccepted(Selected.Demand);
+    mSelectedHasPayAction = Selected.HasPayAction;
     RefreshLayout();
 
     if (auto Empty = mEmptyText.lock())
@@ -1431,19 +1717,37 @@ void CTaskWidget::RefreshFromState()
     if (auto PortraitNameBackdrop = mPortraitNameBackdrop.lock())
         PortraitNameBackdrop->SetEnable(true);
 
+    const bool IsScenarioIntroTask =
+        Selected.IsScenarioTask &&
+        Selected.Demand.ObjectiveType == EPoliticalDemandObjectiveType::None;
     const bool ShowPrimary =
-        Selected.Kind == FTaskEntry::EKind::EraMission ?
-            false :
-            !mSelectedDemandAccepted;
+        Selected.Kind == FTaskEntry::EKind::EraMission ? false :
+        mSelectedHasPayAction ? true :
+        IsScenarioIntroTask ? false :
+        !mSelectedDemandAccepted;
+    const bool ShowSecondary =
+        !IsScenarioIntroTask && !Selected.IsScenarioTask;
+
+    // 지불 버튼: 수락 후 국고 달성 여부에 따라 활성/비활성
+    bool PrimaryEnabled = ShowPrimary;
+    if (mSelectedHasPayAction && mSelectedDemandAccepted && ShowPrimary)
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+        const long long Threshold =
+            static_cast<long long>(Selected.Demand.TargetValue);
+        PrimaryEnabled = Access &&
+            Access->Read().GetNationalBudget() >= Threshold;
+    }
+
     if (auto Primary = mPrimaryButton.lock())
-        Primary->SetEnable(ShowPrimary);
+        Primary->SetEnable(PrimaryEnabled);
     if (auto PrimaryText = mPrimaryButtonText.lock())
     {
-        PrimaryText->SetEnable(ShowPrimary);
+        PrimaryText->SetEnable(PrimaryEnabled);
         PrimaryText->SetText(Selected.PrimaryButtonLabel.c_str());
     }
     if (auto Secondary = mSecondaryButton.lock())
-        Secondary->SetEnable(true);
+        Secondary->SetEnable(ShowSecondary);
     if (auto SecondaryText = mSecondaryButtonText.lock())
     {
         std::wstring ButtonLabel = Selected.SecondaryButtonLabel;
@@ -1461,7 +1765,7 @@ void CTaskWidget::RefreshFromState()
                         { PenaltyText });
         }
 
-        SecondaryText->SetEnable(true);
+        SecondaryText->SetEnable(ShowSecondary);
         SecondaryText->SetText(ButtonLabel.c_str());
     }
 
@@ -1481,6 +1785,7 @@ void CTaskWidget::OnIssuerTabClick(int Index)
 {
     mSelectedDemandIndex = ClampInt(Index, 0, GVisibleEntryCount - 1);
     mFeedbackMessage.clear();
+    mDetailScrollOffset = 0.f;
     RefreshFromState();
 }
 
@@ -1488,11 +1793,19 @@ void CTaskWidget::OnDemandRowClick(int Index)
 {
     mSelectedDemandIndex = ClampInt(Index, 0, GVisibleEntryCount - 1);
     mFeedbackMessage.clear();
+    mDetailScrollOffset = 0.f;
     RefreshFromState();
 }
 
 void CTaskWidget::OnPrimaryButtonClick()
 {
+    if (mShowingCompletion)
+    {
+        mShowingCompletion = false;
+        RefreshFromState();
+        return;
+    }
+
     const std::vector<FTaskEntry> Entries = BuildEntries(mWorld.lock());
 
     if (Entries.empty())
@@ -1530,6 +1843,31 @@ void CTaskWidget::OnPrimaryButtonClick()
         }
 
         mFeedbackMessage = Ui(L"task_widget.feedback.era_transition_unavailable");
+        RefreshFromState();
+        return;
+    }
+
+    // 지불 액션: 이미 수락된 TreasuryBalance 과제에서 실제 지불 실행
+    if (Selected.HasPayAction && mSelectedDemandAccepted)
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
+        if (!Access)
+        {
+            mFeedbackMessage = Ui(L"task_widget.feedback.no_era_transition_command");
+            RefreshFromState();
+            return;
+        }
+
+        std::wstring PayMessage;
+        if (Access->Commands().TryExecutePeacePayment(PayMessage))
+        {
+            mFeedbackMessage.clear();
+            SetOpen(false);
+            return;
+        }
+
+        mFeedbackMessage = PayMessage;
         RefreshFromState();
         return;
     }

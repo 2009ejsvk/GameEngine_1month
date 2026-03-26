@@ -2,6 +2,16 @@
 #include "Render/RenderManager.h"
 #include "UI/MouseWidget.h"
 
+namespace GameSession
+{
+    static EGameMode GCurrentMode = EGameMode::Sandbox;
+
+    EGameMode& CurrentMode()
+    {
+        return GCurrentMode;
+    }
+}
+
 CGlobalSetting::CGlobalSetting()
 {
 }
@@ -12,6 +22,8 @@ CGlobalSetting::~CGlobalSetting()
 
 bool CGlobalSetting::Init()
 {
+    CRenderManager::GetInst()->SetDebugTarget(false);
+
 	// 마우스 위젯 생성
 	auto MouseWidget = CRenderManager::GetInst()->SetMouseWidget<CMouseWidget>(
 		EMouseState::Normal, "MouseNormal").lock();

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cwctype>
 #include <map>
+#include <unordered_set>
 
 namespace
 {
@@ -232,6 +233,7 @@ namespace WorldStats
                 Category = static_cast<EBuildingCategory>(CategoryIndex);
         }
 
+        std::unordered_set<std::string> MilitaryBuildingNames;
         std::map<std::wstring, int> BuildingCounts;
         std::map<std::wstring, int> ResourceCounts;
         std::array<std::map<std::wstring, int>, GBuildingCategoryCount>
@@ -389,8 +391,7 @@ namespace WorldStats
                         ++ResourceSnapshot.ConsumerBuildingCount;
                         const int ShortageAmount = (std::max)(
                             0,
-                            GameConstants::Orb::
-                                TeamsterConsumerTargetStock -
+                            Building->GetResourceTypeCapacity(ResourceType) -
                                 CoveredStock);
                         ResourceSnapshot.ShortagePressure += ShortageAmount;
                         ResourceSnapshot.ConsumerCoveredStock += CoveredStock;
@@ -516,6 +517,9 @@ namespace WorldStats
                         static_cast<size_t>(CategoryIndex)].Count;
                     ++BuildingCountsByCategory[
                         static_cast<size_t>(CategoryIndex)][BuildingName];
+
+                    if (Entry->Category == EBuildingCategory::Military)
+                        MilitaryBuildingNames.insert(Building->GetName());
                 }
 
                 if (Entry->Category == EBuildingCategory::Tourism)
@@ -786,7 +790,10 @@ namespace WorldStats
                 else
                 {
                     ++Snapshot.AssignedJobCount;
-                    ++WorkOccupancyByName[Orb->GetWorkBuilding()];
+                    const std::string& WorkBuilding = Orb->GetWorkBuilding();
+                    ++WorkOccupancyByName[WorkBuilding];
+                    if (MilitaryBuildingNames.count(WorkBuilding) > 0)
+                        ++Snapshot.MilitaryWorkerCount;
                 }
 
                 int NeutralAxisCount = 0;

@@ -67,9 +67,9 @@ namespace GameConstants
         extern float ServiceStockRegenPerCapacityPerSecond;
         extern float TeamsterSpeedMultiplier;
         extern float TeamsterCoverageRadiusTiles;
+        extern int TeamsterMinTransferUnit;
         extern int TeamsterTransferUnit;
         extern int TeamsterConsumerRestockThreshold;
-        extern int TeamsterConsumerTargetStock;
         extern float PoliticalShiftIntervalSeconds;
     }
 

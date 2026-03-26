@@ -362,7 +362,7 @@ namespace
             State.TradeOfferRefreshDay);
     }
 
-    void ConsumeMatchingAvailableTradeOffer(
+    int ConsumeMatchingAvailableTradeOffer(
         FMainWorldTradeDiplomacyState& State,
         bool ImportRoute,
         EResourceType ResourceType,
@@ -385,7 +385,13 @@ namespace
             });
 
         if (OfferIt != State.AvailableTradeOffers.end())
+        {
+            const int ScenarioTag = OfferIt->ScenarioTag;
             State.AvailableTradeOffers.erase(OfferIt);
+            return ScenarioTag;
+        }
+
+        return 0;
     }
 
     std::wstring BuildExportBlockedSelectionText(
@@ -505,6 +511,7 @@ void CTradeDiplomacySubsystem::RecordFinishedTradeRoute(
     FTradeRouteCompletionRecord Record;
     Record.RecordId = State.NextTradeRouteCompletionRecordId++;
     Record.RouteId = Route.RouteId;
+    Record.ScenarioTag = Route.ScenarioTag;
     Record.ImportRoute = Route.ImportRoute;
     Record.ResourceType = Route.ResourceType;
     Record.MarketClass = Route.MarketClass;
@@ -566,21 +573,39 @@ void CTradeDiplomacySubsystem::CancelTradeRoutesForInactivePowers(EBuildingEra E
     State.ActiveTradeRoutes.clear();
 }
 
-void CTradeDiplomacySubsystem::ProcessActiveRoutes()
+CTradeDiplomacySubsystem::FDailyTradeRouteSettlement
+    CTradeDiplomacySubsystem::ProcessActiveRoutes()
 {
+    FDailyTradeRouteSettlement Settlement;
+
     if (!mOwner || State.ActiveTradeRoutes.empty())
-        return;
+        return Settlement;
 
     const std::shared_ptr<CWorld> World = mOwner->mSelf.lock();
 
     if (!World)
-        return;
+        return Settlement;
 
     std::vector<std::shared_ptr<CPlacementAreaObject>> Harbors =
         MainWorldTradeRuntime::CollectOperationalHarbors(World);
+
+    float HarborTimerMultiplier = 1.f;
+    if (!Harbors.empty())
+    {
+        float EfficiencySum = 0.f;
+        for (const auto& Harbor : Harbors)
+        {
+            EfficiencySum +=
+                Harbor->GetBudgetSatisfactionScale() *
+                Harbor->GetDamageEfficiencyMultiplier();
+        }
+        const float AvgEfficiency =
+            EfficiencySum / static_cast<float>(Harbors.size());
+        HarborTimerMultiplier = AvgEfficiency;
+    }
+
     std::vector<FTradeRouteRuntimeState> RemainingRoutes;
     RemainingRoutes.reserve(State.ActiveTradeRoutes.size());
-    bool BudgetChanged = false;
 
     for (size_t RouteIndex = 0;
         RouteIndex < State.ActiveTradeRoutes.size();
@@ -597,12 +622,15 @@ void CTradeDiplomacySubsystem::ProcessActiveRoutes()
             continue;
         }
 
-        int DailyTransferUnits = (std::min)(
-            RemainingUnits,
-            MainWorldTradeRuntime::ResolveTradeRouteDailyTransferUnits(Route));
+        int DailyTransferUnits = RemainingUnits;
 
         if (Route.ImportRoute)
         {
+            DailyTransferUnits = (std::min)(
+                RemainingUnits,
+                MainWorldTradeRuntime::ResolveTradeRouteDailyTransferUnits(
+                    Route));
+
             if (Route.RoutePricePerThousandUnits > 0)
             {
                 const long long MaxAffordableUnits =
@@ -676,14 +704,16 @@ void CTradeDiplomacySubsystem::ProcessActiveRoutes()
                     static_cast<long long>(Route.RoutePricePerThousandUnits) *
                     static_cast<long long>(ImportedUnits) / 1000LL;
                 mOwner->mEconomy->NationalBudget -= ImportCost;
-                mOwner->mEconomy->LastDailyImportExpense += ImportCost;
-                mOwner->mEconomy->LastDailyNetChange -= ImportCost;
+                Settlement.ImportExpense += ImportCost;
+                Settlement.NetChange -= ImportCost;
                 Route.FulfilledUnits += ImportedUnits;
-                BudgetChanged = true;
             }
         }
         else
         {
+            const int HarborShipCapacity =
+                TradePolicy::GetHarborExportShipCapacityUnits(
+                    mOwner->mPolitics->GovernmentProfile.ExportTradePolicy);
             std::sort(
                 Harbors.begin(),
                 Harbors.end(),
@@ -701,12 +731,19 @@ void CTradeDiplomacySubsystem::ProcessActiveRoutes()
                 HarborIndex < Harbors.size() && RemainingTransferUnits > 0;
                 ++HarborIndex)
             {
+                if (!Harbors[HarborIndex]->GetHarborShipArrivedThisTick())
+                    continue;
+
                 const int AvailableUnits =
                     Harbors[HarborIndex]->GetAvailableResourceStock(
                         Route.ResourceType);
+                const int EffectiveShipCapacity =
+                    HarborShipCapacity > 0 ?
+                        HarborShipCapacity :
+                        AvailableUnits;
                 const int ExportUnits = (std::min)(
                     RemainingTransferUnits,
-                    AvailableUnits);
+                    (std::min)(AvailableUnits, EffectiveShipCapacity));
 
                 if (ExportUnits <= 0)
                     continue;
@@ -728,14 +765,17 @@ void CTradeDiplomacySubsystem::ProcessActiveRoutes()
                     static_cast<long long>(Route.RoutePricePerThousandUnits) *
                     static_cast<long long>(ExportedUnits) / 1000LL;
                 mOwner->mEconomy->NationalBudget += ExportIncome;
-                mOwner->mEconomy->LastDailyExportIncome += ExportIncome;
-                mOwner->mEconomy->LastDailyNetChange += ExportIncome;
+                Settlement.ExportIncome += ExportIncome;
+                Settlement.NetChange += ExportIncome;
                 Route.FulfilledUnits += ExportedUnits;
-                BudgetChanged = true;
             }
         }
 
-        Route.RemainingDays = (std::max)(0, Route.RemainingDays - 1);
+        Route.TimerProgressAccum += HarborTimerMultiplier;
+        const int DaysToDecrement = static_cast<int>(Route.TimerProgressAccum);
+        Route.TimerProgressAccum -= static_cast<float>(DaysToDecrement);
+        Route.RemainingDays =
+            (std::max)(0, Route.RemainingDays - DaysToDecrement);
 
         if (Route.FulfilledUnits < Route.ContractUnits &&
             Route.RemainingDays > 0)
@@ -754,24 +794,7 @@ void CTradeDiplomacySubsystem::ProcessActiveRoutes()
 
     State.ActiveTradeRoutes.swap(RemainingRoutes);
 
-    if (BudgetChanged)
-    {
-        mOwner->mEconomy->RefreshWorldMarketPrices(
-            {
-                mOwner->mPolitics->GovernmentProfile,
-                mOwner->mEdictState->GovernmentEdicts,
-                mOwner->mCrisis->WorldCrisisService->GetStatus(),
-                State.ForeignPowerStates,
-                mOwner->mSimulation->Year,
-                mOwner->mSimulation->Month,
-                mOwner->mSimulation->Day
-            });
-        mOwner->mPolitics->RefreshSnapshot(
-            {
-                &mOwner->mEconomy->TaxEventStatus,
-                &mOwner->mKnowledgeState->ConstitutionState.ActiveEffects
-            });
-    }
+    return Settlement;
 }
 
 bool CTradeDiplomacySubsystem::ExecuteTradeProposal(
@@ -846,13 +869,13 @@ bool CTradeDiplomacySubsystem::ExecuteTradeProposal(
         MainWorldTradeRuntime::ComputeTradeRouteSignedStandardPricePerThousand(
             ResourceType,
             ImportRoute);
-    State.ActiveTradeRoutes.push_back(Route);
-    ConsumeMatchingAvailableTradeOffer(
+    Route.ScenarioTag = ConsumeMatchingAvailableTradeOffer(
         State,
         ImportRoute,
         ResourceType,
         Route.ForeignPowerIndex,
         SafePricePerThousand);
+    State.ActiveTradeRoutes.push_back(Route);
     MainWorldTradeRuntime::ApplyTradeRouteActivationState(
         State.ForeignPowerStandingStates[static_cast<size_t>(
             Route.ForeignPowerIndex)],

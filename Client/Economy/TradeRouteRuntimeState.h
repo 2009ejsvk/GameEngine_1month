@@ -30,6 +30,7 @@ inline const wchar_t* GetTradeRouteEndReasonDisplayName(ETradeRouteEndReason Rea
 struct FTradeRouteRuntimeState
 {
     int RouteId = 0;
+    int ScenarioTag = 0;
     bool ImportRoute = false;
     EResourceType ResourceType = EResourceType::None;
     EResourceMarketClass MarketClass = EResourceMarketClass::None;
@@ -38,6 +39,7 @@ struct FTradeRouteRuntimeState
     int FulfilledUnits = 0;
     int RemainingDays = 0;
     int TotalDurationDays = 0;
+    float TimerProgressAccum = 0.f;
     int RoutePricePerThousandUnits = 0;
     int SignedStandardPricePerThousandUnits = 0;
 };
@@ -46,6 +48,7 @@ struct FTradeRouteCompletionRecord
 {
     int RecordId = 0;
     int RouteId = 0;
+    int ScenarioTag = 0;
     bool ImportRoute = false;
     EResourceType ResourceType = EResourceType::None;
     EResourceMarketClass MarketClass = EResourceMarketClass::None;

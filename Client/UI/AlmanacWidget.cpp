@@ -5,6 +5,7 @@
 #include "AlmanacRenderer.h"
 #include "Device.h"
 #include "../World/GovernmentCommandService.h"
+#include "../World/IWorldUIAccess.h"
 #include "World/World.h"
 #include <cmath>
 
@@ -83,6 +84,25 @@ void CAlmanacWidget::SetOpen(bool Open)
         return;
 
     mOpen = Open;
+
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
+        if (mOpen)
+        {
+            if (Access && !Access->Read().IsSimulationPaused())
+            {
+                Access->Commands().ToggleSimulationPaused();
+                mAutoPaused = true;
+            }
+        }
+        else if (mAutoPaused)
+        {
+            if (Access && Access->Read().IsSimulationPaused())
+                Access->Commands().ToggleSimulationPaused();
+            mAutoPaused = false;
+        }
+    }
 
     if (mOpen)
     {

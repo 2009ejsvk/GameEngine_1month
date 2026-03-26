@@ -1331,12 +1331,17 @@ void FTopHudRenderer::ApplySnapshot(
         Widget.GetState().ConstitutionPanelOpen &&
         !Snapshot.GameLost;
     const bool ShowConstitutionPopup = false;
+    const bool ShowExitConfirmPopup =
+        Widget.GetState().ExitConfirmPopupOpen &&
+        !Snapshot.GameLost;
     const bool ShowEraTransitionPopup =
         ShowPopupOverlay &&
-        !ShowConstitutionPopup;
+        !ShowConstitutionPopup &&
+        !ShowExitConfirmPopup;
     const bool ConstitutionPopupButtonsEnabled =
         ShowConstitutionPopup &&
         Snapshot.CanUseButtons;
+    const bool ShowAnyPopupButtons = ShowEraTransitionPopup || ShowExitConfirmPopup;
     const bool EraTransitionLeftButtonEnabled =
         ShowEraTransitionPopup &&
         Snapshot.CanUseButtons;
@@ -1442,13 +1447,19 @@ void FTopHudRenderer::ApplySnapshot(
 
     if (EraTransitionTitleText)
     {
-        EraTransitionTitleText->SetText(Snapshot.EraTransitionTitle.c_str());
+        EraTransitionTitleText->SetText(
+            ShowExitConfirmPopup
+                ? L"메인 메뉴"
+                : Snapshot.EraTransitionTitle.c_str());
         EraTransitionTitleText->SetEnable(ShowPopupOverlay);
     }
 
     if (EraTransitionBodyText)
     {
-        EraTransitionBodyText->SetText(Snapshot.EraTransitionBody.c_str());
+        EraTransitionBodyText->SetText(
+            ShowExitConfirmPopup
+                ? L"메인 메뉴로 돌아가시겠습니까?"
+                : Snapshot.EraTransitionBody.c_str());
         EraTransitionBodyText->SetEnable(ShowPopupOverlay);
     }
 
@@ -1467,14 +1478,14 @@ void FTopHudRenderer::ApplySnapshot(
 
     if (PopupRightButton)
     {
-        PopupRightButton->SetEnable(ShowEraTransitionPopup);
-        PopupRightButton->ButtonEnable(EraTransitionRightButtonEnabled);
+        PopupRightButton->SetEnable(ShowAnyPopupButtons);
+        PopupRightButton->ButtonEnable(ShowExitConfirmPopup || EraTransitionRightButtonEnabled);
     }
 
     if (PopupLeftButton)
     {
-        PopupLeftButton->SetEnable(ShowEraTransitionPopup);
-        PopupLeftButton->ButtonEnable(EraTransitionLeftButtonEnabled);
+        PopupLeftButton->SetEnable(ShowAnyPopupButtons);
+        PopupLeftButton->ButtonEnable(ShowExitConfirmPopup || EraTransitionLeftButtonEnabled);
     }
 
     if (ConstitutionRightButton)
@@ -1494,15 +1505,19 @@ void FTopHudRenderer::ApplySnapshot(
     if (PopupRightButtonText)
     {
         PopupRightButtonText->SetText(
-            Snapshot.EraTransitionConfirmText.c_str());
-        PopupRightButtonText->SetEnable(ShowEraTransitionPopup);
+            ShowExitConfirmPopup
+                ? L"예"
+                : Snapshot.EraTransitionConfirmText.c_str());
+        PopupRightButtonText->SetEnable(ShowAnyPopupButtons);
     }
 
     if (PopupLeftButtonText)
     {
         PopupLeftButtonText->SetText(
-            Snapshot.EraTransitionCancelText.c_str());
-        PopupLeftButtonText->SetEnable(ShowEraTransitionPopup);
+            ShowExitConfirmPopup
+                ? L"아니오"
+                : Snapshot.EraTransitionCancelText.c_str());
+        PopupLeftButtonText->SetEnable(ShowAnyPopupButtons);
     }
 
     if (ConstitutionRightButtonText)

@@ -68,9 +68,9 @@ namespace GameConstants
         float ServiceStockRegenPerCapacityPerSecond = 0.25f;
         float TeamsterSpeedMultiplier = 3.f;
         float TeamsterCoverageRadiusTiles = 0.f;
+        int TeamsterMinTransferUnit = 100;
         int TeamsterTransferUnit = 1000;
         int TeamsterConsumerRestockThreshold = 250;
-        int TeamsterConsumerTargetStock = 1000;
         float PoliticalShiftIntervalSeconds = 12.f;
     }
 
@@ -457,7 +457,6 @@ namespace
         Orb::TeamsterCoverageRadiusTiles = 0.f;
         Orb::TeamsterTransferUnit = 1000;
         Orb::TeamsterConsumerRestockThreshold = 250;
-        Orb::TeamsterConsumerTargetStock = 1000;
         Orb::PoliticalShiftIntervalSeconds =
             Politics::CitizenPoliticalShiftIntervalSeconds;
 
@@ -1727,8 +1726,6 @@ namespace
                 Orb::TeamsterTransferUnit = Value;
             else if (Key == "teamsterconsumerrestockthreshold")
                 Orb::TeamsterConsumerRestockThreshold = Value;
-            else if (Key == "teamsterconsumertargetstock")
-                Orb::TeamsterConsumerTargetStock = Value;
             else
                 return false;
 

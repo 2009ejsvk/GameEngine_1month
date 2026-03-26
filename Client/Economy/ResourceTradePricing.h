@@ -235,6 +235,13 @@ namespace ResourceTradePricing
         GetActiveWorldMarketPriceState() = BuildDefaultWorldMarketPriceState();
     }
 
+    // 시나리오: 왕실 착취로 인한 럼주 수출가 보정 (0=없음, -50=−50%)
+    inline int& GetScenarioRumExportBiasPercent()
+    {
+        static int Value = 0;
+        return Value;
+    }
+
     inline double ClampMultiplier(double Value, double Min, double Max)
     {
         return (std::max)(Min, (std::min)(Max, Value));
@@ -424,12 +431,29 @@ namespace ResourceTradePricing
                     static_cast<double>(BasePrice.ImportUnitPrice) *
                     ImportMultiplier)));
 
+            // 시나리오 럼주 착취 바이어스 적용
+            int ScenarioAdjustedExportPrice = TargetExportUnitPrice;
+            int ScenarioAdjustedImportPrice = TargetImportUnitPrice;
+            if (ResourceType == EResourceType::Rum)
+            {
+                const int RumBias = GetScenarioRumExportBiasPercent();
+                if (RumBias != 0)
+                {
+                    ScenarioAdjustedExportPrice = (std::max)(
+                        1,
+                        ScenarioAdjustedExportPrice * (100 + RumBias) / 100);
+                    ScenarioAdjustedImportPrice = (std::max)(
+                        ScenarioAdjustedExportPrice + 1,
+                        ScenarioAdjustedImportPrice * (100 + RumBias) / 100);
+                }
+            }
+
             if (!InOutState.Initialized)
             {
-                Point.CurrentExportUnitPrice = TargetExportUnitPrice;
-                Point.CurrentImportUnitPrice = TargetImportUnitPrice;
-                Point.PreviousExportUnitPrice = TargetExportUnitPrice;
-                Point.PreviousImportUnitPrice = TargetImportUnitPrice;
+                Point.CurrentExportUnitPrice = ScenarioAdjustedExportPrice;
+                Point.CurrentImportUnitPrice = ScenarioAdjustedImportPrice;
+                Point.PreviousExportUnitPrice = ScenarioAdjustedExportPrice;
+                Point.PreviousImportUnitPrice = ScenarioAdjustedImportPrice;
             }
             else
             {
@@ -440,14 +464,14 @@ namespace ResourceTradePricing
                     static_cast<int>(std::lround(
                         static_cast<double>(Point.CurrentExportUnitPrice) *
                             0.68 +
-                        static_cast<double>(TargetExportUnitPrice) *
+                        static_cast<double>(ScenarioAdjustedExportPrice) *
                             0.32)));
                 Point.CurrentImportUnitPrice = (std::max)(
                     Point.CurrentExportUnitPrice + 1,
                     static_cast<int>(std::lround(
                         static_cast<double>(Point.CurrentImportUnitPrice) *
                             0.65 +
-                        static_cast<double>(TargetImportUnitPrice) *
+                        static_cast<double>(ScenarioAdjustedImportPrice) *
                             0.35)));
             }
 
@@ -571,8 +595,17 @@ namespace ResourceTradePricing
         if (BasePrice.ExportUnitPrice <= 0)
             return 0;
 
-        const int MarketPrice =
+        int MarketPrice =
             GetMarketPricePoint(Type).CurrentExportUnitPrice;
+
+        // 시나리오 럼주 착취 바이어스를 즉시 반영 (lerp 대기 없이)
+        if (Type == EResourceType::Rum)
+        {
+            const int Bias = GetScenarioRumExportBiasPercent();
+            if (Bias != 0 && MarketPrice > 0)
+                MarketPrice = (std::max)(1, MarketPrice * (100 + Bias) / 100);
+        }
+
         return MarketPrice > 0 ? MarketPrice : BasePrice.ExportUnitPrice;
     }
 

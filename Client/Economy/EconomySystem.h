@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Politics/PoliticalTypes.h"
+#include <array>
 #include <string>
 
 class CWorld;
@@ -49,6 +50,11 @@ namespace EconomySystem
         const FTaxPolicyEventStatus& TaxEventStatus,
         const std::vector<FGovernmentEdictState>& GovernmentEdicts,
         const FGovernmentEdictModifiers& EdictModifiers);
+
+    void AdvanceHarborShipProgress(
+        CWorld* World,
+        int DaysInMonth,
+        const FGovernmentEdictModifiers* EdictModifiers = nullptr);
 
     int ApplyTaxPolicyRateDelta(
         FTaxPolicy& TaxPolicy,

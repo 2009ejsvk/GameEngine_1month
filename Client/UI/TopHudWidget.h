@@ -135,6 +135,17 @@ public:
         std::string& OutMessage);
 #endif
 
+public:
+    void CloseMenus(
+        bool CloseBuildMenu,
+        bool CloseAlmanac,
+        bool CloseEdicts,
+        bool CloseTrade,
+        bool CloseTask);
+    void OpenExitConfirmPopup();
+    void CloseExitConfirmPopup();
+    bool IsAnyMenuOpen() const;
+
 private:
     void RefreshFromState();
     void RefreshConstitutionPanelContent(
@@ -147,12 +158,6 @@ private:
     void ShowConstitutionTopic(EConstitutionTopic Topic);
     void TrySelectConstitutionOption(EConstitutionOptionId OptionId);
     void TrySelectViewedConstitutionOption(size_t SlotIndex);
-    void CloseMenus(
-        bool CloseBuildMenu,
-        bool CloseAlmanac,
-        bool CloseEdicts,
-        bool CloseTrade,
-        bool CloseTask);
     void OnTaskButtonClick();
     void OnConstructionButtonClick();
     void OnEraTransitionButtonClick();

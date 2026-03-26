@@ -64,15 +64,25 @@ private:
     WButton mSecondaryButton;
     WText mSecondaryButtonText;
     WText mFeedbackText;
+    WImage mDetailScrollTrack;
+    WImage mDetailScrollThumb;
 
     bool mOpen = false;
+    bool mAutoPaused = false;
     bool mHasSelectedDemand = false;
     bool mSelectedDemandAccepted = false;
+    bool mSelectedIsScenarioTask = false;
+    bool mSelectedHasPayAction = false;
     int mSelectedDemandIndex = 0;
+    bool mShowingCompletion = false;
+    std::wstring mCompletionTitle;
+    std::wstring mCompletionReward;
     float mPanelWidth = 1180.f;
     float mPanelHeight = 760.f;
     int mLastResolutionWidth = 0;
     int mLastResolutionHeight = 0;
+    float mDetailScrollOffset = 0.f;
+    float mDetailMaxScrollOffset = 0.f;
     std::wstring mFeedbackMessage;
 
 public:
@@ -84,6 +94,7 @@ public:
     void OpenForDemand(
         EPoliticalDemandIssuerType IssuerType,
         int IssuerIndex);
+    void ShowCompletionFeedback(const std::wstring& Title, const std::wstring& Reward);
     bool IsOpen() const
     {
         return mOpen;

@@ -3,8 +3,7 @@
 #include "MainWorldTradeRuntime.h"
 #include "WorldStatsSnapshot.h"
 #include "../ObjectNames.h"
-#include "../RuntimeConfigRegistry.h"
-#include "../UI/EventWidget.h"
+#include "../UI/TaskWidget.h"
 #include "../UI/UIEnumLabels.h"
 #include "../UI/UIStrings.h"
 #include "../GameConstants.h"
@@ -22,71 +21,23 @@ namespace
     constexpr int GUltimatumPressureThreshold = 30;
     constexpr int GRevoltPressureThreshold = 60;
     constexpr int GPressureDecayPerSafeDay = 2;
-    constexpr float GTaskCompletePopupSeconds = 5.f;
-    constexpr const wchar_t* GPopupConfigFileName = L"PopupConfig.ini";
-
-    std::wstring BuildPopupConfigPath()
-    {
-        return RuntimeConfigRegistry::BuildExeRelativePath(GPopupConfigFileName);
-    }
-
-    bool IsTaskCompletePopupEnabled()
-    {
-        return GetPrivateProfileIntW(
-            L"TaskComplete",
-            L"Enabled",
-            1,
-            BuildPopupConfigPath().c_str()) != 0;
-    }
-
     void ShowTaskCompletePopup(
         const std::shared_ptr<CWorld>& World,
         const FPoliticalDemandState& Demand)
     {
-        if (!World || !IsTaskCompletePopupEnabled())
+        if (!World)
             return;
 
         auto UiManager = World->GetUIManager().lock();
-
         if (!UiManager)
             return;
 
-        auto EventWidget = UiManager->FindWidget<CEventWidget>(GEventWidgetName).lock();
-
-        if (!EventWidget)
+        auto TaskWidgetPtr =
+            UiManager->FindWidget<CTaskWidget>(GTaskWidgetName).lock();
+        if (!TaskWidgetPtr)
             return;
 
-        FEventWidgetState& State = EventWidget->GetMutableState();
-
-        if (State.Visible &&
-            State.IssuerType != EPoliticalDemandIssuerType::None)
-        {
-            return;
-        }
-
-        std::wstring Body = Demand.ObjectiveText;
-
-        if (Body.empty())
-            Body = Demand.Title.empty() ? L"진행 중인 임무가 완료되었습니다." : Demand.Title;
-
-        if (!Demand.Summary.empty() && Demand.Summary != Body)
-            Body += L"\n" + Demand.Summary;
-
-        State.Visible = true;
-        State.IssuerType = EPoliticalDemandIssuerType::None;
-        State.IssuerIndex = -1;
-        State.Title = Demand.Title.empty() ? L"임무 완료" : Demand.Title + L" 완료";
-        State.Body = Body;
-        State.AcceptConsequence =
-            Demand.RewardText.empty() ? L"보상이 적용되었습니다." : Demand.RewardText;
-        State.RejectConsequence.clear();
-        State.UseBodyFormulaTermWrap = false;
-        State.BodyFormulaTerms.clear();
-        State.ShowAcceptButton = false;
-        State.ShowRejectButton = false;
-        State.ShowCornerCloseButton = false;
-        State.CornerCloseConfigSection.clear();
-        State.AutoCloseSeconds = GTaskCompletePopupSeconds;
+        TaskWidgetPtr->ShowCompletionFeedback(Demand.Title, Demand.RewardText);
     }
 
     bool IsFactionAvailableInEra(
@@ -162,7 +113,7 @@ namespace
             AppendPart(L"관계 " + FormatSignedInt(RelationDelta));
 
         if (StandingDelta != 0)
-            AppendPart(L"standing " + FormatSignedInt(StandingDelta));
+            AppendPart(L"신용도 " + FormatSignedInt(StandingDelta));
 
         if (Result.empty())
             Result = L"직접 변화 없음";
@@ -324,6 +275,7 @@ namespace
         const WorldStats::FWorldStatsSnapshot& Snapshot,
         const FGovernmentProfile& GovernmentProfile,
         long long LastDailyExportIncome,
+        long long NationalBudget,
         const std::array<
             TradeDiplomacyRuntime::FForeignPowerWorldState,
             TradeDiplomacyRuntime::GForeignPowerCount>& ForeignPowerStates,
@@ -360,6 +312,17 @@ namespace
             }
 
             return static_cast<int>(ActiveTradeRoutes.size());
+        case EPoliticalDemandObjectiveType::RumProducerBuilding:
+            return Snapshot.ResourceTypes[
+                static_cast<size_t>(EResourceType::Rum)].ProducerBuildingCount;
+        case EPoliticalDemandObjectiveType::SugarProducerBuilding:
+            return Snapshot.ResourceTypes[
+                static_cast<size_t>(EResourceType::Sugar)].ProducerBuildingCount;
+        case EPoliticalDemandObjectiveType::MilitaryWorkers:
+            return Snapshot.MilitaryWorkerCount;
+        case EPoliticalDemandObjectiveType::TreasuryBalance:
+            return static_cast<int>(
+                (std::min)(NationalBudget, static_cast<long long>(INT_MAX)));
         case EPoliticalDemandObjectiveType::None:
         default:
             break;
@@ -384,6 +347,10 @@ namespace
         case EPoliticalDemandObjectiveType::Health:
         case EPoliticalDemandObjectiveType::ExportIncome:
         case EPoliticalDemandObjectiveType::ActiveTradeRoutes:
+        case EPoliticalDemandObjectiveType::RumProducerBuilding:
+        case EPoliticalDemandObjectiveType::SugarProducerBuilding:
+        case EPoliticalDemandObjectiveType::MilitaryWorkers:
+        case EPoliticalDemandObjectiveType::TreasuryBalance:
             return Demand.CurrentValue >= Demand.TargetValue;
         case EPoliticalDemandObjectiveType::None:
         default:
@@ -448,6 +415,9 @@ namespace
         {
             return false;
         }
+
+        if (CurrentEra == EBuildingEra::Colonial)
+            return false;
 
         if (!TradeDiplomacyRuntime::IsForeignPowerActiveForEra(
                 ForeignPowerIndex,
@@ -785,6 +755,127 @@ bool CMainWorldPoliticalDemandService::InjectScenarioDemand(
     return true;
 }
 
+bool CMainWorldPoliticalDemandService::CompleteDemand(
+    EPoliticalDemandIssuerType IssuerType,
+    int IssuerIndex,
+    std::wstring& OutMessage,
+    const FContext& Context,
+    FRefreshRequests& OutRefreshRequests)
+{
+    if (!Context.World)
+    {
+        OutMessage = L"월드 상태를 확인할 수 없습니다.";
+        return false;
+    }
+
+    FPoliticalDemandState* Demand = nullptr;
+    int* CooldownDays = nullptr;
+    const int SafeFactionIndex =
+        (std::max)(0, (std::min)(GPoliticalFactionCount - 1, IssuerIndex));
+    const int SafeForeignIndex =
+        (std::max)(
+            0,
+            (std::min)(TradeDiplomacyRuntime::GForeignPowerCount - 1, IssuerIndex));
+
+    switch (IssuerType)
+    {
+    case EPoliticalDemandIssuerType::Faction:
+        Demand = &mFactionDemands[static_cast<size_t>(SafeFactionIndex)];
+        CooldownDays =
+            &mFactionDemandCooldownDays[static_cast<size_t>(SafeFactionIndex)];
+        break;
+    case EPoliticalDemandIssuerType::ForeignPower:
+        Demand = &mForeignDemands[static_cast<size_t>(SafeForeignIndex)];
+        CooldownDays =
+            &mForeignDemandCooldownDays[static_cast<size_t>(SafeForeignIndex)];
+        break;
+    case EPoliticalDemandIssuerType::None:
+    default:
+        OutMessage = L"요구 발신자를 확인할 수 없습니다.";
+        return false;
+    }
+
+    if (!Demand || !Demand->Active)
+    {
+        OutMessage = L"완료 처리할 요구가 없습니다.";
+        return false;
+    }
+
+    const auto ApplyFactionModifier =
+        [&](int FactionIndex, int Delta, int DurationDays)
+        {
+            if (Delta == 0 ||
+                FactionIndex < 0 ||
+                FactionIndex >= GPoliticalFactionCount)
+            {
+                return;
+            }
+
+            int& Modifier =
+                Context.GovernmentProfile.FactionApprovalModifiers[
+                    static_cast<size_t>(FactionIndex)];
+            Modifier = (std::max)(-25, (std::min)(25, Modifier + Delta));
+            mFactionDemandModifierDays[static_cast<size_t>(FactionIndex)] =
+                (std::max)(
+                    mFactionDemandModifierDays[static_cast<size_t>(FactionIndex)],
+                    (std::max)(1, DurationDays));
+        };
+
+    Demand->Status = EPoliticalDemandStatus::Completed;
+
+    ApplyPoliticalDemandBudgetDelta(
+        Demand->RewardBudgetDelta,
+        Context.NationalBudget,
+        Context.LastDailyNetChange);
+
+    if (Demand->IssuerType == EPoliticalDemandIssuerType::Faction)
+    {
+        ApplyFactionModifier(
+            Demand->IssuerIndex,
+            Demand->RewardFactionApprovalDelta,
+            Demand->ModifierDurationDays > 0 ?
+                Demand->ModifierDurationDays :
+                MWDemand::FactionModifierDurationDays);
+        OutRefreshRequests.RefreshPoliticalSnapshot = true;
+    }
+    else if (
+        Demand->IssuerType == EPoliticalDemandIssuerType::ForeignPower &&
+        Demand->IssuerIndex >= 0 &&
+        Demand->IssuerIndex < TradeDiplomacyRuntime::GForeignPowerCount)
+    {
+        MainWorldTradeRuntime::ApplyForeignDemandStandingDelta(
+            Context.ForeignPowerStandingStates[
+                static_cast<size_t>(Demand->IssuerIndex)],
+            Demand->RewardForeignRelationDelta,
+            Demand->RewardForeignStandingDelta);
+        OutRefreshRequests.RefreshForeignTradeDiplomacy = true;
+        OutRefreshRequests.RefreshWorldMarketPrices = true;
+    }
+
+    if (CooldownDays)
+    {
+        *CooldownDays =
+            Demand->IssuerType == EPoliticalDemandIssuerType::Faction ?
+                MWDemand::FactionCooldownDays :
+                MWDemand::ForeignCooldownDays;
+    }
+
+    SetPoliticalDemandResolutionNotice(
+        mPoliticalDemandNotice,
+        *Demand,
+        true,
+        L"요구 완료");
+    ShowTaskCompletePopup(Context.World, *Demand);
+
+    const std::wstring DemandTitle = Demand->Title;
+    *Demand = FPoliticalDemandState();
+    OutMessage =
+        DemandTitle.empty() ?
+            L"요구를 완료했습니다." :
+            DemandTitle + L" 완료";
+    return true;
+}
+
 bool CMainWorldPoliticalDemandService::RespondPoliticalDemand(
     EPoliticalDemandIssuerType IssuerType,
     int IssuerIndex,
@@ -965,6 +1056,7 @@ bool CMainWorldPoliticalDemandService::RespondPoliticalDemand(
         Snapshot,
         Context.GovernmentProfile,
         Context.LastDailyExportIncome,
+        Context.NationalBudget,
         Context.ForeignPowerStates,
         Context.ActiveTradeRoutes);
     OutMessage = Demand->Title + L" 수락";
@@ -1193,6 +1285,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
             Snapshot,
             Context.GovernmentProfile,
             Context.LastDailyExportIncome,
+            Context.NationalBudget,
             Context.ForeignPowerStates,
             Context.ActiveTradeRoutes);
 
@@ -1281,6 +1374,7 @@ CMainWorldPoliticalDemandService::FRefreshRequests
             Snapshot,
             Context.GovernmentProfile,
             Context.LastDailyExportIncome,
+            Context.NationalBudget,
             Context.ForeignPowerStates,
             Context.ActiveTradeRoutes);
 

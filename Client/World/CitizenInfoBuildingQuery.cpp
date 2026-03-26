@@ -53,7 +53,7 @@ bool CWorldCitizenInfoBuildingQuery::TryGetBuildingRecord(
     OutRecord.AccessibilityScore =
         Building->GetAccessibilityScore();
     OutRecord.HousingCap = Building->GetHousingSatisfactionCap();
-    OutRecord.JobCap = Building->GetEffectiveJobSatisfactionCap();
+    OutRecord.JobCap = Building->GetJobSatisfactionCap();
     OutRecord.FoodCap = Building->GetFoodSatisfactionCap();
     OutRecord.FunCap = Building->GetFunSatisfactionCap();
     OutRecord.HealthCap = Building->GetHealthSatisfactionCap();

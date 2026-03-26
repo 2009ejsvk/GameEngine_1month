@@ -2,12 +2,12 @@
 
 namespace ScenarioConfig
 {
-    constexpr int GStartYear = 1962;
+    constexpr int GStartYear = 1800;
     constexpr int GStartMonth = 1;
     constexpr int GStartDay = 1;
 
-    constexpr long long GInitialBudget = 45000LL;
-    constexpr int GInitialNpcCount = 35;
+    constexpr long long GInitialBudget = 30000LL;
+    constexpr int GInitialNpcCount = 50;
 
     constexpr int GElectionLeadYears = 4;
     constexpr int GElectionMonth = 9;

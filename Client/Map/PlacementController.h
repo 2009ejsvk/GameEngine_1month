@@ -42,11 +42,18 @@ public:
     {
         return mDemolitionMode;
     }
+    bool IsAnyModeActive() const
+    {
+        return !mActivePlacementObject.expired() ||
+            mDemolitionMode ||
+            mRoadBrushMode;
+    }
     bool BeginBuildPlacement(
         const FBuildingCatalogEntry& Entry,
         const std::string& SpriteTexturePath);
     bool BeginMoveExistingBuilding(const std::string& BuildingObjectName);
     bool DemolishBuildingByName(const std::string& BuildingObjectName);
+    void CancelPlacementMode();
 
 private:
     void RotateCurrentAreaCCW();
@@ -55,7 +62,6 @@ private:
     void PlaceCurrentArea();
     void PaintRoadHold();
     void FinishRoadBrushStroke();
-    void CancelPlacementMode();
     void CancelActivePlacementSession();
     void UpdateDemolitionHoverPreview();
     void ClearDemolitionHoverPreview();

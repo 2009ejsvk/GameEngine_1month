@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "CitizenInfoConstants.h"
 #include "TropicoUiStyle.h"
 #include "UI/TextBlock.h"
@@ -62,12 +62,26 @@ namespace CitizenInfoRendererInternal
     };
     constexpr const TCHAR* GCitizenActionIcons[GCitizenActionButtonCount] =
     {
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_money.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsWorldWars\\T_ICO_WorldWar_weaponsFactory.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\EdictIcons\\Edicts\\T_ICO_edicts_nuclearTesting.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColonial\\T_ICO_Colonial_guardTower.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_asylum.png"),
-        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingIcons\\BuildingsColdWar\\T_ICO_ColdWar_spaceProgram.png")
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ActionIcons\\T_ICO_action_bribe.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ActionIcons\\T_ICO_action_kill.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ActionIcons\\T_ICO_action_doubleBlindTrial.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ActionIcons\\T_ICO_action_arrest.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ActionIcons\\T_ICO_action_hospitalize.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\ActionIcons\\T_ICO_action_banish.png")
+    };
+    constexpr const TCHAR* GMetricValueBgTexture = TEXT(
+        "TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\TextButton\\T_Text_bttn_standard.png");
+    constexpr int GCitizenOverviewMetricIconCount = 8;
+    constexpr const TCHAR* GCitizenOverviewMetricIcons[GCitizenOverviewMetricIconCount] =
+    {
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\AgentInfoIcons\\T_ICO_agentInfo.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\BuildingInfoIcons\\T_ICO_buildingStatus.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_date.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\CurrencyIcons\\T_ICO_population.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_money.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\HudIcons\\T_ICO_education_random.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\AlmanacIcons\\T_ICO_lowestHappiness_work.png"),
+        TEXT("TROPICO_ASSET\\Visuals\\UI\\Icons\\AlmanacIcons\\T_ICO_lowestHappiness_housing.png")
     };
 
     inline void SetPanelTextStyle(

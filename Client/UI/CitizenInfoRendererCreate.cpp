@@ -125,6 +125,28 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         }
     }
 
+    static const char* CitizenSubtitleNames[CCitizenInfoWidget::GCitizenTabCount] = {
+        "CitizenInfo_CitizenTab0_SubtitleText",
+        "CitizenInfo_CitizenTab1_SubtitleText",
+        "CitizenInfo_CitizenTab2_SubtitleText",
+    };
+    for (int i = 0; i < CCitizenInfoWidget::GCitizenTabCount; ++i)
+    {
+        auto SubtitleText =
+            Widget.CreateWidget<CTextBlock>(CitizenSubtitleNames[i], 9).lock();
+        if (SubtitleText)
+        {
+            SetPanelTextStyle(
+                SubtitleText,
+                15.f,
+                TropicoUiTheme::GCitizenInfoSubtitleTint,
+                ETextAlignH::Center,
+                ETextAlignV::Middle,
+                false);
+            Widget.mCitizenSubtitleTexts[i] = SubtitleText;
+        }
+    }
+
     auto SectionDivider =
         Widget.CreateWidget<CImage>("CitizenInfo_SectionDivider", 9).lock();
 
@@ -708,6 +730,21 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
     }
 
     for (int Index = 0;
+        Index < CCitizenInfoWidget::GCitizenProfileSlotCount;
+        ++Index)
+    {
+        auto Icon = Widget.CreateWidget<CImage>(
+            "CitizenInfo_CitizenProfileIcon_" + std::to_string(Index + 1),
+            9).lock();
+
+        if (!Icon)
+            continue;
+
+        Icon->SetTint(1.f, 1.f, 1.f, 1.f);
+        Widget.mCitizenProfileIcons[static_cast<size_t>(Index)] = Icon;
+    }
+
+    for (int Index = 0;
         Index < CCitizenInfoWidget::GOverviewVisitorSlotCount;
         ++Index)
     {
@@ -726,18 +763,49 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         Index < CCitizenInfoWidget::GOverviewMetricRowCount;
         ++Index)
     {
-        const bool IsHarborCargoRow =
-            Index >= CCitizenInfoWidget::GHarborCargoStartIndex;
+        auto MetricIcon = Widget.CreateWidget<CImage>(
+            "CitizenInfo_OverviewMetricIcon_" + std::to_string(Index + 1),
+            9).lock();
+
+        if (MetricIcon)
+        {
+            MetricIcon->SetTint(1.f, 1.f, 1.f, 0.85f);
+            if (Index < GCitizenOverviewMetricIconCount)
+                MetricIcon->SetTexture(
+                    "CitizenMetricIcon_" + std::to_string(Index + 1),
+                    GCitizenOverviewMetricIcons[Index]);
+            Widget.mOverviewMetricIcons[static_cast<size_t>(Index)] = MetricIcon;
+        }
+    }
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
+        auto ValueBg = Widget.CreateWidget<CImage>(
+            "CitizenInfo_OverviewMetricValueBg_" + std::to_string(Index + 1),
+            8).lock();
+
+        if (ValueBg)
+        {
+            ValueBg->SetTexture(
+                "MetricValueBg_" + std::to_string(Index + 1),
+                GMetricValueBgTexture);
+            ValueBg->SetTint(1.f, 1.f, 1.f, 0.75f);
+            Widget.mOverviewMetricValueBgs[static_cast<size_t>(Index)] = ValueBg;
+        }
+    }
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+        ++Index)
+    {
         auto Label = Widget.CreateWidget<CTextBlock>(
-            (IsHarborCargoRow ?
-                "CitizenInfo_HarborCargoLabel_" :
-                "CitizenInfo_OverviewMetricLabel_") +
+            "CitizenInfo_OverviewMetricLabel_" +
                 std::to_string(Index + 1),
             9).lock();
         auto Value = Widget.CreateWidget<CTextBlock>(
-            (IsHarborCargoRow ?
-                "CitizenInfo_HarborCargoValue_" :
-                "CitizenInfo_OverviewMetricValue_") +
+            "CitizenInfo_OverviewMetricValue_" +
                 std::to_string(Index + 1),
             9).lock();
 
@@ -763,6 +831,44 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
                 ETextAlignV::Middle,
                 false);
             Widget.mOverviewMetricValues[static_cast<size_t>(Index)] = Value;
+        }
+    }
+
+    for (int Index = 0;
+        Index < CCitizenInfoWidget::GCitizenMetricRowCount;
+        ++Index)
+    {
+        auto Label = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_CitizenMetricLabel_" +
+                std::to_string(Index + 1),
+            9).lock();
+        auto Value = Widget.CreateWidget<CTextBlock>(
+            "CitizenInfo_CitizenMetricValue_" +
+                std::to_string(Index + 1),
+            9).lock();
+
+        if (Label)
+        {
+            SetPanelTextStyle(
+                Label,
+                17.f,
+                TropicoUiTheme::GCitizenInfoSectionHeaderTint,
+                ETextAlignH::Left,
+                ETextAlignV::Middle,
+                false);
+            Widget.mCitizenMetricLabels[static_cast<size_t>(Index)] = Label;
+        }
+
+        if (Value)
+        {
+            SetPanelTextStyle(
+                Value,
+                17.f,
+                TropicoUiTheme::GCitizenInfoValueTint,
+                ETextAlignH::Right,
+                ETextAlignV::Middle,
+                false);
+            Widget.mCitizenMetricValues[static_cast<size_t>(Index)] = Value;
         }
     }
 
@@ -1352,11 +1458,11 @@ void FCitizenInfoRenderer::CreateWidgets(CCitizenInfoWidget& Owner)
         ApplyButtonTextureSet(
             Button,
             "CitizenInfo_CitizenActionButton_Texture_" + std::to_string(Index),
-            GBigTextButtonTexture,
-            GBigTextButtonHoverTexture,
-            GBigTextButtonSelectedTexture,
-            GBigTextButtonDisabledTexture);
-        ConfigureDefaultButtonStyle(Button);
+            GActionButtonBgTexture,
+            GActionButtonBgTexture,
+            GActionButtonBgTexture,
+            GActionButtonBgTexture);
+        ConfigureIconSlotButtonStyle(Button);
 
         auto Label = CWidget::CreateStaticWidget<CTextBlock>(
             "CitizenInfo_CitizenActionButton_Label_" +

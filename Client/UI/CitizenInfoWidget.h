@@ -37,7 +37,9 @@ public:
     static constexpr int GBudgetDisplayCount = 5;
     static constexpr int GOverviewResidentSlotCount = 16;
     static constexpr int GOverviewVisitorSlotCount = 12;
+    static constexpr int GCitizenProfileSlotCount = 12;
     static constexpr int GOverviewMetricRowCount = 30;
+    static constexpr int GCitizenMetricRowCount = GOverviewMetricRowCount;
     static constexpr int GHarborCargoStartIndex = 7; // rows 8+ (1-indexed) → HarborCargoLabel/Value
     static constexpr int GCitizenActionButtonCount = 6;
     static constexpr int GCitizenPoliticsSectionCount = 3;
@@ -95,7 +97,9 @@ public:
         WText OverviewOccupancyValue;
         std::array<WImage, GOverviewResidentSlotCount> OverviewResidentIcons;
         std::array<WImage, GOverviewVisitorSlotCount> OverviewVisitorIcons;
+        std::array<WImage, GOverviewMetricRowCount> OverviewMetricIcons;
         std::array<WText, GOverviewMetricRowCount> OverviewMetricLabels;
+        std::array<WImage, GOverviewMetricRowCount> OverviewMetricValueBgs;
         std::array<WText, GOverviewMetricRowCount> OverviewMetricValues;
         WText ResidentialOverviewBudgetLabel;
         WText ResidentialOverviewBudgetValue;
@@ -125,6 +129,9 @@ public:
 
     struct FCitizenPanelWidgets
     {
+        std::array<WText, GCitizenTabCount> CitizenSubtitleTexts;
+        std::array<WText, GCitizenMetricRowCount> CitizenMetricLabels;
+        std::array<WText, GCitizenMetricRowCount> CitizenMetricValues;
         std::array<WImage, GCitizenPoliticsSectionCount>
             PoliticsSectionBackgrounds;
         std::array<WText, GCitizenPoliticsSectionCount>
@@ -141,6 +148,7 @@ public:
             PoliticsSupportIcons;
         WImage PoliticsSupportRail;
         WImage PoliticsSupportThumb;
+        std::array<WImage, GCitizenProfileSlotCount> ProfileIcons;
         WImage ThoughtTitleBackground;
         WText ThoughtTitleText;
         std::array<WText, GCitizenThoughtCount> ThoughtTexts;
@@ -148,6 +156,7 @@ public:
         std::array<WButton, GCitizenActionButtonCount> ActionButtons;
         std::array<WText, GCitizenActionButtonCount> ActionButtonTexts;
         std::array<WImage, GCitizenActionButtonCount> ActionButtonIcons;
+        std::array<WImage, GCitizenActionButtonCount> ActionButtonLabelBgs;
         WText FooterText;
     };
 
@@ -195,7 +204,9 @@ public:
         WText& mOverviewOccupancyValue;
         std::array<WImage, GOverviewResidentSlotCount>& mOverviewResidentIcons;
         std::array<WImage, GOverviewVisitorSlotCount>& mOverviewVisitorIcons;
+        std::array<WImage, GOverviewMetricRowCount>& mOverviewMetricIcons;
         std::array<WText, GOverviewMetricRowCount>& mOverviewMetricLabels;
+        std::array<WImage, GOverviewMetricRowCount>& mOverviewMetricValueBgs;
         std::array<WText, GOverviewMetricRowCount>& mOverviewMetricValues;
         WText& mResidentialOverviewBudgetLabel;
         WText& mResidentialOverviewBudgetValue;
@@ -221,6 +232,9 @@ public:
         WText& mInformationAccentText;
         WText& mInformationTopText;
         WText& mInformationBottomText;
+        std::array<WText, GCitizenTabCount>& mCitizenSubtitleTexts;
+        std::array<WText, GCitizenMetricRowCount>& mCitizenMetricLabels;
+        std::array<WText, GCitizenMetricRowCount>& mCitizenMetricValues;
         std::array<WImage, GCitizenPoliticsSectionCount>&
             mCitizenPoliticsSectionBackgrounds;
         std::array<WText, GCitizenPoliticsSectionCount>&
@@ -237,6 +251,7 @@ public:
             mCitizenPoliticsSupportIcons;
         WImage& mCitizenPoliticsSupportRail;
         WImage& mCitizenPoliticsSupportThumb;
+        std::array<WImage, GCitizenProfileSlotCount>& mCitizenProfileIcons;
         WImage& mCitizenThoughtTitleBackground;
         WText& mCitizenThoughtTitleText;
         std::array<WText, GCitizenThoughtCount>& mCitizenThoughtTexts;
@@ -244,6 +259,7 @@ public:
         std::array<WButton, GCitizenActionButtonCount>& mCitizenActionButtons;
         std::array<WText, GCitizenActionButtonCount>& mCitizenActionButtonTexts;
         std::array<WImage, GCitizenActionButtonCount>& mCitizenActionButtonIcons;
+        std::array<WImage, GCitizenActionButtonCount>& mCitizenActionButtonLabelBgs;
         WText& mCitizenFooterText;
         float& mPanelWidth;
         float& mPanelHeight;

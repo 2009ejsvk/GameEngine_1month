@@ -1062,6 +1062,9 @@
     <None Include="..\Binary\UILayout\18_WidgetOverrides_Harbor.ini">
       <Filter>06. Setting\UILayout</Filter>
     </None>
+    <None Include="..\Binary\UILayout\19_CitizenInfoContent.ini">
+      <Filter>06. Setting\UILayout</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Binary\Asset\Shader\PostProcess.hlsl">

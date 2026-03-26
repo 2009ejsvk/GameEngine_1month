@@ -205,12 +205,7 @@ namespace CitizenInfoPresentationInternal
     float ResolveProductionCoverageEfficiencyRatio(
         const FBuildingUiSnapshot& Snapshot)
     {
-        return (std::max)(
-            0.f,
-            (std::min)(
-                1.f,
-                Snapshot.LastProductionEfficiency *
-                    Snapshot.DamageEfficiencyMultiplier));
+        return (std::max)(0.f, Snapshot.LastProductionEfficiency);
     }
 
     float ResolveDisplayedEfficiencyRatio(const FBuildingUiSnapshot& Snapshot)
@@ -435,6 +430,15 @@ namespace CitizenInfoPresentationInternal
         return CitizenInfoPresentation::FormatInteger(Input.CurrentStock);
     }
 
+    std::wstring BuildProductionInputMaxStockText(
+        const FProductionInputSlotView& Input)
+    {
+        if (!IsValidProductionInputRecord(Input) || Input.MaxStock <= 0)
+            return std::wstring();
+
+        return CitizenInfoPresentation::FormatInteger(Input.MaxStock);
+    }
+
     std::wstring BuildProductionInputRequirementSummary(
         const FBuildingUiSnapshot& Snapshot)
     {
@@ -523,10 +527,12 @@ namespace CitizenInfoPresentationInternal
         if (!IsValidProductionInputRecord(Input))
             return std::wstring();
 
+        const std::wstring MaxStockStr = BuildProductionInputMaxStockText(Input);
         return L"[IN] " +
             std::wstring(GetResourceTypeDisplayName(Input.Type)) +
             L": " +
-            BuildProductionInputStockText(Input);
+            BuildProductionInputStockText(Input) +
+            (MaxStockStr.empty() ? std::wstring() : L" / " + MaxStockStr);
     }
 
     std::wstring BuildProductionInputOverviewValue(
@@ -535,7 +541,10 @@ namespace CitizenInfoPresentationInternal
         if (!IsValidProductionInputRecord(Input))
             return std::wstring();
 
-        return BuildProductionInputStockText(Input);
+        const std::wstring MaxStockStr = BuildProductionInputMaxStockText(Input);
+        if (MaxStockStr.empty())
+            return BuildProductionInputStockText(Input);
+        return BuildProductionInputStockText(Input) + L" / " + MaxStockStr;
     }
 
     int ExtractIntegerAfterToken(
@@ -688,19 +697,8 @@ namespace CitizenInfoPresentationInternal
             return;
 
         AppendLine(Body, Ui(L"citizen_info.section.production_inputs"));
-        const std::wstring InputStatus =
-            ResolveProductionInputStatus(Snapshot);
         const std::wstring RequiredInputs =
             BuildProductionInputRequirementSummary(Snapshot);
-
-        if (!InputStatus.empty())
-        {
-            AppendLine(
-                Body,
-                Ui(L"citizen_info.label.input_status") +
-                    L": " +
-                    InputStatus);
-        }
 
         if (!RequiredInputs.empty())
         {
@@ -719,6 +717,8 @@ namespace CitizenInfoPresentationInternal
             if (!IsValidProductionInputRecord(Input))
                 continue;
 
+            const std::wstring MaxStockStr =
+                BuildProductionInputMaxStockText(Input);
             AppendLine(
                 Body,
                 L"- " +
@@ -727,6 +727,8 @@ namespace CitizenInfoPresentationInternal
                     Ui(L"citizen_info.label.current_stock") +
                     L" " +
                     BuildProductionInputStockText(Input) +
+                    (MaxStockStr.empty() ? std::wstring() :
+                        L" / " + MaxStockStr) +
                     L"  |  " +
                     Ui(L"citizen_info.label.input_consumption") +
                     L" " +
@@ -1580,13 +1582,6 @@ namespace CitizenInfoPresentation
                         FormatMoney(
                             ResolveCurrentProducedStockExportValue(Snapshot)));
             }
-            if (HasProductionInputRecords(Snapshot))
-            {
-                AppendLine(
-                    Text,
-                    Ui(L"citizen_info.label.input_status") + L": " +
-                        ResolveProductionInputStatus(Snapshot));
-            }
             AppendLine(
                 Text,
                 Ui(L"citizen_info.label.workers") + L": " +
@@ -1912,12 +1907,6 @@ namespace CitizenInfoPresentation
 
         if (HasProductionInputRecords(Snapshot))
         {
-            Writer.Add(
-                Ui(L"citizen_info.label.input_status"),
-                ResolveProductionInputStatus(Snapshot),
-                HasProductionInputShortage(Snapshot) ||
-                    HasLowProductionInputStock(Snapshot));
-
             Writer.AddHeader(Ui(L"citizen_info.section.production_inputs"));
 
             for (size_t Index = 0; Index < Snapshot.ProductionInputs.size(); ++Index)
@@ -2452,7 +2441,7 @@ namespace CitizenInfoPresentation
                 Ui(L"citizen_info.note.housing_quality_efficiency");
             Writer.Add(
                 Ui(L"citizen_info.label.efficiency"),
-                L"100%",
+                ResolveWorkerOverviewEfficiency(Snapshot),
                 true);
             Writer.Add(
                 Ui(L"citizen_info.label.housing_fill_rate"),
@@ -2615,11 +2604,6 @@ namespace CitizenInfoPresentation
                 FormatStockSummary(Snapshot));
             if (HasProductionInputRecords(Snapshot))
             {
-                Writer.Add(
-                    Ui(L"citizen_info.label.input_status"),
-                    ResolveProductionInputStatus(Snapshot),
-                    HasProductionInputShortage(Snapshot) ||
-                        HasLowProductionInputStock(Snapshot));
                 Writer.Add(
                     Ui(L"citizen_info.label.required_inputs"),
                     BuildProductionInputRequirementSummary(Snapshot));

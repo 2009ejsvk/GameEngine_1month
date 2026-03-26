@@ -354,6 +354,11 @@ namespace
             return mOwner->TryExecuteEraTransition(Choice);
         }
 
+        bool TryExecutePeacePayment(std::wstring& OutMessage) override
+        {
+            return mOwner->TryExecutePeacePayment(OutMessage);
+        }
+
         bool TryUnlockResearch(
             const std::wstring& Key,
             int Cost) override

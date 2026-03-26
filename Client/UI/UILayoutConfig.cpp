@@ -1,4 +1,4 @@
-#include "UILayoutConfig.h"
+﻿#include "UILayoutConfig.h"
 #include "RuntimeConfigRegistry.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -291,6 +291,9 @@ namespace UIConfig
     float BuildingBodyBottomInset          = 22.f;
     float BuildingIconSize                 = 36.f;
 
+    // 과제 UI
+    float TaskDetailSectionsGap    = 10.f;
+
     // NPC 선택 UI
     float CitizenPanelWidthRatio      = 0.24f;
     float CitizenPanelMinWidth        = 320.f;
@@ -316,9 +319,96 @@ namespace UIConfig
     float CitizenCloseButtonSize      = 34.f;
     float CitizenCloseButtonOffsetY   = 4.f;
     float CitizenBudgetBaseOffsetY    = 36.f;
-    float CitizenActionStackTopOffset = 238.f;
+    float CitizenActionStackTopOffset = 196.f;
     float CitizenFooterBottomInset    = 28.f;
     float CitizenBodyBottomInset      = 22.f;
+
+    // NPC 패널 공통 레이아웃 (CitizenInfoLayoutDefaults 네임스페이스)
+    namespace CitizenInfoLayoutDefaults
+    {
+        float TitleIconInsetX             = 6.f;
+        float TitleIconOffsetY            = 0.f;
+        float TitleTextInsetX             = 14.f;
+        float TitleTextOffsetX            = 0.f;
+        float TitleTextOffsetY            = 0.f;
+        float TitleTextWidthAdjust        = 0.f;
+        float TitleTextHeightAdjust       = 0.f;
+        float TitleIconGap                = 6.f;
+        float SubtitleOffsetY             = 4.f;
+        float CollapsedSectionGap         = 6.f;
+        float BudgetLabelOffsetY          = 2.f;
+        float BudgetCustomButtonsOffsetY  = 20.f;
+        float BudgetWorkButtonsOffsetY    = 78.f;
+        float BudgetDefaultButtonsOffsetY = 26.f;
+        float BudgetCompactGap            = 6.f;
+        float BudgetDefaultGap            = 8.f;
+        float OccupancyGapY               = 18.f;
+        float CompactControlHeight        = 22.f;
+        float CompactBudgetButtonWidth    = 36.f;
+        float SectionDividerWidth         = 172.f;
+        float SectionDividerHeight        = 14.f;
+        float ActionButtonHeight          = 38.f;
+        float ActionGap                   = 4.f;
+        float ActionCompactIconSize       = 34.f;
+        float ActionCompactIconOffsetY    = 2.f;
+        float ActionIconInset             = 8.f;
+        float ActionGroupOffsetX          = 0.f;
+        float ActionGroupOffsetY          = 0.f;
+        float ActionGroupWidthAdd         = 0.f;
+        float ActionGroupHeightAdd        = 0.f;
+        float MoveCompactRightOffset      = 82.f;
+        float FocusCompactRightOffset     = 40.f;
+        float OverviewCommandGap          = 10.f;
+        float BodyGapAfterSection         = 8.f;
+        float BodyGapAfterActions         = 14.f;
+        float BodyGapBeforeActions        = 12.f;
+        float BodyFallbackOffset          = 4.f;
+    }
+
+    // NPC 탭0: 정보 (프로필 카드)
+    float CitizenProfileSlotSize         = 34.f;
+    float CitizenProfileSlotColGap       = 14.f;
+    float CitizenProfileSlotRowGap       = 10.f;
+    float CitizenProfileGridTopOffset    = 12.f;
+    float CitizenProfileDetailTopMargin  = 18.f;
+    float CitizenProfileMetricRowH       = 28.f;
+    float CitizenProfileMetricIconSz     = 16.f;
+    float CitizenProfileMetricIconGap    = 4.f;
+    float CitizenProfileMetricValueWidth = 164.f;
+
+    // NPC 탭1: 만족도 (정치 패널)
+    float CitizenPoliticsSectionTopOffset    = 42.f;
+    float CitizenPoliticsSectionHeight       = 30.f;
+    float CitizenPoliticsSatisfactionGap     = 10.f;
+    float CitizenPoliticsSatisfactionRowH    = 28.f;
+    float CitizenPoliticsSatisfactionLabelW  = 82.f;
+    float CitizenPoliticsBarRailOffsetY      = 5.f;
+    float CitizenPoliticsBarRailH            = 13.f;
+    float CitizenPoliticsBarFillOffsetY      = 6.f;
+    float CitizenPoliticsBarFillH            = 11.f;
+    float CitizenPoliticsBarLabelH           = 22.f;
+    float CitizenPoliticsOpinionRowH         = 26.f;
+    float CitizenPoliticsOpinionTextH        = 22.f;
+    float CitizenPoliticsOpinionSectionGap   = 8.f;
+    float CitizenPoliticsSupportGap          = 14.f;
+    float CitizenPoliticsSupportIconSize     = 20.f;
+    float CitizenPoliticsSupportIconsGap     = 8.f;
+    float CitizenPoliticsSupportRailH        = 10.f;
+    float CitizenPoliticsSupportRailMargin   = 10.f;
+    float CitizenPoliticsSupportRailTopOffset = 26.f;
+    float CitizenPoliticsSupportThumbW       = 10.f;
+    float CitizenPoliticsSupportThumbH       = 18.f;
+    float CitizenPoliticsSupportThumbOffsetY = -4.f;
+
+    // NPC 탭2: 생각 (서술형 텍스트)
+    float CitizenThoughtsSectionTopOffset = 42.f;
+    float CitizenThoughtsSectionHeight    = 30.f;
+    float CitizenThoughtsTopGap           = 14.f;
+    float CitizenThoughtsWidthInset       = 6.f;
+    float CitizenThoughtsEntryH           = 50.f;
+    float CitizenThoughtsStep             = 82.f;
+    float CitizenThoughtsDividerOffsetY   = 38.f;
+    float CitizenThoughtsTextOffsetX      = 2.f;
 
     // 게임 오버 팝업
     float GameOverPanelWidth        = 720.f;
@@ -2049,6 +2139,8 @@ namespace UIConfig
             BuildingBodyBottomInset          = 22.f;
             BuildingIconSize                 = 36.f;
 
+            TaskDetailSectionsGap    = 10.f;
+
             CitizenPanelWidthRatio       = 0.24f;
             CitizenPanelMinWidth         = 320.f;
             CitizenPanelMaxWidth         = 410.f;
@@ -2076,6 +2168,86 @@ namespace UIConfig
             CitizenActionStackTopOffset  = 238.f;
             CitizenFooterBottomInset     = 28.f;
             CitizenBodyBottomInset       = 22.f;
+
+            CitizenInfoLayoutDefaults::TitleIconInsetX             = 6.f;
+            CitizenInfoLayoutDefaults::TitleIconOffsetY            = 0.f;
+            CitizenInfoLayoutDefaults::TitleTextInsetX             = 14.f;
+            CitizenInfoLayoutDefaults::TitleTextOffsetX            = 0.f;
+            CitizenInfoLayoutDefaults::TitleTextOffsetY            = 0.f;
+            CitizenInfoLayoutDefaults::TitleTextWidthAdjust        = 0.f;
+            CitizenInfoLayoutDefaults::TitleTextHeightAdjust       = 0.f;
+            CitizenInfoLayoutDefaults::TitleIconGap                = 6.f;
+            CitizenInfoLayoutDefaults::SubtitleOffsetY             = 4.f;
+            CitizenInfoLayoutDefaults::CollapsedSectionGap         = 6.f;
+            CitizenInfoLayoutDefaults::BudgetLabelOffsetY          = 2.f;
+            CitizenInfoLayoutDefaults::BudgetCustomButtonsOffsetY  = 20.f;
+            CitizenInfoLayoutDefaults::BudgetWorkButtonsOffsetY    = 78.f;
+            CitizenInfoLayoutDefaults::BudgetDefaultButtonsOffsetY = 26.f;
+            CitizenInfoLayoutDefaults::BudgetCompactGap            = 6.f;
+            CitizenInfoLayoutDefaults::BudgetDefaultGap            = 8.f;
+            CitizenInfoLayoutDefaults::OccupancyGapY               = 18.f;
+            CitizenInfoLayoutDefaults::CompactControlHeight        = 22.f;
+            CitizenInfoLayoutDefaults::CompactBudgetButtonWidth    = 36.f;
+            CitizenInfoLayoutDefaults::SectionDividerWidth         = 172.f;
+            CitizenInfoLayoutDefaults::SectionDividerHeight        = 14.f;
+            CitizenInfoLayoutDefaults::ActionButtonHeight          = 38.f;
+            CitizenInfoLayoutDefaults::ActionGap                   = 4.f;
+            CitizenInfoLayoutDefaults::ActionCompactIconSize       = 34.f;
+            CitizenInfoLayoutDefaults::ActionCompactIconOffsetY    = 2.f;
+            CitizenInfoLayoutDefaults::ActionIconInset             = 8.f;
+            CitizenInfoLayoutDefaults::ActionGroupOffsetX          = 0.f;
+            CitizenInfoLayoutDefaults::ActionGroupOffsetY          = 0.f;
+            CitizenInfoLayoutDefaults::ActionGroupWidthAdd         = 0.f;
+            CitizenInfoLayoutDefaults::ActionGroupHeightAdd        = 0.f;
+            CitizenInfoLayoutDefaults::MoveCompactRightOffset      = 82.f;
+            CitizenInfoLayoutDefaults::FocusCompactRightOffset     = 40.f;
+            CitizenInfoLayoutDefaults::OverviewCommandGap          = 10.f;
+            CitizenInfoLayoutDefaults::BodyGapAfterSection         = 8.f;
+            CitizenInfoLayoutDefaults::BodyGapAfterActions         = 14.f;
+            CitizenInfoLayoutDefaults::BodyGapBeforeActions        = 12.f;
+            CitizenInfoLayoutDefaults::BodyFallbackOffset          = 4.f;
+
+            CitizenProfileSlotSize         = 34.f;
+            CitizenProfileSlotColGap       = 14.f;
+            CitizenProfileSlotRowGap       = 10.f;
+            CitizenProfileGridTopOffset    = 12.f;
+            CitizenProfileDetailTopMargin  = 18.f;
+            CitizenProfileMetricRowH       = 28.f;
+            CitizenProfileMetricIconSz     = 16.f;
+            CitizenProfileMetricIconGap    = 4.f;
+            CitizenProfileMetricValueWidth = 164.f;
+
+            CitizenPoliticsSectionTopOffset    = 42.f;
+            CitizenPoliticsSectionHeight       = 30.f;
+            CitizenPoliticsSatisfactionGap     = 10.f;
+            CitizenPoliticsSatisfactionRowH    = 28.f;
+            CitizenPoliticsSatisfactionLabelW  = 82.f;
+            CitizenPoliticsBarRailOffsetY      = 5.f;
+            CitizenPoliticsBarRailH            = 13.f;
+            CitizenPoliticsBarFillOffsetY      = 6.f;
+            CitizenPoliticsBarFillH            = 11.f;
+            CitizenPoliticsBarLabelH           = 22.f;
+            CitizenPoliticsOpinionRowH         = 26.f;
+            CitizenPoliticsOpinionTextH        = 22.f;
+            CitizenPoliticsOpinionSectionGap   = 8.f;
+            CitizenPoliticsSupportGap          = 14.f;
+            CitizenPoliticsSupportIconSize     = 20.f;
+            CitizenPoliticsSupportIconsGap     = 8.f;
+            CitizenPoliticsSupportRailH        = 10.f;
+            CitizenPoliticsSupportRailMargin   = 10.f;
+            CitizenPoliticsSupportRailTopOffset = 26.f;
+            CitizenPoliticsSupportThumbW       = 10.f;
+            CitizenPoliticsSupportThumbH       = 18.f;
+            CitizenPoliticsSupportThumbOffsetY = -4.f;
+
+            CitizenThoughtsSectionTopOffset = 42.f;
+            CitizenThoughtsSectionHeight    = 30.f;
+            CitizenThoughtsTopGap           = 14.f;
+            CitizenThoughtsWidthInset       = 6.f;
+            CitizenThoughtsEntryH           = 50.f;
+            CitizenThoughtsStep             = 82.f;
+            CitizenThoughtsDividerOffsetY   = 38.f;
+            CitizenThoughtsTextOffsetX      = 2.f;
 
             GameOverPanelWidth        = 720.f;
             GameOverPanelHeight       = 390.f;
@@ -2452,6 +2624,94 @@ namespace UIConfig
             return true;
         }
 
+        bool ApplyValue_CitizenInfoContent(const std::string& Key, float Val)
+        {
+            using namespace CitizenInfoLayoutDefaults;
+            // 패널 공통 레이아웃
+            if      (Key == "CitizenLayoutTitleIconInsetX")            TitleIconInsetX             = Val;
+            else if (Key == "CitizenLayoutTitleIconOffsetY")           TitleIconOffsetY            = Val;
+            else if (Key == "CitizenLayoutTitleTextInsetX")            TitleTextInsetX             = Val;
+            else if (Key == "CitizenLayoutTitleTextOffsetX")           TitleTextOffsetX            = Val;
+            else if (Key == "CitizenLayoutTitleTextOffsetY")           TitleTextOffsetY            = Val;
+            else if (Key == "CitizenLayoutTitleTextWidthAdjust")       TitleTextWidthAdjust        = Val;
+            else if (Key == "CitizenLayoutTitleTextHeightAdjust")      TitleTextHeightAdjust       = Val;
+            else if (Key == "CitizenLayoutTitleIconGap")               TitleIconGap                = Val;
+            else if (Key == "CitizenLayoutSubtitleOffsetY")            SubtitleOffsetY             = Val;
+            else if (Key == "CitizenLayoutCollapsedSectionGap")        CollapsedSectionGap         = Val;
+            else if (Key == "CitizenLayoutBudgetLabelOffsetY")         BudgetLabelOffsetY          = Val;
+            else if (Key == "CitizenLayoutBudgetCustomButtonsOffsetY") BudgetCustomButtonsOffsetY  = Val;
+            else if (Key == "CitizenLayoutBudgetWorkButtonsOffsetY")   BudgetWorkButtonsOffsetY    = Val;
+            else if (Key == "CitizenLayoutBudgetDefaultButtonsOffsetY") BudgetDefaultButtonsOffsetY = Val;
+            else if (Key == "CitizenLayoutBudgetCompactGap")           BudgetCompactGap            = Val;
+            else if (Key == "CitizenLayoutBudgetDefaultGap")           BudgetDefaultGap            = Val;
+            else if (Key == "CitizenLayoutOccupancyGapY")              OccupancyGapY               = Val;
+            else if (Key == "CitizenLayoutCompactControlHeight")       CompactControlHeight        = Val;
+            else if (Key == "CitizenLayoutCompactBudgetButtonWidth")   CompactBudgetButtonWidth    = Val;
+            else if (Key == "CitizenLayoutSectionDividerWidth")        SectionDividerWidth         = Val;
+            else if (Key == "CitizenLayoutSectionDividerHeight")       SectionDividerHeight        = Val;
+            else if (Key == "CitizenLayoutActionButtonHeight")         ActionButtonHeight          = Val;
+            else if (Key == "CitizenLayoutActionGap")                  ActionGap                   = Val;
+            else if (Key == "CitizenLayoutActionCompactIconSize")      ActionCompactIconSize       = Val;
+            else if (Key == "CitizenLayoutActionCompactIconOffsetY")   ActionCompactIconOffsetY    = Val;
+            else if (Key == "CitizenLayoutActionIconInset")            ActionIconInset             = Val;
+            else if (Key == "CitizenLayoutActionGroupOffsetX")         ActionGroupOffsetX          = Val;
+            else if (Key == "CitizenLayoutActionGroupOffsetY")         ActionGroupOffsetY          = Val;
+            else if (Key == "CitizenLayoutActionGroupWidthAdd")        ActionGroupWidthAdd         = Val;
+            else if (Key == "CitizenLayoutActionGroupHeightAdd")       ActionGroupHeightAdd        = Val;
+            else if (Key == "CitizenLayoutMoveCompactRightOffset")     MoveCompactRightOffset      = Val;
+            else if (Key == "CitizenLayoutFocusCompactRightOffset")    FocusCompactRightOffset     = Val;
+            else if (Key == "CitizenLayoutOverviewCommandGap")         OverviewCommandGap          = Val;
+            else if (Key == "CitizenLayoutBodyGapAfterSection")        BodyGapAfterSection         = Val;
+            else if (Key == "CitizenLayoutBodyGapAfterActions")        BodyGapAfterActions         = Val;
+            else if (Key == "CitizenLayoutBodyGapBeforeActions")       BodyGapBeforeActions        = Val;
+            else if (Key == "CitizenLayoutBodyFallbackOffset")         BodyFallbackOffset          = Val;
+            // 탭0: 정보
+            else if (Key == "CitizenProfileSlotSize")         CitizenProfileSlotSize         = Val;
+            else if (Key == "CitizenProfileSlotColGap")       CitizenProfileSlotColGap       = Val;
+            else if (Key == "CitizenProfileSlotRowGap")       CitizenProfileSlotRowGap       = Val;
+            else if (Key == "CitizenProfileGridTopOffset")    CitizenProfileGridTopOffset    = Val;
+            else if (Key == "CitizenProfileDetailTopMargin")  CitizenProfileDetailTopMargin  = Val;
+            else if (Key == "CitizenProfileMetricRowH")       CitizenProfileMetricRowH       = Val;
+            else if (Key == "CitizenProfileMetricIconSz")     CitizenProfileMetricIconSz     = Val;
+            else if (Key == "CitizenProfileMetricIconGap")    CitizenProfileMetricIconGap    = Val;
+            else if (Key == "CitizenProfileMetricValueWidth") CitizenProfileMetricValueWidth = Val;
+            // 탭1: 만족도
+            else if (Key == "CitizenPoliticsSectionTopOffset")    CitizenPoliticsSectionTopOffset    = Val;
+            else if (Key == "CitizenPoliticsSectionHeight")       CitizenPoliticsSectionHeight       = Val;
+            else if (Key == "CitizenPoliticsSatisfactionGap")     CitizenPoliticsSatisfactionGap     = Val;
+            else if (Key == "CitizenPoliticsSatisfactionRowH")    CitizenPoliticsSatisfactionRowH    = Val;
+            else if (Key == "CitizenPoliticsSatisfactionLabelW")  CitizenPoliticsSatisfactionLabelW  = Val;
+            else if (Key == "CitizenPoliticsBarRailOffsetY")      CitizenPoliticsBarRailOffsetY      = Val;
+            else if (Key == "CitizenPoliticsBarRailH")            CitizenPoliticsBarRailH            = Val;
+            else if (Key == "CitizenPoliticsBarFillOffsetY")      CitizenPoliticsBarFillOffsetY      = Val;
+            else if (Key == "CitizenPoliticsBarFillH")            CitizenPoliticsBarFillH            = Val;
+            else if (Key == "CitizenPoliticsBarLabelH")           CitizenPoliticsBarLabelH           = Val;
+            else if (Key == "CitizenPoliticsOpinionRowH")         CitizenPoliticsOpinionRowH         = Val;
+            else if (Key == "CitizenPoliticsOpinionTextH")        CitizenPoliticsOpinionTextH        = Val;
+            else if (Key == "CitizenPoliticsOpinionSectionGap")   CitizenPoliticsOpinionSectionGap   = Val;
+            else if (Key == "CitizenPoliticsSupportGap")          CitizenPoliticsSupportGap          = Val;
+            else if (Key == "CitizenPoliticsSupportIconSize")     CitizenPoliticsSupportIconSize     = Val;
+            else if (Key == "CitizenPoliticsSupportIconsGap")     CitizenPoliticsSupportIconsGap     = Val;
+            else if (Key == "CitizenPoliticsSupportRailH")        CitizenPoliticsSupportRailH        = Val;
+            else if (Key == "CitizenPoliticsSupportRailMargin")   CitizenPoliticsSupportRailMargin   = Val;
+            else if (Key == "CitizenPoliticsSupportRailTopOffset") CitizenPoliticsSupportRailTopOffset = Val;
+            else if (Key == "CitizenPoliticsSupportThumbW")       CitizenPoliticsSupportThumbW       = Val;
+            else if (Key == "CitizenPoliticsSupportThumbH")       CitizenPoliticsSupportThumbH       = Val;
+            else if (Key == "CitizenPoliticsSupportThumbOffsetY") CitizenPoliticsSupportThumbOffsetY = Val;
+            // 탭2: 생각
+            else if (Key == "CitizenThoughtsSectionTopOffset") CitizenThoughtsSectionTopOffset = Val;
+            else if (Key == "CitizenThoughtsSectionHeight")    CitizenThoughtsSectionHeight    = Val;
+            else if (Key == "CitizenThoughtsTopGap")           CitizenThoughtsTopGap           = Val;
+            else if (Key == "CitizenThoughtsWidthInset")       CitizenThoughtsWidthInset       = Val;
+            else if (Key == "CitizenThoughtsEntryH")           CitizenThoughtsEntryH           = Val;
+            else if (Key == "CitizenThoughtsStep")             CitizenThoughtsStep             = Val;
+            else if (Key == "CitizenThoughtsDividerOffsetY")   CitizenThoughtsDividerOffsetY   = Val;
+            else if (Key == "CitizenThoughtsTextOffsetX")      CitizenThoughtsTextOffsetX      = Val;
+            else return false;
+
+            return true;
+        }
+
         bool ApplyValue_BuildingCitizen(const std::string& Key, float Val)
         {
             if      (Key == "BuildingPanelWidthRatio")          BuildingPanelWidthRatio          = Val;
@@ -2497,6 +2757,13 @@ namespace UIConfig
             return true;
         }
 
+        bool ApplyValue_TaskWidget(const std::string& Key, float Val)
+        {
+            if (Key == "TaskDetailSectionsGap") TaskDetailSectionsGap = Val;
+            else return false;
+            return true;
+        }
+
         // 키 이름으로 값 적용 (서브함수들 위임)
         void ApplyFloatValue(const std::string& Key, float Val)
         {
@@ -2506,7 +2773,9 @@ namespace UIConfig
             if (ApplyValue_Menu(Key, Val))           return;
             if (ApplyValue_Edict(Key, Val))          return;
             if (ApplyValue_Almanac(Key, Val))        return;
+            if (ApplyValue_TaskWidget(Key, Val))     return;
             if (ApplyValue_BuildingCitizen(Key, Val)) return;
+            if (ApplyValue_CitizenInfoContent(Key, Val)) return;
         }
 
         bool LoadFile(const std::wstring& Path)

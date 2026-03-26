@@ -6,6 +6,7 @@
 #include "../Building/BuildingCatalog.h"
 #include "../Map/PlacementController.h"
 #include "../ObjectNames.h"
+#include "../World/IWorldUIAccess.h"
 #include "World/World.h"
 
 CBuildMenuWidget::CBuildMenuWidget()
@@ -159,8 +160,7 @@ void CBuildMenuWidget::StartPlacementBySlot(int SlotIndex)
     if (Entry.IsDemolish)
     {
         PlacementCtrl->SetDemolitionMode(true);
-        mMenuOpen = false;
-        RefreshFromState();
+        SetBuildMenuOpen(false);
         return;
     }
 
@@ -176,20 +176,15 @@ void CBuildMenuWidget::StartPlacementBySlot(int SlotIndex)
     if (!Started)
         return;
 
-    mMenuOpen = false;
-    RefreshFromState();
+    SetBuildMenuOpen(false);
 }
 
 void CBuildMenuWidget::OnBuildButtonClick()
 {
     const bool NextOpen = !mMenuOpen;
-    mMenuOpen = NextOpen;
 
     if (NextOpen)
     {
-        mYearbookOpen = false;
-        mPreviewEntryIndex = -1;
-
         auto World = mWorld.lock();
 
         if (World)
@@ -213,7 +208,7 @@ void CBuildMenuWidget::OnBuildButtonClick()
         }
     }
 
-    RefreshFromState();
+    SetBuildMenuOpen(NextOpen);
 }
 
 void CBuildMenuWidget::OnYearbookButtonClick()
@@ -235,13 +230,12 @@ void CBuildMenuWidget::OnYearbookButtonClick()
 
             if (AlmanacWidget)
             {
-                mMenuOpen = false;
                 mYearbookOpen = false;
+                SetBuildMenuOpen(false);
 
                 if (EdictWidget)
                     EdictWidget->SetOpen(false);
 
-                RefreshFromState();
                 AlmanacWidget->ToggleOpen();
                 return;
             }
@@ -308,6 +302,26 @@ void CBuildMenuWidget::ToggleAlmanac()
 
 void CBuildMenuWidget::SetBuildMenuOpen(bool Open)
 {
+    if (mMenuOpen != Open)
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
+        if (Open)
+        {
+            if (Access && !Access->Read().IsSimulationPaused())
+            {
+                Access->Commands().ToggleSimulationPaused();
+                mAutoPaused = true;
+            }
+        }
+        else if (mAutoPaused)
+        {
+            if (Access && Access->Read().IsSimulationPaused())
+                Access->Commands().ToggleSimulationPaused();
+            mAutoPaused = false;
+        }
+    }
+
     mMenuOpen = Open;
 
     if (Open)
@@ -338,9 +352,8 @@ void CBuildMenuWidget::SetAlmanacOpen(bool Open)
                 mYearbookOpen = false;
 
                 if (Open)
-                    mMenuOpen = false;
+                    SetBuildMenuOpen(false);
 
-                RefreshFromState();
                 AlmanacWidget->SetOpen(Open);
                 return;
             }

@@ -33,7 +33,9 @@ namespace CitizenInfoDataProviderInternal
         Result.Valid = true;
         Result.Mode = EPanelMode::Citizen;
         Result.SelectedTabIndex = ClampedTab;
-        Result.Title = StringUtils::Utf8ToWide(CitizenName);
+        Result.Title = !IdentityProfile.DisplayName.empty() ?
+            StringUtils::Utf8ToWide(IdentityProfile.DisplayName) :
+            StringUtils::Utf8ToWide(CitizenName);
         Result.ShowTabButtons = true;
         Result.ShowBudgetControls = false;
         Result.ShowActionButtons = false;
@@ -240,7 +242,7 @@ namespace CitizenInfoDataProviderInternal
             Result.ShowCitizenProfileOverview = true;
             Result.ShowCitizenActionButtons = true;
             Result.ShowSectionDivider = true;
-            Result.CitizenPortraitSlotCount = 11;
+            Result.CitizenPortraitSlotCount = 12;
             Result.CitizenPortraitOccupiedSlot = 4;
             Result.CitizenPortraitVariant =
                 static_cast<int>(Citizen.Name.size() % 4);
@@ -271,8 +273,6 @@ namespace CitizenInfoDataProviderInternal
             Result.OverviewMetricValues[3] =
                 IsTourist ?
                     Ui(L"citizen_info.origin.tourist") :
-                Citizen.IdentityProfile.IsImmigrant ?
-                    Ui(L"citizen_info.origin.france") :
                     Ui(L"citizen_info.origin.tropico");
             Result.OverviewMetricLabels[4] =
                 Ui(L"citizen_info.metric.wealth");
@@ -317,10 +317,8 @@ namespace CitizenInfoDataProviderInternal
                 Ui(L"citizen_info.action.stage_accident");
             Result.CitizenActionLabels[3] =
                 Ui(L"citizen_info.action.arrest");
-            Result.CitizenActionLabels[4] =
-                Ui(L"citizen_info.action.isolate");
-            Result.CitizenActionLabels[5] =
-                Ui(L"citizen_info.action.send_to_space");
+            Result.CitizenActionLabels[4].clear();
+            Result.CitizenActionLabels[5].clear();
         }
         else if (Result.Valid && Result.SelectedTabIndex == 1)
         {

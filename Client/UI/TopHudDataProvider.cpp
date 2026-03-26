@@ -1,9 +1,11 @@
 #include "TopHudDataProvider.h"
 #include "UIStrings.h"
 #include "../GameBalanceTuning.h"
+#include "../GlobalSetting.h"
 #include "../StringUtils.h"
 #include "../World/FactionDemandTuning.h"
 #include "../World/IWorldUIAccess.h"
+#include "../World/ScenarioConfig.h"
 #include "World/World.h"
 #include <algorithm>
 #include <cmath>
@@ -499,13 +501,31 @@ namespace TopHudDataProvider
             Access->Read().GetKnowledgePoints());
 
 
-        Result.DateText = FormatHudDate(
-            Access->Read().GetSimulationYear(),
-            Access->Read().GetSimulationMonth(),
-            Access->Read().GetSimulationDay());
-        Result.DateText += L" | ";
-        Result.DateText += GetCompactEraLabel(
-            Access->Read().GetCurrentEra());
+        // 시나리오 식민지 시대: "왕실 X년 Y월" 표시 (실제 연도 숨김)
+        if (GameSession::CurrentMode() == EGameMode::Scenario &&
+            Access->Read().GetCurrentEra() == EBuildingEra::Colonial)
+        {
+            const int RegalYear =
+                Access->Read().GetSimulationYear() -
+                ScenarioConfig::GStartYear + 1;
+            wchar_t RegalBuffer[64] = {};
+            swprintf_s(
+                RegalBuffer,
+                L"왕실 %d년 %d월",
+                RegalYear,
+                Access->Read().GetSimulationMonth());
+            Result.DateText = RegalBuffer;
+        }
+        else
+        {
+            Result.DateText = FormatHudDate(
+                Access->Read().GetSimulationYear(),
+                Access->Read().GetSimulationMonth(),
+                Access->Read().GetSimulationDay());
+            Result.DateText += L" | ";
+            Result.DateText += GetCompactEraLabel(
+                Access->Read().GetCurrentEra());
+        }
 
         if (ElectionStatus.GameLost)
         {

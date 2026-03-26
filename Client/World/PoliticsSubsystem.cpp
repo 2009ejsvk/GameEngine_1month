@@ -437,6 +437,33 @@ bool CPoliticsSubsystem::RespondPoliticalDemand(
     return true;
 }
 
+bool CPoliticsSubsystem::CompletePoliticalDemand(
+    EPoliticalDemandIssuerType IssuerType,
+    int IssuerIndex,
+    std::wstring& OutMessage)
+{
+    if (!PoliticalDemandService || !mOwner)
+        return false;
+
+    const long long BudgetBefore = mOwner->mEconomy->NationalBudget;
+    CMainWorldPoliticalDemandService::FRefreshRequests RefreshRequests;
+
+    if (!PoliticalDemandService->CompleteDemand(
+            IssuerType,
+            IssuerIndex,
+            OutMessage,
+            BuildPoliticalDemandContext(),
+            RefreshRequests))
+    {
+        return false;
+    }
+
+    mOwner->mEconomy->RecordSpecialEventBudgetDelta(
+        mOwner->mEconomy->NationalBudget - BudgetBefore);
+    ApplyPoliticalDemandRefreshRequests(RefreshRequests);
+    return true;
+}
+
 void CPoliticsSubsystem::TickPoliticalDemands()
 {
     if (!PoliticalDemandService || !mOwner)

@@ -296,6 +296,7 @@ public:
         mSimulation->CycleSpeedMultiplier();
     }
     bool TryExecuteEraTransition(EEraTransitionChoice Choice);
+    bool TryExecutePeacePayment(std::wstring& OutMessage);
     EBuildingEra GetCurrentEra() const
     {
         return mEraState->EraProgress.CurrentEra;

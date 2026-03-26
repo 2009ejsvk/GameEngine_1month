@@ -1,5 +1,6 @@
 #include "MainWorld.h"
 #include "MainWorldConfig.h"
+#include "../GlobalSetting.h"
 #include "MainWorldTradeRuntime.h"
 #include "WorldStatsSnapshot.h"
 #include "RuntimeConfigRegistry.h"
@@ -8,6 +9,7 @@
 #include "../UI/UILayoutApplier.h"
 #include "../UI/UILayoutLoader.h"
 #include "../GameConstants.h"
+#include "../Economy/EconomySystem.h"
 #include "../StringUtils.h"
 #include "../Map/BuildingMarkerOrb.h"
 #include "../Politics/EdictSystem.h"
@@ -235,14 +237,10 @@ namespace
         long long NetBudgetChange)
     {
         if (ExportIncome <= 0)
-        {
             return;
-        }
 
         if (!IsPopupEnabled(L"ExportSettlement"))
-        {
             return;
-        }
 
         auto UiManager = LockOrWarn(
             WeakUiManager,
@@ -460,6 +458,10 @@ void CMainWorld::AdvanceSimulationDay()
             mSimulation->Day,
             false
         });
+    const int DaysInMonth =
+        mSimulation->GetDaysInMonth(
+            mSimulation->Year,
+            mSimulation->Month);
     mEconomy->RefreshWorldMarketPrices(
         {
             mPolitics->GovernmentProfile,
@@ -470,6 +472,13 @@ void CMainWorld::AdvanceSimulationDay()
             mSimulation->Month,
             mSimulation->Day
         });
+    EconomySystem::AdvanceHarborShipProgress(
+        mSelf.lock().get(),
+        DaysInMonth,
+        &mEdictState->EdictModifiers);
+    const CTradeDiplomacySubsystem::FDailyTradeRouteSettlement
+        TradeRouteSettlement =
+            mTrade->ProcessActiveRoutes();
     mEconomy->OnDayAdvanced(
         {
             mPolitics->GovernmentProfile,
@@ -478,7 +487,9 @@ void CMainWorld::AdvanceSimulationDay()
             mSimulation->Year,
             mSimulation->Month
         });
-    mTrade->ProcessActiveRoutes();
+    mEconomy->LastDailyExportIncome += TradeRouteSettlement.ExportIncome;
+    mEconomy->LastDailyImportExpense += TradeRouteSettlement.ImportExpense;
+    mEconomy->LastDailyNetChange += TradeRouteSettlement.NetChange;
     mEconomy->RefreshTradePolicyBudgetDelta(
         mPolitics->GovernmentProfile);
     ShowExportSettlementWidget(
@@ -525,6 +536,13 @@ void CMainWorld::AdvanceSimulationDay()
             mSimulation->Day
         });
     mCrisis->TickWorldCrises();
+    // TickPhase runs before TickPoliticalDemands so that scenario phase
+    // transitions (e.g. PeacePayment → EraTransitionReady) can read the
+    // current demand acceptance state before the demand service auto-clears it.
+    if (GameSession::CurrentMode() == EGameMode::Scenario)
+    {
+        mScenario->TickPhase();
+    }
     mPolitics->TickPoliticalDemands();
     mTrade->OnDayAdvanced(
         {
@@ -563,12 +581,6 @@ void CMainWorld::AdvanceSimulationDay()
         }
     }
 
-    const FScenarioEvent ScenarioResult =
-        mScenario->Runner.Tick(
-            mSimulation->Year,
-            mSimulation->Month,
-            mSimulation->Day);
-    mScenario->ApplyScenarioResult(ScenarioResult);
     mPolitics->TickElectionPromises(
         mSimulation->Year,
         mSimulation->Month,

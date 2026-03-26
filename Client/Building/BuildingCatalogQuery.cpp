@@ -42,15 +42,14 @@ namespace
             if (InputLabel.empty())
                 continue;
 
-            std::wstring DisplayLabel = InputLabel;
             const size_t Index = static_cast<size_t>(SlotIndex);
+            const int InputAmount = Entry.ProductionInputAmounts[Index];
+            std::wstring DisplayLabel = InputLabel;
 
-            if (Entry.ProductionInputLabels[Index].empty() &&
-                Entry.ProductionInputAmounts[Index] > 1)
+            if (InputAmount > 0)
             {
-                DisplayLabel += L" x";
-                DisplayLabel +=
-                    std::to_wstring(Entry.ProductionInputAmounts[Index]);
+                DisplayLabel += L" x ";
+                DisplayLabel += std::to_wstring(InputAmount);
             }
 
             InputLabels.push_back(DisplayLabel);
@@ -347,11 +346,12 @@ namespace
                 DisplayLabel =
                     std::wstring(GetResourceTypeDisplayName(InputType));
 
-                if (InputAmount > 1)
-                {
-                    DisplayLabel += L" x";
-                    DisplayLabel += std::to_wstring(InputAmount);
-                }
+            }
+
+            if (InputAmount > 0)
+            {
+                DisplayLabel += L" x ";
+                DisplayLabel += std::to_wstring(InputAmount);
             }
 
             DemandLabels.push_back(DisplayLabel);

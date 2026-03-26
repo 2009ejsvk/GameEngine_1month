@@ -1,6 +1,7 @@
 #include "TradeWidget.h"
 #include "TradeWidgetRuntime.h"
 #include "../World/GovernmentCommandService.h"
+#include "../World/IWorldUIAccess.h"
 #include "../World/MainWorldTradeAccess.h"
 #include "Device.h"
 #include "World/World.h"
@@ -59,6 +60,25 @@ void CTradeWidget::SetOpen(bool Open)
         return;
 
     mOpen = Open;
+
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
+        if (mOpen)
+        {
+            if (Access && !Access->Read().IsSimulationPaused())
+            {
+                Access->Commands().ToggleSimulationPaused();
+                mAutoPaused = true;
+            }
+        }
+        else if (mAutoPaused)
+        {
+            if (Access && Access->Read().IsSimulationPaused())
+                Access->Commands().ToggleSimulationPaused();
+            mAutoPaused = false;
+        }
+    }
 
     if (mOpen)
     {

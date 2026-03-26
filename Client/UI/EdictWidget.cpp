@@ -4,6 +4,7 @@
 #include "UIStrings.h"
 #include "../Politics/EdictSystem.h"
 #include "../World/GovernmentCommandService.h"
+#include "../World/IWorldUIAccess.h"
 #include "World/Input.h"
 #include "World/World.h"
 
@@ -82,6 +83,25 @@ void CEdictWidget::SetOpen(bool Open)
         return;
 
     mOpen = Open;
+
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
+        if (mOpen)
+        {
+            if (Access && !Access->Read().IsSimulationPaused())
+            {
+                Access->Commands().ToggleSimulationPaused();
+                mAutoPaused = true;
+            }
+        }
+        else if (mAutoPaused)
+        {
+            if (Access && Access->Read().IsSimulationPaused())
+                Access->Commands().ToggleSimulationPaused();
+            mAutoPaused = false;
+        }
+    }
 
     if (mOpen)
     {

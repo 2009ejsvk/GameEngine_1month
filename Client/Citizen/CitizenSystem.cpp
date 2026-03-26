@@ -26,6 +26,31 @@ namespace
     int GNextCitizenHouseholdId = 1;
     FPendingHouseholdSeed GPendingHouseholdSeeds[GCitizenWealthLevelCount] = {};
 
+    const char* const GCitizenFirstNames[] = {
+        "Pablo", "Maria", "Carlos", "Ana", "Miguel", "Isabella", "Roberto",
+        "Sofia", "Diego", "Elena", "Jose", "Carmen", "Luis", "Lucia",
+        "Fernando", "Rosa", "Ricardo", "Gloria", "Eduardo", "Valentina",
+        "Myrthe", "Jan", "Pieter", "Lena", "Hans", "Amira", "Kofi",
+        "Yuki", "Ivan", "Nina"
+    };
+    const char* const GCitizenLastNames[] = {
+        "Garcia", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez",
+        "Perez", "Sanchez", "Silva", "Costa", "Ferreira", "Santos", "Oliveira",
+        "Souza", "Morales", "Cruz", "Ramirez", "Torres", "Reyes", "Vasquez",
+        "Meijer", "Jansen", "De Vries", "Bakker", "Osei", "Tanaka",
+        "Petrov", "Novak", "Diallo", "Mensah"
+    };
+    constexpr int GCitizenFirstNamesCount = 30;
+    constexpr int GCitizenLastNamesCount = 30;
+
+    std::string GenerateCitizenDisplayName()
+    {
+        const int FirstIndex = rand() % GCitizenFirstNamesCount;
+        const int LastIndex = rand() % GCitizenLastNamesCount;
+        return std::string(GCitizenFirstNames[FirstIndex]) +
+               " " + GCitizenLastNames[LastIndex];
+    }
+
     float Clamp01(float Value)
     {
         return (std::max)(0.f, (std::min)(1.f, Value));
@@ -318,6 +343,7 @@ namespace
         }
 
         AssignTouristHouseholdProfile(Profile);
+        Profile.DisplayName = GenerateCitizenDisplayName();
         return Profile;
     }
 
@@ -549,6 +575,7 @@ namespace
 
         AssignCitizenHouseholdProfile(Profile);
         Profile.IsImmigrant = true;
+        Profile.DisplayName = GenerateCitizenDisplayName();
         return Profile;
     }
 

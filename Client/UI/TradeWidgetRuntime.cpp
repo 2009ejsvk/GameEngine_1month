@@ -1644,7 +1644,7 @@ namespace TradeWidgetRuntime
             SetDetailRow(
                 Result,
                 8,
-                L"standing 변화",
+                L"신용도 변화",
                 FormatSignedInteger(SelectedRoute.StandingModifier),
                 ResolveSignedTone(SelectedRoute.StandingModifier));
             return Result;
@@ -1677,7 +1677,7 @@ namespace TradeWidgetRuntime
             SetDetailRow(
                 Result,
                 3,
-                L"무역국 / standing",
+                L"무역국 / 신용도",
                 SelectedProposal.PartnerName +
                     L" / " +
                     FormatSignedInteger(SelectedProposal.Standing));

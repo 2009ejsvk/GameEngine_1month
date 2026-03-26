@@ -29,6 +29,7 @@ namespace TropicoUiAssets
         ScrollThumbTexture,
         DropdownArrowTexture,
         DropdownArrowHoverTexture,
+        ActionButtonBgTexture,
         Count
     };
 
@@ -75,4 +76,5 @@ namespace TropicoUiAssets
     extern const FAssetPathRef GScrollThumbTexture;
     extern const FAssetPathRef GDropdownArrowTexture;
     extern const FAssetPathRef GDropdownArrowHoverTexture;
+    extern const FAssetPathRef GActionButtonBgTexture;
 }

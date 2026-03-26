@@ -50,6 +50,7 @@ private:
     std::vector<std::weak_ptr<class CTextBlock>> mBuildingButtonTexts;
     std::vector<int> mVisibleEntryIndices;
     bool  mMenuOpen               = false;
+    bool  mAutoPaused             = false;
     bool  mYearbookOpen           = false;
     EBuildingCategory mSelectedCategory = EBuildingCategory::Infrastructure;
     int   mPreviewEntryIndex      = -1;

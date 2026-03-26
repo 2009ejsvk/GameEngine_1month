@@ -14,3 +14,9 @@ enum class EEditorMode
 	TileType,
 	TileFrame
 };
+
+enum class EGameMode
+{
+	Sandbox,
+	Scenario
+};

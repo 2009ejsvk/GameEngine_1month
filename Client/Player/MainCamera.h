@@ -35,4 +35,5 @@ private:
     void MoveDown();
     void MoveLeft();
     void MoveRight();
+    void HandleEscape();
 };

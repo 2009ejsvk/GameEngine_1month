@@ -370,8 +370,7 @@ void CWorldCitizenInfoTradeQuery::PopulateLogisticsLines(
                     Building->GetReservedIncomingResourceAmount(Type);
         const int ShortageAmount = (std::max)(
             0,
-            GameConstants::Orb::TeamsterConsumerTargetStock -
-                CoveredStock);
+            Building->GetResourceTypeCapacity(Type) - CoveredStock);
         AppendLine(
             std::wstring(Prefix) +
             L": " +
@@ -594,8 +593,8 @@ void CWorldCitizenInfoTradeQuery::PopulateLogisticsLines(
                     {
                         CoverageGapMetric += (std::max)(
                             0,
-                            GameConstants::Orb::
-                                TeamsterConsumerTargetStock -
+                            OtherBuilding->GetResourceTypeCapacity(
+                                ResourceType) -
                                 (OtherBuilding->GetResourceStock(
                                     ResourceType) +
                                 OtherBuilding->
@@ -689,8 +688,8 @@ void CWorldCitizenInfoTradeQuery::PopulateLogisticsLines(
 
                     const int ShortageAmount = (std::max)(
                         0,
-                        GameConstants::Orb::
-                            TeamsterConsumerTargetStock -
+                        OtherBuilding->GetResourceTypeCapacity(
+                            ResourceType) -
                             (OtherBuilding->GetResourceStock(
                                 ResourceType) +
                             OtherBuilding->

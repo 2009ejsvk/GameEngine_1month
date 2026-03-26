@@ -121,6 +121,7 @@ struct FBuildingOperationsState
     std::array<int, GBuildingServiceTypeCount> ServiceStockCaps = {};
     std::array<float, GBuildingServiceTypeCount> ServiceStockAccums = {};
     float HarborShipProgressMonths = 0.f;
+    bool HarborShipArrivedThisTick = false;
     int ReservedExportPickupAmount = 0;
     std::array<EResourceType, WarehouseSlotCount> WarehouseSlotTypes =
     {
@@ -538,6 +539,8 @@ struct FBuildingOperationsState
         int DaysInMonth,
         float HarborProgressMultiplier = 1.f)
     {
+        HarborShipArrivedThisTick = false;
+
         if (!IsHarbor)
             return false;
 
@@ -558,7 +561,13 @@ struct FBuildingOperationsState
             HarborShipProgressMonths -= GBaseShipIntervalMonths;
         }
 
+        HarborShipArrivedThisTick = true;
         return true;
+    }
+
+    bool GetHarborShipArrivedThisTick(bool IsHarbor) const
+    {
+        return IsHarbor && HarborShipArrivedThisTick;
     }
 
     float GetHarborShipProgressPercent(bool IsHarbor) const
@@ -1293,7 +1302,8 @@ struct FBuildingOperationsState
             }
         }
 
-        LastProductionEfficiency = WorkforceCoverage;
+        LastProductionEfficiency =
+            WorkforceCoverage * (std::max)(0.f, ProductionMultiplier);
         ResourceProductionAccumScaled = (std::min)(
             ResourceProductionAccumScaled +
                 ResolveScaledProductionUnits(
@@ -1320,7 +1330,8 @@ struct FBuildingOperationsState
                         static_cast<float>(Whole) /
                             static_cast<float>(WholeRequested))) :
                 1.f;
-        LastProductionEfficiency = WorkforceCoverage * InputCoverage;
+        LastProductionEfficiency =
+            WorkforceCoverage * InputCoverage * (std::max)(0.f, ProductionMultiplier);
 
         if (Whole <= 0)
         {

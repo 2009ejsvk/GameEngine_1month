@@ -4,6 +4,7 @@
 #include "TropicoUiAssetCatalog.h"
 #include "../RuntimeConfigRegistry.h"
 #include "../World/GovernmentCommandService.h"
+#include "../World/IWorldUIAccess.h"
 #include "../ObjectNames.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
@@ -640,6 +641,28 @@ void CEventWidget::RefreshFromState()
 
 void CEventWidget::SetPopupVisible(bool Visible)
 {
+    if (Visible != mPopupWasVisible)
+    {
+        auto* Access = ResolveWorldUIAccess(mWorld.lock().get());
+
+        if (Visible)
+        {
+            if (Access && !Access->Read().IsSimulationPaused())
+            {
+                Access->Commands().ToggleSimulationPaused();
+                mAutoPaused = true;
+            }
+        }
+        else if (mAutoPaused)
+        {
+            if (Access && Access->Read().IsSimulationPaused())
+                Access->Commands().ToggleSimulationPaused();
+            mAutoPaused = false;
+        }
+
+        mPopupWasVisible = Visible;
+    }
+
     if (Visible)
         SetSize(GPanelWidth, GPanelHeight);
     else

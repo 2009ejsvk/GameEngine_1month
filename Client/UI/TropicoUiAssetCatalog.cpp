@@ -32,6 +32,7 @@ namespace TropicoUiAssets
     const FAssetPathRef GScrollThumbTexture(EAssetId::ScrollThumbTexture);
     const FAssetPathRef GDropdownArrowTexture(EAssetId::DropdownArrowTexture);
     const FAssetPathRef GDropdownArrowHoverTexture(EAssetId::DropdownArrowHoverTexture);
+    const FAssetPathRef GActionButtonBgTexture(EAssetId::ActionButtonBgTexture);
 
     const TCHAR* FAssetPathRef::Get() const
     {
@@ -83,7 +84,8 @@ namespace
         { "scroll", "track_texture", L"TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\Sliderthumb\\T_scrollbar_bg.png" },
         { "scroll", "thumb_texture", L"TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Buttons\\Sliderthumb\\T_scrollbar.png" },
         { "dropdown", "arrow_texture", L"TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow.png" },
-        { "dropdown", "arrow_hover_texture", L"TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow_hover.png" }
+        { "dropdown", "arrow_hover_texture", L"TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Indicators\\T_dropDownArrow_hover.png" },
+        { "action_button", "bg_texture", L"TROPICO_ASSET\\Visuals\\UI\\Base\\0_AllEras\\Backgrounds\\T_dialog_portrait_name_bg.png" }
     }};
 
     std::array<std::wstring, GAssetCount> GValues = {};

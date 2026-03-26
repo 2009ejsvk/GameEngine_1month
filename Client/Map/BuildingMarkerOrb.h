@@ -353,16 +353,19 @@ private:
     void ReleaseTeamsterReservations();
     void ReleaseServiceVisitReservations();
     bool TryStartTeamsterDelivery();
+    bool TryRerouteTeamsterAfterDelivery();
     bool TryPlanTeamsterWarehouseBufferDelivery(
         const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
         FTeamsterDeliveryState& OutDelivery) const;
     bool TryPlanTeamsterConsumerDelivery(
         const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
         FTeamsterDeliveryState& OutDelivery,
-        bool CriticalOnly) const;
+        bool CriticalOnly,
+        const std::string& ExcludeDestName = {}) const;
     bool TryPlanTeamsterExportDelivery(
         const std::shared_ptr<class CPlacementAreaObject>& OfficeBuilding,
-        FTeamsterDeliveryState& OutDelivery) const;
+        FTeamsterDeliveryState& OutDelivery,
+        bool UrgentOnly = false) const;
     std::string FindTeamsterSourceName() const;
     std::string FindHarborName() const;
     std::string FindTeamsterExportDropoffName(

@@ -41,6 +41,10 @@ public:
         int SimulationMonth,
         int SimulationDay) const;
     void TickPoliticalDemands();
+    bool CompletePoliticalDemand(
+        EPoliticalDemandIssuerType IssuerType,
+        int IssuerIndex,
+        std::wstring& OutMessage);
     bool RespondPoliticalDemand(
         EPoliticalDemandIssuerType IssuerType,
         int IssuerIndex,

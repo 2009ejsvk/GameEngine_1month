@@ -185,6 +185,11 @@ namespace EconomyWorldAccess
                         DaysInMonth, EdictMultiplier);
             }
 
+            bool GetHarborShipArrivedThisTick() const override
+            {
+                return mBuilding && mBuilding->GetHarborShipArrivedThisTick();
+            }
+
             void ApplyDailyWarehouseStorageLoss() override
             {
                 if (mBuilding)

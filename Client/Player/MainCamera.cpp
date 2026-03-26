@@ -3,6 +3,8 @@
 #include "Component/ObjectMovementComponent.h"
 #include "Device.h"
 #include "../ObjectNames.h"
+#include "../Map/PlacementController.h"
+#include "../UI/TopHudWidget.h"
 #include "../UI/BuildMenuWidget.h"
 #include "../UI/EdictWidget.h"
 #include "World/World.h"
@@ -77,6 +79,10 @@ bool CMainCamera::Init()
     Input->AddBindKey("MainCameraMoveRight", 'D');
     Input->SetBindFunction<CMainCamera>("MainCameraMoveRight",
         EInputType::Hold, this, &CMainCamera::MoveRight);
+
+    Input->AddBindKey("HandleEscape", VK_ESCAPE);
+    Input->SetBindFunction<CMainCamera>("HandleEscape",
+        EInputType::Press, this, &CMainCamera::HandleEscape);
 
     return true;
 }
@@ -161,4 +167,46 @@ void CMainCamera::MoveRight()
 
     if (Movement)
         Movement->AddMove(GetAxis(EAxis::X));
+}
+
+void CMainCamera::HandleEscape()
+{
+    auto World = mWorld.lock();
+
+    if (!World)
+        return;
+
+    auto Placement = World->FindObject<CPlacementController>(
+        GPlacementControllerName).lock();
+
+    if (Placement && Placement->IsAnyModeActive())
+    {
+        Placement->CancelPlacementMode();
+        return;
+    }
+
+    auto UIManager = World->GetUIManager().lock();
+
+    if (!UIManager)
+        return;
+
+    auto TopHud = UIManager->FindWidget<CTopHudWidget>(
+        GTopHudWidgetName).lock();
+
+    if (!TopHud)
+        return;
+
+    if (TopHud->GetState().ExitConfirmPopupOpen)
+    {
+        TopHud->CloseExitConfirmPopup();
+        return;
+    }
+
+    if (TopHud->IsAnyMenuOpen())
+    {
+        TopHud->CloseMenus(true, true, true, true, true);
+        return;
+    }
+
+    TopHud->OpenExitConfirmPopup();
 }

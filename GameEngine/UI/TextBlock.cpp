@@ -288,6 +288,19 @@ void CTextBlock::SetShadowOffset(float x, float y)
 	mShadowOffset.y = y;
 }
 
+float CTextBlock::GetLayoutHeight()
+{
+    if (!mLayout)
+        return mSize.y;
+
+    // 높이 제약을 해제한 상태에서 실제 텍스트 높이를 측정한다.
+    mLayout->SetMaxHeight(100000.f);
+    DWRITE_TEXT_METRICS Metrics = {};
+    mLayout->GetMetrics(&Metrics);
+    mLayout->SetMaxHeight(mSize.y);
+    return Metrics.height;
+}
+
 void CTextBlock::CreateTextLayout()
 {
 	SAFE_RELEASE(mLayout);

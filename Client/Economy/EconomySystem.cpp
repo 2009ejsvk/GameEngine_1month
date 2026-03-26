@@ -1933,11 +1933,7 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
         if (Building->CanExportStoredResources())
         {
             ShipArrivedByBuilding[i] =
-                Building->AdvanceHarborShipProgressAndCheckArrival(
-                    DaysInMonth,
-                    EdictModifiers
-                        ? EdictModifiers->HarborShipProgressMultiplier
-                        : 1.f);
+                Building->GetHarborShipArrivedThisTick();
             if (ShipArrivedByBuilding[i])
             {
                 ArrivedExportHubs.push_back(Building);
@@ -2082,6 +2078,31 @@ EconomySystem::FDailyResult EconomySystem::ApplyDailySettlement(
         Result.WageCost - Result.UpkeepCost - Result.ImportExpense;
 
     return Result;
+}
+
+void EconomySystem::AdvanceHarborShipProgress(
+    CWorld* World,
+    int DaysInMonth,
+    const FGovernmentEdictModifiers* EdictModifiers)
+{
+    const auto BuildingList = EconomyWorldAccess::CollectBuildings(World);
+
+    for (size_t Index = 0; Index < BuildingList.size(); ++Index)
+    {
+        const auto& Building = BuildingList[Index];
+
+        if (!IsOperationalBuilding(Building) ||
+            !Building->CanExportStoredResources())
+        {
+            continue;
+        }
+
+        Building->AdvanceHarborShipProgressAndCheckArrival(
+            DaysInMonth,
+            EdictModifiers
+                ? EdictModifiers->HarborShipProgressMultiplier
+                : 1.f);
+    }
 }
 
 EconomySystem::FWorldSettlementResult EconomySystem::ApplyDailyWorldSettlement(

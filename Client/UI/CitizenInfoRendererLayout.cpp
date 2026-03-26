@@ -63,12 +63,18 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
             Context.Flags.IsCitizenMode ?
                 UIConfig::CitizenTitleFontSize :
                 UIConfig::BuildingTitleFontSize);
-    for (auto& SubtitleWeak : Widget.mSubtitleTexts)
-        if (auto SubTxt = SubtitleWeak.lock())
-            SubTxt->SetFontSize(
-                Context.Flags.IsCitizenMode ?
-                    UIConfig::CitizenSubtitleFontSize :
-                    UIConfig::BuildingSubtitleFontSize);
+    if (Context.Flags.IsCitizenMode)
+    {
+        for (auto& SubtitleWeak : Widget.mCitizenSubtitleTexts)
+            if (auto SubTxt = SubtitleWeak.lock())
+                SubTxt->SetFontSize(UIConfig::CitizenSubtitleFontSize);
+    }
+    else
+    {
+        for (auto& SubtitleWeak : Widget.mSubtitleTexts)
+            if (auto SubTxt = SubtitleWeak.lock())
+                SubTxt->SetFontSize(UIConfig::BuildingSubtitleFontSize);
+    }
     if (auto BodyTxt = Widget.mBodyText.lock())
         BodyTxt->SetFontSize(
             Context.Flags.IsCitizenMode ?
@@ -241,17 +247,23 @@ void FCitizenInfoRenderer::RefreshCommonLayout(
                 TitleTextWidthAdjust,
             TitleRibbonH + TitleTextHeightAdjust);
     }
-    for (auto& SubtitleWeak : Widget.mSubtitleTexts)
     {
-        if (auto SubtitleText = SubtitleWeak.lock())
+        auto SetSubtitleLayout = [&](CCitizenInfoWidget::WText& SubtitleWeak)
         {
-            SubtitleText->SetPos(
-                RibbonOffsetX,
-                OuterTop + RibbonOffsetY + TitleRibbonH + Layout.SubtitleOffsetY);
-            SubtitleText->SetSize(
-                PanelWidth - RibbonOffsetX * 2.f,
-                Layout.CompactControlHeight);
-        }
+            if (auto SubtitleText = SubtitleWeak.lock())
+            {
+                SubtitleText->SetPos(
+                    RibbonOffsetX,
+                    OuterTop + RibbonOffsetY + TitleRibbonH + Layout.SubtitleOffsetY);
+                SubtitleText->SetSize(
+                    PanelWidth - RibbonOffsetX * 2.f,
+                    Layout.CompactControlHeight);
+            }
+        };
+        if (Context.Flags.IsCitizenMode)
+            for (auto& W : Widget.mCitizenSubtitleTexts) SetSubtitleLayout(W);
+        else
+            for (auto& W : Widget.mSubtitleTexts) SetSubtitleLayout(W);
     }
 
 
@@ -736,11 +748,25 @@ void FCitizenInfoRenderer::RefreshCitizenThoughtsLayout(
             Index < CCitizenInfoWidget::GOverviewMetricRowCount;
             ++Index)
         {
+            if (auto Icon =
+                Widget.mOverviewMetricIcons[static_cast<size_t>(Index)].lock())
+            {
+                Icon->SetPos(0.f, 0.f);
+                Icon->SetSize(0.f, 0.f);
+            }
+
             if (auto Label =
                 Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock())
             {
                 Label->SetPos(0.f, 0.f);
                 Label->SetSize(0.f, 0.f);
+            }
+
+            if (auto Bg =
+                Widget.mOverviewMetricValueBgs[static_cast<size_t>(Index)].lock())
+            {
+                Bg->SetPos(0.f, 0.f);
+                Bg->SetSize(0.f, 0.f);
             }
 
             if (auto Value =
@@ -846,9 +872,10 @@ void FCitizenInfoRenderer::RefreshCitizenThoughtsLayout(
         }
 
         const float SectionTop =
-            OuterTop + RibbonOffsetY + TitleRibbonH + 42.f;
+            OuterTop + RibbonOffsetY + TitleRibbonH +
+            UIConfig::CitizenThoughtsSectionTopOffset;
         const float SectionWidth = PanelWidth - BudgetMargin * 2.f;
-        const float SectionHeight = 30.f;
+        const float SectionHeight = UIConfig::CitizenThoughtsSectionHeight;
 
         if (auto Background = Widget.mCitizenThoughtTitleBackground.lock())
         {
@@ -862,12 +889,14 @@ void FCitizenInfoRenderer::RefreshCitizenThoughtsLayout(
             Text->SetSize(SectionWidth, SectionHeight);
         }
 
-        const float ThoughtTop = SectionTop + SectionHeight + 14.f;
-        const float ThoughtWidth = SectionWidth - 6.f;
-        const float ThoughtHeight = 50.f;
+        const float ThoughtTop = SectionTop + SectionHeight +
+            UIConfig::CitizenThoughtsTopGap;
+        const float ThoughtWidth = SectionWidth -
+            UIConfig::CitizenThoughtsWidthInset;
+        const float ThoughtHeight = UIConfig::CitizenThoughtsEntryH;
         const float DividerWidth = Context.Metrics.SectionDividerWidth;
         const float DividerHeight = Context.Metrics.SectionDividerHeight;
-        const float ThoughtStep = 82.f;
+        const float ThoughtStep = UIConfig::CitizenThoughtsStep;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GCitizenThoughtCount;
@@ -877,7 +906,7 @@ void FCitizenInfoRenderer::RefreshCitizenThoughtsLayout(
                 Widget.mCitizenThoughtTexts[static_cast<size_t>(Index)].lock())
             {
                 Text->SetPos(
-                    BudgetMargin + 2.f,
+                    BudgetMargin + UIConfig::CitizenThoughtsTextOffsetX,
                     ThoughtTop + ThoughtStep * static_cast<float>(Index));
                 Text->SetSize(ThoughtWidth, ThoughtHeight);
             }
@@ -892,7 +921,8 @@ void FCitizenInfoRenderer::RefreshCitizenThoughtsLayout(
             {
             Divider->SetPos(
                 PanelWidth * 0.5f - DividerWidth * 0.5f,
-                ThoughtTop + 38.f + ThoughtStep * static_cast<float>(Index));
+                ThoughtTop + UIConfig::CitizenThoughtsDividerOffsetY +
+                    ThoughtStep * static_cast<float>(Index));
             Divider->SetSize(DividerWidth, DividerHeight);
             }
         }
@@ -979,11 +1009,25 @@ void FCitizenInfoRenderer::RefreshCitizenPoliticsLayout(
             Index < CCitizenInfoWidget::GOverviewMetricRowCount;
             ++Index)
         {
+            if (auto Icon =
+                Widget.mOverviewMetricIcons[static_cast<size_t>(Index)].lock())
+            {
+                Icon->SetPos(0.f, 0.f);
+                Icon->SetSize(0.f, 0.f);
+            }
+
             if (auto Label =
                 Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock())
             {
                 Label->SetPos(0.f, 0.f);
                 Label->SetSize(0.f, 0.f);
+            }
+
+            if (auto Bg =
+                Widget.mOverviewMetricValueBgs[static_cast<size_t>(Index)].lock())
+            {
+                Bg->SetPos(0.f, 0.f);
+                Bg->SetSize(0.f, 0.f);
             }
 
             if (auto Value =
@@ -1001,12 +1045,14 @@ void FCitizenInfoRenderer::RefreshCitizenPoliticsLayout(
         }
 
         const float SectionWidth = PanelWidth - BudgetMargin * 2.f;
-        const float SectionHeight = 30.f;
+        const float SectionHeight = UIConfig::CitizenPoliticsSectionHeight;
         const float SatisfactionTitleTop =
-            OuterTop + RibbonOffsetY + TitleRibbonH + 42.f;
-        const float SatisfactionRowsTop = SatisfactionTitleTop + SectionHeight + 10.f;
-        const float SatisfactionRowH = 28.f;
-        const float SatisfactionLabelW = 82.f;
+            OuterTop + RibbonOffsetY + TitleRibbonH +
+            UIConfig::CitizenPoliticsSectionTopOffset;
+        const float SatisfactionRowsTop = SatisfactionTitleTop + SectionHeight +
+            UIConfig::CitizenPoliticsSatisfactionGap;
+        const float SatisfactionRowH = UIConfig::CitizenPoliticsSatisfactionRowH;
+        const float SatisfactionLabelW = UIConfig::CitizenPoliticsSatisfactionLabelW;
         const float SatisfactionRailLeft = BudgetMargin + SatisfactionLabelW;
         const float SatisfactionRailWidth =
             PanelWidth - BudgetMargin - SatisfactionRailLeft - 4.f;
@@ -1024,19 +1070,19 @@ void FCitizenInfoRenderer::RefreshCitizenPoliticsLayout(
                     SatisfactionRowH *
                     static_cast<float>(
                         CCitizenInfoWidget::GCitizenPoliticsSatisfactionCount) +
-                    8.f;
+                    UIConfig::CitizenPoliticsOpinionSectionGap;
             else
                 SectionTop = SatisfactionRowsTop +
                     SatisfactionRowH *
                     static_cast<float>(
                         CCitizenInfoWidget::GCitizenPoliticsSatisfactionCount) +
-                    8.f +
+                    UIConfig::CitizenPoliticsOpinionSectionGap +
                     SectionHeight +
-                    8.f +
-                    26.f *
+                    UIConfig::CitizenPoliticsOpinionSectionGap +
+                    UIConfig::CitizenPoliticsOpinionRowH *
                     static_cast<float>(
                         CCitizenInfoWidget::GCitizenPoliticsOpinionCount) +
-                    14.f;
+                    UIConfig::CitizenPoliticsSupportGap;
 
             if (auto Background =
                 Widget.mCitizenPoliticsSectionBackgrounds[
@@ -1077,25 +1123,31 @@ void FCitizenInfoRenderer::RefreshCitizenPoliticsLayout(
                     static_cast<size_t>(Index)].lock())
             {
                 Label->SetPos(BudgetMargin, RowTop);
-                Label->SetSize(SatisfactionLabelW - 8.f, 22.f);
+                Label->SetSize(
+                    SatisfactionLabelW - 8.f,
+                    UIConfig::CitizenPoliticsBarLabelH);
             }
 
             if (auto Rail =
                 Widget.mCitizenPoliticsSatisfactionRails[
                     static_cast<size_t>(Index)].lock())
             {
-                Rail->SetPos(SatisfactionRailLeft, RowTop + 5.f);
-                Rail->SetSize(SatisfactionRailWidth, 13.f);
+                Rail->SetPos(
+                    SatisfactionRailLeft,
+                    RowTop + UIConfig::CitizenPoliticsBarRailOffsetY);
+                Rail->SetSize(SatisfactionRailWidth, UIConfig::CitizenPoliticsBarRailH);
             }
 
             if (auto Fill =
                 Widget.mCitizenPoliticsSatisfactionFills[
                     static_cast<size_t>(Index)].lock())
             {
-                Fill->SetPos(SatisfactionRailLeft + 1.f, RowTop + 6.f);
+                Fill->SetPos(
+                    SatisfactionRailLeft + 1.f,
+                    RowTop + UIConfig::CitizenPoliticsBarFillOffsetY);
                 Fill->SetSize(
                     (std::min)(SatisfactionRailWidth - 2.f, FillWidth),
-                    11.f);
+                    UIConfig::CitizenPoliticsBarFillH);
             }
         }
 
@@ -1104,8 +1156,9 @@ void FCitizenInfoRenderer::RefreshCitizenPoliticsLayout(
             SatisfactionRowH *
                 static_cast<float>(
                     CCitizenInfoWidget::GCitizenPoliticsSatisfactionCount) +
-            8.f;
-        const float OpinionRowsTop = OpinionTitleTop + SectionHeight + 8.f;
+            UIConfig::CitizenPoliticsOpinionSectionGap;
+        const float OpinionRowsTop = OpinionTitleTop + SectionHeight +
+            UIConfig::CitizenPoliticsOpinionSectionGap;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GCitizenPoliticsOpinionCount;
@@ -1117,19 +1170,26 @@ void FCitizenInfoRenderer::RefreshCitizenPoliticsLayout(
             {
                 Text->SetPos(
                     BudgetMargin + 4.f,
-                    OpinionRowsTop + 26.f * static_cast<float>(Index));
-                Text->SetSize(SectionWidth - 8.f, 22.f);
+                    OpinionRowsTop +
+                        UIConfig::CitizenPoliticsOpinionRowH *
+                        static_cast<float>(Index));
+                Text->SetSize(
+                    SectionWidth - 8.f,
+                    UIConfig::CitizenPoliticsOpinionTextH);
             }
         }
 
         const float SupportTitleTop =
             OpinionRowsTop +
-            26.f *
+            UIConfig::CitizenPoliticsOpinionRowH *
                 static_cast<float>(
                     CCitizenInfoWidget::GCitizenPoliticsOpinionCount) +
-            14.f;
-        const float SupportIconsTop = SupportTitleTop + SectionHeight + 8.f;
+            UIConfig::CitizenPoliticsSupportGap;
+        const float SupportIconsTop = SupportTitleTop + SectionHeight +
+            UIConfig::CitizenPoliticsSupportIconsGap;
         const float SupportIconSpacing = SectionWidth / 3.f;
+        const float SupportIconHalfSize =
+            UIConfig::CitizenPoliticsSupportIconSize * 0.5f;
 
         for (int Index = 0;
             Index < CCitizenInfoWidget::GCitizenPoliticsSupportIconCount;
@@ -1143,30 +1203,36 @@ void FCitizenInfoRenderer::RefreshCitizenPoliticsLayout(
                     BudgetMargin +
                     SupportIconSpacing * static_cast<float>(Index) +
                     SupportIconSpacing * 0.5f -
-                    10.f;
+                    SupportIconHalfSize;
                 Icon->SetPos(IconLeft, SupportIconsTop);
-                Icon->SetSize(20.f, 20.f);
+                Icon->SetSize(
+                    UIConfig::CitizenPoliticsSupportIconSize,
+                    UIConfig::CitizenPoliticsSupportIconSize);
             }
         }
 
-        const float SupportRailTop = SupportIconsTop + 26.f;
-        const float SupportRailLeft = BudgetMargin + 10.f;
-        const float SupportRailWidth = SectionWidth - 20.f;
+        const float SupportRailTop = SupportIconsTop +
+            UIConfig::CitizenPoliticsSupportRailTopOffset;
+        const float SupportRailLeft = BudgetMargin +
+            UIConfig::CitizenPoliticsSupportRailMargin;
+        const float SupportRailWidth = SectionWidth -
+            UIConfig::CitizenPoliticsSupportRailMargin * 2.f;
 
         if (auto Rail = Widget.mCitizenPoliticsSupportRail.lock())
         {
             Rail->SetPos(SupportRailLeft, SupportRailTop);
-            Rail->SetSize(SupportRailWidth, 10.f);
+            Rail->SetSize(SupportRailWidth, UIConfig::CitizenPoliticsSupportRailH);
         }
 
         if (auto Thumb = Widget.mCitizenPoliticsSupportThumb.lock())
         {
             const float SupportRatio =
                 (std::max)(0.f, (std::min)(1.f, Widget.mCitizenPoliticsSupportRatio));
+            const float ThumbW = UIConfig::CitizenPoliticsSupportThumbW;
             Thumb->SetPos(
-                SupportRailLeft + SupportRatio * (SupportRailWidth - 10.f),
-                SupportRailTop - 4.f);
-            Thumb->SetSize(10.f, 18.f);
+                SupportRailLeft + SupportRatio * (SupportRailWidth - ThumbW),
+                SupportRailTop + UIConfig::CitizenPoliticsSupportThumbOffsetY);
+            Thumb->SetSize(ThumbW, UIConfig::CitizenPoliticsSupportThumbH);
         }
 }
 
@@ -1177,48 +1243,39 @@ void FCitizenInfoRenderer::RefreshCitizenProfileLayout(
     auto Widget = Owner.GetRendererView();
     const float PanelWidth = Context.Panel.Width;
     const float BudgetMargin = Context.Budget.Margin;
-    const float OccupancyTop = Context.Budget.OccupancyTop;
+    const float SubtitleBottom =
+        Context.Panel.OuterTop + Context.Ribbon.OffsetY +
+        Context.Ribbon.TitleHeight +
+        Context.Metrics.SubtitleOffsetY + Context.Metrics.CompactControlHeight;
 
-        const std::array<FVector2, 11> PortraitPositions =
-        {
-            FVector2(BudgetMargin + 24.f, OccupancyTop + 10.f),
-            FVector2(BudgetMargin + 94.f, OccupancyTop + 10.f),
-            FVector2(BudgetMargin + 164.f, OccupancyTop + 10.f),
-            FVector2(BudgetMargin + 234.f, OccupancyTop + 10.f),
-            FVector2(BudgetMargin + 57.f, OccupancyTop + 62.f),
-            FVector2(BudgetMargin + 235.f, OccupancyTop + 62.f),
-            FVector2(BudgetMargin + 6.f, OccupancyTop + 112.f),
-            FVector2(BudgetMargin + 76.f, OccupancyTop + 112.f),
-            FVector2(BudgetMargin + 146.f, OccupancyTop + 112.f),
-            FVector2(BudgetMargin + 216.f, OccupancyTop + 112.f),
-            FVector2(BudgetMargin + 286.f, OccupancyTop + 112.f)
-        };
-        const float PortraitSize = 34.f;
-        const float DetailTop = OccupancyTop + 170.f;
-        const float DetailRowH = 28.f;
+        // 4열 × 3행 중앙 정렬 그리드 (11슬롯: 행0=[0-3], 행1=[4-7], 행2=[8-10])
+        const float SlotSize  = UIConfig::CitizenProfileSlotSize;
+        const float ColGap    = UIConfig::CitizenProfileSlotColGap;
+        const float RowGap    = UIConfig::CitizenProfileSlotRowGap;
+        const float ColStep   = SlotSize + ColGap;
+        const float RowStep   = SlotSize + RowGap;
+        const int   ColCount  = 4;
+        const float GridW     = static_cast<float>(ColCount - 1) * ColStep + SlotSize;
+        const float InnerW    = PanelWidth - BudgetMargin * 2.f;
+        const float GridLeft  = BudgetMargin + (InnerW - GridW) * 0.5f;
+        const float GridTop   = SubtitleBottom + UIConfig::CitizenProfileGridTopOffset;
 
         for (int Index = 0;
-            Index < CCitizenInfoWidget::GOverviewResidentSlotCount;
+            Index < CCitizenInfoWidget::GCitizenProfileSlotCount;
             ++Index)
         {
             auto Icon =
-                Widget.mOverviewResidentIcons[static_cast<size_t>(Index)].lock();
+                Widget.mCitizenProfileIcons[static_cast<size_t>(Index)].lock();
 
             if (!Icon)
                 continue;
 
-            if (Index < static_cast<int>(PortraitPositions.size()))
-            {
-                Icon->SetPos(
-                    PortraitPositions[static_cast<size_t>(Index)].x,
-                    PortraitPositions[static_cast<size_t>(Index)].y);
-                Icon->SetSize(PortraitSize, PortraitSize);
-            }
-            else
-            {
-                Icon->SetPos(0.f, 0.f);
-                Icon->SetSize(0.f, 0.f);
-            }
+            const int Row = Index / ColCount;
+            const int Col = Index % ColCount;
+            Icon->SetPos(
+                GridLeft + static_cast<float>(Col) * ColStep,
+                GridTop  + static_cast<float>(Row) * RowStep);
+            Icon->SetSize(SlotSize, SlotSize);
         }
 
         for (int Index = 0;
@@ -1233,27 +1290,39 @@ void FCitizenInfoRenderer::RefreshCitizenProfileLayout(
             }
         }
 
+        // 그리드 3행 아래에 메트릭 시작
+        const float DetailTop   = GridTop + 2.f * RowStep + SlotSize +
+            UIConfig::CitizenProfileDetailTopMargin;
+        const float DetailRowH  = UIConfig::CitizenProfileMetricRowH;
+        const float LabelX = BudgetMargin;
+
         for (int Index = 0;
-            Index < CCitizenInfoWidget::GOverviewMetricRowCount;
+            Index < CCitizenInfoWidget::GCitizenMetricRowCount;
             ++Index)
         {
             auto Label =
-                Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock();
+                Widget.mCitizenMetricLabels[static_cast<size_t>(Index)].lock();
             auto Value =
-                Widget.mOverviewMetricValues[static_cast<size_t>(Index)].lock();
+                Widget.mCitizenMetricValues[static_cast<size_t>(Index)].lock();
             const float RowTop =
                 DetailTop + static_cast<float>(Index) * DetailRowH;
 
+            const float ValW = UIConfig::CitizenProfileMetricValueWidth;
+
             if (Label)
             {
-                Label->SetPos(BudgetMargin, RowTop);
-                Label->SetSize(110.f, 24.f);
+                Label->SetPos(LabelX, RowTop);
+                Label->SetSize(
+                    PanelWidth - LabelX - BudgetMargin - ValW,
+                    DetailRowH - 4.f);
             }
+
+            const float ValueX = PanelWidth - BudgetMargin - ValW;
 
             if (Value)
             {
-                Value->SetPos(PanelWidth - BudgetMargin - 164.f, RowTop);
-                Value->SetSize(164.f, 24.f);
+                Value->SetPos(ValueX, RowTop);
+                Value->SetSize(ValW, DetailRowH - 4.f);
             }
         }
 
@@ -1478,6 +1547,20 @@ void FCitizenInfoRenderer::RefreshBuildingWorkOverviewLayout(
                 Value->SetSize(140.f, 20.f);
             }
         }
+
+        if (auto Bg =
+            Widget.mOverviewMetricValueBgs[static_cast<size_t>(Index)].lock())
+        {
+            Bg->SetPos(0.f, 0.f);
+            Bg->SetSize(0.f, 0.f);
+        }
+
+        if (auto Icon =
+            Widget.mOverviewMetricIcons[static_cast<size_t>(Index)].lock())
+        {
+            Icon->SetPos(0.f, 0.f);
+            Icon->SetSize(0.f, 0.f);
+        }
     }
 
     LayoutOverviewMetricScrollWidgets(Owner, Context, MetricsTop, MetricRowH);
@@ -1686,11 +1769,25 @@ void FCitizenInfoRenderer::RefreshBuildingInformationLayout(
             Index < CCitizenInfoWidget::GOverviewMetricRowCount;
             ++Index)
         {
+            if (auto Icon =
+                Widget.mOverviewMetricIcons[static_cast<size_t>(Index)].lock())
+            {
+                Icon->SetPos(0.f, 0.f);
+                Icon->SetSize(0.f, 0.f);
+            }
+
             if (auto Label =
                 Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock())
             {
                 Label->SetPos(0.f, 0.f);
                 Label->SetSize(0.f, 0.f);
+            }
+
+            if (auto Bg =
+                Widget.mOverviewMetricValueBgs[static_cast<size_t>(Index)].lock())
+            {
+                Bg->SetPos(0.f, 0.f);
+                Bg->SetSize(0.f, 0.f);
             }
 
             if (auto Value =
@@ -1797,11 +1894,25 @@ void FCitizenInfoRenderer::RefreshBuildingDefaultLayout(
             Index < CCitizenInfoWidget::GOverviewMetricRowCount;
             ++Index)
         {
+            if (auto Icon =
+                Widget.mOverviewMetricIcons[static_cast<size_t>(Index)].lock())
+            {
+                Icon->SetPos(0.f, 0.f);
+                Icon->SetSize(0.f, 0.f);
+            }
+
             if (auto Label =
                 Widget.mOverviewMetricLabels[static_cast<size_t>(Index)].lock())
             {
                 Label->SetPos(0.f, 0.f);
                 Label->SetSize(0.f, 0.f);
+            }
+
+            if (auto Bg =
+                Widget.mOverviewMetricValueBgs[static_cast<size_t>(Index)].lock())
+            {
+                Bg->SetPos(0.f, 0.f);
+                Bg->SetSize(0.f, 0.f);
             }
 
             if (auto Value =
@@ -2066,6 +2177,10 @@ void FCitizenInfoRenderer::RefreshActionLayout(
     const float CitizenActionBtnH = Layout.CitizenActionButtonHeight;
     const float CitizenActionGap = Layout.CitizenActionGap;
     const float CitizenActionTop = ActionTop - Layout.ActionStackTopOffset;
+    const float CitizenActionGroupOffsetX = Layout.ActionGroupOffsetX;
+    const float CitizenActionGroupOffsetY = Layout.ActionGroupOffsetY;
+    const float CitizenActionGroupWidthAdd = Layout.ActionGroupWidthAdd;
+    const float CitizenActionGroupHeightAdd = Layout.ActionGroupHeightAdd;
 
     for (int Index = 0; Index < CCitizenInfoWidget::GCitizenActionButtonCount;
         ++Index)
@@ -2079,8 +2194,12 @@ void FCitizenInfoRenderer::RefreshActionLayout(
         {
             if (ShowCitizenProfile)
             {
-                Button->SetPos(BudgetMargin, ButtonTop);
-                Button->SetSize(PanelWidth - BudgetMargin * 2.f, CitizenActionBtnH);
+                Button->SetPos(
+                    BudgetMargin + CitizenActionGroupOffsetX,
+                    ButtonTop + CitizenActionGroupOffsetY);
+                Button->SetSize(
+                    PanelWidth - BudgetMargin * 2.f + CitizenActionGroupWidthAdd,
+                    CitizenActionBtnH + CitizenActionGroupHeightAdd);
             }
             else
             {
@@ -2095,8 +2214,10 @@ void FCitizenInfoRenderer::RefreshActionLayout(
             if (ShowCitizenProfile)
             {
                 Icon->SetPos(
-                    BudgetMargin + Layout.ActionIconInset,
-                    ButtonTop + Layout.ActionIconInset);
+                    BudgetMargin + CitizenActionGroupOffsetX +
+                        Layout.ActionIconInset,
+                    ButtonTop + CitizenActionGroupOffsetY +
+                        Layout.ActionIconInset);
                 Icon->SetSize(
                     Layout.ActionIconSize,
                     Layout.ActionIconSize);
@@ -2105,6 +2226,26 @@ void FCitizenInfoRenderer::RefreshActionLayout(
             {
                 Icon->SetPos(0.f, 0.f);
                 Icon->SetSize(0.f, 0.f);
+            }
+        }
+
+        if (auto Text =
+            Widget.mCitizenActionButtonTexts[static_cast<size_t>(Index)].lock())
+        {
+            if (ShowCitizenProfile)
+            {
+                const float TextOffsetX =
+                    Layout.ActionIconInset * 2.f + Layout.ActionIconSize;
+                Text->SetPos(TextOffsetX, 0.f);
+                Text->SetSize(
+                    PanelWidth - BudgetMargin * 2.f - TextOffsetX +
+                        CitizenActionGroupWidthAdd,
+                    CitizenActionBtnH + CitizenActionGroupHeightAdd);
+            }
+            else
+            {
+                Text->SetPos(0.f, 0.f);
+                Text->SetSize(0.f, 0.f);
             }
         }
     }

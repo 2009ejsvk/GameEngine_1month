@@ -1,5 +1,6 @@
 #include "MainWorld.h"
 #include "BusRouteSystem.h"
+#include "../GlobalSetting.h"
 #include "MainWorldConfig.h"
 #include "RoadNetwork.h"
 #include "RuntimeConfigRegistry.h"
@@ -547,7 +548,12 @@ bool CMainWorld::Init()
             mSimulation->Day
         });
     mScenario->InitializeResultTracking();
-    mScenario->Runner.Init();
+
+    if (GameSession::CurrentMode() == EGameMode::Scenario)
+    {
+        // 즉시 SmugglersOffer로 진입 — 수요 주입 + TaskWidget 열기까지 완료
+        mScenario->TickPhase();
+    }
 
     return true;
 }

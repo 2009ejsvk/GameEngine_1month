@@ -161,10 +161,6 @@ bool CPlacementController::Init()
     Input->SetBindFunction<CPlacementController>("MainCameraPlace",
         EInputType::Release, this, &CPlacementController::FinishRoadBrushStroke);
 
-    Input->AddBindKey("MainCameraCancelPlacement", VK_ESCAPE);
-    Input->SetBindFunction<CPlacementController>("MainCameraCancelPlacement",
-        EInputType::Press, this, &CPlacementController::CancelPlacementMode);
-
     return true;
 }
 
@@ -186,6 +182,12 @@ void CPlacementController::SetDemolitionMode(bool Enable)
     if (!mDemolitionMode)
     {
         ClearDemolitionHoverPreview();
+
+        auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+        if (CitizenInfoWidget)
+            CitizenInfoWidget->SetEnable(true);
+
         return;
     }
 
@@ -620,12 +622,6 @@ void CPlacementController::CancelPlacementMode()
         return;
     }
 
-    if (mRoadBrushMode)
-    {
-        CancelActivePlacementSession();
-        return;
-    }
-
     CancelActivePlacementSession();
 }
 
@@ -641,6 +637,11 @@ void CPlacementController::CancelActivePlacementSession()
 
     mActivePlacementObject.reset();
     ClearRoadBrushMode();
+
+    auto CitizenInfoWidget = mCitizenInfoWidget.lock();
+
+    if (CitizenInfoWidget)
+        CitizenInfoWidget->SetEnable(true);
 }
 
 void CPlacementController::UpdateDemolitionHoverPreview()

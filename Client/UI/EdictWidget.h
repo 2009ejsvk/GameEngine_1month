@@ -60,6 +60,7 @@ private:
 
     // Compatibility aliases for existing renderer/layout code.
     std::vector<int>& mVisibleEntryIndices = mState.VisibleEntryIndices;
+    bool mAutoPaused = false;
     bool& mOpen = mState.Open;
     EEdictUiCategory& mSelectedCategory = mState.SelectedCategory;
     int& mPreviewEntryIndex = mState.PreviewEntryIndex;

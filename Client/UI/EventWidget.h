@@ -30,6 +30,8 @@ private:
     std::weak_ptr<class CTextBlock> mRejectButtonText;
     std::weak_ptr<class CButton> mCornerCloseButton;
     FEventWidgetState mState;
+    bool mAutoPaused = false;
+    bool mPopupWasVisible = false;
 
 public:
     virtual bool Init() override;

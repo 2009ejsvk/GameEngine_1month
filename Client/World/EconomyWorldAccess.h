@@ -61,6 +61,7 @@ namespace EconomyWorldAccess
         virtual bool AdvanceHarborShipProgressAndCheckArrival(
             int DaysInMonth,
             float EdictMultiplier = 1.f) = 0;
+        virtual bool GetHarborShipArrivedThisTick() const = 0;
         virtual void ApplyDailyWarehouseStorageLoss() = 0;
     };
 

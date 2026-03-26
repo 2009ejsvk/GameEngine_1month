@@ -35,6 +35,10 @@ struct FCitizenLayoutMetrics
     float CitizenActionButtonHeight;
     float CitizenActionGap;
     float ActionStackTopOffset;
+    float ActionGroupOffsetX;
+    float ActionGroupOffsetY;
+    float ActionGroupWidthAdd;
+    float ActionGroupHeightAdd;
     float ActionIconInset;
     float ActionIconSize;
     float FooterBottomInset;

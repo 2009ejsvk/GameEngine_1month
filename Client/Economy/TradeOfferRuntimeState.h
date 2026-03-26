@@ -5,6 +5,7 @@
 struct FTradeOfferRuntimeState
 {
     int OfferId = 0;
+    int ScenarioTag = 0;
     bool ImportRoute = false;
     EResourceType ResourceType = EResourceType::None;
     EResourceMarketClass MarketClass = EResourceMarketClass::None;
