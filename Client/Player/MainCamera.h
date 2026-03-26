@@ -36,7 +36,5 @@ private:
     void MoveLeft();
     void MoveRight();
     void HandleEscape();
-#ifdef _DEBUG
     void DebugSkipScenarioPhase();
-#endif
 };
