@@ -75,6 +75,10 @@ namespace UIConfig
     extern float EdictGridFrameHeight;
     extern float EdictGridGapFromHeader;
     extern float EdictDetailGapFromGrid;
+    extern float EdictDetailFrameOffsetX;
+    extern float EdictDetailFrameOffsetY;
+    extern float EdictDetailFrameWidthAdd;
+    extern float EdictDetailFrameHeightAdd;
     extern float EdictTitleFontSize;
     extern float EdictCategoryWidth;
     extern float EdictCategoryHeight;
@@ -113,10 +117,13 @@ namespace UIConfig
     extern float EdictDetailInfoOffsetY;
     extern float EdictFeedbackOffsetX;
     extern float EdictFeedbackOffsetY;
+    extern float EdictFeedbackFontSizeAdd;
     extern float EdictDetailBodyOffsetX;
     extern float EdictDetailBodyOffsetY;
     extern float EdictRequirementOffsetX;
     extern float EdictRequirementOffsetY;
+    extern float EdictDetailBodyFontSizeAdd;
+    extern float EdictRequirementFontSizeAdd;
     extern float EdictApplyButtonOffsetX;
     extern float EdictApplyButtonOffsetY;
     extern float EdictApplyButtonTextOffsetX;
@@ -360,6 +367,9 @@ namespace UIConfig
     extern float CitizenProfileMetricIconSz;
     extern float CitizenProfileMetricIconGap;
     extern float CitizenProfileMetricValueWidth;
+    extern float CitizenProfileRow0Cols;
+    extern float CitizenProfileRow1Cols;
+    extern float CitizenProfileRow2Cols;
 
     // ── NPC 탭1: 만족도 (정치 패널) ──────────────────────────────
     extern float CitizenPoliticsSectionTopOffset;

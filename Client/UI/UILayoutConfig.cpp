@@ -90,6 +90,10 @@ namespace UIConfig
     float EdictGridFrameHeight      = 404.f;
     float EdictGridGapFromHeader    = 10.f;
     float EdictDetailGapFromGrid    = 12.f;
+    float EdictDetailFrameOffsetX   = 0.f;
+    float EdictDetailFrameOffsetY   = 0.f;
+    float EdictDetailFrameWidthAdd  = 0.f;
+    float EdictDetailFrameHeightAdd = 0.f;
     float EdictTitleFontSize        = 30.f;
     float EdictCategoryWidth        = 74.f;
     float EdictCategoryHeight       = 90.f;
@@ -128,10 +132,13 @@ namespace UIConfig
     float EdictDetailInfoOffsetY    = 0.f;
     float EdictFeedbackOffsetX      = 0.f;
     float EdictFeedbackOffsetY      = 0.f;
+    float EdictFeedbackFontSizeAdd  = 0.f;
     float EdictDetailBodyOffsetX    = 0.f;
     float EdictDetailBodyOffsetY    = 0.f;
     float EdictRequirementOffsetX   = 0.f;
     float EdictRequirementOffsetY   = 0.f;
+    float EdictDetailBodyFontSizeAdd    = 0.f;
+    float EdictRequirementFontSizeAdd   = 0.f;
     float EdictApplyButtonOffsetX   = 0.f;
     float EdictApplyButtonOffsetY   = 0.f;
     float EdictApplyButtonTextOffsetX = 0.f;
@@ -375,6 +382,9 @@ namespace UIConfig
     float CitizenProfileMetricIconSz     = 16.f;
     float CitizenProfileMetricIconGap    = 4.f;
     float CitizenProfileMetricValueWidth = 164.f;
+    float CitizenProfileRow0Cols         = 4.f;
+    float CitizenProfileRow1Cols         = 2.f;
+    float CitizenProfileRow2Cols         = 6.f;
 
     // NPC 탭1: 만족도 (정치 패널)
     float CitizenPoliticsSectionTopOffset    = 42.f;
@@ -1944,6 +1954,10 @@ namespace UIConfig
             EdictGridFrameHeight       = 404.f;
             EdictGridGapFromHeader     = 10.f;
             EdictDetailGapFromGrid     = 12.f;
+            EdictDetailFrameOffsetX    = 0.f;
+            EdictDetailFrameOffsetY    = 0.f;
+            EdictDetailFrameWidthAdd   = 0.f;
+            EdictDetailFrameHeightAdd  = 0.f;
             EdictTitleFontSize         = 30.f;
             EdictCategoryWidth         = 74.f;
             EdictCategoryHeight        = 90.f;
@@ -1982,10 +1996,13 @@ namespace UIConfig
             EdictDetailInfoOffsetY     = 0.f;
             EdictFeedbackOffsetX       = 0.f;
             EdictFeedbackOffsetY       = 0.f;
+            EdictFeedbackFontSizeAdd   = 0.f;
             EdictDetailBodyOffsetX     = 0.f;
             EdictDetailBodyOffsetY     = 0.f;
             EdictRequirementOffsetX    = 0.f;
             EdictRequirementOffsetY    = 0.f;
+            EdictDetailBodyFontSizeAdd    = 0.f;
+            EdictRequirementFontSizeAdd   = 0.f;
             EdictApplyButtonOffsetX    = 0.f;
             EdictApplyButtonOffsetY    = 0.f;
             EdictApplyButtonTextOffsetX = 0.f;
@@ -2216,6 +2233,9 @@ namespace UIConfig
             CitizenProfileMetricIconSz     = 16.f;
             CitizenProfileMetricIconGap    = 4.f;
             CitizenProfileMetricValueWidth = 164.f;
+            CitizenProfileRow0Cols         = 4.f;
+            CitizenProfileRow1Cols         = 2.f;
+            CitizenProfileRow2Cols         = 6.f;
 
             CitizenPoliticsSectionTopOffset    = 42.f;
             CitizenPoliticsSectionHeight       = 30.f;
@@ -2407,7 +2427,11 @@ namespace UIConfig
             else if (Key == "EdictVerticalMargin")      EdictVerticalMargin      = Val;
             else if (Key == "EdictGridFrameHeight")     EdictGridFrameHeight     = Val;
             else if (Key == "EdictGridGapFromHeader")   EdictGridGapFromHeader   = Val;
-            else if (Key == "EdictDetailGapFromGrid")   EdictDetailGapFromGrid   = Val;
+            else if (Key == "EdictDetailGapFromGrid")    EdictDetailGapFromGrid    = Val;
+            else if (Key == "EdictDetailFrameOffsetX")   EdictDetailFrameOffsetX   = Val;
+            else if (Key == "EdictDetailFrameOffsetY")   EdictDetailFrameOffsetY   = Val;
+            else if (Key == "EdictDetailFrameWidthAdd")  EdictDetailFrameWidthAdd  = Val;
+            else if (Key == "EdictDetailFrameHeightAdd") EdictDetailFrameHeightAdd = Val;
             else if (Key == "EdictTitleFontSize")       EdictTitleFontSize       = Val;
             else if (Key == "EdictCategoryWidth")       EdictCategoryWidth       = Val;
             else if (Key == "EdictCategoryHeight")      EdictCategoryHeight      = Val;
@@ -2444,12 +2468,15 @@ namespace UIConfig
             else if (Key == "EdictDetailInfoOffsetX")   EdictDetailInfoOffsetX   = Val;
             else if (Key == "EdictDetailInfoOffsetY")   EdictDetailInfoOffsetY   = Val;
             else if (Key == "EdictFeedbackOffsetX")     EdictFeedbackOffsetX     = Val;
-            else if (Key == "EdictFeedbackOffsetY")     EdictFeedbackOffsetY     = Val;
+            else if (Key == "EdictFeedbackOffsetY")      EdictFeedbackOffsetY      = Val;
+            else if (Key == "EdictFeedbackFontSizeAdd")  EdictFeedbackFontSizeAdd  = Val;
             else if (Key == "EdictDetailBodyOffsetX")   EdictDetailBodyOffsetX   = Val;
             else if (Key == "EdictDetailBodyOffsetY")   EdictDetailBodyOffsetY   = Val;
             else if (Key == "EdictRequirementOffsetX")  EdictRequirementOffsetX  = Val;
-            else if (Key == "EdictRequirementOffsetY")  EdictRequirementOffsetY  = Val;
-            else if (Key == "EdictApplyButtonOffsetX")  EdictApplyButtonOffsetX  = Val;
+            else if (Key == "EdictRequirementOffsetY")      EdictRequirementOffsetY      = Val;
+            else if (Key == "EdictDetailBodyFontSizeAdd")   EdictDetailBodyFontSizeAdd   = Val;
+            else if (Key == "EdictRequirementFontSizeAdd")  EdictRequirementFontSizeAdd  = Val;
+            else if (Key == "EdictApplyButtonOffsetX")      EdictApplyButtonOffsetX      = Val;
             else if (Key == "EdictApplyButtonOffsetY")  EdictApplyButtonOffsetY  = Val;
             else if (Key == "EdictApplyButtonTextOffsetX") EdictApplyButtonTextOffsetX = Val;
             else if (Key == "EdictApplyButtonTextOffsetY") EdictApplyButtonTextOffsetY = Val;
@@ -2675,6 +2702,9 @@ namespace UIConfig
             else if (Key == "CitizenProfileMetricIconSz")     CitizenProfileMetricIconSz     = Val;
             else if (Key == "CitizenProfileMetricIconGap")    CitizenProfileMetricIconGap    = Val;
             else if (Key == "CitizenProfileMetricValueWidth") CitizenProfileMetricValueWidth = Val;
+            else if (Key == "CitizenProfileRow0Cols")         CitizenProfileRow0Cols         = Val;
+            else if (Key == "CitizenProfileRow1Cols")         CitizenProfileRow1Cols         = Val;
+            else if (Key == "CitizenProfileRow2Cols")         CitizenProfileRow2Cols         = Val;
             // 탭1: 만족도
             else if (Key == "CitizenPoliticsSectionTopOffset")    CitizenPoliticsSectionTopOffset    = Val;
             else if (Key == "CitizenPoliticsSectionHeight")       CitizenPoliticsSectionHeight       = Val;

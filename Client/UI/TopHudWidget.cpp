@@ -1612,5 +1612,8 @@ bool CTopHudWidget::IsAnyMenuOpen() const
     if (TradeWidget && TradeWidget->IsOpen())
         return true;
 
+    if (mConstitutionPanelOpen)
+        return true;
+
     return false;
 }

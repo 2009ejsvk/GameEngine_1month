@@ -145,6 +145,7 @@ public:
     void OpenExitConfirmPopup();
     void CloseExitConfirmPopup();
     bool IsAnyMenuOpen() const;
+    void CloseConstitutionPanel();
 
 private:
     void RefreshFromState();
@@ -153,7 +154,6 @@ private:
         bool CanUseButtons);
     bool TryOpenEraTransitionTask();
     void OpenConstitutionPanel(bool ForceOverview);
-    void CloseConstitutionPanel();
     void ShowConstitutionOverview();
     void ShowConstitutionTopic(EConstitutionTopic Topic);
     void TrySelectConstitutionOption(EConstitutionOptionId OptionId);

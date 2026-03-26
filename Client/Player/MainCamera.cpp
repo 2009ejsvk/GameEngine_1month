@@ -204,6 +204,7 @@ void CMainCamera::HandleEscape()
 
     if (TopHud->IsAnyMenuOpen())
     {
+        TopHud->CloseConstitutionPanel();
         TopHud->CloseMenus(true, true, true, true, true);
         return;
     }

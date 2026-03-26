@@ -72,8 +72,12 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
 
     if (MenuDetailFrame)
     {
-        MenuDetailFrame->SetPos(DetailFrameLeft, DetailFrameTop);
-        MenuDetailFrame->SetSize(DetailFrameWidth, DetailFrameHeight);
+        MenuDetailFrame->SetPos(
+            DetailFrameLeft + UIConfig::EdictDetailFrameOffsetX * Scale,
+            DetailFrameTop  + UIConfig::EdictDetailFrameOffsetY * Scale);
+        MenuDetailFrame->SetSize(
+            DetailFrameWidth  + UIConfig::EdictDetailFrameWidthAdd  * Scale,
+            DetailFrameHeight + UIConfig::EdictDetailFrameHeightAdd * Scale);
     }
 
     if (TitleText)
@@ -478,7 +482,8 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
             InfoPanelLeft + UIConfig::EdictFeedbackOffsetX * Scale,
             FeedbackTop + UIConfig::EdictFeedbackOffsetY * Scale);
         FeedbackText->SetSize(InfoPanelWidth, FeedbackHeight);
-        FeedbackText->SetFontSize(12.5f * Scale);
+        FeedbackText->SetFontSize(
+            (12.5f + UIConfig::EdictFeedbackFontSizeAdd) * Scale);
     }
 
     if (DetailBodyText)
@@ -487,7 +492,8 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
             DetailBodyLeft + UIConfig::EdictDetailBodyOffsetX * Scale,
             DetailBodyTop + UIConfig::EdictDetailBodyOffsetY * Scale);
         DetailBodyText->SetSize(DetailBodyWidth, DetailBodyHeight);
-        DetailBodyText->SetFontSize(15.f * Scale);
+        DetailBodyText->SetFontSize(
+            (15.f + UIConfig::EdictDetailBodyFontSizeAdd) * Scale);
     }
 
     if (RequirementText)
@@ -496,7 +502,8 @@ void FEdictRenderer::RefreshLayout(CEdictWidget& Widget)
             InfoPanelLeft + UIConfig::EdictRequirementOffsetX * Scale,
             RequirementTop + UIConfig::EdictRequirementOffsetY * Scale);
         RequirementText->SetSize(InfoPanelWidth, RequirementHeight);
-        RequirementText->SetFontSize(13.5f * Scale);
+        RequirementText->SetFontSize(
+            (13.5f + UIConfig::EdictRequirementFontSizeAdd) * Scale);
     }
 
     if (TaxInfoPanel)

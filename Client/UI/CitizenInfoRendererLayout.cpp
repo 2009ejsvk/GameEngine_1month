@@ -1248,34 +1248,44 @@ void FCitizenInfoRenderer::RefreshCitizenProfileLayout(
         Context.Ribbon.TitleHeight +
         Context.Metrics.SubtitleOffsetY + Context.Metrics.CompactControlHeight;
 
-        // 4열 × 3행 중앙 정렬 그리드 (11슬롯: 행0=[0-3], 행1=[4-7], 행2=[8-10])
+        // 행별 아이콘 수: 행0=4, 행1=2, 행2=6 (각 행 중앙 정렬, 합계=12)
         const float SlotSize  = UIConfig::CitizenProfileSlotSize;
         const float ColGap    = UIConfig::CitizenProfileSlotColGap;
         const float RowGap    = UIConfig::CitizenProfileSlotRowGap;
         const float ColStep   = SlotSize + ColGap;
         const float RowStep   = SlotSize + RowGap;
-        const int   ColCount  = 4;
-        const float GridW     = static_cast<float>(ColCount - 1) * ColStep + SlotSize;
         const float InnerW    = PanelWidth - BudgetMargin * 2.f;
-        const float GridLeft  = BudgetMargin + (InnerW - GridW) * 0.5f;
         const float GridTop   = SubtitleBottom + UIConfig::CitizenProfileGridTopOffset;
 
-        for (int Index = 0;
-            Index < CCitizenInfoWidget::GCitizenProfileSlotCount;
-            ++Index)
+        struct FRowDef { int StartIndex; int ColCount; };
+        const int R0 = static_cast<int>(UIConfig::CitizenProfileRow0Cols);
+        const int R1 = static_cast<int>(UIConfig::CitizenProfileRow1Cols);
+        const int R2 = static_cast<int>(UIConfig::CitizenProfileRow2Cols);
+        const FRowDef RowDefs[3] = { {0, R0}, {R0, R1}, {R0 + R1, R2} };
+        constexpr int RowDefCount = 3;
+
+        for (int RowIdx = 0; RowIdx < RowDefCount; ++RowIdx)
         {
-            auto Icon =
-                Widget.mCitizenProfileIcons[static_cast<size_t>(Index)].lock();
+            const FRowDef& RowDef = RowDefs[RowIdx];
+            const float RowGridW =
+                static_cast<float>(RowDef.ColCount - 1) * ColStep + SlotSize;
+            const float RowLeft  = BudgetMargin + (InnerW - RowGridW) * 0.5f;
+            const float RowY     = GridTop + static_cast<float>(RowIdx) * RowStep;
 
-            if (!Icon)
-                continue;
+            for (int Col = 0; Col < RowDef.ColCount; ++Col)
+            {
+                const int Index = RowDef.StartIndex + Col;
+                if (Index >= CCitizenInfoWidget::GCitizenProfileSlotCount)
+                    break;
 
-            const int Row = Index / ColCount;
-            const int Col = Index % ColCount;
-            Icon->SetPos(
-                GridLeft + static_cast<float>(Col) * ColStep,
-                GridTop  + static_cast<float>(Row) * RowStep);
-            Icon->SetSize(SlotSize, SlotSize);
+                auto Icon =
+                    Widget.mCitizenProfileIcons[static_cast<size_t>(Index)].lock();
+                if (!Icon)
+                    continue;
+
+                Icon->SetPos(RowLeft + static_cast<float>(Col) * ColStep, RowY);
+                Icon->SetSize(SlotSize, SlotSize);
+            }
         }
 
         for (int Index = 0;
