@@ -48,8 +48,15 @@ out/                   # CMake 등 빌드 출력
 # ==========================================================
 
 # 요청하신 특정 애셋 폴더 제외
-# (경로가 Binary/Asset/Texture/ 가 맞는지 확인하세요)
-Binary/Asset/Texture/
+# 기본적으로 Texture 내부는 제외하되, 실제 전달/동기화가 필요한 파일만 예외 허용
+Binary/Asset/Texture/*
+!Binary/Asset/Texture/TropicoBack.png
+!Binary/Asset/Texture/TropicoLogo.png
+!Binary/Asset/Texture/TropicoMenuBtn.png
+!Binary/Asset/Texture/TropicoMenuBtnHover.png
+!Binary/Asset/Texture/TropicoMenuBtnClick.png
+!Binary/Asset/Texture/TropicoLoading.png
+!Binary/Asset/Texture/LoadingBack.png
 Binary/Debug/
 Tropico6_Screenshots/
 
