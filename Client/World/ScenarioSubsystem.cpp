@@ -9,6 +9,7 @@
 #include "../UI/TaskWidget.h"
 #include "World/WorldUIManager.h"
 #include "../Economy/ResourceTradePricing.h"
+#include "../GlobalSetting.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -992,6 +993,9 @@ void CScenarioSubsystem::InitializeResultTracking()
 void CScenarioSubsystem::NotifyEraTransitioned(EBuildingEra NewEra)
 {
     if (!mOwner || ResultShown)
+        return;
+
+    if (GameSession::CurrentMode() != EGameMode::Scenario)
         return;
 
     if (NewEra == EBuildingEra::WorldWars)
