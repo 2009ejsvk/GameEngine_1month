@@ -45,4 +45,8 @@ namespace MainWorldConfig
     constexpr const char* GStarterTenementBObjectName =
         "StarterTenementB";
     constexpr const char* GStarterHarborObjectName = "StarterHarbor";
+    constexpr const char* GStarterTavernObjectName = "StarterTavern";
+    constexpr const char* GStarterChapelObjectName = "StarterChapel";
+    constexpr const char* GStarterClinicObjectName = "StarterClinic";
+    constexpr const char* GStarterGroceryObjectName = "StarterGrocery";
 }

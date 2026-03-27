@@ -4,6 +4,7 @@
 #include "../UI/CitizenInfoWidget.h"
 #include "../World/MainWorldUiReadAccess.h"
 #include "../ObjectNames.h"
+#include "../Player/MainCamera.h"
 #include "Component/CameraComponent.h"
 #include "Component/TileMapComponent.h"
 #include "Device.h"
@@ -562,6 +563,13 @@ void CPlacementController::PlaceCurrentArea()
                 CitizenOrb->GetSatisfaction(),
                 Input->GetMousePos());
         }
+
+        if (auto Camera = World->FindObject<CMainCamera>(
+                GMainCameraName).lock())
+        {
+            Camera->SetFollowCitizen(CitizenOrb->GetName());
+        }
+
         return;
     }
 
@@ -598,11 +606,23 @@ void CPlacementController::PlaceCurrentArea()
                 ClickedPlacementObject->GetCapacity(),
                 Input->GetMousePos());
         }
+
+        if (auto Camera = World->FindObject<CMainCamera>(
+                GMainCameraName).lock())
+        {
+            Camera->ClearFollowCitizen();
+        }
     }
     else
     {
         if (CitizenInfoWidget)
             CitizenInfoWidget->SetEnable(false);
+
+        if (auto Camera = World->FindObject<CMainCamera>(
+                GMainCameraName).lock())
+        {
+            Camera->ClearFollowCitizen();
+        }
     }
 }
 
@@ -1448,8 +1468,9 @@ std::shared_ptr<CBuildingMarkerOrb> CPlacementController::PickCitizenOrb(
             continue;
 
         FVector3 OrbPos = Orb->GetWorldPos();
-        const float dx = OrbPos.x - MouseWorldPos.x;
-        const float dy = OrbPos.y - MouseWorldPos.y;
+        const float HalfDiam = Orb->GetOrbDiameter() * 0.5f;
+        const float dx = (OrbPos.x + HalfDiam) - MouseWorldPos.x;
+        const float dy = (OrbPos.y + HalfDiam) - MouseWorldPos.y;
         const float DistPxSq =
             (dx * dx) /
             ((std::max)(0.0001f, WorldPerPixelX * WorldPerPixelX)) +

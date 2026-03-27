@@ -120,9 +120,9 @@ struct FCitizenIdentityProfile
 struct FNpcSatisfaction
 {
     float Food     = 70.f;
-    float Health   = 70.f;
-    float Fun      = 70.f;
-    float Faith    = 70.f;
+    float Health   = 55.f;
+    float Fun      = 45.f;
+    float Faith    = 50.f;
     float Housing  = 70.f;
     float Job      = 70.f;
     float CommuteTimePenalty = 0.f;

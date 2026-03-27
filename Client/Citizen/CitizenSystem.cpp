@@ -674,11 +674,8 @@ namespace
                 continue;
             }
 
-            // FoodProvider 건물은 직장 겸 음식 생산지로 포함
-            // EntertainmentProvider 전용 건물(주점 등)은 제외
             if (!B->IsResidential() &&
-                B->GetCapacity() > 0 &&
-                (!B->IsEntertainmentProvider() || B->IsFoodProvider()))
+                B->GetCapacity() > 0)
             {
                 Out.push_back(B->GetName());
             }

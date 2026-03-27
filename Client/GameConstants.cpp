@@ -61,8 +61,10 @@ namespace GameConstants
         float AtFaithDurationSeconds = 5.f;
         float FoodInterruptThreshold = 25.f;
         float FunInterruptThreshold = 30.f;
-        float HealthInterruptThreshold = 35.f;
-        float FaithInterruptThreshold = 32.f;
+        float HealthInterruptThreshold = 40.f;
+        float FaithInterruptThreshold = 35.f;
+        float HousingInterruptThreshold = 32.f;
+        float JobInterruptThreshold = 32.f;
         float HealthRemovalThreshold = 5.f;
         int ServiceStockPerCapacity = 3;
         float ServiceStockRegenPerCapacityPerSecond = 0.25f;
@@ -448,8 +450,10 @@ namespace
         Orb::AtFaithDurationSeconds = 5.f;
         Orb::FoodInterruptThreshold = 25.f;
         Orb::FunInterruptThreshold = 30.f;
-        Orb::HealthInterruptThreshold = 35.f;
-        Orb::FaithInterruptThreshold = 32.f;
+        Orb::HealthInterruptThreshold = 40.f;
+        Orb::FaithInterruptThreshold = 35.f;
+        Orb::HousingInterruptThreshold = 32.f;
+        Orb::JobInterruptThreshold = 32.f;
         Orb::HealthRemovalThreshold = 5.f;
         Orb::ServiceStockPerCapacity = 3;
         Orb::ServiceStockRegenPerCapacityPerSecond = 0.25f;
@@ -1352,6 +1356,10 @@ namespace
                 Orb::HealthInterruptThreshold = Value;
             else if (Key == "faithinterruptthreshold")
                 Orb::FaithInterruptThreshold = Value;
+            else if (Key == "housinginterruptthreshold")
+                Orb::HousingInterruptThreshold = Value;
+            else if (Key == "jobinterruptthreshold")
+                Orb::JobInterruptThreshold = Value;
             else if (Key == "healthremovalthreshold")
                 Orb::HealthRemovalThreshold = Value;
             else if (Key == "servicestockregenpercapacitypersecond")

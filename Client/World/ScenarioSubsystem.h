@@ -39,6 +39,7 @@ private:
     void InjectCrownExploitationDemand();
     void InjectIndependencePrepDemand();
     void InjectPeacePaymentDemand();
+    void RefreshScenarioWorldMarketPrices();
 
 public:
     bool TryExecutePeacePayment(std::wstring& OutMessage);

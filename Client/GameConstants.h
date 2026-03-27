@@ -62,6 +62,8 @@ namespace GameConstants
         extern float FunInterruptThreshold;
         extern float HealthInterruptThreshold;
         extern float FaithInterruptThreshold;
+        extern float HousingInterruptThreshold;
+        extern float JobInterruptThreshold;
         extern float HealthRemovalThreshold;
         extern int ServiceStockPerCapacity;
         extern float ServiceStockRegenPerCapacityPerSecond;

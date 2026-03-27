@@ -3,6 +3,7 @@
 #include "Component/ObjectMovementComponent.h"
 #include "Device.h"
 #include "../ObjectNames.h"
+#include "../Map/BuildingMarkerOrb.h"
 #include "../Map/PlacementController.h"
 #include "../UI/TopHudWidget.h"
 #include "../UI/BuildMenuWidget.h"
@@ -141,10 +142,36 @@ void CMainCamera::Update(float DeltaTime)
         Camera->SetProjection(ECameraProjectionType::Ortho,
             90.f, mZoomWidth, mZoomHeight, mViewDistance);
     }
+
+    if (!mFollowCitizenName.empty())
+    {
+        auto Citizen = World->FindObject<CBuildingMarkerOrb>(
+            mFollowCitizenName).lock();
+
+        if (Citizen && Citizen->GetAlive())
+        {
+            const FVector3 CitizenPos = Citizen->GetWorldPos();
+            const FVector3 CameraPos = GetWorldPos();
+            SetWorldPos(CitizenPos.x, CitizenPos.y, CameraPos.z);
+        }
+        else
+            mFollowCitizenName.clear();
+    }
+}
+
+void CMainCamera::SetFollowCitizen(const std::string& CitizenName)
+{
+    mFollowCitizenName = CitizenName;
+}
+
+void CMainCamera::ClearFollowCitizen()
+{
+    mFollowCitizenName.clear();
 }
 
 void CMainCamera::MoveUp()
 {
+    mFollowCitizenName.clear();
     auto Movement = mMovement.lock();
 
     if (Movement)
@@ -153,6 +180,7 @@ void CMainCamera::MoveUp()
 
 void CMainCamera::MoveDown()
 {
+    mFollowCitizenName.clear();
     auto Movement = mMovement.lock();
 
     if (Movement)
@@ -161,6 +189,7 @@ void CMainCamera::MoveDown()
 
 void CMainCamera::MoveLeft()
 {
+    mFollowCitizenName.clear();
     auto Movement = mMovement.lock();
 
     if (Movement)
@@ -169,6 +198,7 @@ void CMainCamera::MoveLeft()
 
 void CMainCamera::MoveRight()
 {
+    mFollowCitizenName.clear();
     auto Movement = mMovement.lock();
 
     if (Movement)

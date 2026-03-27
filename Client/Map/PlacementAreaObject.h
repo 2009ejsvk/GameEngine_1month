@@ -1185,12 +1185,7 @@ public:
         if (IsRoad())
             return 0;
 
-        const float EffectiveCap =
-            static_cast<float>(GetJobSatisfactionCap()) *
-            (std::max)(0.f, (std::min)(1.f, mRuntime.AccessibilityScore));
-        return (std::max)(
-            0,
-            (std::min)(100, static_cast<int>(roundf(EffectiveCap))));
+        return GetJobSatisfactionCap();
     }
 
     int GetFoodSatisfactionCap() const

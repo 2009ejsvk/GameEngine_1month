@@ -57,11 +57,11 @@ namespace ResourceTradePricing
         switch (Type)
         {
         case EResourceType::Coconuts:
-            return { 2, 3 };
+            return { 1, 2 };
         case EResourceType::Logs:
-            return { 3, 4 };
+            return { 2, 2 };
         case EResourceType::Fish:
-            return { 3, 4 };
+            return { 2, 2 };
         case EResourceType::Crops:
             return { 3, 4 };
         case EResourceType::AnimalProducts:
@@ -69,51 +69,51 @@ namespace ResourceTradePricing
         case EResourceType::Ore:
             return { 4, 6 };
         case EResourceType::Oil:
-            return { 5, 7 };
+            return { 3, 4 };
         case EResourceType::FarmedFish:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::HydroponicProduce:
             return { 4, 6 };
         case EResourceType::FactoryLivestock:
             return { 5, 7 };
         case EResourceType::Banana:
-            return { 3, 4 };
+            return { 2, 2 };
         case EResourceType::Cocoa:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Coffee:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Corn:
-            return { 3, 4 };
+            return { 2, 2 };
         case EResourceType::Cotton:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Pineapple:
-            return { 3, 4 };
+            return { 2, 2 };
         case EResourceType::Rubber:
-            return { 5, 7 };
+            return { 3, 4 };
         case EResourceType::Sugar:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Tobacco:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Meat:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Milk:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Hides:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Wool:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Coal:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Iron:
-            return { 4, 6 };
+            return { 2, 3 };
         case EResourceType::Gold:
-            return { 8, 11 };
+            return { 4, 6 };
         case EResourceType::Nickel:
-            return { 5, 7 };
+            return { 3, 4 };
         case EResourceType::Aluminum:
-            return { 5, 7 };
+            return { 3, 4 };
         case EResourceType::Uranium:
-            return { 6, 9 };
+            return { 3, 5 };
         case EResourceType::Planks:
             return { 5, 7 };
         case EResourceType::Rum:
@@ -598,15 +598,28 @@ namespace ResourceTradePricing
         int MarketPrice =
             GetMarketPricePoint(Type).CurrentExportUnitPrice;
 
-        // 시나리오 럼주 착취 바이어스를 즉시 반영 (lerp 대기 없이)
+        int ScenarioBias = 0;
         if (Type == EResourceType::Rum)
+            ScenarioBias = GetScenarioRumExportBiasPercent();
+
+        // 시나리오 럼주 착취 바이어스를 즉시 반영 (lerp 대기 없이)
+        if (ScenarioBias != 0 && MarketPrice > 0)
         {
-            const int Bias = GetScenarioRumExportBiasPercent();
-            if (Bias != 0 && MarketPrice > 0)
-                MarketPrice = (std::max)(1, MarketPrice * (100 + Bias) / 100);
+            MarketPrice =
+                (std::max)(1, MarketPrice * (100 + ScenarioBias) / 100);
         }
 
-        return MarketPrice > 0 ? MarketPrice : BasePrice.ExportUnitPrice;
+        if (MarketPrice > 0)
+            return MarketPrice;
+
+        if (ScenarioBias != 0)
+        {
+            return (std::max)(
+                1,
+                BasePrice.ExportUnitPrice * (100 + ScenarioBias) / 100);
+        }
+
+        return BasePrice.ExportUnitPrice;
     }
 
     inline int GetImportPricePerStockUnit(EResourceType Type)

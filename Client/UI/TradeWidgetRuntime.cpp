@@ -968,6 +968,21 @@ namespace
                 });
         }
 
+        // 시나리오: 왕실 착취로 인한 럼주 수출가 보정
+        const int ScenarioRumBias =
+            ResourceTradePricing::GetScenarioRumExportBiasPercent();
+        if (ScenarioRumBias != 0)
+        {
+            PersonalEntries.push_back(
+                {
+                    std::wstring(GetResourceTypeDisplayName(EResourceType::Rum)) +
+                        L" - 왕실 착취",
+                    ScenarioRumBias,
+                    std::abs(ScenarioRumBias) * 1000 +
+                        ResourceTradePricing::GetExportPricePerStockUnit(EResourceType::Rum)
+                });
+        }
+
         std::sort(
             PersonalEntries.begin(),
             PersonalEntries.end(),

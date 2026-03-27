@@ -244,6 +244,7 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             *TaxPolicy,
             ETaxPolicyType::Property) :
         0.f;
+    constexpr float NeedLossScale = 0.25f;
 
     auto RecoverUnderCap = [&](float& Value, float GainPerSec, float Cap)
     {
@@ -258,33 +259,41 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             0.f,
             (std::min)(100.f, Value + DeltaPerSecond * DeltaTime));
     };
+    auto ScaleNeedLoss = [&](float DeltaPerSecond) -> float
+    {
+        return DeltaPerSecond < 0.f ?
+            DeltaPerSecond * NeedLossScale :
+            DeltaPerSecond;
+    };
 
     // 욕구 자연 감소
     Satisfaction.Food = (std::max)(
-        0.f, Satisfaction.Food - 1.2f * DeltaTime);
+        0.f, Satisfaction.Food - 1.2f * NeedLossScale * DeltaTime);
     Satisfaction.Job = (std::max)(
-        0.f, Satisfaction.Job - 1.0f * DeltaTime);
+        0.f, Satisfaction.Job - 1.0f * NeedLossScale * DeltaTime);
     Satisfaction.Housing = (std::max)(
-        0.f, Satisfaction.Housing - 0.5f * DeltaTime);
+        0.f, Satisfaction.Housing - 0.5f * NeedLossScale * DeltaTime);
     Satisfaction.Fun = (std::max)(
-        0.f, Satisfaction.Fun - 0.9f * DeltaTime);
+        0.f, Satisfaction.Fun - 0.45f * NeedLossScale * DeltaTime);
     Satisfaction.Health = (std::max)(
-        0.f, Satisfaction.Health - 0.2f * DeltaTime);
+        0.f, Satisfaction.Health - 0.10f * NeedLossScale * DeltaTime);
     Satisfaction.Faith = (std::max)(
-        0.f, Satisfaction.Faith - 0.15f * DeltaTime);
+        0.f, Satisfaction.Faith - 0.08f * NeedLossScale * DeltaTime);
     Satisfaction.Job = (std::max)(
         0.f,
-        Satisfaction.Job - 0.75f * CommutePenaltyNormalized * DeltaTime);
+        Satisfaction.Job -
+            0.75f * NeedLossScale * CommutePenaltyNormalized * DeltaTime);
     Satisfaction.Fun = (std::max)(
         0.f,
-        Satisfaction.Fun - 0.30f * CommutePenaltyNormalized * DeltaTime);
+        Satisfaction.Fun -
+            0.15f * NeedLossScale * CommutePenaltyNormalized * DeltaTime);
 
     if (CommuteProfile.Mode == ECommuteMode::Transit)
     {
         Satisfaction.Freedom = (std::max)(
             0.f,
             Satisfaction.Freedom -
-                0.18f *
+                0.18f * NeedLossScale *
                 (CommutePenaltyNormalized + CommuteProfile.CrowdingPenalty) *
                 DeltaTime);
     }
@@ -311,7 +320,9 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         FunFreedomBias * 0.12f +
         HealthFreedomBias * 0.02f +
         FaithFreedomBias * 0.02f;
-    ApplyClampedNeedDrift(Satisfaction.Freedom, LocalFreedomDrift * 0.32f);
+    ApplyClampedNeedDrift(
+        Satisfaction.Freedom,
+        ScaleNeedLoss(LocalFreedomDrift * 0.32f));
 
     const float LocalSecurityDrift =
         HomeSecurityBias * 0.58f +
@@ -322,15 +333,18 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         FaithSecurityBias * 0.07f;
     ApplyClampedNeedDrift(
         Satisfaction.Security,
-        LocalSecurityDrift * 0.34f -
+        ScaleNeedLoss(
+            LocalSecurityDrift * 0.34f -
             HomePollution * 0.05f -
-            WorkPollution * 0.03f);
+            WorkPollution * 0.03f));
     ApplyClampedNeedDrift(
         Satisfaction.Housing,
-        HomeSecurityBias * 0.08f - HomePollution * 0.10f);
+        ScaleNeedLoss(
+            HomeSecurityBias * 0.08f - HomePollution * 0.10f));
     ApplyClampedNeedDrift(
         Satisfaction.Job,
-        WorkSecurityBias * 0.06f - WorkPollution * 0.05f);
+        ScaleNeedLoss(
+            WorkSecurityBias * 0.06f - WorkPollution * 0.05f));
 
     // FSM 상태별 회복
     switch (mCitizenState)
@@ -338,7 +352,8 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
     case ECitizenState::AtWork:
         Satisfaction.Health = (std::max)(
             0.f,
-            Satisfaction.Health - WorkPollution * 0.45f * DeltaTime);
+            Satisfaction.Health -
+                WorkPollution * 0.45f * NeedLossScale * DeltaTime);
         RecoverUnderCap(
             Satisfaction.Job,
             10.f * CommuteProfile.JobRecoveryMultiplier,
@@ -410,7 +425,8 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 
         Satisfaction.Health = (std::max)(
             0.f,
-            Satisfaction.Health - FunPollution * 0.08f * DeltaTime);
+            Satisfaction.Health -
+                FunPollution * 0.08f * NeedLossScale * DeltaTime);
         break;
     case ECitizenState::AtHealth:
         if (mHealthVisitReserved &&
@@ -442,7 +458,8 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
         {
             Satisfaction.Health = (std::max)(
                 0.f,
-                Satisfaction.Health - HealthPollution * 0.05f * DeltaTime);
+                Satisfaction.Health -
+                    HealthPollution * 0.05f * NeedLossScale * DeltaTime);
         }
         break;
     case ECitizenState::AtFaith:
@@ -473,7 +490,8 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
 
         Satisfaction.Health = (std::max)(
             0.f,
-            Satisfaction.Health - FaithPollution * 0.05f * DeltaTime);
+            Satisfaction.Health -
+                FaithPollution * 0.05f * NeedLossScale * DeltaTime);
         break;
     default:
         break;
@@ -495,28 +513,33 @@ void CBuildingMarkerOrb::UpdateSatisfaction(float DeltaTime)
             (std::max)(0.f, -PropertyTaxDeviation);
         ApplyClampedNeedDrift(
             Satisfaction.Food,
-            -0.10f * ConsumptionTaxStress +
-            0.04f * ConsumptionTaxRelief);
+            ScaleNeedLoss(
+                -0.10f * ConsumptionTaxStress +
+                0.04f * ConsumptionTaxRelief));
         ApplyClampedNeedDrift(
             Satisfaction.Fun,
-            -0.14f * ConsumptionTaxStress +
-            0.06f * ConsumptionTaxRelief);
+            ScaleNeedLoss(
+                -0.14f * ConsumptionTaxStress +
+                0.06f * ConsumptionTaxRelief));
         ApplyClampedNeedDrift(
             Satisfaction.Job,
-            -0.13f * IncomeTaxStress +
-            0.05f * IncomeTaxRelief);
+            ScaleNeedLoss(
+                -0.13f * IncomeTaxStress +
+                0.05f * IncomeTaxRelief));
         ApplyClampedNeedDrift(
             Satisfaction.Housing,
-            -0.15f * PropertyTaxStress +
-            0.06f * PropertyTaxRelief);
+            ScaleNeedLoss(
+                -0.15f * PropertyTaxStress +
+                0.06f * PropertyTaxRelief));
         ApplyClampedNeedDrift(
             Satisfaction.Freedom,
-            -(0.06f * ConsumptionTaxStress +
-                0.08f * IncomeTaxStress +
-                0.07f * PropertyTaxStress) +
-            (0.03f * ConsumptionTaxRelief +
-                0.04f * IncomeTaxRelief +
-                0.03f * PropertyTaxRelief));
+            ScaleNeedLoss(
+                -(0.06f * ConsumptionTaxStress +
+                    0.08f * IncomeTaxStress +
+                    0.07f * PropertyTaxStress) +
+                (0.03f * ConsumptionTaxRelief +
+                    0.04f * IncomeTaxRelief +
+                    0.03f * PropertyTaxRelief)));
     }
 
     // 1초 틱으로 Overall 재계산 (매 프레임 불필요)
@@ -527,4 +550,3 @@ void CBuildingMarkerOrb::RecalculateOverallSatisfaction()
 {
     mCitizenProfileState.RecalculateOverallSatisfaction();
 }
-

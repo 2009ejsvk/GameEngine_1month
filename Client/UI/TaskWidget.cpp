@@ -9,10 +9,12 @@
 #include "../World/IWorldUIAccess.h"
 #include "../World/MainWorldTradeRuntime.h"
 #include "../World/MainWorldUiReadAccess.h"
+#include "../World/StartWorld.h"
 #include "Device.h"
 #include "UI/Button.h"
 #include "UI/Image.h"
 #include "UI/TextBlock.h"
+#include "World/WorldManager.h"
 #include "World/World.h"
 #include "../GlobalSetting.h"
 #include "UILayoutValues.h"
@@ -529,44 +531,68 @@ namespace
         {
             FTaskEntry Entry;
             Entry.Kind = FTaskEntry::EKind::EraTransition;
-            Entry.RowTitle =
-                EraTransitionState.Title.empty() ?
-                    Ui(L"task_widget.era_transition.default_title") :
-                    EraTransitionState.Title;
-            Entry.RowSubtitle = Ui(L"task_widget.era_transition.row_subtitle");
-            Entry.IssuerLabel = Ui(L"task_widget.penultimo.issuer_label");
-            Entry.SpeakerLabel = Ui(L"task_widget.penultimo.name");
-            Entry.DetailBody = UIStrings::Format(
-                L"task_widget.era_transition.detail_body_template",
-                {
-                    std::wstring(
-                        GetBuildingEraDisplayName(EraProgress.CurrentEra)),
-                    std::wstring(
-                        GetBuildingEraDisplayName(
-                            EraTransitionState.TargetEra))
-                });
-            if (!EraTransitionState.Summary.empty())
-                Entry.DetailBody += L"\n\n" + EraTransitionState.Summary;
+            const bool IsScenarioVictoryTransition =
+                GameSession::CurrentMode() == EGameMode::Scenario;
             const std::wstring ConfirmText =
                 EraTransitionState.ConfirmText.empty() ?
                     Ui(L"task_widget.era_transition.confirm_default") :
                     EraTransitionState.ConfirmText;
-            Entry.ObjectiveLine = UIStrings::Format(
-                L"task_widget.era_transition.objective_template",
-                { ConfirmText });
-            Entry.StageLine = Ui(L"task_widget.era_transition.stage_line");
-            Entry.RewardText = BuildListText(UIStrings::Format(
-                L"task_widget.era_mission.reward_template",
-                {
-                    std::wstring(
-                        GetBuildingEraDisplayName(
-                            EraTransitionState.TargetEra))
-                }));
-            Entry.PenaltyText = BuildListText(
-                Ui(L"task_widget.era_transition.penalty_text"));
-            Entry.PrimaryButtonLabel =
-                ConfirmText;
-            Entry.SecondaryButtonLabel = Ui(L"top_hud.era_transition.cancel");
+            if (IsScenarioVictoryTransition)
+            {
+                Entry.RowTitle = L"시나리오 승리";
+                Entry.RowSubtitle = L"페놀티코 / 목표 달성";
+                Entry.IssuerLabel = L"시나리오 과제";
+                Entry.SpeakerLabel = Ui(L"task_widget.penultimo.name");
+                Entry.DetailBody =
+                    L"시나리오 목표를 모두 달성했습니다.\n\n"
+                    L"여기서 마무리해도 승리입니다.\n"
+                    L"더 플레이하고 싶다면 다음 시대로 전환하세요.";
+                Entry.ObjectiveLine =
+                    L"승리! 더 하고 싶다면 " + ConfirmText;
+                Entry.StageLine = L"시나리오 과제 / 완료";
+                Entry.RewardText = BuildListText(
+                    L"시나리오 승리 / 다음 시대 계속 플레이 가능");
+                Entry.PenaltyText = BuildListText(
+                    L"지금 전환하지 않아도 승리 상태는 유지됩니다.");
+                Entry.PrimaryButtonLabel = ConfirmText;
+                Entry.SecondaryButtonLabel = L"여기서 마무리";
+            }
+            else
+            {
+                Entry.RowTitle =
+                    EraTransitionState.Title.empty() ?
+                        Ui(L"task_widget.era_transition.default_title") :
+                        EraTransitionState.Title;
+                Entry.RowSubtitle = Ui(L"task_widget.era_transition.row_subtitle");
+                Entry.IssuerLabel = Ui(L"task_widget.penultimo.issuer_label");
+                Entry.SpeakerLabel = Ui(L"task_widget.penultimo.name");
+                Entry.DetailBody = UIStrings::Format(
+                    L"task_widget.era_transition.detail_body_template",
+                    {
+                        std::wstring(
+                            GetBuildingEraDisplayName(EraProgress.CurrentEra)),
+                        std::wstring(
+                            GetBuildingEraDisplayName(
+                                EraTransitionState.TargetEra))
+                    });
+                if (!EraTransitionState.Summary.empty())
+                    Entry.DetailBody += L"\n\n" + EraTransitionState.Summary;
+                Entry.ObjectiveLine = UIStrings::Format(
+                    L"task_widget.era_transition.objective_template",
+                    { ConfirmText });
+                Entry.StageLine = Ui(L"task_widget.era_transition.stage_line");
+                Entry.RewardText = BuildListText(UIStrings::Format(
+                    L"task_widget.era_mission.reward_template",
+                    {
+                        std::wstring(
+                            GetBuildingEraDisplayName(
+                                EraTransitionState.TargetEra))
+                    }));
+                Entry.PenaltyText = BuildListText(
+                    Ui(L"task_widget.era_transition.penalty_text"));
+                Entry.PrimaryButtonLabel = ConfirmText;
+                Entry.SecondaryButtonLabel = Ui(L"top_hud.era_transition.cancel");
+            }
             Entry.Demand.Stage = EPoliticalDemandStage::Warning;
             Entry.IconPath = GPenultimoTaskIcon;
             Entry.PortraitPath = GetPenultimoPortraitPath(Era);
@@ -1863,7 +1889,7 @@ void CTaskWidget::OnPrimaryButtonClick()
         if (Access->Commands().TryExecutePeacePayment(PayMessage))
         {
             mFeedbackMessage.clear();
-            SetOpen(false);
+            OpenEraTransitionTask();
             return;
         }
 
@@ -1906,10 +1932,22 @@ void CTaskWidget::OnSecondaryButtonClick()
         0,
         static_cast<int>(Entries.size()) - 1))];
 
-    if (Selected.Kind == FTaskEntry::EKind::EraMission ||
-        Selected.Kind == FTaskEntry::EKind::EraTransition)
+    if (Selected.Kind == FTaskEntry::EKind::EraMission)
     {
         mFeedbackMessage.clear();
+        SetOpen(false);
+        return;
+    }
+
+    if (Selected.Kind == FTaskEntry::EKind::EraTransition)
+    {
+        mFeedbackMessage.clear();
+        if (GameSession::CurrentMode() == EGameMode::Scenario)
+        {
+            CWorldManager::GetInst()->CreateWorld<CStartWorld>(true);
+            return;
+        }
+
         SetOpen(false);
         return;
     }

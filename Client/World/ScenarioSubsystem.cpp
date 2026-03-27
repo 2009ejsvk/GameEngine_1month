@@ -186,6 +186,7 @@ namespace
             std::to_wstring(Months) +
             L"개월";
     }
+
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -212,6 +213,27 @@ void CScenarioSubsystem::ShowEventWidget(
     TaskWidgetPtr->OpenForDemand(
         EPoliticalDemandIssuerType::ForeignPower,
         IssuerIndex);
+}
+
+void CScenarioSubsystem::RefreshScenarioWorldMarketPrices()
+{
+    if (!mOwner || !mOwner->mEconomy || !mOwner->mPolitics ||
+        !mOwner->mEdictState || !mOwner->mCrisis || !mOwner->mTrade ||
+        !mOwner->mSimulation)
+    {
+        return;
+    }
+
+    mOwner->mEconomy->RefreshWorldMarketPrices(
+        {
+            mOwner->mPolitics->GovernmentProfile,
+            mOwner->mEdictState->GovernmentEdicts,
+            mOwner->mCrisis->WorldCrisisService->GetStatus(),
+            mOwner->mTrade->State.ForeignPowerStates,
+            mOwner->mSimulation->Year,
+            mOwner->mSimulation->Month,
+            mOwner->mSimulation->Day
+        });
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -479,7 +501,7 @@ void CScenarioSubsystem::InjectPeacePaymentDemand()
         L"\"우리도 더 이상 전쟁은 원치 않는다.\n"
         L"배상금 $10,000을 지불하면 독립을 인정하겠다.\"";
     Demand.ObjectiveText = L"국고 $10,000 확보 후 지불 버튼 클릭";
-    Demand.RewardText = L"독립 승인 → 다음 시대로";
+    Demand.RewardText = L"시나리오 승리 / 더 하고 싶다면 다음 시대로 전환";
     Demand.PenaltyText = L"없음";
     mOwner->mPolitics->PoliticalDemandService->InjectScenarioDemand(Demand);
 
@@ -520,9 +542,8 @@ bool CScenarioSubsystem::TryExecutePeacePayment(std::wstring& OutMessage)
     ResourceTradePricing::GetScenarioRumExportBiasPercent() = 0;
     EnterPhase(EScenarioPhase::EraTransitionReady);
 
-    // 지불 즉시 시대 전환 실행
     mOwner->mEraState->RefreshEraTransitionState();
-    mOwner->mEraState->TryExecuteEraTransition(EEraTransitionChoice::Confirm);
+    OutMessage = L"시나리오 승리! 더 하고 싶다면 다음 시대로 전환하세요.";
     return true;
 }
 
@@ -774,6 +795,7 @@ void CScenarioSubsystem::TickPhase()
                 CrownRumExploitationActive = DemandAccepted;
                 ResourceTradePricing::GetScenarioRumExportBiasPercent() =
                     DemandAccepted ? -50 : 0;
+                RefreshScenarioWorldMarketPrices();
             }
 
             CTradeDiplomacySubsystem* Trade = mOwner->GetTrade();
@@ -791,6 +813,7 @@ void CScenarioSubsystem::TickPhase()
                 CrownRumOfferInjected = false;
                 CrownRumExploitationActive = false;
                 ResourceTradePricing::GetScenarioRumExportBiasPercent() = 0;
+                RefreshScenarioWorldMarketPrices();
                 EnterPhase(EScenarioPhase::IndependencePrep);
             }
         }
@@ -799,6 +822,7 @@ void CScenarioSubsystem::TickPhase()
             CrownRumExploitationActive = false;
             CrownRumOfferInjected = false;
             ResourceTradePricing::GetScenarioRumExportBiasPercent() = 0;
+            RefreshScenarioWorldMarketPrices();
             if (CTradeDiplomacySubsystem* Trade = mOwner->GetTrade())
                 RemoveScenarioRumOffers(*Trade, GCrownRumScenarioTag);
         }

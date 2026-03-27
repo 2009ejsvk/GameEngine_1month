@@ -504,6 +504,27 @@ bool CMainWorld::Init()
         "build_1_3",
         15,
         -12);
+    CreateStarterBuilding(
+        *this,
+        TileMapObj,
+        MainWorldConfig::GStarterTavernObjectName,
+        "build_5_1",
+        -8,
+        4);
+    CreateStarterBuilding(
+        *this,
+        TileMapObj,
+        MainWorldConfig::GStarterChapelObjectName,
+        "build_8_1",
+        8,
+        4);
+    CreateStarterBuilding(
+        *this,
+        TileMapObj,
+        MainWorldConfig::GStarterClinicObjectName,
+        "build_8_4",
+        0,
+        -6);
     RebuildRoadNetwork();
 
     ResetWorldState();

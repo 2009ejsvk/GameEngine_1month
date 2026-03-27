@@ -83,7 +83,6 @@ private:
     float mRuntimeTraceAccum = 0.f;
     FOrbAnimationState mAnimationState;
     float mSmoothedApproval = 50.f;
-    bool mSmoothedApprovalInitialized = false;
 #ifdef _DEBUG
     bool mDebugMissingDependencyLogged = false;
     bool mDebugMissingMarkerLogged = false;
@@ -103,21 +102,13 @@ public:
 
     void UpdateSmoothedApproval(float TargetApproval)
     {
-        if (!mSmoothedApprovalInitialized)
-        {
-            mSmoothedApproval = TargetApproval;
-            mSmoothedApprovalInitialized = true;
-            return;
-        }
-
         constexpr float LerpRate = 0.08f;
         constexpr float MaxDecreasePerDay = 4.0f;
-        constexpr float MaxIncreasePerDay = 3.0f;
         const float Delta = TargetApproval - mSmoothedApproval;
-        const float MaxDelta = (Delta < 0.f) ? -MaxDecreasePerDay : MaxIncreasePerDay;
-        const float ClampedDelta =
-            (std::abs(Delta) > std::abs(MaxDelta)) ? MaxDelta : Delta;
-        mSmoothedApproval += ClampedDelta * LerpRate;
+        const float AppliedDelta = (Delta < 0.f)
+            ? (std::max)(Delta, -MaxDecreasePerDay) * LerpRate
+            : Delta * LerpRate;
+        mSmoothedApproval += AppliedDelta;
         mSmoothedApproval =
             (std::max)(0.f, (std::min)(100.f, mSmoothedApproval));
     }
@@ -380,6 +371,8 @@ private:
     // Update() 분해 — FSM 헬퍼
     void CancelCurrentPath();
     ECitizenState NormalizeResumeState(ECitizenState State) const;
+    ECitizenState ResolveBestAvailableCoreState(
+        ECitizenState PreferredState) const;
     ECitizenState ResolveStateAfterService() const;
     bool TryInterruptByNeed();
     std::string ResolveTargetByState() const;

@@ -25,6 +25,11 @@ private:
     float mZoomAspect = 16.f / 9.f;
     float mMinZoomWidth = 200.f;
     float mMaxZoomWidth = 10000.f;
+    std::string mFollowCitizenName;
+
+public:
+    void SetFollowCitizen(const std::string& CitizenName);
+    void ClearFollowCitizen();
 
 public:
     virtual bool Init();

@@ -77,28 +77,66 @@ ECitizenState CBuildingMarkerOrb::NormalizeResumeState(
     case ECitizenState::AtHome:
         return ECitizenState::GoingHome;
     case ECitizenState::GoingToWork:
-    case ECitizenState::AtWork:
         return ECitizenState::GoingToWork;
+    case ECitizenState::AtWork:
+        return ECitizenState::GoingHome;
     default:
         return ECitizenState::GoingToWork;
     }
 }
 
-ECitizenState CBuildingMarkerOrb::ResolveStateAfterService() const
+ECitizenState CBuildingMarkerOrb::ResolveBestAvailableCoreState(
+    ECitizenState PreferredState) const
 {
-    if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
+    auto ResolvePreferredCoreState = [&](ECitizenState State) -> ECitizenState
+    {
+        switch (State)
+        {
+        case ECitizenState::GoingHome:
+        case ECitizenState::AtHome:
+            if (!mHomeName.empty())
+                return ECitizenState::GoingHome;
+            break;
+        case ECitizenState::GoingToWork:
+        case ECitizenState::AtWork:
+            if (!mWorkName.empty())
+                return ECitizenState::GoingToWork;
+            break;
+        case ECitizenState::GoingToFood:
+        case ECitizenState::AtFood:
+            if (!mFoodName.empty())
+                return ECitizenState::GoingToFood;
+            break;
+        default:
+            break;
+        }
+
         return ECitizenState::Wander;
+    };
 
-    const ECitizenState ResumeState =
-        NormalizeResumeState(mResumeStateAfterService);
+    const ECitizenState PreferredCoreState =
+        ResolvePreferredCoreState(PreferredState);
 
-    if (ResumeState == ECitizenState::GoingHome && !mHomeName.empty())
-        return ECitizenState::GoingHome;
+    if (PreferredCoreState != ECitizenState::Wander)
+        return PreferredCoreState;
 
     if (!mWorkName.empty())
         return ECitizenState::GoingToWork;
 
-    return ECitizenState::GoingHome;
+    if (!mHomeName.empty())
+        return ECitizenState::GoingHome;
+
+    if (!mFoodName.empty())
+        return ECitizenState::GoingToFood;
+
+    return ECitizenState::Wander;
+}
+
+ECitizenState CBuildingMarkerOrb::ResolveStateAfterService() const
+{
+    const ECitizenState ResumeState =
+        NormalizeResumeState(mResumeStateAfterService);
+    return ResolveBestAvailableCoreState(ResumeState);
 }
 
 bool CBuildingMarkerOrb::TryInterruptByNeed()
@@ -123,6 +161,23 @@ bool CBuildingMarkerOrb::TryInterruptByNeed()
     const bool IsFaithState =
         mCitizenState == ECitizenState::GoingToFaith ||
         mCitizenState == ECitizenState::AtFaith;
+    const bool IsHomeState =
+        mCitizenState == ECitizenState::GoingHome ||
+        mCitizenState == ECitizenState::AtHome;
+    const bool IsWorkState =
+        mCitizenState == ECitizenState::GoingToWork ||
+        mCitizenState == ECitizenState::AtWork;
+    const bool HoldAtHomeForHousing =
+        mCitizenState == ECitizenState::AtHome &&
+        Satisfaction.Housing <
+            GameConstants::Orb::HousingInterruptThreshold + 8.f;
+    const bool HoldAtWorkForJob =
+        mCitizenState == ECitizenState::AtWork &&
+        Satisfaction.Job <
+            GameConstants::Orb::JobInterruptThreshold + 8.f;
+
+    if (HoldAtHomeForHousing || HoldAtWorkForJob)
+        return false;
 
     if (!IsFoodState &&
         !mFoodName.empty() &&
@@ -176,6 +231,34 @@ bool CBuildingMarkerOrb::TryInterruptByNeed()
         return true;
     }
 
+    if (!IsHomeState &&
+        !IsFoodState &&
+        !IsFunState &&
+        !IsHealthState &&
+        !IsFaithState &&
+        !mHomeName.empty() &&
+        Satisfaction.Housing <= GameConstants::Orb::HousingInterruptThreshold)
+    {
+        CancelCurrentPath();
+        TransitionFsm(ECitizenState::GoingHome);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
+    if (!IsWorkState &&
+        !IsFoodState &&
+        !IsFunState &&
+        !IsHealthState &&
+        !IsFaithState &&
+        !mWorkName.empty() &&
+        Satisfaction.Job <= GameConstants::Orb::JobInterruptThreshold)
+    {
+        CancelCurrentPath();
+        TransitionFsm(ECitizenState::GoingToWork);
+        mPathRetryAccum = 0.f;
+        return true;
+    }
+
     return false;
 }
 
@@ -186,11 +269,23 @@ std::string CBuildingMarkerOrb::ResolveTargetByState() const
     switch (mCitizenState)
     {
     case ECitizenState::GoingToWork:
-        return mWorkName;
-    case ECitizenState::GoingHome:
-        return mHomeName;
-    case ECitizenState::GoingToFood:
+        if (!mWorkName.empty())
+            return mWorkName;
+        if (!mHomeName.empty())
+            return mHomeName;
         return mFoodName;
+    case ECitizenState::GoingHome:
+        if (!mHomeName.empty())
+            return mHomeName;
+        if (!mWorkName.empty())
+            return mWorkName;
+        return mFoodName;
+    case ECitizenState::GoingToFood:
+        if (!mFoodName.empty())
+            return mFoodName;
+        if (!mHomeName.empty())
+            return mHomeName;
+        return mWorkName;
     case ECitizenState::GoingToFun:
         return mFunName;
     case ECitizenState::GoingToHealth:
@@ -477,11 +572,7 @@ void CBuildingMarkerOrb::HandleMissingTarget()
         break;
     }
 
-    if (mHomeName.empty() || mWorkName.empty() || mFoodName.empty())
-    {
-        TransitionFsm(ECitizenState::Wander);
-    }
-    else if (mCitizenState == ECitizenState::GoingToFood ||
+    if (mCitizenState == ECitizenState::GoingToFood ||
              mCitizenState == ECitizenState::AtFood      ||
              mCitizenState == ECitizenState::GoingToFun  ||
              mCitizenState == ECitizenState::AtFun       ||
@@ -495,7 +586,11 @@ void CBuildingMarkerOrb::HandleMissingTarget()
     else if (IsTeamsterState(mCitizenState))
     {
         ResetTeamsterSpeed();
-        TransitionFsm(ECitizenState::GoingToWork);
+        TransitionFsm(ResolveBestAvailableCoreState(ECitizenState::GoingToWork));
+    }
+    else
+    {
+        TransitionFsm(ResolveBestAvailableCoreState(mCitizenState));
     }
 
     mCurrentTargetName = (mCitizenState == ECitizenState::Wander)
