@@ -242,7 +242,10 @@ void CPlacementAreaObject::EnsurePlacementObject()
 
     if (!Found)
     {
-        for (int y = 0; y < CountY && !Found; ++y)
+        int BestCenterIndex = -1;
+        int BestDistanceSq = 0;
+
+        for (int y = 0; y < CountY; ++y)
         {
             for (int x = 0; x < CountX; ++x)
             {
@@ -258,11 +261,30 @@ void CPlacementAreaObject::EnsurePlacementObject()
 
                 if (IsAreaPlaceable(TileMap, StartPrimaryIndices))
                 {
-                    Found = true;
-                    StartCenterIndex = Index;
-                    break;
+                    const int DeltaX = x - CenterX;
+                    const int DeltaY = y - CenterY;
+                    const int DistanceSq =
+                        DeltaX * DeltaX + DeltaY * DeltaY;
+
+                    if (BestCenterIndex < 0 ||
+                        DistanceSq < BestDistanceSq)
+                    {
+                        BestCenterIndex = Index;
+                        BestDistanceSq = DistanceSq;
+                    }
                 }
             }
+        }
+
+        if (BestCenterIndex >= 0 &&
+            BuildDiamondAreaIndices(
+                TileMap, BestCenterIndex, StartPrimaryIndices) &&
+            (int)StartPrimaryIndices.size() ==
+                mTemplate.GetExpectedTileCount() &&
+            IsAreaPlaceable(TileMap, StartPrimaryIndices))
+        {
+            Found = true;
+            StartCenterIndex = BestCenterIndex;
         }
     }
 

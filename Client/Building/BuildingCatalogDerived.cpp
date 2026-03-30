@@ -33,6 +33,8 @@ namespace
         return Pattern && Name.find(Pattern) != std::wstring::npos;
     }
 
+    std::vector<std::wstring> SplitCommaClauses(const std::wstring& Text);
+
     void AddPoliticalSignal(
         FBuildingCatalogEntry& Entry,
         EPoliticalAxis Axis,
@@ -75,6 +77,31 @@ namespace
         }
 
         return false;
+    }
+
+    void ApplyPlacementConstraintFlagsFromDetail(
+        FBuildingCatalogEntry& Entry)
+    {
+        std::wstring RemarkText;
+
+        if (TryExtractDetailLineValue(Entry.DetailText, L"비고:", RemarkText))
+        {
+            const std::vector<std::wstring> Clauses =
+                SplitCommaClauses(RemarkText);
+
+            for (size_t Index = 0; Index < Clauses.size(); ++Index)
+            {
+                const std::wstring Clause = Trim(Clauses[Index]);
+
+                if (Clause == L"해안")
+                    Entry.RequiresCoastPlacement = true;
+                else if (Clause == L"도로")
+                    Entry.RequiresRoadAdjacentPlacement = true;
+            }
+        }
+
+        if (Entry.BuildingKind == EPlacementBuildingKind::Harbor)
+            Entry.RequiresCoastPlacement = true;
     }
 
     bool TryParseSignedInteger(
@@ -1368,6 +1395,7 @@ void InitializeDerivedCatalogEntry(
         Entry.FoodProvider,
         Entry.EntertainmentProvider);
     ApplyCatalogIdentityFlags(Entry);
+    ApplyPlacementConstraintFlagsFromDetail(Entry);
 
     if (Entry.Residential)
     {

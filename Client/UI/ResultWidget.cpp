@@ -237,7 +237,7 @@ bool CResultWidget::Init()
         CreateWidget<CTextBlock>("ResultWidget_RestartButtonText", 4).lock();
     if (RestartButtonText)
     {
-        RestartButtonText->SetText(L"다시 하기");
+        RestartButtonText->SetText(L"계속 이어서 하기");
         RestartButtonText->SetPos(PanelX + 130.f, PanelY + 274.f);
         RestartButtonText->SetSize(160.f, 40.f);
         RestartButtonText->SetFontSize(18.f);

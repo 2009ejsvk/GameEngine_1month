@@ -96,6 +96,12 @@ struct FBuildingCatalogPlacement
         EPlacementBuildingKind::Structure;
 };
 
+struct FBuildingCatalogPlacementConstraints
+{
+    bool RequiresCoastPlacement = false;
+    bool RequiresRoadAdjacentPlacement = false;
+};
+
 struct FBuildingCatalogBehavior
 {
     std::vector<std::wstring> UpgradeHints;
@@ -114,6 +120,7 @@ struct FBuildingCatalogEntry final :
     public FBuildingCatalogPresentation,
     public FBuildingCatalogMenu,
     public FBuildingCatalogPlacement,
+    public FBuildingCatalogPlacementConstraints,
     public FBuildingCatalogBehavior,
     public FBuildingCatalogRuntimeData,
     public FBuildingCatalogCitizenData,

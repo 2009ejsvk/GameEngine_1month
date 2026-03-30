@@ -31,7 +31,9 @@ private:
     int mLastRoadBrushTileIndex = -1;
     int mRoadPathStartTileIndex = -1;
     int mRoadPreviewEndTileIndex = -1;
+    float mRoadPreviewRefreshCooldown = 0.f;
     std::vector<int> mRoadPreviewTileIndices;
+    std::vector<int> mResolvedRoadPreviewPathIndices;
     std::weak_ptr<class CTileMapObject> mRoadPreviewTileMapObject;
 
 public:
@@ -70,7 +72,7 @@ private:
     bool IsPlacementInputBlocked(const FVector2& MouseScreenPos) const;
     bool TryCommitActivePlacement();
     bool RestartRoadBrushPlacement();
-    void UpdateRoadPathPreview();
+    void UpdateRoadPathPreview(float DeltaTime);
     bool TryGetTileMap(
         std::shared_ptr<class CTileMapComponent>& OutTileMap) const;
     bool TryGetRoadPreviewTileMap(

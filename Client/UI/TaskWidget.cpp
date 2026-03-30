@@ -546,12 +546,13 @@ namespace
                 Entry.DetailBody =
                     L"시나리오 목표를 모두 달성했습니다.\n\n"
                     L"여기서 마무리해도 승리입니다.\n"
-                    L"더 플레이하고 싶다면 다음 시대로 전환하세요.";
+                    L"이후 별도 시나리오는 없으며,\n"
+                    L"계속 플레이하려면 다음 시대로 전환하세요.";
                 Entry.ObjectiveLine =
                     L"승리! 더 하고 싶다면 " + ConfirmText;
                 Entry.StageLine = L"시나리오 과제 / 완료";
                 Entry.RewardText = BuildListText(
-                    L"시나리오 승리 / 다음 시대 계속 플레이 가능");
+                    L"시나리오 승리 / 이후 시나리오 없음");
                 Entry.PenaltyText = BuildListText(
                     L"지금 전환하지 않아도 승리 상태는 유지됩니다.");
                 Entry.PrimaryButtonLabel = ConfirmText;

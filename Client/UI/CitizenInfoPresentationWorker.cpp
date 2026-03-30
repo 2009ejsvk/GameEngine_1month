@@ -2008,7 +2008,7 @@ namespace CitizenInfoPresentation
                         0,
                         static_cast<int>(roundf(
                             (1.f - Snapshot.HarborShipProgressPercent) *
-                            3.f *
+                            2.f *
                             static_cast<float>((std::max)(
                                 1,
                                 Snapshot.DaysInMonth)))))));

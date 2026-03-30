@@ -551,7 +551,7 @@ struct FBuildingOperationsState
             static_cast<float>(SafeDays);
         HarborShipProgressMonths += DailyProgress;
 
-        constexpr float GBaseShipIntervalMonths = 3.f;
+        constexpr float GBaseShipIntervalMonths = 2.f;
 
         if (HarborShipProgressMonths < GBaseShipIntervalMonths)
             return false;
@@ -575,7 +575,7 @@ struct FBuildingOperationsState
         if (!IsHarbor)
             return 0.f;
 
-        constexpr float GBaseShipIntervalMonths = 3.f;
+        constexpr float GBaseShipIntervalMonths = 2.f;
         return (std::max)(
             0.f,
             (std::min)(

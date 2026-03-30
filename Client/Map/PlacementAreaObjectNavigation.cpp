@@ -1,4 +1,5 @@
 #include "PlacementAreaObject.h"
+#include "../Building/BuildingCatalog.h"
 #include "Object/TileMapObject.h"
 #include "World/World.h"
 #include <cfloat>
@@ -354,6 +355,56 @@ bool CPlacementAreaObject::IsAreaPlaceable(
         {
             return false;
         }
+    }
+
+    const FBuildingCatalogEntry* const Entry = ResolveCatalogEntry();
+
+    if (!Entry)
+        return true;
+
+    auto IsInArea = [&](int TileIndex)
+    {
+        return std::find(Indices.begin(), Indices.end(), TileIndex) !=
+            Indices.end();
+    };
+
+    auto HasAdjacentTile = [&](const auto& Predicate)
+    {
+        for (size_t Index = 0; Index < Indices.size(); ++Index)
+        {
+            const int TileIndex = Indices[Index];
+
+            for (int DirIndex = 0; DirIndex < 8; ++DirIndex)
+            {
+                const int NeighborIndex =
+                    GetIsoNeighborIndexByDir(TileMap, TileIndex, DirIndex);
+
+                if (NeighborIndex < 0 || IsInArea(NeighborIndex))
+                    continue;
+
+                auto NeighborTile = TileMap->GetTile(NeighborIndex).lock();
+
+                if (!NeighborTile)
+                    continue;
+
+                if (Predicate(NeighborIndex, *NeighborTile))
+                    return true;
+            }
+        }
+
+        return false;
+    };
+
+    if (Entry->RequiresCoastPlacement)
+    {
+        const bool HasCoastAdjacency = HasAdjacentTile(
+            [](int, const auto& NeighborTile)
+            {
+                return NeighborTile.GetType() == ETileType::UnableToMove;
+            });
+
+        if (!HasCoastAdjacency)
+            return false;
     }
 
     return true;

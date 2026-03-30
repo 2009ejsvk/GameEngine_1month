@@ -21,9 +21,15 @@
 namespace
 {
     constexpr float GRoadPreviewAlpha = 0.9f;
+    constexpr float GRoadPreviewRefreshInterval = 0.035f;
     constexpr int GRoadPathDirCount = 4;
     constexpr int GRoadPathDirX[GRoadPathDirCount] = { 0, 1, 0, -1 };
     constexpr int GRoadPathDirY[GRoadPathDirCount] = { 1, 0, -1, 0 };
+    constexpr int GRoadPathDirNorth = 0;
+    constexpr int GRoadPathDirEast = 1;
+    constexpr int GRoadPathDirSouth = 2;
+    constexpr int GRoadPathDirWest = 3;
+    constexpr int GRoadFallbackAdvanceSteps = 3;
 
     bool TryGetTileGridCoords(
         const std::shared_ptr<CTileMapComponent>& TileMap,
@@ -114,6 +120,310 @@ namespace
             abs(FromGridX - ToGridX) +
             abs(FromGridY - ToGridY));
     }
+
+    bool BuildRoadFallbackPath(
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        int StartTileIndex,
+        int EndTileIndex,
+        std::vector<int>& OutPathIndices);
+
+    bool TryAppendRoadStep(
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        int DirIndex,
+        std::vector<int>& InOutPathIndices)
+    {
+        if (!TileMap || InOutPathIndices.empty())
+            return false;
+
+        const int CurrentIndex = InOutPathIndices.back();
+        const int NextIndex =
+            GetRoadPathNeighborIndex(TileMap, CurrentIndex, DirIndex);
+
+        if (NextIndex < 0)
+            return false;
+
+        if (!InOutPathIndices.empty() &&
+            InOutPathIndices.back() == NextIndex)
+        {
+            return false;
+        }
+
+        auto Tile = TileMap->GetTile(NextIndex).lock();
+
+        if (!Tile)
+            return false;
+
+        if (!TileMap->IsRoadTile(NextIndex) &&
+            Tile->GetType() == ETileType::UnableToMove)
+        {
+            return false;
+        }
+
+        InOutPathIndices.push_back(NextIndex);
+        return true;
+    }
+
+    bool BuildRoadMixedPath(
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        int StartTileIndex,
+        int EndTileIndex,
+        std::vector<int>& OutPathIndices)
+    {
+        OutPathIndices.clear();
+
+        if (!TileMap || StartTileIndex < 0 || EndTileIndex < 0)
+            return false;
+
+        OutPathIndices.push_back(StartTileIndex);
+
+        int CurrentTileIndex = StartTileIndex;
+        int PreferredAxis = 0;
+        bool PreferredAxisInitialized = false;
+
+        const int TileCount =
+            TileMap->GetTileCountX() * TileMap->GetTileCountY();
+        int Guard = 0;
+
+        while (CurrentTileIndex != EndTileIndex &&
+            Guard < (std::max)(32, TileCount * 4))
+        {
+            ++Guard;
+
+            int CurrentGridX = 0;
+            int CurrentGridY = 0;
+            int EndGridX = 0;
+            int EndGridY = 0;
+
+            if (!TryGetTileGridCoords(
+                    TileMap,
+                    CurrentTileIndex,
+                    CurrentGridX,
+                    CurrentGridY) ||
+                !TryGetTileGridCoords(
+                    TileMap,
+                    EndTileIndex,
+                    EndGridX,
+                    EndGridY))
+            {
+                return false;
+            }
+
+            const int DeltaX = EndGridX - CurrentGridX;
+            const int DeltaY = EndGridY - CurrentGridY;
+
+            if (DeltaX == 0 && DeltaY == 0)
+                break;
+
+            const int DirX =
+                DeltaX >= 0 ? GRoadPathDirEast : GRoadPathDirWest;
+            const int DirY =
+                DeltaY >= 0 ? GRoadPathDirNorth : GRoadPathDirSouth;
+
+            if (!PreferredAxisInitialized)
+            {
+                PreferredAxis = abs(DeltaX) >= abs(DeltaY) ? 0 : 1;
+                PreferredAxisInitialized = true;
+            }
+
+            bool Stepped = false;
+
+            for (int Attempt = 0; Attempt < 2; ++Attempt)
+            {
+                const int Axis = (PreferredAxis + Attempt) % 2;
+
+                if (Axis == 0 && DeltaX != 0)
+                {
+                    if (TryAppendRoadStep(TileMap, DirX, OutPathIndices))
+                    {
+                        CurrentTileIndex = OutPathIndices.back();
+                        PreferredAxis = 1;
+                        Stepped = true;
+                        break;
+                    }
+                }
+
+                if (Axis == 1 && DeltaY != 0)
+                {
+                    if (TryAppendRoadStep(TileMap, DirY, OutPathIndices))
+                    {
+                        CurrentTileIndex = OutPathIndices.back();
+                        PreferredAxis = 0;
+                        Stepped = true;
+                        break;
+                    }
+                }
+            }
+
+            if (Stepped)
+                continue;
+
+            std::vector<int> FallbackPath;
+
+            if (!BuildRoadFallbackPath(
+                    TileMap,
+                    CurrentTileIndex,
+                    EndTileIndex,
+                    FallbackPath) ||
+                FallbackPath.size() < 2)
+            {
+                return false;
+            }
+
+            const int MaxAdvance = (std::min)(
+                GRoadFallbackAdvanceSteps,
+                static_cast<int>(FallbackPath.size()) - 1);
+
+            if (MaxAdvance <= 0)
+                return false;
+
+            for (int PathIndex = 1; PathIndex <= MaxAdvance; ++PathIndex)
+            {
+                const int NextTileIndex = FallbackPath[PathIndex];
+
+                if (!OutPathIndices.empty() &&
+                    OutPathIndices.back() == NextTileIndex)
+                {
+                    continue;
+                }
+
+                OutPathIndices.push_back(NextTileIndex);
+                CurrentTileIndex = NextTileIndex;
+            }
+
+            PreferredAxisInitialized = false;
+        }
+
+        return !OutPathIndices.empty() &&
+            OutPathIndices.back() == EndTileIndex;
+    }
+
+    bool BuildRoadFallbackPath(
+        const std::shared_ptr<CTileMapComponent>& TileMap,
+        int StartTileIndex,
+        int EndTileIndex,
+        std::vector<int>& OutPathIndices)
+    {
+        OutPathIndices.clear();
+
+        if (!TileMap || StartTileIndex < 0 || EndTileIndex < 0)
+            return false;
+
+        const int TileCount =
+            TileMap->GetTileCountX() * TileMap->GetTileCountY();
+
+        if (TileCount <= 0 ||
+            StartTileIndex >= TileCount ||
+            EndTileIndex >= TileCount)
+        {
+            return false;
+        }
+
+        std::vector<float> GScore(
+            TileCount, (std::numeric_limits<float>::max)());
+        std::vector<float> FScore(
+            TileCount, (std::numeric_limits<float>::max)());
+        std::vector<int> Parents(TileCount, -1);
+        std::vector<unsigned char> Open(TileCount, 0);
+        std::vector<unsigned char> Closed(TileCount, 0);
+
+        GScore[StartTileIndex] = 0.f;
+        FScore[StartTileIndex] = EstimateRoadPathCost(
+            TileMap,
+            StartTileIndex,
+            EndTileIndex);
+        Open[StartTileIndex] = 1;
+
+        while (true)
+        {
+            int CurrentIndex = -1;
+            float BestScore = (std::numeric_limits<float>::max)();
+
+            for (int i = 0; i < TileCount; ++i)
+            {
+                if (!Open[i] || Closed[i])
+                    continue;
+
+                if (FScore[i] >= BestScore)
+                    continue;
+
+                BestScore = FScore[i];
+                CurrentIndex = i;
+            }
+
+            if (CurrentIndex < 0)
+                break;
+
+            if (CurrentIndex == EndTileIndex)
+                break;
+
+            Open[CurrentIndex] = 0;
+            Closed[CurrentIndex] = 1;
+
+            for (int DirIndex = 0; DirIndex < GRoadPathDirCount; ++DirIndex)
+            {
+                const int NextIndex = GetRoadPathNeighborIndex(
+                    TileMap,
+                    CurrentIndex,
+                    DirIndex);
+
+                if (NextIndex < 0 ||
+                    Closed[NextIndex])
+                {
+                    continue;
+                }
+
+                auto NextTile = TileMap->GetTile(NextIndex).lock();
+
+                if (!NextTile)
+                    continue;
+
+                if (!TileMap->IsRoadTile(NextIndex) &&
+                    NextTile->GetType() == ETileType::UnableToMove)
+                {
+                    continue;
+                }
+
+                const float CandidateScore = GScore[CurrentIndex] + 1.f;
+
+                if (CandidateScore >= GScore[NextIndex])
+                    continue;
+
+                Parents[NextIndex] = CurrentIndex;
+                GScore[NextIndex] = CandidateScore;
+                FScore[NextIndex] = CandidateScore +
+                    EstimateRoadPathCost(TileMap, NextIndex, EndTileIndex);
+                Open[NextIndex] = 1;
+            }
+        }
+
+        if (EndTileIndex != StartTileIndex &&
+            Parents[EndTileIndex] < 0)
+        {
+            return false;
+        }
+
+        int CurrentIndex = EndTileIndex;
+
+        while (CurrentIndex >= 0)
+        {
+            OutPathIndices.push_back(CurrentIndex);
+
+            if (CurrentIndex == StartTileIndex)
+                break;
+
+            CurrentIndex = Parents[CurrentIndex];
+        }
+
+        if (OutPathIndices.empty() ||
+            OutPathIndices.back() != StartTileIndex)
+        {
+            OutPathIndices.clear();
+            return false;
+        }
+
+        std::reverse(OutPathIndices.begin(), OutPathIndices.end());
+        return true;
+    }
 }
 
 CPlacementController::CPlacementController()
@@ -170,7 +480,7 @@ void CPlacementController::Update(float DeltaTime)
     CGameObject::Update(DeltaTime);
 
     UpdateDemolitionHoverPreview();
-    UpdateRoadPathPreview();
+    UpdateRoadPathPreview(DeltaTime);
 }
 
 void CPlacementController::SetDemolitionMode(bool Enable)
@@ -891,7 +1201,7 @@ bool CPlacementController::RestartRoadBrushPlacement()
     return true;
 }
 
-void CPlacementController::UpdateRoadPathPreview()
+void CPlacementController::UpdateRoadPathPreview(float DeltaTime)
 {
     if (!mRoadBrushMode ||
         mRoadBrushEntry.BuildingKind != EPlacementBuildingKind::Road ||
@@ -916,6 +1226,7 @@ void CPlacementController::UpdateRoadPathPreview()
                 std::vector<int>(1, mRoadPathStartTileIndex));
         }
 
+        mResolvedRoadPreviewPathIndices.clear();
         return;
     }
 
@@ -926,11 +1237,20 @@ void CPlacementController::UpdateRoadPathPreview()
     {
         ApplyRoadPreviewTiles(std::vector<int>(1, mRoadPathStartTileIndex));
         mRoadPreviewEndTileIndex = -1;
+        mResolvedRoadPreviewPathIndices.clear();
         return;
     }
 
     if (EndTileIndex == mRoadPreviewEndTileIndex)
         return;
+
+    mRoadPreviewRefreshCooldown =
+        (std::max)(0.f, mRoadPreviewRefreshCooldown - (std::max)(0.f, DeltaTime));
+
+    if (mRoadPreviewRefreshCooldown > 0.f)
+        return;
+
+    mRoadPreviewRefreshCooldown = GRoadPreviewRefreshInterval;
 
     std::vector<int> PathIndices;
 
@@ -940,6 +1260,7 @@ void CPlacementController::UpdateRoadPathPreview()
         PathIndices.push_back(mRoadPathStartTileIndex);
     }
 
+    mResolvedRoadPreviewPathIndices = PathIndices;
     ApplyRoadPreviewTiles(PathIndices);
     mRoadPreviewEndTileIndex = EndTileIndex;
 }
@@ -1054,111 +1375,11 @@ bool CPlacementController::ResolveRoadPathToTile(
         return false;
     }
 
-    const int TileCount =
-        TileMap->GetTileCountX() * TileMap->GetTileCountY();
-
-    if (TileCount <= 0 ||
-        mRoadPathStartTileIndex >= TileCount ||
-        EndTileIndex >= TileCount)
-    {
-        return false;
-    }
-
-    std::vector<float> GScore(
-        TileCount, (std::numeric_limits<float>::max)());
-    std::vector<float> FScore(
-        TileCount, (std::numeric_limits<float>::max)());
-    std::vector<int> Parents(TileCount, -1);
-    std::vector<unsigned char> Open(TileCount, 0);
-    std::vector<unsigned char> Closed(TileCount, 0);
-
-    GScore[mRoadPathStartTileIndex] = 0.f;
-    FScore[mRoadPathStartTileIndex] = EstimateRoadPathCost(
-        TileMap,
-        mRoadPathStartTileIndex,
-        EndTileIndex);
-    Open[mRoadPathStartTileIndex] = 1;
-
-    while (true)
-    {
-        int CurrentIndex = -1;
-        float BestScore = (std::numeric_limits<float>::max)();
-
-        for (int i = 0; i < TileCount; ++i)
-        {
-            if (!Open[i] || Closed[i])
-                continue;
-
-            if (FScore[i] >= BestScore)
-                continue;
-
-            BestScore = FScore[i];
-            CurrentIndex = i;
-        }
-
-        if (CurrentIndex < 0)
-            break;
-
-        if (CurrentIndex == EndTileIndex)
-            break;
-
-        Open[CurrentIndex] = 0;
-        Closed[CurrentIndex] = 1;
-
-        for (int DirIndex = 0; DirIndex < GRoadPathDirCount; ++DirIndex)
-        {
-            const int NextIndex = GetRoadPathNeighborIndex(
-                TileMap,
-                CurrentIndex,
-                DirIndex);
-
-            if (NextIndex < 0 ||
-                Closed[NextIndex] ||
-                !IsRoadPathTileTraversable(TileMap, NextIndex))
-            {
-                continue;
-            }
-
-            const float CandidateScore = GScore[CurrentIndex] + 1.f;
-
-            if (CandidateScore >= GScore[NextIndex])
-                continue;
-
-            Parents[NextIndex] = CurrentIndex;
-            GScore[NextIndex] = CandidateScore;
-            FScore[NextIndex] = CandidateScore +
-                EstimateRoadPathCost(TileMap, NextIndex, EndTileIndex);
-            Open[NextIndex] = 1;
-        }
-    }
-
-    if (EndTileIndex != mRoadPathStartTileIndex &&
-        Parents[EndTileIndex] < 0)
-    {
-        return false;
-    }
-
-    int CurrentIndex = EndTileIndex;
-
-    while (CurrentIndex >= 0)
-    {
-        OutPathIndices.push_back(CurrentIndex);
-
-        if (CurrentIndex == mRoadPathStartTileIndex)
-            break;
-
-        CurrentIndex = Parents[CurrentIndex];
-    }
-
-    if (OutPathIndices.empty() ||
-        OutPathIndices.back() != mRoadPathStartTileIndex)
-    {
-        OutPathIndices.clear();
-        return false;
-    }
-
-    std::reverse(OutPathIndices.begin(), OutPathIndices.end());
-    return true;
+    return BuildRoadMixedPath(
+            TileMap,
+            mRoadPathStartTileIndex,
+            EndTileIndex,
+        OutPathIndices);
 }
 
 bool CPlacementController::IsRoadPathTileTraversable(
@@ -1266,7 +1487,12 @@ bool CPlacementController::CommitRoadPathToTile(int EndTileIndex)
 {
     std::vector<int> PathIndices;
 
-    if (!ResolveRoadPathToTile(EndTileIndex, PathIndices) ||
+    if (EndTileIndex == mRoadPreviewEndTileIndex &&
+        !mResolvedRoadPreviewPathIndices.empty())
+    {
+        PathIndices = mResolvedRoadPreviewPathIndices;
+    }
+    else if (!ResolveRoadPathToTile(EndTileIndex, PathIndices) ||
         PathIndices.empty())
     {
         return false;
@@ -1310,6 +1536,8 @@ void CPlacementController::ClearRoadBrushMode()
     mLastRoadBrushTileIndex = -1;
     mRoadPathStartTileIndex = -1;
     mRoadPreviewEndTileIndex = -1;
+    mRoadPreviewRefreshCooldown = 0.f;
+    mResolvedRoadPreviewPathIndices.clear();
 }
 
 std::shared_ptr<CPlacementAreaObject>
