@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ISO RPG — DnD Light Demo</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body {
+  background:#0d0d1a;
+  color:#ddd;
+  font-family:'Segoe UI', system-ui, sans-serif;
+  overflow:hidden;
+  height:100%;
+  touch-action:none;
+}
+#app {
+  width:412px;
+  height:915px;
+  margin:0 auto;
+  display:flex;
+  flex-direction:column;
+  background:#0d0d1a;
+  position:relative;
+  overflow:hidden;
+}
+
+/* HUD */
+#hud {
+  height:80px;
+  background:#13132b;
+  border-bottom:1px solid #2a2a4e;
+  padding:8px 12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+}
+.portrait {
+  width:52px; height:52px;
+  border-radius:10px;
+  background:#1e1e3a;
+  border:2px solid #6a4fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:26px;
+  flex-shrink:0;
+}
+.stats { flex:1; }
+.stat-row {
+  display:flex; align-items:center; gap:6px; margin-bottom:5px;
+}
+.stat-row:last-child { margin-bottom:0; }
+.stat-label { font-size:10px; color:#666; width:20px; flex-shrink:0; }
+.bar-bg {
+  flex:1; height:7px; background:#1e1e2e; border-radius:4px; overflow:hidden;
+  border:1px solid #2a2a4e;
+}
+.bar-fill { height:100%; border-radius:4px; transition:width 0.25s ease; }
+.hp-bar { background:linear-gradient(90deg,#c0392b,#e74c3c); }
+.mp-bar { background:linear-gradient(90deg,#1a5276,#2e86c1); }
+.xp-bar { background:linear-gradient(90deg,#7d6608,#f1c40f); }
+.stat-val { font-size:10px; color:#888; width:44px; text-align:right; flex-shrink:0; }
+.info-col {
+  display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0;
+}
+.level-badge {
+  background:#6a4fff; color:#fff;
+  font-size:11px; font-weight:700;
+  padding:3px 10px; border-radius:12px;
+}
+.str-label { font-size:10px; color:#666; }
+
+/* Canvas wrap */
+#canvas-wrap {
+  flex:1;
+  position:relative;
+  overflow:hidden;
+  background:#0a1018;
+}
+#gameCanvas { position:absolute; top:0; left:0; display:block; }
+
+/* Turn banner */
+#turn-banner {
+  position:absolute;
+  top:8px; left:50%; transform:translateX(-50%);
+  background:rgba(13,13,26,0.85);
+  border:1px solid #6a4fff;
+  border-radius:20px;
+  padding:4px 18px;
+  font-size:11px; color:#bbb;
+  pointer-events:none;
+  backdrop-filter:blur(4px);
+  white-space:nowrap;
+}
+
+/* Bottom panel */
+#bottom {
+  height:215px;
+  background:#13132b;
+  border-top:1px solid #2a2a4e;
+  display:flex; flex-direction:column;
+  flex-shrink:0;
+}
+/* AP bar */
+#ap-row {
+  display:flex; align-items:center; gap:5px;
+  padding:6px 12px;
+  border-bottom:1px solid #1e1e2e;
+}
+#ap-label { font-size:10px; color:#666; margin-right:2px; }
+.ap-pip {
+  width:13px; height:13px; border-radius:50%;
+  background:#1e1e2e; border:1px solid #333;
+  transition:background 0.2s, border-color 0.2s;
+}
+.ap-pip.filled { background:#6a4fff; border-color:#8a6fff; }
+/* Action buttons */
+#actions {
+  display:flex; gap:6px; padding:6px 10px;
+  border-bottom:1px solid #1e1e2e;
+}
+.act-btn {
+  flex:1; background:#1e1e2e; border:1px solid #2a2a4e;
+  color:#bbb; border-radius:8px;
+  padding:8px 4px;
+  font-size:11px; text-align:center;
+  cursor:pointer; user-select:none;
+  transition:all 0.15s;
+}
+.act-btn:active { transform:scale(0.94); }
+.act-btn.on  { background:#6a4fff; border-color:#8a6fff; color:#fff; }
+.act-btn.off { opacity:0.35; pointer-events:none; }
+/* Log */
+#log {
+  flex:1; overflow-y:auto; padding:5px 12px;
+  font-size:11px; line-height:1.65;
+}
+#log::-webkit-scrollbar { width:3px; }
+#log::-webkit-scrollbar-thumb { background:#2a2a4e; border-radius:2px; }
+.ll        { color:#555; }
+.ll.player { color:#5dade2; }
+.ll.hit    { color:#e74c3c; }
+.ll.dmg    { color:#f39c12; }
+.ll.sys    { color:#6a4fff; }
+.ll.loot   { color:#2ecc71; }
+.ll.miss   { color:#7f8c8d; }
+
+/* Floating damage */
+.fdmg {
+  position:absolute;
+  font-size:13px; font-weight:700;
+  pointer-events:none;
+  animation:fdmg-anim 0.9s ease-out forwards;
+  text-shadow:0 0 4px #000;
+  z-index:20;
+}
+@keyframes fdmg-anim {
+  0%   { opacity:1; transform:translateY(0); }
+  100% { opacity:0; transform:translateY(-36px); }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="portrait" id="portrait">⚔️</div>
+    <div class="stats">
+      <div class="stat-row">
+        <span class="stat-label">HP</span>
+        <div class="bar-bg"><div class="bar-fill hp-bar" id="hp-bar" style="width:100%"></div></div>
+        <span class="stat-val" id="hp-val">20/20</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">MP</span>
+        <div class="bar-bg"><div class="bar-fill mp-bar" id="mp-bar" style="width:100%"></div></div>
+        <span class="stat-val" id="mp-val">12/12</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">XP</span>
+        <div class="bar-bg"><div class="bar-fill xp-bar" id="xp-bar" style="width:0%"></div></div>
+        <span class="stat-val" id="xp-val">0/100</span>
+      </div>
+    </div>
+    <div class="info-col">
+      <div class="level-badge" id="lv-badge">Lv.1</div>
+      <div class="str-label" id="str-label">STR 12</div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div id="canvas-wrap">
+    <canvas id="gameCanvas"></canvas>
+    <div id="turn-banner">플레이어 턴 — 이동 또는 공격</div>
+  </div>
+
+  <!-- Bottom -->
+  <div id="bottom">
+    <div id="ap-row">
+      <span id="ap-label">AP</span>
+    </div>
+    <div id="actions">
+      <div class="act-btn on"  id="btn-move"   onclick="setMode('move')">🚶 이동</div>
+      <div class="act-btn"     id="btn-attack" onclick="setMode('attack')">⚔️ 공격</div>
+      <div class="act-btn"     id="btn-skill"  onclick="setMode('skill')">✨ 스킬</div>
+      <div class="act-btn"     id="btn-end"    onclick="endTurn()">⏭ 턴종료</div>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
+const TW = 24, TH = 12;   // tile pixel width/height
+const MS = 20;             // map size (20x20)
+const DIR4 = [[1,0],[-1,0],[0,1],[0,-1]];
+
+// Tile types
+const T = {GRASS:0, TREE:1, WATER:2, STONE:3, DIRT:4};
+const WALKABLE = new Set([T.GRASS, T.STONE, T.DIRT]);
+
+// ── GAME STATE ─────────────────────────────────────────────────────────────
+let map = [];      // map[row][col] tile type
+let enemies = [];
+let items   = [];
+let player  = {
+  x:2, y:2,
+  hp:20, maxHp:20, mp:12, maxMp:12,
+  xp:0,  xpNext:100, level:1,
+  str:12, ac:13,
+  ap:4, maxAp:4,
+};
+let turnPhase = 'player'; // 'player' | 'enemy' | 'anim'
+let mode = 'move';
+let pathPreview = [];     // tiles to highlight on hover/tap
+let gameover = false;
+
+// Camera (smooth follow)
+let camX = 0, camY = 0;
+let targetCamX = 0, targetCamY = 0;
+
+// Canvas
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('canvas-wrap');
+let cW, cH;
+
+function resize() {
+  cW = wrap.clientWidth;
+  cH = wrap.clientHeight;
+  canvas.width  = cW;
+  canvas.height = cH;
+  snapCamera();
+}
+window.addEventListener('resize', resize);
+
+// ── ISO MATH ───────────────────────────────────────────────────────────────
+function toScreen(col, row) {
+  return {
+    x: cW/2 - camX + (col - row) * TW/2,
+    y: cH*0.4 - camY + (col + row) * TH/2,
+  };
+}
+
+function toGrid(sx, sy) {
+  const dx = sx - (cW/2 - camX);
+  const dy = sy - (cH*0.4 - camY);
+  return {
+    col: Math.round((dx/(TW/2) + dy/(TH/2)) / 2),
+    row: Math.round((dy/(TH/2) - dx/(TW/2)) / 2),
+  };
+}
+
+function playerScreen() {
+  return {
+    x: (player.x - player.y) * TW/2,
+    y: (player.x + player.y) * TH/2,
+  };
+}
+
+function snapCamera() {
+  const p = playerScreen();
+  camX = targetCamX = p.x;
+  camY = targetCamY = p.y;
+}
+
+// ── MAP GENERATION ─────────────────────────────────────────────────────────
+function generateMap() {
+  map = Array.from({length:MS}, ()=> Array(MS).fill(T.GRASS));
+
+  // Water border
+  for (let i=0;i<MS;i++) {
+    map[0][i]=map[MS-1][i]=map[i][0]=map[i][MS-1]=T.WATER;
+  }
+
+  // Random trees (keep 0..4 rows/cols around spawn clear)
+  const rng = (a,b)=> a+Math.floor(Math.random()*(b-a+1));
+  for (let i=0;i<45;i++) {
+    const r=rng(1,MS-2), c=rng(1,MS-2);
+    if (r<5 && c<5) continue;
+    map[r][c] = T.TREE;
+  }
+
+  // Water pools
+  for (let p=0;p<4;p++) {
+    const pr=rng(4,MS-5), pc=rng(4,MS-5), rad=rng(1,2);
+    for (let dr=-rad;dr<=rad;dr++)
+      for (let dc=-rad;dc<=rad;dc++) {
+        const nr=pr+dr, nc=pc+dc;
+        if (nr>0&&nr<MS-1&&nc>0&&nc<MS-1) map[nr][nc]=T.WATER;
+      }
+  }
+
+  // Stone paths
+  for (let i=2;i<MS-1;i++) {
+    if (map[6][i]!==T.WATER) map[6][i]=T.STONE;
+    if (map[i][6]!==T.WATER) map[i][6]=T.STONE;
+  }
+
+  // Dirt patches
+  for (let i=0;i<25;i++) {
+    const r=rng(1,MS-2), c=rng(1,MS-2);
+    if (map[r][c]===T.GRASS) map[r][c]=T.DIRT;
+  }
+}
+
+// ── ENEMIES ────────────────────────────────────────────────────────────────
+const ENEMY_DEF = {
+  goblin:   {emoji:'👺', hp:9,  str:4,  ac:11, ap:3, xp:20, color:'#27ae60'},
+  skeleton: {emoji:'💀', hp:14, str:5,  ac:13, ap:2, xp:35, color:'#bdc3c7'},
+  orc:      {emoji:'👹', hp:22, str:7,  ac:14, ap:2, xp:60, color:'#8e44ad'},
+};
+
+function spawnEnemies() {
+  enemies = [];
+  const types = ['goblin','goblin','goblin','goblin','skeleton','skeleton','orc'];
+  let id=0;
+  for (const type of types) {
+    let x,y,tries=0;
+    do {
+      x=4+Math.floor(Math.random()*15);
+      y=4+Math.floor(Math.random()*15);
+      tries++;
+    } while (tries<100 && (!isWalkable(x,y)||enemyAt(x,y)||(Math.abs(x-2)<4&&Math.abs(y-2)<4)));
+    const d=ENEMY_DEF[type];
+    enemies.push({id:id++, type, x, y, hp:d.hp, maxHp:d.hp, str:d.str, ac:d.ac, ap:d.ap, maxAp:d.ap});
+  }
+}
+
+// ── ITEMS ──────────────────────────────────────────────────────────────────
+const ITEM_DEF = {
+  potion:{emoji:'🧪', label:'물약'},
+  scroll:{emoji:'📜', label:'마나 스크롤'},
+  gold:  {emoji:'💰', label:'금화'},
+};
+
+function spawnItems() {
+  items = [];
+  const types=['potion','potion','potion','scroll','gold','gold'];
+  let id=0;
+  for (const type of types) {
+    let x,y,tries=0;
+    do {
+      x=1+Math.floor(Math.random()*(MS-2));
+      y=1+Math.floor(Math.random()*(MS-2));
+      tries++;
+    } while (tries<100&&(!isWalkable(x,y)||itemAt(x,y)));
+    items.push({id:id++, type, x, y});
+  }
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function isWalkable(x,y) {
+  if(x<0||y<0||x>=MS||y>=MS) return false;
+  return WALKABLE.has(map[y][x]);
+}
+function enemyAt(x,y)    { return enemies.find(e=>e.hp>0&&e.x===x&&e.y===y)||null; }
+function itemAt(x,y)     { return items.find(i=>i.x===x&&i.y===y)||null; }
+function dist1(a,b)      { return Math.abs(a.x-b.x)+Math.abs(a.y-b.y); }
+
+// ── A* PATHFINDING ─────────────────────────────────────────────────────────
+function aStar(sx,sy,ex,ey,ignoreId=null) {
+  if(!isWalkable(ex,ey)&&!(enemyAt(ex,ey))) return [];
+  const key=(x,y)=>x*MS+y;
+  const h=(x,y)=>Math.abs(x-ex)+Math.abs(y-ey);
+  const open=[{x:sx,y:sy,g:0,f:h(sx,sy),parent:null}];
+  const cost=new Map([[key(sx,sy),0]]);
+
+  while(open.length) {
+    let bi=0;
+    for(let i=1;i<open.length;i++) if(open[i].f<open[bi].f) bi=i;
+    const cur=open.splice(bi,1)[0];
+
+    if(cur.x===ex&&cur.y===ey) {
+      const path=[]; let n=cur;
+      while(n){path.unshift({x:n.x,y:n.y});n=n.parent;}
+      return path.slice(1);
+    }
+
+    for(const[dx,dy] of DIR4) {
+      const nx=cur.x+dx, ny=cur.y+dy;
+      if(nx<0||ny<0||nx>=MS||ny>=MS) continue;
+      if(!isWalkable(nx,ny)) continue;
+      const e=enemyAt(nx,ny);
+      if(e&&e.id!==ignoreId&&!(nx===ex&&ny===ey)) continue;
+      const ng=cur.g+1;
+      const k=key(nx,ny);
+      if((cost.get(k)??Infinity)<=ng) continue;
+      cost.set(k,ng);
+      open.push({x:nx,y:ny,g:ng,f:ng+h(nx,ny),parent:cur});
+    }
+  }
+  return [];
+}
+
+// ── RENDERING ─────────────────────────────────────────────────────────────
+const TILE_COLOR = {
+  [T.GRASS]: {top:'#4a7c59', l:'#3a6849', r:'#326040'},
+  [T.DIRT]:  {top:'#8b6914', l:'#7a5910', r:'#6b4f0e'},
+  [T.STONE]: {top:'#6d7b8d', l:'#546070', r:'#495669'},
+  [T.WATER]: {top:'#2471a3', l:'#1a5276', r:'#154360'},
+  [T.TREE]:  {top:'#2d6a2f', l:'#1e4d1f', r:'#184218'},
+};
+
+const waterTime = { v:0 };
+
+function render(dt=0) {
+  waterTime.v += dt;
+
+  // Smooth camera
+  camX += (targetCamX - camX) * 0.12;
+  camY += (targetCamY - camY) * 0.12;
+
+  ctx.clearRect(0,0,cW,cH);
+
+  // Draw sky gradient
+  const sky = ctx.createLinearGradient(0,0,0,cH);
+  sky.addColorStop(0,'#0a1018');
+  sky.addColorStop(1,'#0d1620');
+  ctx.fillStyle=sky;
+  ctx.fillRect(0,0,cW,cH);
+
+  // Painter's order: top-left to bottom-right in iso space
+  for(let sum=0;sum<MS*2-1;sum++) {
+    const rMin=Math.max(0,sum-MS+1), rMax=Math.min(sum,MS-1);
+    for(let r=rMin;r<=rMax;r++) {
+      const c=sum-r;
+      if(c<0||c>=MS) continue;
+      drawTile(c,r);
+    }
+    // Draw items for this diagonal
+    for(let r=rMin;r<=rMax;r++) {
+      const c=sum-r;
+      const it=itemAt(c,r);
+      if(it) drawItem(it);
+    }
+    // Draw entities for this diagonal
+    const entRow = [...enemies.filter(e=>e.hp>0&&(e.x+e.y)===sum), ];
+    if((player.x+player.y)===sum) entRow.push({...player, isPlayer:true});
+    entRow.sort((a,b)=>a.x-b.x);
+    for(const ent of entRow) {
+      if(ent.isPlayer) drawActor(player.x,player.y,'#3498db','#5dade2','⚔️',true);
+      else drawActor(ent.x,ent.y,ENEMY_DEF[ent.type].color,'#aaa',ENEMY_DEF[ent.type].emoji,false,ent);
+    }
+  }
+}
+
+function drawTile(c,r) {
+  const s=toScreen(c,r);
+  const t=map[r][c];
+  const col=TILE_COLOR[t]||TILE_COLOR[T.GRASS];
+  const elev=(t===T.TREE)?18:0;
+  const hw=TW/2, hh=TH/2;
+
+  const inPreview=pathPreview.some(p=>p.x===c&&p.y===r);
+
+  // Water shimmer
+  let topColor=col.top;
+  if(t===T.WATER) {
+    const wave=Math.sin(waterTime.v/600+c*0.6+r*0.4);
+    topColor = wave>0.3?'#2980b9':'#2471a3';
+  }
+
+  // Top face
+  ctx.beginPath();
+  ctx.moveTo(s.x,       s.y-elev);
+  ctx.lineTo(s.x+hw, s.y+hh-elev);
+  ctx.lineTo(s.x,    s.y+TH-elev);
+  ctx.lineTo(s.x-hw, s.y+hh-elev);
+  ctx.closePath();
+
+  if(inPreview) {
+    ctx.fillStyle='rgba(106,79,255,0.55)';
+    ctx.fill();
+    ctx.strokeStyle='#8a6fff'; ctx.lineWidth=1.5; ctx.stroke();
+  } else {
+    ctx.fillStyle=topColor;
+    ctx.fill();
+    // Subtle grid line
+    ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=0.5; ctx.stroke();
+  }
+
+  if(elev>0) {
+    // Left side
+    ctx.beginPath();
+    ctx.moveTo(s.x-hw, s.y+hh-elev);
+    ctx.lineTo(s.x,    s.y+TH-elev);
+    ctx.lineTo(s.x,    s.y+TH);
+    ctx.lineTo(s.x-hw, s.y+hh);
+    ctx.closePath();
+    ctx.fillStyle=col.l; ctx.fill();
+    // Right side
+    ctx.beginPath();
+    ctx.moveTo(s.x,    s.y+TH-elev);
+    ctx.lineTo(s.x+hw, s.y+hh-elev);
+    ctx.lineTo(s.x+hw, s.y+hh);
+    ctx.lineTo(s.x,    s.y+TH);
+    ctx.closePath();
+    ctx.fillStyle=col.r; ctx.fill();
+    // Tree decoration
+    if(t===T.TREE) {
+      ctx.fillStyle='#5d4037';
+      ctx.fillRect(s.x-2, s.y-elev-6, 4, 10);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y-elev-10, 9, 0, Math.PI*2);
+      ctx.fillStyle='#2e7d32'; ctx.fill();
+      ctx.beginPath();
+      ctx.arc(s.x-3, s.y-elev-16, 7, 0, Math.PI*2);
+      ctx.fillStyle='#388e3c'; ctx.fill();
+      ctx.beginPath();
+      ctx.arc(s.x+2, s.y-elev-19, 5, 0, Math.PI*2);
+      ctx.fillStyle='#43a047'; ctx.fill();
+    }
+  }
+}
+
+function drawItem(item) {
+  const s=toScreen(item.x, item.y);
+  ctx.font='12px serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(ITEM_DEF[item.type].emoji, s.x, s.y+TH/2);
+}
+
+function drawActor(x,y,colorDark,colorLight,icon,isPlayer,ent=null) {
+  const s=toScreen(x,y);
+  const hw=TW/2, hh=TH/2;
+
+  // Shadow
+  ctx.beginPath();
+  ctx.ellipse(s.x, s.y+hh*1.2, hw*0.7, hh*0.4, 0,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fill();
+
+  // Body diamond
+  ctx.beginPath();
+  ctx.moveTo(s.x,    s.y);
+  ctx.lineTo(s.x+6,  s.y+hh);
+  ctx.lineTo(s.x,    s.y+TH);
+  ctx.lineTo(s.x-6,  s.y+hh);
+  ctx.closePath();
+  ctx.fillStyle=colorDark; ctx.fill();
+
+  // Head
+  ctx.beginPath();
+  ctx.arc(s.x, s.y-8, 7, 0, Math.PI*2);
+  ctx.fillStyle=colorLight; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1; ctx.stroke();
+
+  // Icon
+  ctx.font='7px serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(icon, s.x, s.y-8);
+
+  // Player indicator dot
+  if(isPlayer) {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y-20, 3, 0, Math.PI*2);
+    ctx.fillStyle='#6a4fff'; ctx.fill();
+  }
+
+  // Enemy HP bar
+  if(ent && !isPlayer) {
+    const bw=TW+4, bx=s.x-bw/2, by=s.y-22;
+    ctx.fillStyle='#1a1a1a'; ctx.fillRect(bx,by,bw,4);
+    ctx.fillStyle='#e74c3c';
+    ctx.fillRect(bx,by,bw*(Math.max(0,ent.hp)/ent.maxHp),4);
+    ctx.strokeStyle='#333'; ctx.lineWidth=0.5;
+    ctx.strokeRect(bx,by,bw,4);
+  }
+}
+
+// ── FLOATING DAMAGE ────────────────────────────────────────────────────────
+function showFDmg(worldX,worldY,txt,color) {
+  const s=toScreen(worldX,worldY);
+  const div=document.createElement('div');
+  div.className='fdmg';
+  div.textContent=txt;
+  div.style.color=color;
+  div.style.left=(s.x-15+wrap.getBoundingClientRect().left-document.getElementById('app').getBoundingClientRect().left)+'px';
+  div.style.top =(s.y-20)+'px';
+  wrap.appendChild(div);
+  setTimeout(()=>div.remove(),900);
+}
+
+// ── COMBAT ─────────────────────────────────────────────────────────────────
+function rollD(sides){ return 1+Math.floor(Math.random()*sides); }
+
+function doAttack(atk,def,side) {
+  const roll=rollD(20);
+  const bonus=Math.floor((atk.str-10)/2);
+  const total=roll+bonus;
+  const crit=roll===20;
+  const miss=roll===1;
+
+  if(miss) {
+    addLog(`크리티컬 미스!`, 'miss');
+    if(side==='player') { atk.ap--; showFDmg(def.x,def.y,'MISS','#888'); }
+    return;
+  }
+
+  if(crit||total>=def.ac) {
+    let dmg=rollD(6)+Math.max(0,Math.floor((atk.str-10)/2));
+    if(crit) dmg=dmg*2;
+    def.hp-=dmg;
+
+    if(side==='player') {
+      atk.ap--;
+      addLog(`${crit?'크리티컬! ':''}${def.type} 공격 → ${dmg} 피해`, 'player');
+      showFDmg(def.x,def.y,`-${dmg}`, crit?'#f39c12':'#e74c3c');
+      if(def.hp<=0) killEnemy(def);
+    } else {
+      addLog(`${atk.type}이 플레이어에게 ${dmg} 피해!`, 'hit');
+      showFDmg(def.x,def.y,`-${dmg}`, '#ff6b6b');
+      if(def.hp<=0) gameOver();
+    }
+  } else {
+    if(side==='player') {
+      atk.ap--;
+      addLog(`공격 빗나감 (d20:${roll}+${bonus}=${total} vs AC${def.ac})`, 'miss');
+      showFDmg(def.x,def.y,'Miss','#888');
+    } else {
+      addLog(`${atk.type}의 공격을 막았습니다!`, 'player');
+    }
+  }
+}
+
+function killEnemy(e) {
+  e.hp=0;
+  addLog(`${e.type} 처치! +${ENEMY_DEF[e.type].xp} XP 🎉`, 'loot');
+  player.xp+=ENEMY_DEF[e.type].xp;
+  if(Math.random()<0.45) {
+    items.push({id:Date.now(), type:Math.random()<0.6?'potion':'gold', x:e.x, y:e.y});
+  }
+  if(player.xp>=player.xpNext) levelUp();
+  if(enemies.every(e=>e.hp<=0)) {
+    setTimeout(()=>addLog('🎉 모든 적 처치! 승리!','sys'),400);
+  }
+  updateUI();
+}
+
+function gameOver() {
+  gameover=true;
+  addLog('💀 쓰러졌습니다... 게임 오버','sys');
+  document.getElementById('turn-banner').textContent='💀 GAME OVER — 새로고침으로 재시작';
+}
+
+function levelUp() {
+  player.level++;
+  player.xp-=player.xpNext;
+  player.xpNext=Math.floor(player.xpNext*1.6);
+  player.maxHp+=6; player.hp=player.maxHp;
+  player.maxMp+=4; player.mp=player.maxMp;
+  player.str++;
+  if(player.level%3===0) player.maxAp=Math.min(6,player.maxAp+1);
+  addLog(`✨ 레벨 업! Lv.${player.level} — HP/MP 전량 회복!`,'sys');
+  updateUI();
+}
+
+function pickupItem(item) {
+  const idx=items.indexOf(item);
+  if(idx===-1) return;
+  items.splice(idx,1);
+  if(item.type==='potion') {
+    const h=8+rollD(6);
+    player.hp=Math.min(player.maxHp,player.hp+h);
+    addLog(`🧪 물약 획득 — HP +${h}`,'loot');
+  } else if(item.type==='scroll') {
+    player.mp=player.maxMp;
+    addLog('📜 마나 스크롤 — MP 전량 회복!','loot');
+  } else {
+    addLog('💰 금화 획득!','loot');
+  }
+  updateUI();
+}
+
+// ── MOVEMENT ──────────────────────────────────────────────────────────────
+function moveAlongPath(path, onDone) {
+  if(!path.length){ onDone&&onDone(); return; }
+  const steps=Math.min(path.length, player.ap);
+  const seg=path.slice(0,steps);
+  player.ap-=steps;
+  turnPhase='anim';
+  let i=0;
+  function step(){
+    if(i>=seg.length){
+      player.x=seg[seg.length-1].x;
+      player.y=seg[seg.length-1].y;
+      pathPreview=[];
+      turnPhase='player';
+      updateCameraTarget();
+      onDone&&onDone();
+      updateUI();
+      return;
+    }
+    player.x=seg[i].x; player.y=seg[i].y;
+    updateCameraTarget();
+    i++;
+    setTimeout(step,110);
+  }
+  step();
+}
+
+function updateCameraTarget() {
+  const p=playerScreen();
+  targetCamX=p.x; targetCamY=p.y;
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────────────
+canvas.addEventListener('click', handleClick);
+canvas.addEventListener('touchend', e=>{
+  e.preventDefault();
+  const t=e.changedTouches[0];
+  const rect=canvas.getBoundingClientRect();
+  handleClick({clientX:t.clientX-rect.left, clientY:t.clientY-rect.top, _raw:true});
+},{passive:false});
+
+function handleClick(e) {
+  if(gameover||turnPhase!=='player') return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e._raw? e.clientX : e.clientX-rect.left;
+  const my=e._raw? e.clientY : e.clientY-rect.top;
+  const g=toGrid(mx,my);
+  const {col,row}=g;
+  if(col<0||row<0||col>=MS||row>=MS) return;
+
+  if(mode==='move') onMoveClick(col,row);
+  else if(mode==='attack') onAttackClick(col,row);
+  else if(mode==='skill') onSkillClick(col,row);
+}
+
+function onMoveClick(tx,ty) {
+  const ene=enemyAt(tx,ty);
+  if(ene) {
+    if(dist1(player,ene)<=1&&player.ap>=1) { doAttack(player,ene,'player'); updateUI(); return; }
+    // Move adjacent then attack
+    const adj=getAdjacentFree(tx,ty);
+    if(adj) {
+      const p=aStar(player.x,player.y,adj.x,adj.y);
+      if(p.length>0) moveAlongPath(p,()=>{ if(dist1(player,ene)<=1&&player.ap>=1){ doAttack(player,ene,'player'); updateUI(); }});
+    } else addLog('사거리 밖입니다.','miss');
+    return;
+  }
+  if(!isWalkable(tx,ty)) { addLog('이동 불가.','miss'); return; }
+  const p=aStar(player.x,player.y,tx,ty);
+  if(p.length===0) { addLog('경로 없음.','miss'); return; }
+  pathPreview=p.slice(0,player.ap);
+  moveAlongPath(p, ()=>{ const it=itemAt(player.x,player.y); if(it) pickupItem(it); });
+}
+
+function onAttackClick(tx,ty) {
+  if(player.ap<1){ addLog('AP 부족.','miss'); return; }
+  const ene=enemyAt(tx,ty);
+  if(!ene){ addLog('적을 선택하세요.','miss'); return; }
+  if(dist1(player,ene)>1){ addLog('사거리 밖입니다.','miss'); return; }
+  doAttack(player,ene,'player');
+  updateUI();
+}
+
+function onSkillClick(tx,ty) {
+  if(player.ap<1){ addLog('AP 부족.','miss'); return; }
+  if(player.mp<4){ addLog('마나 부족.','miss'); return; }
+  player.ap--; player.mp-=4;
+  let hit=0;
+  for(const e of enemies) {
+    if(e.hp<=0) continue;
+    if(dist1({x:tx,y:ty},e)<=2) {
+      const dmg=rollD(6)+rollD(6)+Math.floor((player.level-1)/2);
+      e.hp-=dmg;
+      addLog(`✨ 파이어볼 → ${e.type} ${dmg} 피해!`,'dmg');
+      showFDmg(e.x,e.y,`-${dmg}`,'#f39c12');
+      if(e.hp<=0) killEnemy(e);
+      hit++;
+    }
+  }
+  if(!hit) addLog('범위 내 적 없음.','miss');
+  updateUI();
+}
+
+function getAdjacentFree(x,y) {
+  for(const[dx,dy] of DIR4){
+    const nx=x+dx, ny=y+dy;
+    if(isWalkable(nx,ny)&&!enemyAt(nx,ny)) return {x:nx,y:ny};
+  }
+  return null;
+}
+
+// ── ENEMY AI ──────────────────────────────────────────────────────────────
+function enemyTurn() {
+  if(gameover) return;
+  turnPhase='enemy';
+  document.getElementById('turn-banner').textContent='적 턴 처리 중...';
+
+  const alive=enemies.filter(e=>e.hp>0);
+  let delay=0;
+  for(const e of alive) {
+    delay+=350;
+    setTimeout(()=>{ doEnemyAction(e); updateUI(); },delay);
+  }
+  setTimeout(()=>{
+    if(gameover) return;
+    turnPhase='player';
+    player.ap=player.maxAp;
+    player.mp=Math.min(player.maxMp, player.mp+2);
+    document.getElementById('turn-banner').textContent='플레이어 턴 — 이동 또는 공격';
+    addLog('─── 새 턴 ───','sys');
+    updateUI();
+  }, delay+300);
+}
+
+function doEnemyAction(e) {
+  if(e.hp<=0||gameover) return;
+  const d=dist1(e,player);
+  if(d<=1) {
+    doAttack(e,player,'enemy');
+  } else {
+    // Find nearest free tile adjacent to player
+    const adj=DIR4.map(([dx,dy])=>({x:player.x+dx,y:player.y+dy}))
+      .filter(a=>isWalkable(a.x,a.y)&&!(enemyAt(a.x,a.y)&&!(a.x===e.x&&a.y===e.y)));
+    let best=null, bestLen=Infinity;
+    for(const a of adj) {
+      const p=aStar(e.x,e.y,a.x,a.y,e.id);
+      if(p.length>0&&p.length<bestLen){ best=p; bestLen=p.length; }
+    }
+    if(best) {
+      const steps=Math.min(best.length,e.ap);
+      e.x=best[steps-1].x; e.y=best[steps-1].y;
+      if(dist1(e,player)<=1) doAttack(e,player,'enemy');
+    }
+  }
+  updateUI();
+}
+
+// ── MODE / TURN CONTROLS ──────────────────────────────────────────────────
+function setMode(m) {
+  mode=m;
+  document.querySelectorAll('.act-btn').forEach(b=>b.classList.remove('on'));
+  const el=document.getElementById('btn-'+m);
+  if(el) el.classList.add('on');
+}
+
+function endTurn() {
+  if(turnPhase!=='player') return;
+  pathPreview=[];
+  enemyTurn();
+}
+
+// ── UI UPDATE ─────────────────────────────────────────────────────────────
+function updateUI() {
+  const pct=(v,m)=>Math.max(0,Math.min(100,v/m*100))+'%';
+  document.getElementById('hp-bar').style.width=pct(player.hp,player.maxHp);
+  document.getElementById('hp-val').textContent=`${Math.max(0,player.hp)}/${player.maxHp}`;
+  document.getElementById('mp-bar').style.width=pct(player.mp,player.maxMp);
+  document.getElementById('mp-val').textContent=`${player.mp}/${player.maxMp}`;
+  document.getElementById('xp-bar').style.width=pct(player.xp,player.xpNext);
+  document.getElementById('xp-val').textContent=`${player.xp}/${player.xpNext}`;
+  document.getElementById('lv-badge').textContent=`Lv.${player.level}`;
+  document.getElementById('str-label').textContent=`STR ${player.str}`;
+
+  // AP pips
+  const row=document.getElementById('ap-row');
+  while(row.children.length>1) row.removeChild(row.lastChild);
+  for(let i=0;i<player.maxAp;i++){
+    const pip=document.createElement('div');
+    pip.className='ap-pip'+(i<player.ap?' filled':'');
+    row.appendChild(pip);
+  }
+
+  document.getElementById('btn-attack').className='act-btn'+(player.ap<1?' off':'');
+  document.getElementById('btn-skill').className ='act-btn'+(player.ap<1||player.mp<4?' off':'');
+}
+
+function addLog(msg,cls='') {
+  const log=document.getElementById('log');
+  const d=document.createElement('div');
+  d.className='ll'+(cls?' '+cls:'');
+  d.textContent=msg;
+  log.appendChild(d);
+  log.scrollTop=log.scrollHeight;
+  while(log.children.length>60) log.removeChild(log.firstChild);
+}
+
+// ── GAME LOOP ─────────────────────────────────────────────────────────────
+let lastTs=0;
+function loop(ts) {
+  const dt=ts-lastTs; lastTs=ts;
+  render(dt);
+  requestAnimationFrame(loop);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+function init() {
+  generateMap();
+  spawnEnemies();
+  spawnItems();
+  resize();
+  snapCamera();
+  updateUI();
+  addLog('게임 시작! 적을 모두 처치하세요.','sys');
+  addLog('탭=이동/공격 | 스킬=파이어볼(MP4) | 턴종료=적 행동','sys');
+  requestAnimationFrame(loop);
+}
+
+init();
+</script>
+</body>
+</html>
